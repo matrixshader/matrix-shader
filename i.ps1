@@ -1,5 +1,5 @@
 # Matrix Terminal Shader Installer
-$u="https://raw.githubusercontent.com/matrixshader/wt/main"
+$u="https://raw.githubusercontent.com/matrixshader/matrix-shader/master"
 $d="$env:USERPROFILE\Documents\Matrix";mkdir $d -Force >$null
 iwr "$u/Matrix.hlsl" -Out "$d\Matrix.hlsl"
 iwr "$u/matrix_tool.ps1" -Out "$d\matrix_tool.ps1"
