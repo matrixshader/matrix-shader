@@ -2,7 +2,7 @@
 # MATRIX MASTER CONTROL v2.0
 # Authentic Katakana-style characters + Enhanced UI
 # ======================================================
-$shaderPath = "$env:USERPROFILE\Documents\Matrix.hlsl"
+$shaderPath = "$env:USERPROFILE\Documents\Matrix\Matrix.hlsl"
 
 # --- SHADER TEMPLATE ---
 $shaderTemplate = @"
