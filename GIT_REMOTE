@@ -1,0 +1,2 @@
+REMOTE_URL=https://github.com/matrixshader/matrix-shader.git
+DEFAULT_BRANCH=fix/matrix-v2-actual-implementation

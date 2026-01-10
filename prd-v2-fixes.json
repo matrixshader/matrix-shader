@@ -1,0 +1,161 @@
+{
+  "project": "Matrix Shader v2 - Complete Fix",
+  "branchName": "fix/matrix-v2-actual-implementation",
+  "description": "Fix all failures from previous implementation: per-window shaders, window positioning, TUI features, correct defaults",
+  "previousAttemptStatus": "FAILED - All 20 stories marked complete without testing, nothing actually worked",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Fix Windows Terminal Profile Shader Paths",
+      "description": "As a user, I want each Matrix window to have its own shader so they can have different colors.",
+      "acceptanceCriteria": [
+        "Matrix-1 profile pixelShaderPath = shaders/Matrix-1.hlsl",
+        "Matrix-2 profile pixelShaderPath = shaders/Matrix-2.hlsl",
+        "Matrix-3 through Matrix-8 follow same pattern",
+        "Script exists to update these paths",
+        "Verified by opening settings.json after running setup"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "",
+      "blocking": true,
+      "previousMistake": "All profiles pointed to same Matrix.hlsl file"
+    },
+    {
+      "id": "US-002",
+      "title": "matrix_setup.ps1 Updates Profile Paths",
+      "description": "As a user running wakeupneo, I want the setup to automatically configure Windows Terminal to use the correct shader files.",
+      "acceptanceCriteria": [
+        "After choosing colors, settings.json is updated",
+        "Each Matrix-N profile points to shaders/Matrix-N.hlsl",
+        "Shader files are created in shaders/ directory",
+        "Verified: 4 windows with different colors show 4 different colors"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "",
+      "blocking": true,
+      "previousMistake": "matrix_setup.ps1 created shaders but never updated profiles"
+    },
+    {
+      "id": "US-003",
+      "title": "Window Positioning Works",
+      "description": "As a user, I want windows positioned side-by-side with gaps, not cascaded.",
+      "acceptanceCriteria": [
+        "2 windows: side-by-side with 150px center gap",
+        "4 windows: evenly distributed with gaps",
+        "Windows span full monitor height",
+        "Verified visually after launch"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "",
+      "previousMistake": "Positioning code existed but was never called or didn't work"
+    },
+    {
+      "id": "US-004",
+      "title": "TUI Has Tab Switching",
+      "description": "As a user in redpill TUI, I want to switch between windows to edit each one's settings.",
+      "acceptanceCriteria": [
+        "TAB key cycles through Matrix-1, Matrix-2, etc.",
+        "Header shows current slot: RED PILL - Tab 2",
+        "Tab bar shows all slots with color swatches",
+        "Editing saves to correct slot's shader file"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "",
+      "previousMistake": "Tab switching from matrix_control.ps1 was completely removed"
+    },
+    {
+      "id": "US-005",
+      "title": "TUI Has Visual Bars",
+      "description": "As a user, I want to see visual progress bars for all adjustable values.",
+      "acceptanceCriteria": [
+        "Speed, Glow, Width, Trail, Dens each have bars",
+        "R, G, B each have bars",
+        "Bars update in real-time when values change",
+        "Bars clearly show min/max range"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "",
+      "previousMistake": "Visual bars from matrix_control.ps1 were removed"
+    },
+    {
+      "id": "US-006",
+      "title": "Fine RGB Control",
+      "description": "As a user, I want precise control over RGB values with small increments.",
+      "acceptanceCriteria": [
+        "Arrow keys adjust RGB in 0.05 increments",
+        "Q/W, A/S, Z/X keys work for RGB (like original)",
+        "RGB is a navigable section with up/down arrows",
+        "Visual bars show R, G, B values"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "",
+      "previousMistake": "Fine RGB control was removed, only 0.1 increments with r/R g/G b/B"
+    },
+    {
+      "id": "US-007",
+      "title": "Correct Defaults",
+      "description": "As a user, I want sensible default values that look good.",
+      "acceptanceCriteria": [
+        "Glow default = 0.8",
+        "Dens default = 0.4",
+        "L2 default = OFF (0.0)",
+        "Reset (0 key) restores these values"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "",
+      "previousMistake": "Defaults were Glow=1.5, Dens=1.0, L2=ON (too bright/dense)"
+    },
+    {
+      "id": "US-008",
+      "title": "bluepill Instant Launch",
+      "description": "As a user, I want to type bluepill and have Matrix windows launch instantly with my last settings.",
+      "acceptanceCriteria": [
+        "bluepill.cmd exists and runs bluepill.ps1",
+        "No prompts - launches immediately",
+        "Uses settings from config.json",
+        "Windows positioned correctly",
+        "Shows error if no saved config"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "",
+      "previousMistake": "bluepill didn't exist or pointed to wrong script"
+    },
+    {
+      "id": "US-009",
+      "title": "TUI Can Launch Windows",
+      "description": "As a user in the TUI, I want to launch Matrix windows after customizing.",
+      "acceptanceCriteria": [
+        "Enter key launches windows",
+        "Shader saved before launch",
+        "Windows positioned correctly",
+        "Help screen documents this"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "",
+      "previousMistake": "No launch option from TUI after Red Pill customization"
+    },
+    {
+      "id": "US-010",
+      "title": "Progress Logging",
+      "description": "As a developer, I need progress documented for debugging and continuity.",
+      "acceptanceCriteria": [
+        "Each completed story logged in progress.txt",
+        "Log includes: date, story ID, files changed, testing done",
+        "Log is appended, not overwritten"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "",
+      "previousMistake": "Zero entries made to progress.txt despite claiming 20 stories complete"
+    }
+  ]
+}
