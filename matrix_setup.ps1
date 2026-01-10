@@ -111,6 +111,93 @@ function Write-Shader($slot, $cfg) {
     [System.IO.File]::WriteAllText($path, $content)
 }
 
+# Window Positioning API
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class WindowPositioning {
+    [DllImport("user32.dll")]
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    public const uint SWP_NOZORDER = 0x0004;
+    public const uint SWP_SHOWWINDOW = 0x0040;
+}
+"@ -ErrorAction SilentlyContinue
+
+function Get-ScreenDimensions {
+    Add-Type -AssemblyName System.Windows.Forms
+    $screen = [System.Windows.Forms.Screen]::PrimaryScreen
+    return @{
+        Width = $screen.WorkingArea.Width
+        Height = $screen.WorkingArea.Height
+        Left = $screen.WorkingArea.Left
+        Top = $screen.WorkingArea.Top
+    }
+}
+
+function Position-MatrixWindows([int]$WindowCount) {
+    # Wait for windows to fully initialize
+    Start-Sleep -Milliseconds 500
+
+    $screen = Get-ScreenDimensions
+
+    # Calculate gap size based on window count
+    # 2 windows = 150px gap, 4 windows = 75px gap, etc.
+    $gapSize = [int](300 / $WindowCount)
+    if ($gapSize -lt 50) { $gapSize = 50 }
+
+    # Calculate window width
+    $totalGaps = ($WindowCount + 1) * $gapSize
+    $windowWidth = [int](($screen.Width - $totalGaps) / $WindowCount)
+
+    # Find Windows Terminal windows
+    $wtProcesses = Get-Process -Name "WindowsTerminal" -ErrorAction SilentlyContinue
+    if (-not $wtProcesses) {
+        Write-Host "   Could not find Windows Terminal processes" -ForegroundColor Yellow
+        return
+    }
+
+    # Get main window handles
+    $handles = @()
+    foreach ($proc in $wtProcesses) {
+        if ($proc.MainWindowHandle -ne [IntPtr]::Zero) {
+            $handles += $proc.MainWindowHandle
+        }
+    }
+
+    # Position each window
+    $positioned = 0
+    foreach ($handle in $handles) {
+        if ($positioned -ge $WindowCount) { break }
+
+        $x = $screen.Left + $gapSize + ($positioned * ($windowWidth + $gapSize))
+        $y = $screen.Top
+
+        [WindowPositioning]::SetWindowPos(
+            $handle,
+            [IntPtr]::Zero,
+            $x, $y,
+            $windowWidth, $screen.Height,
+            [WindowPositioning]::SWP_NOZORDER -bor [WindowPositioning]::SWP_SHOWWINDOW
+        ) | Out-Null
+
+        $positioned++
+    }
+
+    Write-Host "   Positioned $positioned windows" -ForegroundColor DarkGray
+}
+
 function Update-ProfileShaderPath([int]$Slot) {
     # Updates Windows Terminal settings.json so Matrix-$Slot profile points to shaders/Matrix-$Slot.hlsl
     if (-not (Test-Path $wtSettingsPath)) {
@@ -241,6 +328,10 @@ foreach ($cfg in $tabConfigs) {
     Start-Process wt -ArgumentList "-p `"$pname`""
     Start-Sleep -Milliseconds 1500
 }
+
+Write-Host ""
+Write-Host " Positioning windows..." -ForegroundColor Cyan
+Position-MatrixWindows $numTabs
 
 Write-Host ""
 Write-Host " FOLLOW THE WHITE RABBIT." -ForegroundColor Green
