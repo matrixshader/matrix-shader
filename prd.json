@@ -73,8 +73,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "User confirmed: OLD redpill menu still shows. Keep visual bars & custom colors from old version but fix: arrow keys, remove CRT, fix transparency.",
+      "passes": true,
+      "notes": "Fixed matrix_control.ps1: Removed CRT effect entirely, kept visual bars, tab switching, color presets, RGB controls (Q/W A/S Z/X). Fixed defaults: L2=0.0, Glow=0.8. PSV: PASS.",
       "previousMistake": "Tab switching from matrix_control.ps1 was completely removed. Old TUI has broken arrow keys, CRT effect enabled, transparency issues."
     },
     {

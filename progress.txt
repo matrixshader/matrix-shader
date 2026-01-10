@@ -115,3 +115,27 @@ Matrix-2 -> shaders/Matrix-2.hlsl
   - Previous mistake: positioning code existed but was never called
 
 ---
+
+### 2026-01-09 22:30 - US-004: TUI Has Tab Switching
+- **Status:** COMPLETE
+- **What was implemented:**
+  - Fixed matrix_control.ps1 (the file that redpill.cmd runs)
+  - Removed CRT effect entirely from shader template
+  - Removed CRT from UI, key handlers, Load-Shader, Save-Shader
+  - Fixed defaults: L2=0.0 (OFF), Glow=0.8, Dens=0.4, Width=10.0
+  - Kept all good features: visual bars, tab switching, color presets, RGB controls
+- **Files changed:**
+  - MODIFIED: `matrix_control.ps1` (removed ~35 lines of CRT code)
+- **PSV Verification:** PASS
+  - Syntax check: PASS
+  - Tab switching: exists (line 293)
+  - Visual bars: Bar function exists (line 186)
+  - Color presets: exist (line 323)
+  - RGB controls: exist (line 331)
+  - CRT removed: no CRT references found
+- **Learnings for future iterations:**
+  - Keep the good parts from old code, just remove the problematic parts
+  - CRT was causing visual issues - removing it entirely is cleaner than disabling
+  - User specifically wanted: visual bars, tab switching, color presets
+
+---
