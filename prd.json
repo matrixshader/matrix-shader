@@ -90,8 +90,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "",
+      "passes": true,
+      "notes": "Already fixed in US-004. Bar function exists (line 186). Used for: R,G,B (224-226), Speed/Glow/Width/Trail/Dens (231-235), Opacity (258). PSV: PASS.",
       "previousMistake": "Visual bars from matrix_control.ps1 were removed"
     },
     {
@@ -108,8 +108,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": "",
+      "passes": true,
+      "notes": "Changed all RGB increments to 0.05. Q/W=Red, A/S=Green, Z/X=Blue. PSV: PASS.",
       "previousMistake": "Fine RGB control was removed, only 0.1 increments with r/R g/G b/B"
     },
     {

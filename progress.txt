@@ -139,3 +139,33 @@ Matrix-2 -> shaders/Matrix-2.hlsl
   - User specifically wanted: visual bars, tab switching, color presets
 
 ---
+
+### 2026-01-09 23:00 - US-005: TUI Has Visual Bars
+- **Status:** COMPLETE (already fixed in US-004)
+- **What was verified:**
+  - Bar function exists at line 186
+  - Used for: R,G,B (224-226), Speed/Glow/Width/Trail/Dens (231-235), Opacity (258)
+- **PSV Verification:** PASS
+- No additional changes needed
+
+---
+
+### 2026-01-09 23:15 - US-006: Fine RGB Control
+- **Status:** COMPLETE
+- **What was implemented:**
+  - Changed RGB increments from 0.1 to 0.05 for finer control
+  - Q/W adjust Red (+/- 0.05)
+  - A/S adjust Green (+/- 0.05)
+  - Z/X adjust Blue (+/- 0.05)
+- **Files changed:**
+  - MODIFIED: `matrix_control.ps1` (lines 332-343)
+- **PSV Verification:** PASS
+  - Syntax check: PASS
+  - R controls: 0.05 increments (lines 332-335)
+  - G controls: 0.05 increments (lines 336-339)
+  - B controls: 0.05 increments (lines 340-343)
+- **Learnings for future iterations:**
+  - Use grep for quick verification of changes in files
+  - Previous mistake: RGB used 0.1 increments which was too coarse
+
+---
