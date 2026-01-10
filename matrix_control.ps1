@@ -190,6 +190,83 @@ function Bar($val, $min, $max, $width) {
     "$([char]27)[32m$('=' * $filled)$([char]27)[90m$('-' * $empty)$([char]27)[0m"
 }
 
+# --- WINDOW POSITIONING (P/Invoke) ---
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public class WindowPositioning {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    public const uint SWP_NOZORDER = 0x0004;
+    public const uint SWP_NOACTIVATE = 0x0010;
+}
+"@
+
+Add-Type -AssemblyName System.Windows.Forms
+
+function Get-ScreenDimensions {
+    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+    return @{
+        Width = $screen.Width
+        Height = $screen.Height
+        X = $screen.X
+        Y = $screen.Y
+    }
+}
+
+function Position-MatrixWindows([int]$WindowCount) {
+    Start-Sleep -Milliseconds 500
+    $screen = Get-ScreenDimensions
+    $gapSize = [int](300 / $WindowCount)
+    if ($gapSize -lt 50) { $gapSize = 50 }
+    $totalGaps = ($WindowCount + 1) * $gapSize
+    $windowWidth = [int](($screen.Width - $totalGaps) / $WindowCount)
+
+    $wtProcesses = Get-Process -Name "WindowsTerminal" -ErrorAction SilentlyContinue
+    if (-not $wtProcesses) { return }
+
+    $handles = @()
+    foreach ($proc in $wtProcesses) {
+        if ($proc.MainWindowHandle -ne [IntPtr]::Zero) {
+            $handles += $proc.MainWindowHandle
+        }
+    }
+    $handles = $handles | Sort-Object | Select-Object -Last $WindowCount
+
+    for ($i = 0; $i -lt $handles.Count; $i++) {
+        $x = $screen.X + $gapSize + ($i * ($windowWidth + $gapSize))
+        [WindowPositioning]::SetWindowPos($handles[$i], [IntPtr]::Zero, $x, $screen.Y, $windowWidth, $screen.Height, 0x0014) | Out-Null
+    }
+}
+
+function Launch-MatrixWindows {
+    $slots = Get-ExistingSlots
+    $numWindows = $slots.Count
+
+    # Save all shaders first
+    foreach ($slot in $slots) {
+        $cfg = Load-Shader $slot
+        Save-Shader $slot $cfg
+    }
+
+    Write-Host ""
+    Write-Host " Launching $numWindows Matrix window(s)..." -ForegroundColor Cyan
+
+    foreach ($slot in $slots) {
+        $pname = "Matrix-$slot"
+        Write-Host "   Opening $pname..." -ForegroundColor DarkGray
+        Start-Process wt -ArgumentList "-p `"$pname`""
+        Start-Sleep -Milliseconds 1500
+    }
+
+    Write-Host " Positioning windows..." -ForegroundColor Cyan
+    Position-MatrixWindows $numWindows
+    Write-Host " THE MATRIX HAS YOU." -ForegroundColor Green
+    Start-Sleep -Seconds 2
+}
+
 function UI {
     Clear-Host
     $slots = Get-ExistingSlots
@@ -260,7 +337,7 @@ function UI {
     Write-Host ""
 
     # Footer
-    Write-Host " [ENTER] Save shader  [SPACE] Save terminal effects" -ForegroundColor Yellow
+    Write-Host " [ENTER] Launch windows  [P] Save shader  [SPACE] Save terminal effects" -ForegroundColor Yellow
     Write-Host " [0] Reset  [ESC] Quit" -ForegroundColor DarkGray
     Write-Host ""
     Write-Host " After saving, press Shift+F10 twice in Matrix window to reload" -ForegroundColor DarkGray
@@ -299,13 +376,11 @@ try {
             Load-TerminalEffects $currentSlot
             $dirty = $false
         }
-        # Enter key (VK 13) to save shader
+        # Enter key (VK 13) to launch windows
         elseif ($vk -eq 13) {
             Save-Shader $currentSlot $s
             $dirty = $false
-            Write-Host ""
-            Write-Host " Shader saved! Press Shift+F10 twice in Matrix window." -ForegroundColor Green
-            Start-Sleep -Milliseconds 1200
+            Launch-MatrixWindows
         }
         # Space key (VK 32) to save terminal effects
         elseif ($vk -eq 32) {
@@ -379,6 +454,22 @@ try {
 
                 # Reset
                 '0' { $s = $defaults.Clone(); $dirty=$true }
+
+                # Save shader (P key)
+                'p' {
+                    Save-Shader $currentSlot $s
+                    $dirty = $false
+                    Write-Host ""
+                    Write-Host " Shader saved! Press Shift+F10 twice in Matrix window." -ForegroundColor Green
+                    Start-Sleep -Milliseconds 1200
+                }
+                'P' {
+                    Save-Shader $currentSlot $s
+                    $dirty = $false
+                    Write-Host ""
+                    Write-Host " Shader saved! Press Shift+F10 twice in Matrix window." -ForegroundColor Green
+                    Start-Sleep -Milliseconds 1200
+                }
             }
         }
     }
