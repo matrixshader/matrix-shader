@@ -74,3 +74,22 @@ Matrix-2 -> shaders/Matrix-2.hlsl
   - Previous mistake: all profiles pointed to same Matrix.hlsl - now each has its own file
 
 ---
+
+### 2026-01-09 21:45 - US-002: matrix_setup.ps1 Updates Profile Paths
+- **Status:** COMPLETE
+- **What was implemented:**
+  - Added `Update-ProfileShaderPath([int]$Slot)` function to matrix_setup.ps1
+  - Function updates Windows Terminal settings.json for a specific Matrix profile
+  - Called after creating each shader: `Write-Shader` followed by `Update-ProfileShaderPath`
+- **Files changed:**
+  - MODIFIED: `matrix_setup.ps1` (added function at line 114, call at line 227)
+- **PSV Verification:** PASS
+  - Syntax check: PASS (scriptblock parsing succeeded)
+  - Function exists: PASS (line 114)
+  - Function called: PASS (line 227)
+  - Script runs: PASS (interactive UI displayed)
+- **Learnings for future iterations:**
+  - Use `[scriptblock]::Create()` for quick PowerShell syntax validation
+  - Previous mistake: shaders were created but profiles never updated - now both happen together
+
+---

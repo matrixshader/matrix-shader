@@ -35,8 +35,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "",
+      "passes": true,
+      "notes": "Added Update-ProfileShaderPath function. Called after creating each shader. PSV verified: syntax PASS, function exists at line 114, called at line 227.",
       "blocking": true,
       "previousMistake": "matrix_setup.ps1 created shaders but never updated profiles"
     },
