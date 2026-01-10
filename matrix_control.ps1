@@ -329,18 +329,18 @@ try {
                 '6' { $s.R="0.0"; $s.G="0.9"; $s.B="0.9"; $dirty=$true }
 
                 # RGB controls (Q/W, A/S, Z/X)
-                'q' { Adj 'R' -0.1 0 1 }
-                'Q' { Adj 'R' -0.1 0 1 }
-                'w' { Adj 'R' 0.1 0 1 }
-                'W' { Adj 'R' 0.1 0 1 }
-                'a' { Adj 'G' -0.1 0 1 }
-                'A' { Adj 'G' -0.1 0 1 }
-                's' { Adj 'G' 0.1 0 1 }
-                'S' { Adj 'G' 0.1 0 1 }
-                'z' { Adj 'B' -0.1 0 1 }
-                'Z' { Adj 'B' -0.1 0 1 }
-                'x' { Adj 'B' 0.1 0 1 }
-                'X' { Adj 'B' 0.1 0 1 }
+                'q' { Adj 'R' -0.05 0 1 }
+                'Q' { Adj 'R' -0.05 0 1 }
+                'w' { Adj 'R' 0.05 0 1 }
+                'W' { Adj 'R' 0.05 0 1 }
+                'a' { Adj 'G' -0.05 0 1 }
+                'A' { Adj 'G' -0.05 0 1 }
+                's' { Adj 'G' 0.05 0 1 }
+                'S' { Adj 'G' 0.05 0 1 }
+                'z' { Adj 'B' -0.05 0 1 }
+                'Z' { Adj 'B' -0.05 0 1 }
+                'x' { Adj 'B' 0.05 0 1 }
+                'X' { Adj 'B' 0.05 0 1 }
 
                 # Effects (paired keys for -/+)
                 'e' { Adj 'Speed' -0.1 0.1 3 }
