@@ -1,0 +1,58 @@
+# Progress Log
+Started: 2026-01-09
+
+## Project: Matrix Shader v2 - Complete Fix
+
+### Previous Attempt: FAILED
+All 20 stories were incorrectly marked complete without functional testing.
+Nothing actually worked:
+- All windows opened same color (profiles pointed to same shader)
+- Windows cascaded instead of positioned side-by-side
+- Tab switching removed from TUI
+- Visual bars removed from TUI
+- Fine RGB control removed
+- Wrong defaults (too bright)
+- bluepill command didn't work
+- No progress was logged
+
+### This Attempt: 10 Corrected User Stories
+- US-001: Fix profile shader paths (BLOCKING)
+- US-002: matrix_setup.ps1 updates profiles (BLOCKING)
+- US-003: Window positioning works
+- US-004: TUI tab switching
+- US-005: TUI visual bars
+- US-006: Fine RGB control
+- US-007: Correct defaults
+- US-008: bluepill instant launch
+- US-009: TUI can launch windows
+- US-010: Progress logging (THIS!)
+
+## Codebase Patterns
+
+### Key Files (CORRECT locations - NOT MVP folder!)
+- `C:\Users\ehome\Documents\Matrix\matrix_setup.ps1` - Setup wizard (wakeupneo)
+- `C:\Users\ehome\Documents\Matrix\matrix_control.ps1` - Full TUI (redpill)
+- `C:\Users\ehome\Documents\Matrix\bluepill.ps1` - Instant launch (to be created)
+- `C:\Users\ehome\Documents\Matrix\shaders\Matrix-N.hlsl` - Per-window shaders
+- Windows Terminal settings: `C:\Users\ehome\AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json`
+
+### Launcher Commands
+- `wakeupneo` -> matrix_setup.ps1 (setup wizard)
+- `redpill` -> matrix_control.ps1 (full TUI with tab switching)
+- `bluepill` -> bluepill.ps1 (instant launch, no prompts)
+
+### Critical Architecture
+Each Matrix-N profile MUST point to its own shader file:
+```
+Matrix-1 -> shaders/Matrix-1.hlsl
+Matrix-2 -> shaders/Matrix-2.hlsl
+...etc
+```
+
+---
+
+## Implementation Log
+
+(Entries will be added as stories are completed with ACTUAL testing)
+
+---
