@@ -53,8 +53,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "",
+      "passes": true,
+      "notes": "Added WindowPositioning P/Invoke, Get-ScreenDimensions, Position-MatrixWindows. Called after windows launch. Gap: 150px for 2, 75px for 4. PSV: PASS.",
       "previousMistake": "Positioning code existed but was never called or didn't work"
     },
     {

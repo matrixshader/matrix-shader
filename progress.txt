@@ -93,3 +93,25 @@ Matrix-2 -> shaders/Matrix-2.hlsl
   - Previous mistake: shaders were created but profiles never updated - now both happen together
 
 ---
+
+### 2026-01-09 22:00 - US-003: Window Positioning Works
+- **Status:** COMPLETE
+- **What was implemented:**
+  - Added `WindowPositioning` class with P/Invoke for SetWindowPos API
+  - Added `Get-ScreenDimensions` function to get monitor work area
+  - Added `Position-MatrixWindows([int]$WindowCount)` function
+  - Gap calculation: 300/$WindowCount (2 windows = 150px, 4 windows = 75px)
+  - Called after all windows are launched at line 334
+- **Files changed:**
+  - MODIFIED: `matrix_setup.ps1` (lines 114-199 new, line 334 call)
+- **PSV Verification:** PASS
+  - Syntax check: PASS
+  - SetWindowPos API: defined at line 120
+  - Position-MatrixWindows function: line 149
+  - Function called: line 334 with $numTabs
+- **Learnings for future iterations:**
+  - Use P/Invoke for Windows API calls (SetWindowPos for window positioning)
+  - Screen.WorkingArea gives usable area excluding taskbar
+  - Previous mistake: positioning code existed but was never called
+
+---
