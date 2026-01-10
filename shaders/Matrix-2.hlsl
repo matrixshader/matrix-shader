@@ -1,7 +1,7 @@
 // MATRIX SHADER - SLOT 2
-#define RAIN_R         0.0
-#define RAIN_G         1.0
-#define RAIN_B         0.3
+#define RAIN_R         1.0
+#define RAIN_G         0.1
+#define RAIN_B         0.1
 #define RAIN_SPEED     0.8
 #define GLOW_STRENGTH  0.8
 #define FONT_SCALE     1.0

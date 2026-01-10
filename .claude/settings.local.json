@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "explanatory-output-style@claude-code-plugins": true
+  }
+}
