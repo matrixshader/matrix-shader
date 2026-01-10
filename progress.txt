@@ -53,6 +53,24 @@ Matrix-2 -> shaders/Matrix-2.hlsl
 
 ## Implementation Log
 
-(Entries will be added as stories are completed with ACTUAL testing)
+### 2026-01-09 21:30 - US-001: Fix Windows Terminal Profile Shader Paths
+- **Status:** COMPLETE
+- **What was implemented:**
+  - Created `shaders/` directory with 8 individual shader files (Matrix-1.hlsl through Matrix-8.hlsl)
+  - Created `Update-ShaderPaths.ps1` script to update Windows Terminal settings.json
+  - Ran script to update all 8 Matrix profiles to point to their own shader files
+- **Files changed:**
+  - NEW: `Update-ShaderPaths.ps1`
+  - NEW: `shaders/Matrix-1.hlsl` through `shaders/Matrix-8.hlsl`
+  - MODIFIED: Windows Terminal `settings.json` (all 8 Matrix profiles updated)
+- **Testing performed:**
+  - Verified settings.json now shows correct paths for all 8 profiles
+  - Matrix-1 -> shaders/Matrix-1.hlsl (confirmed)
+  - Matrix-2 -> shaders/Matrix-2.hlsl (confirmed)
+  - etc. through Matrix-8
+- **Learnings for future iterations:**
+  - Use bash commands (cp, ls) instead of PowerShell for simple file operations in the shell
+  - The git repo had a 'nul' file that caused issues - use specific file adds instead of `git add -A`
+  - Previous mistake: all profiles pointed to same Matrix.hlsl - now each has its own file
 
 ---

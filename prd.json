@@ -17,8 +17,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": "",
+      "passes": true,
+      "notes": "Created Update-ShaderPaths.ps1 script and shaders/ directory. All 8 profiles now point to individual shader files. Verified in settings.json.",
       "blocking": true,
       "previousMistake": "All profiles pointed to same Matrix.hlsl file"
     },
