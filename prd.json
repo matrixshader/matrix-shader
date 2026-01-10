@@ -126,8 +126,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "User confirmed: CRT effect came back and shouldn't be there.",
+      "passes": true,
+      "notes": "Already fixed in US-004. Line 91: Glow=0.8, Dens=0.4, L2=0.0. CRT removed entirely. Reset key at line 381. PSV: PASS.",
       "previousMistake": "Defaults were Glow=1.5, Dens=1.0, L2=ON (too bright/dense), CRT enabled"
     },
     {

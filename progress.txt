@@ -169,3 +169,16 @@ Matrix-2 -> shaders/Matrix-2.hlsl
   - Previous mistake: RGB used 0.1 increments which was too coarse
 
 ---
+
+### 2026-01-09 23:20 - US-007: Correct Defaults
+- **Status:** COMPLETE (already fixed in US-004)
+- **What was verified:**
+  - Glow default = 0.8 ✓ (line 91)
+  - Dens default = 0.4 ✓ (line 91)
+  - L2 default = 0.0 (OFF) ✓ (line 91)
+  - CRT removed entirely ✓ (no CRT references found)
+  - Reset (0 key) restores defaults ✓ (line 381)
+- **PSV Verification:** PASS
+- No additional changes needed
+
+---
