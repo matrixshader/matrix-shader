@@ -182,3 +182,26 @@ Matrix-2 -> shaders/Matrix-2.hlsl
 - No additional changes needed
 
 ---
+
+### 2026-01-09 23:30 - US-008: bluepill Instant Launch
+- **Status:** COMPLETE
+- **What was implemented:**
+  - Created `bluepill.ps1` with instant launch logic
+  - Updated `bluepill.cmd` to run bluepill.ps1 (was pointing to wrong script)
+  - Checks for config at `$env:USERPROFILE\.matrix-shader\config.json`
+  - Shows error if no saved config exists
+  - Counts shader files in shaders/ to determine window count
+  - Uses Position-MatrixWindows for proper window layout
+- **Files changed:**
+  - NEW: `bluepill.ps1`
+  - MODIFIED: `bluepill.cmd`
+- **Verification:** PASS
+  - Syntax check: PASS
+  - bluepill.cmd points to bluepill.ps1: confirmed
+  - Error handling for missing config: confirmed (lines 9-15)
+  - Position-MatrixWindows called: confirmed (line 140)
+- **Learnings for future iterations:**
+  - Reuse Position-MatrixWindows pattern from matrix_setup.ps1
+  - Count shader files to determine window count instead of storing separately
+
+---

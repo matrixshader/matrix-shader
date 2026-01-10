@@ -144,8 +144,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": "",
+      "passes": true,
+      "notes": "Created bluepill.ps1 with Position-MatrixWindows. Updated bluepill.cmd. Syntax: PASS.",
       "previousMistake": "bluepill didn't exist or pointed to wrong script"
     },
     {
