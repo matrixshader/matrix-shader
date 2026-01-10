@@ -205,3 +205,25 @@ Matrix-2 -> shaders/Matrix-2.hlsl
   - Count shader files to determine window count instead of storing separately
 
 ---
+
+### 2026-01-09 23:45 - US-009: TUI Can Launch Windows
+- **Status:** COMPLETE
+- **What was implemented:**
+  - Added Position-MatrixWindows function with SetWindowPos P/Invoke
+  - Added Launch-MatrixWindows function that saves shaders and opens windows
+  - Changed Enter key from save to launch windows
+  - Added P key for saving shader
+  - Updated help text: [ENTER] Launch windows [P] Save shader
+- **Files changed:**
+  - MODIFIED: `matrix_control.ps1` (+96 lines)
+- **Verification:** PASS
+  - Syntax check: PASS
+  - Launch-MatrixWindows function: line 244
+  - Position-MatrixWindows function: line 219
+  - Enter key launches: line 383
+  - Help updated: line 340
+- **Learnings for future iterations:**
+  - Can add functions anywhere before they're called in PowerShell
+  - Keep P/Invoke types simple - just the functions you need
+
+---

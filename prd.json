@@ -160,8 +160,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": "",
+      "passes": true,
+      "notes": "Added Launch-MatrixWindows function. Enter launches, P saves. Syntax: PASS.",
       "previousMistake": "No launch option from TUI after Red Pill customization"
     },
     {
