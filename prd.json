@@ -62,17 +62,20 @@
       "title": "TUI Has Tab Switching",
       "description": "As a user in redpill TUI, I want to switch between windows to edit each one's settings.",
       "acceptanceCriteria": [
+        "redpill.cmd launches the NEW v2 TUI (matrix_control.ps1 v2), not old broken version",
         "TAB key cycles through Matrix-1, Matrix-2, etc.",
         "Header shows current slot: RED PILL - Tab 2",
         "Tab bar shows all slots with color swatches",
         "Editing saves to correct slot's shader file (shaders/Matrix-N.hlsl)",
         "Changes only affect the currently selected slot",
+        "CRT effect removed or disabled (was causing visual issues)",
+        "Arrow keys work for navigation",
         "PowerShell script runs without errors"
       ],
       "priority": 4,
       "passes": false,
-      "notes": "",
-      "previousMistake": "Tab switching from matrix_control.ps1 was completely removed"
+      "notes": "User confirmed: OLD redpill menu still shows. Keep visual bars & custom colors from old version but fix: arrow keys, remove CRT, fix transparency.",
+      "previousMistake": "Tab switching from matrix_control.ps1 was completely removed. Old TUI has broken arrow keys, CRT effect enabled, transparency issues."
     },
     {
       "id": "US-005",
@@ -117,14 +120,15 @@
         "Glow default = 0.8 (not 1.5)",
         "Dens default = 0.4 (not 1.0)",
         "L2 default = OFF (0.0) for better depth perception",
+        "CRT default = OFF (0.0) - remove CRT effect entirely or keep disabled",
         "Reset (0 key) restores these correct values",
         "Verified by checking initial shader values",
         "PowerShell script runs without errors"
       ],
       "priority": 7,
       "passes": false,
-      "notes": "",
-      "previousMistake": "Defaults were Glow=1.5, Dens=1.0, L2=ON (too bright/dense)"
+      "notes": "User confirmed: CRT effect came back and shouldn't be there.",
+      "previousMistake": "Defaults were Glow=1.5, Dens=1.0, L2=ON (too bright/dense), CRT enabled"
     },
     {
       "id": "US-008",
