@@ -1,185 +1,161 @@
 {
-  "project": "Matrix Shader v2 - Complete Fix",
-  "branchName": "fix/matrix-v2-actual-implementation",
-  "description": "Fix all failures from previous implementation: per-window shaders, window positioning, TUI features, correct defaults",
-  "previousAttemptStatus": "FAILED - All 20 stories marked complete without testing, nothing actually worked",
+  "project": "Matrix Control Panel Hardening",
+  "branchName": "ralph/control-panel-hardening",
+  "description": "Reliability hardening for matrix_control.ps1 - fix critical bugs identified in code review for public release readiness",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Fix Windows Terminal Profile Shader Paths",
-      "description": "As a user, I want each Matrix window to have its own shader so they can have different colors.",
+      "title": "Safe Atomic File Write",
+      "description": "As a user, I want settings.json writes to be truly atomic so that my Windows Terminal settings are never lost or corrupted.",
       "acceptanceCriteria": [
-        "Matrix-1 profile pixelShaderPath = shaders/Matrix-1.hlsl",
-        "Matrix-2 profile pixelShaderPath = shaders/Matrix-2.hlsl",
-        "Matrix-3 through Matrix-8 follow same pattern",
-        "Script exists to update these paths in settings.json",
-        "Verified by opening settings.json after running setup",
+        "Replace delete+rename pattern with Move-Item -Force in Save-TerminalEffects function",
+        "Write to temp file first, then move to overwrite original",
+        "If move fails, original file remains intact (no data loss)",
+        "Add try-catch with user-friendly error message on failure",
         "PowerShell script runs without errors"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "Created Update-ShaderPaths.ps1 script and shaders/ directory. All 8 profiles now point to individual shader files. Verified in settings.json.",
-      "blocking": true,
-      "previousMistake": "All profiles pointed to same Matrix.hlsl file"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-002",
-      "title": "matrix_setup.ps1 Updates Profile Paths",
-      "description": "As a user running wakeupneo, I want the setup to automatically configure Windows Terminal to use the correct shader files.",
+      "title": "JSON Error Handling",
+      "description": "As a user, I want the control panel to handle corrupted or locked settings gracefully so that it doesn't crash unexpectedly.",
       "acceptanceCriteria": [
-        "Update-ProfileShaderPath function exists in matrix_setup.ps1",
-        "After choosing colors, settings.json is updated for each profile",
-        "Each Matrix-N profile points to shaders/Matrix-N.hlsl",
-        "Shader files are created in shaders/ directory",
-        "Verified: 4 windows with different colors show 4 different colors",
+        "Wrap all ConvertFrom-Json calls in try-catch blocks",
+        "Wrap all file read/write operations in try-catch blocks",
+        "Display clear error message when settings.json is malformed",
+        "Display clear error message when settings.json is locked by another process",
+        "Script continues running in degraded mode rather than crashing",
         "PowerShell script runs without errors"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Added Update-ProfileShaderPath function. Called after creating each shader. PSV verified: syntax PASS, function exists at line 114, called at line 227.",
-      "blocking": true,
-      "previousMistake": "matrix_setup.ps1 created shaders but never updated profiles"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Window Positioning Works",
-      "description": "As a user, I want windows positioned side-by-side with gaps, not cascaded.",
+      "title": "Shader Value Validation",
+      "description": "As a user, I want shader parameter parsing to reject invalid values so that shaders always compile correctly.",
       "acceptanceCriteria": [
-        "2 windows: side-by-side with 150px center gap",
-        "4 windows: evenly distributed with gaps",
-        "Windows span full monitor height",
-        "SetWindowPos API called after windows are created",
-        "Verified visually after launch - windows do NOT cascade",
+        "Regex pattern in Load-Shader rejects multiple decimal points (e.g. 1.2.3)",
+        "Regex pattern only matches valid float format: ^\\d+\\.?\\d*$",
+        "Invalid values fall back to defaults from $defaults hashtable",
+        "Display warning message when invalid value detected",
         "PowerShell script runs without errors"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Added WindowPositioning P/Invoke, Get-ScreenDimensions, Position-MatrixWindows. Called after windows launch. Gap: 150px for 2, 75px for 4. PSV: PASS.",
-      "previousMistake": "Positioning code existed but was never called or didn't work"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "TUI Has Tab Switching",
-      "description": "As a user in redpill TUI, I want to switch between windows to edit each one's settings.",
+      "title": "Auto-Save on Tab Switch",
+      "description": "As a user, I want my shader changes automatically saved when switching tabs so that I never lose work.",
       "acceptanceCriteria": [
-        "redpill.cmd launches the NEW v2 TUI (matrix_control.ps1 v2), not old broken version",
-        "TAB key cycles through Matrix-1, Matrix-2, etc.",
-        "Header shows current slot: RED PILL - Tab 2",
-        "Tab bar shows all slots with color swatches",
-        "Editing saves to correct slot's shader file (shaders/Matrix-N.hlsl)",
-        "Changes only affect the currently selected slot",
-        "CRT effect removed or disabled (was causing visual issues)",
-        "Arrow keys work for navigation",
+        "Check $dirty flag before switching tabs (Tab key handler)",
+        "If dirty, call Save-Shader for current slot before loading new tab",
+        "Display brief 'Auto-saved' message after saving",
+        "Clear dirty flag after auto-save",
+        "No user action required to preserve changes",
         "PowerShell script runs without errors"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Fixed matrix_control.ps1: Removed CRT effect entirely, kept visual bars, tab switching, color presets, RGB controls (Q/W A/S Z/X). Fixed defaults: L2=0.0, Glow=0.8. PSV: PASS.",
-      "previousMistake": "Tab switching from matrix_control.ps1 was completely removed. Old TUI has broken arrow keys, CRT effect enabled, transparency issues."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "TUI Has Visual Bars",
-      "description": "As a user, I want to see visual progress bars for all adjustable values.",
+      "title": "Remove Dead Code",
+      "description": "As a developer, I want dead code removed so that the codebase is clean and maintainable.",
       "acceptanceCriteria": [
-        "Get-Bar function exists and works",
-        "Speed, Glow, Width, Trail, Dens each have visual bars",
-        "R, G, B each have visual bars",
-        "Bars update in real-time when values change",
-        "Bars use filled/empty characters for clear visualization",
+        "Remove space key (VK 32) handler - transparency already auto-saves on B/K/L keys",
+        "Remove any unreachable or unused code paths",
+        "Verify all keyboard controls still work after removal",
+        "Update comments to reflect current behavior",
         "PowerShell script runs without errors"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Already fixed in US-004. Bar function exists (line 186). Used for: R,G,B (224-226), Speed/Glow/Width/Trail/Dens (231-235), Opacity (258). PSV: PASS.",
-      "previousMistake": "Visual bars from matrix_control.ps1 were removed"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Fine RGB Control",
-      "description": "As a user, I want precise control over RGB values with small increments.",
+      "title": "Robust Window Detection",
+      "description": "As a user, I want window detection to accurately identify Matrix windows so that launching and positioning work correctly.",
       "acceptanceCriteria": [
-        "Arrow keys adjust RGB in 0.05 increments when RGB section selected",
-        "Q/W keys adjust Red (+/-)",
-        "A/S keys adjust Green (+/-)",
-        "Z/X keys adjust Blue (+/-)",
-        "RGB is a navigable section with up/down arrows",
-        "Visual bars show R, G, B values",
+        "Get-OpenMatrixSlots matches windows by exact title pattern Matrix-N where N is 1-8",
+        "Filter to only WindowsTerminal process windows (check process name)",
+        "Ignore non-Windows Terminal processes with similar titles",
+        "Return accurate sorted list of open slot numbers",
         "PowerShell script runs without errors"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Changed all RGB increments to 0.05. Q/W=Red, A/S=Green, Z/X=Blue. PSV: PASS.",
-      "previousMistake": "Fine RGB control was removed, only 0.1 increments with r/R g/G b/B"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Correct Defaults",
-      "description": "As a user, I want sensible default values that look good.",
+      "title": "Robust Window Positioning",
+      "description": "As a user, I want window positioning to work reliably regardless of handle values so that windows are always arranged correctly.",
       "acceptanceCriteria": [
-        "Glow default = 0.8 (not 1.5)",
-        "Dens default = 0.4 (not 1.0)",
-        "L2 default = OFF (0.0) for better depth perception",
-        "CRT default = OFF (0.0) - remove CRT effect entirely or keep disabled",
-        "Reset (0 key) restores these correct values",
-        "Verified by checking initial shader values",
+        "Position-MatrixWindows matches handles to specific Matrix-N windows by title",
+        "Do not rely on handle value sort order",
+        "Position windows in slot order (Matrix-1 leftmost, Matrix-2 next, etc.)",
+        "Handle case where slots are non-sequential (e.g. only Matrix-1 and Matrix-3)",
         "PowerShell script runs without errors"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Already fixed in US-004. Line 91: Glow=0.8, Dens=0.4, L2=0.0. CRT removed entirely. Reset key at line 381. PSV: PASS.",
-      "previousMistake": "Defaults were Glow=1.5, Dens=1.0, L2=ON (too bright/dense), CRT enabled"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-008",
-      "title": "bluepill Instant Launch",
-      "description": "As a user, I want to type bluepill and have Matrix windows launch instantly with my last settings.",
+      "title": "Poll-Based Window Launch",
+      "description": "As a user, I want window launching to be responsive and reliable so that I don't wait unnecessarily.",
       "acceptanceCriteria": [
-        "bluepill.cmd exists and runs bluepill.ps1",
-        "bluepill.ps1 exists with instant launch logic",
-        "No prompts - launches immediately",
-        "Uses settings from $env:USERPROFILE\\.matrix-shader\\config.json",
-        "Windows positioned correctly (not cascaded)",
-        "Shows error message if no saved config exists",
+        "Replace fixed 1500ms Start-Sleep with polling loop in Launch-MatrixWindows",
+        "Poll every 100ms for window title to appear",
+        "Timeout after 5 seconds with error message",
+        "Proceed immediately when window is detected",
+        "Display progress indicator: Waiting for Matrix-N...",
         "PowerShell script runs without errors"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Created bluepill.ps1 with Position-MatrixWindows. Updated bluepill.cmd. Syntax: PASS.",
-      "previousMistake": "bluepill didn't exist or pointed to wrong script"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-009",
-      "title": "TUI Can Launch Windows",
-      "description": "As a user in the TUI, I want to launch Matrix windows after customizing.",
+      "title": "Add Diagnostic Logging",
+      "description": "As a developer, I want diagnostic logging so that issues can be debugged when users report problems.",
       "acceptanceCriteria": [
-        "Enter key in TUI launches Matrix windows",
-        "Shader saved before launching",
-        "Windows positioned correctly (using existing positioning code)",
-        "Help screen documents Enter = Launch",
+        "Add Write-Log helper function that writes to $matrixDir\\debug.log",
+        "Log only when $env:MATRIX_DEBUG equals 1",
+        "Log key operations: file saves, window detection, launches, positioning",
+        "Log errors with context (operation, values involved)",
+        "Logs don't appear in normal operation (clean UI preserved)",
         "PowerShell script runs without errors"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Added Launch-MatrixWindows function. Enter launches, P saves. Syntax: PASS.",
-      "previousMistake": "No launch option from TUI after Red Pill customization"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Progress Logging",
-      "description": "As a developer, I need progress documented for debugging and continuity.",
+      "title": "Consolidate Key Handlers",
+      "description": "As a developer, I want duplicate key handlers consolidated so that code is DRY and maintainable.",
       "acceptanceCriteria": [
-        "Each completed story logged in progress.txt",
-        "Log entry includes: date, story ID, title",
-        "Log entry includes: files changed",
-        "Log entry includes: testing performed and results",
-        "Log is appended, not overwritten",
+        "Create Handle-Key helper that normalizes to lowercase before matching",
+        "Replace duplicate uppercase/lowercase switch cases with single entries",
+        "Reduce key handling code by approximately 30%",
+        "All existing keyboard controls still work identically",
         "PowerShell script runs without errors"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "All 9 stories logged in progress.txt. Each entry has date, ID, files, verification. Appended throughout.",
-      "previousMistake": "Zero entries made to progress.txt despite claiming 20 stories complete"
+      "passes": false,
+      "notes": ""
     }
   ]
 }

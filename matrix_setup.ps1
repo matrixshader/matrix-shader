@@ -296,16 +296,9 @@ Write-Host "RED PILL" -NoNewline -ForegroundColor Red
 Write-Host " - Full Customization" -ForegroundColor DarkGray
 Write-Host ""
 $choice = Read-Host " Choose your path (1/2)"
-if ($choice -eq '2') {
-    # Red Pill - launch TUI with current config
-    Write-Host ""
-    Write-Host " Follow the white rabbit..." -ForegroundColor Green
-    Start-Sleep -Milliseconds 500
-    & "$matrixDir\matrix_tool.ps1" -SkipStartup
-    exit
-}
 if ($choice -eq 'q' -or $choice -eq 'Q') { exit }
 
+# Create shaders for both paths
 Write-Host ""
 Write-Host " Creating shaders..." -ForegroundColor Cyan
 
@@ -315,9 +308,39 @@ foreach ($cfg in $tabConfigs) {
     Write-Host "   Matrix-$($cfg.Slot).hlsl -> profile updated" -ForegroundColor DarkGray
 }
 
-# Wait a moment before opening windows
 Start-Sleep -Milliseconds 500
 
+if ($choice -eq '2') {
+    # Red Pill - launch Matrix windows PLUS control panel
+    Write-Host ""
+    Write-Host " Follow the white rabbit..." -ForegroundColor Green
+    Write-Host ""
+    Write-Host " Opening Matrix windows..." -ForegroundColor Cyan
+
+    foreach ($cfg in $tabConfigs) {
+        $slot = $cfg.Slot
+        $pname = "Matrix-$slot"
+        Write-Host "   Opening $pname..." -ForegroundColor DarkGray
+        Start-Process wt -ArgumentList "-p `"$pname`""
+        Start-Sleep -Milliseconds 1500
+    }
+
+    Write-Host ""
+    Write-Host " Positioning windows..." -ForegroundColor Cyan
+    Position-MatrixWindows $numTabs
+
+    Write-Host ""
+    Write-Host " Opening control panel..." -ForegroundColor Cyan
+    Start-Process "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe" -ArgumentList "--profile `"Redpill`""
+
+    Write-Host ""
+    Write-Host " THE MATRIX HAS YOU." -ForegroundColor Green
+    Write-Host " Control panel ready for live adjustments." -ForegroundColor DarkGray
+    Start-Sleep -Seconds 2
+    exit
+}
+
+# Blue Pill path - just open windows (shaders already created above)
 Write-Host ""
 Write-Host " Opening windows..." -ForegroundColor Cyan
 
