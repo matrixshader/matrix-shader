@@ -97,7 +97,10 @@ $dirty = $false
 
 # Terminal effects state (from settings.json) - true transparency
 $transparency = $false
-$opacity = 1.0
+$opacity = 100
+
+# Launch settings
+$launchCount = 0
 
 function Swatch($r,$g,$b,$w) {
     "$([char]27)[48;2;$([int]([float]$r*255));$([int]([float]$g*255));$([int]([float]$b*255))m$(' '*$w)$([char]27)[0m"
@@ -142,13 +145,13 @@ function Load-TerminalEffects($slot) {
     $profile = $settings.profiles.list | Where-Object { $_.name -eq "Matrix-$slot" }
 
     $script:transparency = $false
-    $script:opacity = 1.0
+    $script:opacity = 100
 
     if ($profile) {
-        # Check for true transparency (opacity setting)
-        if ($null -ne $profile.opacity -and $profile.opacity -lt 1.0) {
+        # Check for true transparency (opacity setting, integer 0-100)
+        if ($null -ne $profile.opacity -and $profile.opacity -lt 100) {
             $script:transparency = $true
-            $script:opacity = [float]$profile.opacity
+            $script:opacity = [int]$profile.opacity
         }
     }
 }
@@ -157,22 +160,29 @@ function Save-TerminalEffects($slot) {
     $content = Get-Content $wtSettingsPath -Raw
     $settings = $content | ConvertFrom-Json
 
+    # Update ALL Matrix profiles (Matrix-1 through Matrix-8) with same transparency
     for ($i = 0; $i -lt $settings.profiles.list.Count; $i++) {
-        if ($settings.profiles.list[$i].name -eq "Matrix-$slot") {
-            # Set true transparency (opacity setting - black becomes see-through)
+        if ($settings.profiles.list[$i].name -match "^Matrix-\d+$") {
             if ($transparency) {
+                # True transparency: opacity only, NO acrylic (acrylic = hazy blur)
                 $settings.profiles.list[$i] | Add-Member -NotePropertyName 'opacity' -NotePropertyValue $opacity -Force
-                # useAcrylic adds blur behind transparency, optional but looks good
-                $settings.profiles.list[$i] | Add-Member -NotePropertyName 'useAcrylic' -NotePropertyValue $true -Force
+                # Explicitly disable acrylic for clear see-through
+                $settings.profiles.list[$i].PSObject.Properties.Remove('useAcrylic')
             } else {
+                # Fully opaque - remove both settings
                 $settings.profiles.list[$i].PSObject.Properties.Remove('opacity')
                 $settings.profiles.list[$i].PSObject.Properties.Remove('useAcrylic')
             }
-            break
         }
     }
 
-    $settings | ConvertTo-Json -Depth 10 | Set-Content $wtSettingsPath -Encoding UTF8
+    # Atomic write: temp file -> delete original -> rename temp
+    # This triggers FILE_NOTIFY_CHANGE_FILE_NAME which Windows Terminal watches
+    $json = $settings | ConvertTo-Json -Depth 10
+    $tempPath = "$wtSettingsPath.tmp"
+    [System.IO.File]::WriteAllText($tempPath, $json, [System.Text.Encoding]::UTF8)
+    Remove-Item $wtSettingsPath -Force
+    Rename-Item $tempPath -NewName "settings.json"
 }
 
 function Adj($p, $d, $mn, $mx) {
@@ -241,28 +251,55 @@ function Position-MatrixWindows([int]$WindowCount) {
     }
 }
 
-function Launch-MatrixWindows {
-    $slots = Get-ExistingSlots
-    $numWindows = $slots.Count
+function Get-OpenMatrixSlots {
+    # Find Matrix windows by checking window titles of all processes
+    $openSlots = @()
+    Get-Process | Where-Object { $_.MainWindowTitle -match "Matrix-(\d+)" } | ForEach-Object {
+        if ($_.MainWindowTitle -match "Matrix-(\d+)") {
+            $openSlots += [int]$Matches[1]
+        }
+    }
+    return $openSlots | Sort-Object -Unique
+}
 
-    # Save all shaders first
-    foreach ($slot in $slots) {
+function Launch-MatrixWindows([int]$count) {
+    $existingSlots = Get-ExistingSlots
+    $openSlots = Get-OpenMatrixSlots
+
+    # Find available slots (exist but not currently open)
+    $availableSlots = $existingSlots | Where-Object { $_ -notin $openSlots }
+
+    if ($availableSlots.Count -eq 0) {
+        Write-Host ""
+        Write-Host " All Matrix windows are already open!" -ForegroundColor Yellow
+        Start-Sleep -Seconds 2
+        return
+    }
+
+    $numWindows = [Math]::Min($count, $availableSlots.Count)
+    $slotsToLaunch = $availableSlots | Select-Object -First $numWindows
+
+    # Save shaders for slots we're launching
+    foreach ($slot in $slotsToLaunch) {
         $cfg = Load-Shader $slot
         Save-Shader $slot $cfg
     }
 
     Write-Host ""
     Write-Host " Launching $numWindows Matrix window(s)..." -ForegroundColor Cyan
+    Write-Host " Open: [$($openSlots -join ', ')] | Launching: [$($slotsToLaunch -join ', ')]" -ForegroundColor DarkGray
 
-    foreach ($slot in $slots) {
+    foreach ($slot in $slotsToLaunch) {
         $pname = "Matrix-$slot"
         Write-Host "   Opening $pname..." -ForegroundColor DarkGray
         Start-Process wt -ArgumentList "-p `"$pname`""
         Start-Sleep -Milliseconds 1500
     }
 
-    Write-Host " Positioning windows..." -ForegroundColor Cyan
-    Position-MatrixWindows $numWindows
+    # Position ALL open Matrix windows (existing + new)
+    $totalOpen = $openSlots.Count + $numWindows
+    Write-Host " Positioning $totalOpen windows..." -ForegroundColor Cyan
+    Position-MatrixWindows $totalOpen
     Write-Host " THE MATRIX HAS YOU." -ForegroundColor Green
     Start-Sleep -Seconds 2
 }
@@ -326,21 +363,44 @@ function UI {
     Write-Host ""
 
     # Terminal Effects (transparency)
-    Write-Host " WINDOW EFFECTS" -ForegroundColor Cyan
+    Write-Host " WINDOW EFFECTS (auto-saves, applies instantly)" -ForegroundColor Cyan
     $transStatus = if($transparency){"ON "}else{"off"}
     $transColor = if($transparency){"Cyan"}else{"DarkGray"}
     Write-Host " [B] Transparency:  " -NoNewline; Write-Host $transStatus -ForegroundColor $transColor
     if ($transparency) {
-        $opacityPct = [int]($opacity * 100)
-        Write-Host " [K/L] Opacity:     $($opacityPct.ToString().PadLeft(3))% $(Bar $opacity 0.1 1 15)"
+        Write-Host " [K/L] Opacity:     $($opacity.ToString().PadLeft(3))% $(Bar $opacity 1 100 15)"
     }
     Write-Host ""
 
+    # Launch section
+    Write-Host " LAUNCH" -ForegroundColor Magenta
+    $existingSlots = Get-ExistingSlots
+    $openSlots = Get-OpenMatrixSlots
+    $availableSlots = $existingSlots | Where-Object { $_ -notin $openSlots }
+    $availableCount = $availableSlots.Count
+
+    # Show open/available status
+    $openStr = if ($openSlots.Count -gt 0) { $openSlots -join ',' } else { "none" }
+    $availStr = if ($availableCount -gt 0) { $availableSlots -join ',' } else { "none" }
+    Write-Host " Open: " -NoNewline -ForegroundColor DarkGray
+    Write-Host $openStr -NoNewline -ForegroundColor Green
+    Write-Host " | Available: " -NoNewline -ForegroundColor DarkGray
+    Write-Host $availStr -ForegroundColor Cyan
+
+    $launchStatus = if($launchCount -gt 0){"$launchCount window(s)"}else{"disabled"}
+    $launchColor = if($launchCount -gt 0){"Magenta"}else{"DarkGray"}
+    Write-Host " [-/+] Count: " -NoNewline; Write-Host $launchStatus -ForegroundColor $launchColor -NoNewline
+    Write-Host " (max: $availableCount)" -ForegroundColor DarkGray
+    Write-Host ""
+
     # Footer
-    Write-Host " [ENTER] Launch windows  [P] Save shader  [SPACE] Save terminal effects" -ForegroundColor Yellow
+    $enterAction = if($launchCount -gt 0){"[ENTER] Launch $launchCount window(s)"}else{"[ENTER] (set count first)"}
+    $enterColor = if($launchCount -gt 0){"Yellow"}else{"DarkGray"}
+    Write-Host " $enterAction  " -ForegroundColor $enterColor -NoNewline
+    Write-Host "[P] Save shader" -ForegroundColor Yellow
     Write-Host " [0] Reset  [ESC] Quit" -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host " After saving, press Shift+F10 twice in Matrix window to reload" -ForegroundColor DarkGray
+    Write-Host " Shader changes: press Shift+F10 twice in Matrix window to reload" -ForegroundColor DarkGray
 }
 
 # Check for existing shaders
@@ -376,11 +436,13 @@ try {
             Load-TerminalEffects $currentSlot
             $dirty = $false
         }
-        # Enter key (VK 13) to launch windows
+        # Enter key (VK 13) to launch windows (only if launchCount > 0)
         elseif ($vk -eq 13) {
-            Save-Shader $currentSlot $s
-            $dirty = $false
-            Launch-MatrixWindows
+            if ($launchCount -gt 0) {
+                Save-Shader $currentSlot $s
+                $dirty = $false
+                Launch-MatrixWindows $launchCount
+            }
         }
         # Space key (VK 32) to save terminal effects
         elseif ($vk -eq 32) {
@@ -444,13 +506,54 @@ try {
                 '8' { $s.L2 = if($s.L2 -eq "1.0"){"0.0"}else{"1.0"}; $dirty=$true }
                 '9' { $s.L3 = if($s.L3 -eq "1.0"){"0.0"}else{"1.0"}; $dirty=$true }
 
-                # Window transparency (terminal setting)
-                'b' { $script:transparency = -not $transparency }
-                'B' { $script:transparency = -not $transparency }
-                'k' { if ($transparency -and $opacity -gt 0.1) { $script:opacity = [Math]::Round($opacity - 0.1, 1) } }
-                'K' { if ($transparency -and $opacity -gt 0.1) { $script:opacity = [Math]::Round($opacity - 0.1, 1) } }
-                'l' { if ($transparency -and $opacity -lt 1.0) { $script:opacity = [Math]::Round($opacity + 0.1, 1) } }
-                'L' { if ($transparency -and $opacity -lt 1.0) { $script:opacity = [Math]::Round($opacity + 0.1, 1) } }
+                # Window transparency (terminal setting) - auto-saves on change
+                'b' {
+                    $script:transparency = -not $transparency
+                    Save-TerminalEffects $currentSlot
+                }
+                'B' {
+                    $script:transparency = -not $transparency
+                    Save-TerminalEffects $currentSlot
+                }
+                'k' {
+                    if ($transparency -and $opacity -ge 5) {
+                        $script:opacity = $opacity - 5
+                        Save-TerminalEffects $currentSlot
+                    }
+                }
+                'K' {
+                    if ($transparency -and $opacity -ge 5) {
+                        $script:opacity = $opacity - 5
+                        Save-TerminalEffects $currentSlot
+                    }
+                }
+                'l' {
+                    if ($transparency -and $opacity -le 95) {
+                        $script:opacity = $opacity + 5
+                        Save-TerminalEffects $currentSlot
+                    }
+                }
+                'L' {
+                    if ($transparency -and $opacity -le 95) {
+                        $script:opacity = $opacity + 5
+                        Save-TerminalEffects $currentSlot
+                    }
+                }
+
+                # Launch count controls (based on available slots, not all slots)
+                '-' { if ($launchCount -gt 0) { $script:launchCount = $launchCount - 1 } }
+                '+' {
+                    $existingSlots = Get-ExistingSlots
+                    $openSlots = Get-OpenMatrixSlots
+                    $availableCount = ($existingSlots | Where-Object { $_ -notin $openSlots }).Count
+                    if ($launchCount -lt $availableCount) { $script:launchCount = $launchCount + 1 }
+                }
+                '=' {
+                    $existingSlots = Get-ExistingSlots
+                    $openSlots = Get-OpenMatrixSlots
+                    $availableCount = ($existingSlots | Where-Object { $_ -notin $openSlots }).Count
+                    if ($launchCount -lt $availableCount) { $script:launchCount = $launchCount + 1 }
+                }
 
                 # Reset
                 '0' { $s = $defaults.Clone(); $dirty=$true }
