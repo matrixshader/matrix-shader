@@ -240,17 +240,30 @@ function Bar($val, $min, $max, $width) {
     "$([char]27)[32m$('=' * $filled)$([char]27)[90m$('-' * $empty)$([char]27)[0m"
 }
 
-# --- WINDOW POSITIONING (P/Invoke) ---
+# --- WINDOW POSITIONING & TRANSPARENCY (P/Invoke) ---
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 
-public class WindowPositioning {
+public class WindowAPI {
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
+
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;
+
+    public const int GWL_EXSTYLE = -20;
+    public const int WS_EX_LAYERED = 0x80000;
+    public const uint LWA_ALPHA = 0x2;
 }
 "@
 
@@ -287,7 +300,7 @@ function Position-MatrixWindows([int]$WindowCount) {
 
     for ($i = 0; $i -lt $handles.Count; $i++) {
         $x = $screen.X + $gapSize + ($i * ($windowWidth + $gapSize))
-        [WindowPositioning]::SetWindowPos($handles[$i], [IntPtr]::Zero, $x, $screen.Y, $windowWidth, $screen.Height, 0x0014) | Out-Null
+        [WindowAPI]::SetWindowPos($handles[$i], [IntPtr]::Zero, $x, $screen.Y, $windowWidth, $screen.Height, 0x0014) | Out-Null
     }
 }
 
@@ -300,6 +313,30 @@ function Get-OpenMatrixSlots {
         }
     }
     return $openSlots | Sort-Object -Unique
+}
+
+function Apply-WindowTransparency {
+    # Apply transparency directly to all Matrix windows via Windows API (not Redpill)
+    $myPid = $PID
+    Get-Process | Where-Object { $_.MainWindowTitle -match "^Matrix-\d+$" -and $_.MainWindowHandle -ne [IntPtr]::Zero } | ForEach-Object {
+        $hwnd = $_.MainWindowHandle
+        # Skip our own window (Redpill control panel)
+        if ($_.Id -eq $myPid) { return }
+
+        $exStyle = [WindowAPI]::GetWindowLong($hwnd, [WindowAPI]::GWL_EXSTYLE)
+
+        if ($script:transparency) {
+            # Enable layered window and set alpha
+            $newStyle = $exStyle -bor [WindowAPI]::WS_EX_LAYERED
+            [WindowAPI]::SetWindowLong($hwnd, [WindowAPI]::GWL_EXSTYLE, $newStyle) | Out-Null
+            $alpha = [byte]([int]($script:opacity * 2.55))  # Convert 0-100 to 0-255
+            [WindowAPI]::SetLayeredWindowAttributes($hwnd, 0, $alpha, [WindowAPI]::LWA_ALPHA) | Out-Null
+        } else {
+            # Remove layered style (fully opaque)
+            $newStyle = $exStyle -band (-bnot [WindowAPI]::WS_EX_LAYERED)
+            [WindowAPI]::SetWindowLong($hwnd, [WindowAPI]::GWL_EXSTYLE, $newStyle) | Out-Null
+        }
+    }
 }
 
 function Launch-MatrixWindows([int]$count) {
@@ -548,19 +585,39 @@ try {
                 '8' { $s.L2 = if($s.L2 -eq "1.0"){"0.0"}else{"1.0"}; $dirty=$true }
                 '9' { $s.L3 = if($s.L3 -eq "1.0"){"0.0"}else{"1.0"}; $dirty=$true }
 
-                # Window transparency (terminal setting) - auto-saves on change
+                # Window transparency - applies directly to live windows via Windows API
                 'b' {
                     $script:transparency = -not $transparency
-                    Save-TerminalEffects $currentSlot
+                    Apply-WindowTransparency
                 }
                 'B' {
                     $script:transparency = -not $transparency
-                    Save-TerminalEffects $currentSlot
+                    Apply-WindowTransparency
                 }
-                'k' { if ($transparency -and $opacity -gt 0) { $script:opacity = $opacity - 5 } }
-                'K' { if ($transparency -and $opacity -gt 0) { $script:opacity = $opacity - 5 } }
-                'l' { if ($transparency -and $opacity -lt 100) { $script:opacity = $opacity + 5 } }
-                'L' { if ($transparency -and $opacity -lt 100) { $script:opacity = $opacity + 5 } }
+                'k' {
+                    if ($transparency -and $opacity -gt 0) {
+                        $script:opacity = $opacity - 5
+                        Apply-WindowTransparency
+                    }
+                }
+                'K' {
+                    if ($transparency -and $opacity -gt 0) {
+                        $script:opacity = $opacity - 5
+                        Apply-WindowTransparency
+                    }
+                }
+                'l' {
+                    if ($transparency -and $opacity -lt 100) {
+                        $script:opacity = $opacity + 5
+                        Apply-WindowTransparency
+                    }
+                }
+                'L' {
+                    if ($transparency -and $opacity -lt 100) {
+                        $script:opacity = $opacity + 5
+                        Apply-WindowTransparency
+                    }
+                }
 
                 # Launch count controls (based on available slots, not all slots)
                 '-' { if ($launchCount -gt 0) { $script:launchCount = $launchCount - 1 } }
