@@ -120,11 +120,17 @@ function Load-Shader($slot) {
     $path = "$shadersDir\Matrix-$slot.hlsl"
     $cfg = $defaults.Clone()
     if (Test-Path $path) {
-        $c = Get-Content $path -Raw
-        $map = @{ R="RAIN_R"; G="RAIN_G"; B="RAIN_B"; Speed="RAIN_SPEED"; Glow="GLOW_STRENGTH"; Width="CHAR_WIDTH"; Trail="TRAIL_POWER"; Dens="RAIN_DENSITY"; L1="SHOW_L1"; L2="SHOW_L2"; L3="SHOW_L3" }
-        foreach ($k in $map.Keys) {
-            $m = [regex]::Match($c, "#define $($map[$k])\s+([\d\.]+)")
-            if ($m.Success) { $cfg[$k] = $m.Groups[1].Value }
+        try {
+            $c = Get-Content $path -Raw -ErrorAction Stop
+            $map = @{ R="RAIN_R"; G="RAIN_G"; B="RAIN_B"; Speed="RAIN_SPEED"; Glow="GLOW_STRENGTH"; Width="CHAR_WIDTH"; Trail="TRAIL_POWER"; Dens="RAIN_DENSITY"; L1="SHOW_L1"; L2="SHOW_L2"; L3="SHOW_L3" }
+            foreach ($k in $map.Keys) {
+                $m = [regex]::Match($c, "#define $($map[$k])\s+([\d\.]+)")
+                if ($m.Success) { $cfg[$k] = $m.Groups[1].Value }
+            }
+        }
+        catch {
+            Write-Host " Warning: Could not read shader file: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host " Using default shader settings" -ForegroundColor DarkGray
         }
     }
     return $cfg
@@ -136,23 +142,50 @@ function Save-Shader($slot, $cfg) {
         -replace '\{SPEED\}',$cfg.Speed -replace '\{GLOW\}',$cfg.Glow -replace '\{WIDTH\}',$cfg.Width `
         -replace '\{TRAIL\}',$cfg.Trail -replace '\{DENS\}',$cfg.Dens `
         -replace '\{L1\}',$cfg.L1 -replace '\{L2\}',$cfg.L2 -replace '\{L3\}',$cfg.L3
-    [System.IO.File]::WriteAllText($path, $content)
+    try {
+        [System.IO.File]::WriteAllText($path, $content)
+        return $true
+    }
+    catch {
+        Write-Host ""
+        Write-Host " Error saving shader: $($_.Exception.Message)" -ForegroundColor Red
+        Start-Sleep -Seconds 2
+        return $false
+    }
 }
 
 function Load-TerminalEffects($slot) {
-    $content = Get-Content $wtSettingsPath -Raw
-    $settings = $content | ConvertFrom-Json
-    $profile = $settings.profiles.list | Where-Object { $_.name -eq "Matrix-$slot" }
-
+    # Default values (degraded mode if JSON fails)
     $script:transparency = $false
     $script:opacity = 100
 
-    if ($profile) {
-        # Check for true transparency (opacity setting, integer 0-100)
-        if ($null -ne $profile.opacity -and $profile.opacity -lt 100) {
-            $script:transparency = $true
-            $script:opacity = [int]$profile.opacity
+    try {
+        $content = Get-Content $wtSettingsPath -Raw -ErrorAction Stop
+        $settings = $content | ConvertFrom-Json -ErrorAction Stop
+        $profile = $settings.profiles.list | Where-Object { $_.name -eq "Matrix-$slot" }
+
+        if ($profile) {
+            # Check for true transparency (opacity setting, integer 0-100)
+            if ($null -ne $profile.opacity -and $profile.opacity -lt 100) {
+                $script:transparency = $true
+                $script:opacity = [int]$profile.opacity
+            }
         }
+    }
+    catch [System.IO.IOException] {
+        Write-Host " Warning: Cannot read settings.json (file locked)" -ForegroundColor Yellow
+        Write-Host " Using default transparency settings" -ForegroundColor DarkGray
+        Start-Sleep -Milliseconds 1500
+    }
+    catch [System.ArgumentException] {
+        Write-Host " Warning: settings.json is malformed" -ForegroundColor Yellow
+        Write-Host " Using default transparency settings" -ForegroundColor DarkGray
+        Start-Sleep -Milliseconds 1500
+    }
+    catch {
+        Write-Host " Warning: Could not load terminal settings: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host " Using default transparency settings" -ForegroundColor DarkGray
+        Start-Sleep -Milliseconds 1500
     }
 }
 
