@@ -157,32 +157,33 @@ function Load-TerminalEffects($slot) {
 }
 
 function Save-TerminalEffects($slot) {
-    $content = Get-Content $wtSettingsPath -Raw
-    $settings = $content | ConvertFrom-Json
+    try {
+        $content = Get-Content $wtSettingsPath -Raw -ErrorAction Stop
+        $settings = $content | ConvertFrom-Json -ErrorAction Stop
 
-    # Update ALL Matrix profiles (Matrix-1 through Matrix-8) with same transparency
-    for ($i = 0; $i -lt $settings.profiles.list.Count; $i++) {
-        if ($settings.profiles.list[$i].name -match "^Matrix-\d+$") {
-            if ($transparency) {
-                # True transparency: opacity only, NO acrylic (acrylic = hazy blur)
-                $settings.profiles.list[$i] | Add-Member -NotePropertyName 'opacity' -NotePropertyValue $opacity -Force
-                # Explicitly disable acrylic for clear see-through
-                $settings.profiles.list[$i].PSObject.Properties.Remove('useAcrylic')
-            } else {
-                # Fully opaque - remove both settings
-                $settings.profiles.list[$i].PSObject.Properties.Remove('opacity')
-                $settings.profiles.list[$i].PSObject.Properties.Remove('useAcrylic')
-            }
+        # Apply transparency to DEFAULTS - affects all windows except Redpill (which has opacity:100)
+        if ($transparency) {
+            $settings.profiles.defaults | Add-Member -NotePropertyName 'opacity' -NotePropertyValue $opacity -Force
+        } else {
+            $settings.profiles.defaults.PSObject.Properties.Remove('opacity')
         }
-    }
 
-    # Atomic write: temp file -> delete original -> rename temp
-    # This triggers FILE_NOTIFY_CHANGE_FILE_NAME which Windows Terminal watches
-    $json = $settings | ConvertTo-Json -Depth 10
-    $tempPath = "$wtSettingsPath.tmp"
-    [System.IO.File]::WriteAllText($tempPath, $json, [System.Text.Encoding]::UTF8)
-    Remove-Item $wtSettingsPath -Force
-    Rename-Item $tempPath -NewName "settings.json"
+        # Safe atomic write: write temp, then move (overwrites original in one operation)
+        $json = $settings | ConvertTo-Json -Depth 10
+        $tempPath = "$wtSettingsPath.tmp"
+        [System.IO.File]::WriteAllText($tempPath, $json, [System.Text.Encoding]::UTF8)
+        Move-Item $tempPath $wtSettingsPath -Force -ErrorAction Stop
+        return $true
+    }
+    catch {
+        Write-Host ""
+        Write-Host " Error saving terminal settings: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host " Your settings.json was not modified." -ForegroundColor Yellow
+        Start-Sleep -Seconds 2
+        # Clean up temp file if it exists
+        if (Test-Path $tempPath) { Remove-Item $tempPath -Force -ErrorAction SilentlyContinue }
+        return $false
+    }
 }
 
 function Adj($p, $d, $mn, $mx) {
@@ -363,12 +364,14 @@ function UI {
     Write-Host ""
 
     # Terminal Effects (transparency)
-    Write-Host " WINDOW EFFECTS (auto-saves, applies instantly)" -ForegroundColor Cyan
+    Write-Host " WINDOW EFFECTS" -ForegroundColor Cyan
     $transStatus = if($transparency){"ON "}else{"off"}
     $transColor = if($transparency){"Cyan"}else{"DarkGray"}
-    Write-Host " [B] Transparency:  " -NoNewline; Write-Host $transStatus -ForegroundColor $transColor
+    Write-Host " [B] Transparency:  " -NoNewline; Write-Host $transStatus -ForegroundColor $transColor -NoNewline
+    Write-Host "  (toggles & applies)" -ForegroundColor DarkGray
     if ($transparency) {
-        Write-Host " [K/L] Opacity:     $($opacity.ToString().PadLeft(3))% $(Bar $opacity 1 100 15)"
+        Write-Host " [K/L] Opacity:     $($opacity.ToString().PadLeft(3))% $(Bar $opacity 0 100 15)" -NoNewline
+        Write-Host "  [SPACE] apply" -ForegroundColor DarkGray
     }
     Write-Host ""
 
@@ -400,7 +403,7 @@ function UI {
     Write-Host "[P] Save shader" -ForegroundColor Yellow
     Write-Host " [0] Reset  [ESC] Quit" -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host " Shader changes: press Shift+F10 twice in Matrix window to reload" -ForegroundColor DarkGray
+    Write-Host " Shader changes apply automatically when saved (hot-reload)" -ForegroundColor DarkGray
 }
 
 # Check for existing shaders
@@ -444,12 +447,12 @@ try {
                 Launch-MatrixWindows $launchCount
             }
         }
-        # Space key (VK 32) to save terminal effects
+        # Space key (VK 32) to apply window effects
         elseif ($vk -eq 32) {
             Save-TerminalEffects $currentSlot
             Write-Host ""
-            Write-Host " Terminal effects saved! Reopen Matrix window to apply." -ForegroundColor Cyan
-            Start-Sleep -Milliseconds 1200
+            Write-Host " Window effects applied!" -ForegroundColor Cyan
+            Start-Sleep -Milliseconds 800
         }
         # Escape key (VK 27) to quit
         elseif ($vk -eq 27) {
@@ -515,30 +518,10 @@ try {
                     $script:transparency = -not $transparency
                     Save-TerminalEffects $currentSlot
                 }
-                'k' {
-                    if ($transparency -and $opacity -ge 5) {
-                        $script:opacity = $opacity - 5
-                        Save-TerminalEffects $currentSlot
-                    }
-                }
-                'K' {
-                    if ($transparency -and $opacity -ge 5) {
-                        $script:opacity = $opacity - 5
-                        Save-TerminalEffects $currentSlot
-                    }
-                }
-                'l' {
-                    if ($transparency -and $opacity -le 95) {
-                        $script:opacity = $opacity + 5
-                        Save-TerminalEffects $currentSlot
-                    }
-                }
-                'L' {
-                    if ($transparency -and $opacity -le 95) {
-                        $script:opacity = $opacity + 5
-                        Save-TerminalEffects $currentSlot
-                    }
-                }
+                'k' { if ($transparency -and $opacity -gt 0) { $script:opacity = $opacity - 5 } }
+                'K' { if ($transparency -and $opacity -gt 0) { $script:opacity = $opacity - 5 } }
+                'l' { if ($transparency -and $opacity -lt 100) { $script:opacity = $opacity + 5 } }
+                'L' { if ($transparency -and $opacity -lt 100) { $script:opacity = $opacity + 5 } }
 
                 # Launch count controls (based on available slots, not all slots)
                 '-' { if ($launchCount -gt 0) { $script:launchCount = $launchCount - 1 } }
@@ -563,14 +546,14 @@ try {
                     Save-Shader $currentSlot $s
                     $dirty = $false
                     Write-Host ""
-                    Write-Host " Shader saved! Press Shift+F10 twice in Matrix window." -ForegroundColor Green
+                    Write-Host " Shader saved! Changes apply automatically." -ForegroundColor Green
                     Start-Sleep -Milliseconds 1200
                 }
                 'P' {
                     Save-Shader $currentSlot $s
                     $dirty = $false
                     Write-Host ""
-                    Write-Host " Shader saved! Press Shift+F10 twice in Matrix window." -ForegroundColor Green
+                    Write-Host " Shader saved! Changes apply automatically." -ForegroundColor Green
                     Start-Sleep -Milliseconds 1200
                 }
             }
