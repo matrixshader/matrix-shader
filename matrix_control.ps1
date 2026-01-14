@@ -194,11 +194,17 @@ function Save-TerminalEffects($slot) {
         $content = Get-Content $wtSettingsPath -Raw -ErrorAction Stop
         $settings = $content | ConvertFrom-Json -ErrorAction Stop
 
-        # Apply transparency to DEFAULTS - affects all windows except Redpill (which has opacity:100)
-        if ($transparency) {
-            $settings.profiles.defaults | Add-Member -NotePropertyName 'opacity' -NotePropertyValue $opacity -Force
-        } else {
-            $settings.profiles.defaults.PSObject.Properties.Remove('opacity')
+        # Apply transparency to ALL Matrix-N profiles (not Redpill) - affects running windows via hot-reload
+        for ($i = 0; $i -lt $settings.profiles.list.Count; $i++) {
+            $profileName = $settings.profiles.list[$i].name
+            # Only modify Matrix-1 through Matrix-8 profiles, skip Redpill
+            if ($profileName -match "^Matrix-\d+$") {
+                if ($transparency) {
+                    $settings.profiles.list[$i] | Add-Member -NotePropertyName 'opacity' -NotePropertyValue $opacity -Force
+                } else {
+                    $settings.profiles.list[$i].PSObject.Properties.Remove('opacity')
+                }
+            }
         }
 
         # Safe atomic write: write temp, then move (overwrites original in one operation)
