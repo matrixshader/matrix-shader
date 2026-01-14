@@ -15,8 +15,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented Move-Item -Force with try-catch error handling. Commit: 97e02de"
     },
     {
       "id": "US-002",
