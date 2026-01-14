@@ -73,7 +73,7 @@ PowerShell requires CRLF line endings. Always use Windows-native tools.
 
 ### Current Phase Checklist:
 - [x] US-001: Safe atomic file writes (Move-Item -Force instead of delete+rename)
-- [ ] US-002: JSON error handling (try-catch around all JSON ops)
+- [x] US-002: JSON error handling (try-catch around all JSON ops)
 - [ ] US-003: Shader value validation (fix regex to reject invalid values)
 - [ ] US-004: Auto-save on tab switch (save dirty shader before switching)
 - [ ] US-005: Remove dead code (space key handler)

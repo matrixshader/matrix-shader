@@ -31,8 +31,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added try-catch to Load-TerminalEffects, Load-Shader, Save-Shader. Commit: 5387d9f"
     },
     {
       "id": "US-003",
