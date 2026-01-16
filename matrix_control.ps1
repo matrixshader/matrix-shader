@@ -243,11 +243,27 @@ function Bar($val, $min, $max, $width) {
 # --- WINDOW POSITIONING & TRANSPARENCY (P/Invoke) ---
 Add-Type -TypeDefinition @"
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 
 public class WindowAPI {
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
@@ -258,12 +274,34 @@ public class WindowAPI {
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT {
+        public int Left, Top, Right, Bottom;
+    }
+
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;
-
     public const int GWL_EXSTYLE = -20;
     public const int WS_EX_LAYERED = 0x80000;
     public const uint LWA_ALPHA = 0x2;
+
+    private static List<KeyValuePair<IntPtr, string>> foundWindows;
+
+    public static List<KeyValuePair<IntPtr, string>> FindWindowsByPattern(string pattern) {
+        foundWindows = new List<KeyValuePair<IntPtr, string>>();
+        EnumWindows((hWnd, lParam) => {
+            if (IsWindowVisible(hWnd)) {
+                var sb = new StringBuilder(256);
+                GetWindowText(hWnd, sb, 256);
+                var title = sb.ToString();
+                if (!string.IsNullOrEmpty(title) && System.Text.RegularExpressions.Regex.IsMatch(title, pattern)) {
+                    foundWindows.Add(new KeyValuePair<IntPtr, string>(hWnd, title));
+                }
+            }
+            return true;
+        }, IntPtr.Zero);
+        return foundWindows;
+    }
 }
 "@
 
@@ -279,36 +317,43 @@ function Get-ScreenDimensions {
     }
 }
 
-function Position-MatrixWindows([int]$WindowCount) {
-    Start-Sleep -Milliseconds 500
-    $screen = Get-ScreenDimensions
-    $gapSize = [int](300 / $WindowCount)
-    if ($gapSize -lt 50) { $gapSize = 50 }
-    $totalGaps = ($WindowCount + 1) * $gapSize
-    $windowWidth = [int](($screen.Width - $totalGaps) / $WindowCount)
+function Position-MatrixWindows {
+    # Position ALL open Matrix windows evenly across screen (uses EnumWindows)
+    Start-Sleep -Milliseconds 300
+    $windows = Get-MatrixWindows
+    if ($windows.Count -eq 0) { return }
 
-    $wtProcesses = Get-Process -Name "WindowsTerminal" -ErrorAction SilentlyContinue
-    if (-not $wtProcesses) { return }
-
-    $handles = @()
-    foreach ($proc in $wtProcesses) {
-        if ($proc.MainWindowHandle -ne [IntPtr]::Zero) {
-            $handles += $proc.MainWindowHandle
-        }
+    # Sort windows by slot number (Matrix-1 leftmost, Matrix-2 next, etc.)
+    $sortedWindows = $windows | Sort-Object {
+        if ($_.Value -match "Matrix-(\d+)") { [int]$Matches[1] } else { 999 }
     }
-    $handles = $handles | Sort-Object | Select-Object -Last $WindowCount
 
-    for ($i = 0; $i -lt $handles.Count; $i++) {
+    $screen = Get-ScreenDimensions
+    $windowCount = $sortedWindows.Count
+    $gapSize = [int](300 / $windowCount)
+    if ($gapSize -lt 50) { $gapSize = 50 }
+    $totalGaps = ($windowCount + 1) * $gapSize
+    $windowWidth = [int](($screen.Width - $totalGaps) / $windowCount)
+
+    for ($i = 0; $i -lt $sortedWindows.Count; $i++) {
+        $hwnd = $sortedWindows[$i].Key
         $x = $screen.X + $gapSize + ($i * ($windowWidth + $gapSize))
-        [WindowAPI]::SetWindowPos($handles[$i], [IntPtr]::Zero, $x, $screen.Y, $windowWidth, $screen.Height, 0x0014) | Out-Null
+        [WindowAPI]::SetWindowPos($hwnd, [IntPtr]::Zero, $x, $screen.Y, $windowWidth, $screen.Height, 0x0014) | Out-Null
     }
 }
 
+function Get-MatrixWindows {
+    # Use EnumWindows to find ALL Matrix windows (works regardless of when they were opened)
+    $windows = [WindowAPI]::FindWindowsByPattern("^Matrix-\d+")
+    return $windows
+}
+
 function Get-OpenMatrixSlots {
-    # Find Matrix windows by checking window titles of all processes
+    # Extract slot numbers from all open Matrix windows
     $openSlots = @()
-    Get-Process | Where-Object { $_.MainWindowTitle -match "Matrix-(\d+)" } | ForEach-Object {
-        if ($_.MainWindowTitle -match "Matrix-(\d+)") {
+    $windows = Get-MatrixWindows
+    foreach ($win in $windows) {
+        if ($win.Value -match "Matrix-(\d+)") {
             $openSlots += [int]$Matches[1]
         }
     }
@@ -316,13 +361,10 @@ function Get-OpenMatrixSlots {
 }
 
 function Apply-WindowTransparency {
-    # Apply transparency directly to all Matrix windows via Windows API (not Redpill)
-    $myPid = $PID
-    Get-Process | Where-Object { $_.MainWindowTitle -match "^Matrix-\d+$" -and $_.MainWindowHandle -ne [IntPtr]::Zero } | ForEach-Object {
-        $hwnd = $_.MainWindowHandle
-        # Skip our own window (Redpill control panel)
-        if ($_.Id -eq $myPid) { return }
-
+    # Apply transparency to ALL Matrix windows via Windows API (uses EnumWindows)
+    $windows = Get-MatrixWindows
+    foreach ($win in $windows) {
+        $hwnd = $win.Key
         $exStyle = [WindowAPI]::GetWindowLong($hwnd, [WindowAPI]::GWL_EXSTYLE)
 
         if ($script:transparency) {
@@ -374,9 +416,8 @@ function Launch-MatrixWindows([int]$count) {
     }
 
     # Position ALL open Matrix windows (existing + new)
-    $totalOpen = $openSlots.Count + $numWindows
-    Write-Host " Positioning $totalOpen windows..." -ForegroundColor Cyan
-    Position-MatrixWindows $totalOpen
+    Write-Host " Positioning windows..." -ForegroundColor Cyan
+    Position-MatrixWindows
     Write-Host " THE MATRIX HAS YOU." -ForegroundColor Green
     Start-Sleep -Seconds 2
 }
