@@ -424,23 +424,27 @@ function Launch-MatrixWindows([int]$count) {
 
 function UI {
     Clear-Host
-    $slots = Get-ExistingSlots
+    $openSlots = Get-OpenMatrixSlots  # Only show OPEN windows, not all shader files
     $dirtyMark = if ($dirty) { "*" } else { " " }
 
     Write-Host ""
     Write-Host " RED PILL$dirtyMark- Tab $currentSlot" -ForegroundColor Red
     Write-Host ""
 
-    # Tab selector
+    # Tab selector - only shows currently open Matrix windows
     Write-Host " TABS: " -NoNewline
-    foreach ($slot in $slots) {
-        $cfg = Load-Shader $slot
-        if ($slot -eq $currentSlot) {
-            Write-Host "[$slot]$(Swatch $cfg.R $cfg.G $cfg.B 1)" -NoNewline -ForegroundColor Yellow
-        } else {
-            Write-Host " $slot $(Swatch $cfg.R $cfg.G $cfg.B 1)" -NoNewline -ForegroundColor DarkGray
+    if ($openSlots.Count -eq 0) {
+        Write-Host "(no Matrix windows open)" -ForegroundColor DarkGray -NoNewline
+    } else {
+        foreach ($slot in $openSlots) {
+            $cfg = Load-Shader $slot
+            if ($slot -eq $currentSlot) {
+                Write-Host "[$slot]$(Swatch $cfg.R $cfg.G $cfg.B 1)" -NoNewline -ForegroundColor Yellow
+            } else {
+                Write-Host " $slot $(Swatch $cfg.R $cfg.G $cfg.B 1)" -NoNewline -ForegroundColor DarkGray
+            }
+            Write-Host " " -NoNewline
         }
-        Write-Host " " -NoNewline
     }
     Write-Host ""
     Write-Host " [TAB] next tab" -ForegroundColor DarkGray
@@ -524,8 +528,8 @@ function UI {
 }
 
 # Check for existing shaders
-$slots = Get-ExistingSlots
-if ($slots.Count -eq 0) {
+$existingSlots = Get-ExistingSlots
+if ($existingSlots.Count -eq 0) {
     Write-Host ""
     Write-Host " No Matrix tabs found." -ForegroundColor Red
     Write-Host " Run 'wakeupneo' first to create some." -ForegroundColor Yellow
@@ -533,8 +537,13 @@ if ($slots.Count -eq 0) {
     exit 1
 }
 
-# Load first slot
-$currentSlot = $slots[0]
+# Load first OPEN slot (or first existing if none open)
+$openSlots = Get-OpenMatrixSlots
+if ($openSlots.Count -gt 0) {
+    $currentSlot = $openSlots[0]
+} else {
+    $currentSlot = $existingSlots[0]  # Fallback if no windows open yet
+}
 $s = Load-Shader $currentSlot
 Load-TerminalEffects $currentSlot
 
@@ -546,15 +555,18 @@ try {
         $k = $key.Character
         $vk = $key.VirtualKeyCode
 
-        # Tab key (VK 9) to switch slots
+        # Tab key (VK 9) to switch between OPEN windows only
         if ($vk -eq 9) {
-            $slots = Get-ExistingSlots
-            $idx = [array]::IndexOf($slots, $currentSlot)
-            $idx = ($idx + 1) % $slots.Count
-            $currentSlot = $slots[$idx]
-            $s = Load-Shader $currentSlot
-            Load-TerminalEffects $currentSlot
-            $dirty = $false
+            $openSlots = Get-OpenMatrixSlots
+            if ($openSlots.Count -gt 0) {
+                $idx = [array]::IndexOf($openSlots, $currentSlot)
+                if ($idx -lt 0) { $idx = 0 }  # If current slot closed, go to first
+                $idx = ($idx + 1) % $openSlots.Count
+                $currentSlot = $openSlots[$idx]
+                $s = Load-Shader $currentSlot
+                Load-TerminalEffects $currentSlot
+                $dirty = $false
+            }
         }
         # Enter key (VK 13) to launch windows (only if launchCount > 0)
         elseif ($vk -eq 13) {
