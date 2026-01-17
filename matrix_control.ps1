@@ -3,6 +3,7 @@
 $matrixDir = "$env:USERPROFILE\Documents\Matrix"
 $shadersDir = "$matrixDir\shaders"
 $wtSettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+$windowRegistryPath = "$matrixDir\window-registry.json"
 
 $shaderTemplate = @'
 // MATRIX SHADER - SLOT {SLOT}
@@ -125,7 +126,15 @@ function Load-Shader($slot) {
             $map = @{ R="RAIN_R"; G="RAIN_G"; B="RAIN_B"; Speed="RAIN_SPEED"; Glow="GLOW_STRENGTH"; Width="CHAR_WIDTH"; Trail="TRAIL_POWER"; Dens="RAIN_DENSITY"; L1="SHOW_L1"; L2="SHOW_L2"; L3="SHOW_L3" }
             foreach ($k in $map.Keys) {
                 $m = [regex]::Match($c, "#define $($map[$k])\s+([\d\.]+)")
-                if ($m.Success) { $cfg[$k] = $m.Groups[1].Value }
+                if ($m.Success) {
+                    $val = $m.Groups[1].Value
+                    # Validate: must be valid float format (digits, optional single decimal, more digits)
+                    if ($val -match '^\d+\.?\d*$') {
+                        $cfg[$k] = $val
+                    } else {
+                        Write-Host " Warning: Invalid value '$val' for $($map[$k]), using default" -ForegroundColor Yellow
+                    }
+                }
             }
         }
         catch {
@@ -190,39 +199,9 @@ function Load-TerminalEffects($slot) {
 }
 
 function Save-TerminalEffects($slot) {
-    try {
-        $content = Get-Content $wtSettingsPath -Raw -ErrorAction Stop
-        $settings = $content | ConvertFrom-Json -ErrorAction Stop
-
-        # Apply transparency to ALL Matrix-N profiles (not Redpill) - affects running windows via hot-reload
-        for ($i = 0; $i -lt $settings.profiles.list.Count; $i++) {
-            $profileName = $settings.profiles.list[$i].name
-            # Only modify Matrix-1 through Matrix-8 profiles, skip Redpill
-            if ($profileName -match "^Matrix-\d+$") {
-                if ($transparency) {
-                    $settings.profiles.list[$i] | Add-Member -NotePropertyName 'opacity' -NotePropertyValue $opacity -Force
-                } else {
-                    $settings.profiles.list[$i].PSObject.Properties.Remove('opacity')
-                }
-            }
-        }
-
-        # Safe atomic write: write temp, then move (overwrites original in one operation)
-        $json = $settings | ConvertTo-Json -Depth 10
-        $tempPath = "$wtSettingsPath.tmp"
-        [System.IO.File]::WriteAllText($tempPath, $json, [System.Text.Encoding]::UTF8)
-        Move-Item $tempPath $wtSettingsPath -Force -ErrorAction Stop
-        return $true
-    }
-    catch {
-        Write-Host ""
-        Write-Host " Error saving terminal settings: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host " Your settings.json was not modified." -ForegroundColor Yellow
-        Start-Sleep -Seconds 2
-        # Clean up temp file if it exists
-        if (Test-Path $tempPath) { Remove-Item $tempPath -Force -ErrorAction SilentlyContinue }
-        return $false
-    }
+    # Just call Apply-WindowTransparency which handles all profiles
+    Apply-WindowTransparency
+    return $true
 }
 
 function Adj($p, $d, $mn, $mx) {
@@ -241,11 +220,12 @@ function Bar($val, $min, $max, $width) {
 }
 
 # --- WINDOW POSITIONING & TRANSPARENCY (P/Invoke) ---
-Add-Type -TypeDefinition @"
+Add-Type -ErrorAction SilentlyContinue -TypeDefinition @"
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Diagnostics;
 
 public class WindowAPI {
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
@@ -273,6 +253,9 @@ public class WindowAPI {
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT {
@@ -302,6 +285,35 @@ public class WindowAPI {
         }, IntPtr.Zero);
         return foundWindows;
     }
+
+    // Find ALL Windows Terminal windows (by process name) except those matching excludePattern
+    public static List<KeyValuePair<IntPtr, string>> FindAllTerminalWindows(string excludePattern) {
+        foundWindows = new List<KeyValuePair<IntPtr, string>>();
+        EnumWindows((hWnd, lParam) => {
+            if (IsWindowVisible(hWnd)) {
+                uint processId;
+                GetWindowThreadProcessId(hWnd, out processId);
+                try {
+                    var process = Process.GetProcessById((int)processId);
+                    // Check if this is a Windows Terminal window
+                    if (process.ProcessName.Equals("WindowsTerminal", StringComparison.OrdinalIgnoreCase)) {
+                        var sb = new StringBuilder(256);
+                        GetWindowText(hWnd, sb, 256);
+                        var title = sb.ToString();
+                        if (!string.IsNullOrEmpty(title)) {
+                            // Exclude windows matching the pattern (e.g., "Redpill")
+                            if (string.IsNullOrEmpty(excludePattern) ||
+                                !System.Text.RegularExpressions.Regex.IsMatch(title, excludePattern)) {
+                                foundWindows.Add(new KeyValuePair<IntPtr, string>(hWnd, title));
+                            }
+                        }
+                    }
+                } catch { }
+            }
+            return true;
+        }, IntPtr.Zero);
+        return foundWindows;
+    }
 }
 "@
 
@@ -318,15 +330,13 @@ function Get-ScreenDimensions {
 }
 
 function Position-MatrixWindows {
-    # Position ALL open Matrix windows evenly across screen (uses EnumWindows)
+    # Position ALL open Windows Terminal windows (except Redpill) evenly across screen
     Start-Sleep -Milliseconds 300
-    $windows = Get-MatrixWindows
-    if ($windows.Count -eq 0) { return }
+    $windowInfo = Get-MatrixWindowInfo
+    if ($windowInfo.Count -eq 0) { return }
 
-    # Sort windows by slot number (Matrix-1 leftmost, Matrix-2 next, etc.)
-    $sortedWindows = $windows | Sort-Object {
-        if ($_.Value -match "Matrix-(\d+)") { [int]$Matches[1] } else { 999 }
-    }
+    # Already sorted by slot number from Get-MatrixWindowInfo
+    $sortedWindows = $windowInfo
 
     $screen = Get-ScreenDimensions
     $windowCount = $sortedWindows.Count
@@ -336,49 +346,246 @@ function Position-MatrixWindows {
     $windowWidth = [int](($screen.Width - $totalGaps) / $windowCount)
 
     for ($i = 0; $i -lt $sortedWindows.Count; $i++) {
-        $hwnd = $sortedWindows[$i].Key
+        $hwnd = $sortedWindows[$i].Handle
         $x = $screen.X + $gapSize + ($i * ($windowWidth + $gapSize))
         [WindowAPI]::SetWindowPos($hwnd, [IntPtr]::Zero, $x, $screen.Y, $windowWidth, $screen.Height, 0x0014) | Out-Null
     }
 }
 
 function Get-MatrixWindows {
-    # Use EnumWindows to find ALL Matrix windows (works regardless of when they were opened)
-    $windows = [WindowAPI]::FindWindowsByPattern("^Matrix-\d+")
+    # Find ALL Windows Terminal windows EXCEPT the Redpill control panel
+    # These are all "Matrix windows" because they run with shader effects
+    $windows = [WindowAPI]::FindAllTerminalWindows("Redpill")
     return $windows
 }
 
-function Get-OpenMatrixSlots {
-    # Extract slot numbers from all open Matrix windows
-    $openSlots = @()
+function Get-WindowShaderMapping {
+    # Load window registry (handle -> shader file mapping)
+    $registry = @{}
+    if (Test-Path $windowRegistryPath) {
+        try {
+            $content = Get-Content $windowRegistryPath -Raw
+            $data = $content | ConvertFrom-Json
+            # Convert PSObject to hashtable
+            $data.PSObject.Properties | ForEach-Object { $registry[$_.Name] = $_.Value }
+        } catch { }
+    }
+    return $registry
+}
+
+function Clean-WindowRegistry {
+    # Remove stale entries for windows that no longer exist
+    if (-not (Test-Path $windowRegistryPath)) { return }
+
+    try {
+        $registry = Get-WindowShaderMapping
+        $currentWindows = Get-MatrixWindows
+        $validHandles = $currentWindows | ForEach-Object { $_.Key.ToString() }
+
+        $cleanedRegistry = @{}
+        foreach ($key in $registry.Keys) {
+            if ($key -in $validHandles) {
+                $cleanedRegistry[$key] = $registry[$key]
+            }
+        }
+
+        $cleanedRegistry | ConvertTo-Json | Set-Content $windowRegistryPath -Encoding UTF8
+    } catch { }
+}
+
+function Populate-WindowRegistry {
+    # Assign shaders to current windows that aren't in registry yet
+    # Uses title matching, profile detection, then sequential assignment
     $windows = Get-MatrixWindows
-    foreach ($win in $windows) {
-        if ($win.Value -match "Matrix-(\d+)") {
-            $openSlots += [int]$Matches[1]
+    $registry = Get-WindowShaderMapping
+    $usedSlots = @{}
+
+    # Track which slots are already used
+    foreach ($key in $registry.Keys) {
+        if ($registry[$key] -match "Matrix-(\d+)\.hlsl") {
+            $usedSlots[[int]$Matches[1]] = $true
         }
     }
-    return $openSlots | Sort-Object -Unique
+
+    # Also track slots from windows with Matrix-N titles
+    foreach ($win in $windows) {
+        if ($win.Value -match "Matrix-(\d+)") {
+            $usedSlots[[int]$Matches[1]] = $true
+        }
+    }
+
+    $nextSlot = 1
+    foreach ($win in $windows) {
+        $handleKey = $win.Key.ToString()
+
+        # Skip if already in registry
+        if ($registry.ContainsKey($handleKey)) { continue }
+
+        # Try to determine slot from title
+        if ($win.Value -match "Matrix-(\d+)") {
+            $slot = [int]$Matches[1]
+        }
+        # Try to determine from profile settings
+        else {
+            $slot = Get-SlotFromSettings $win.Value
+        }
+
+        # If still no slot, assign next available
+        if (-not $slot) {
+            while ($usedSlots.ContainsKey($nextSlot)) { $nextSlot++ }
+            $slot = $nextSlot
+            $nextSlot++
+        }
+
+        $registry[$handleKey] = "Matrix-$slot.hlsl"
+        $usedSlots[$slot] = $true
+    }
+
+    # Save updated registry
+    try {
+        $registry | ConvertTo-Json | Set-Content $windowRegistryPath -Encoding UTF8
+    } catch { }
+}
+
+function Save-CurrentState {
+    # Save current open slots to matrix_state.json for Blue Pill to use
+    $stateFile = "$matrixDir\matrix_state.json"
+    $openSlots = Get-OpenMatrixSlots
+
+    $state = @{
+        lastSlots = $openSlots
+        lastSaved = (Get-Date).ToString("o")
+    }
+
+    try {
+        $state | ConvertTo-Json | Set-Content $stateFile -Encoding UTF8
+    } catch { }
+}
+
+function Get-OpenMatrixSlots {
+    # Extract slot numbers from windows using registry + title fallback
+    $windowInfo = Get-MatrixWindowInfo
+    return $windowInfo | ForEach-Object { $_.Slot } | Sort-Object -Unique
+}
+
+function Get-SlotFromSettings($windowTitle) {
+    # Determine shader slot by checking profile settings
+    # Returns slot number or $null if can't determine
+    try {
+        $content = Get-Content $wtSettingsPath -Raw -ErrorAction Stop
+        $settings = $content | ConvertFrom-Json -ErrorAction Stop
+
+        # Check if window title contains any profile name with a shader override
+        foreach ($profile in $settings.profiles.list) {
+            if ($profile.name -and $windowTitle -like "*$($profile.name)*") {
+                if ($profile.'experimental.pixelShaderPath' -match "Matrix-(\d+)\.hlsl") {
+                    return [int]$Matches[1]
+                }
+            }
+        }
+
+        # Fallback to profiles.defaults
+        $defaultShader = $settings.profiles.defaults.'experimental.pixelShaderPath'
+        if ($defaultShader -match "Matrix-(\d+)\.hlsl") {
+            return [int]$Matches[1]
+        }
+    } catch { }
+    return $null
+}
+
+function Get-MatrixWindowInfo {
+    # Returns array of @{Handle, Title, Slot, ShaderPath} for all Matrix windows
+    # Uses registry first, then title/profile matching, then sequential fallback
+    $windows = Get-MatrixWindows
+    $registry = Get-WindowShaderMapping
+    $result = @()
+    $usedSlots = @{}
+
+    # First pass: assign slots from registry, title matching, or profile detection
+    foreach ($win in $windows) {
+        $handleKey = $win.Key.ToString()
+        $slot = $null
+        $shaderFile = $null
+
+        # Priority 1: Registry lookup (recorded at launch time)
+        if ($registry.ContainsKey($handleKey)) {
+            $shaderFile = $registry[$handleKey]
+            if ($shaderFile -match "Matrix-(\d+)\.hlsl") {
+                $slot = [int]$Matches[1]
+            }
+        }
+        # Priority 2: Title matching (Matrix-N in title)
+        elseif ($win.Value -match "Matrix-(\d+)") {
+            $slot = [int]$Matches[1]
+            $shaderFile = "Matrix-$slot.hlsl"
+        }
+        # Priority 3: Check profile settings for this window's title
+        else {
+            $slot = Get-SlotFromSettings $win.Value
+            if ($slot) {
+                $shaderFile = "Matrix-$slot.hlsl"
+            }
+        }
+
+        if ($slot) { $usedSlots[$slot] = $true }
+
+        $result += @{
+            Handle = $win.Key
+            Title = $win.Value
+            Slot = $slot
+            ShaderFile = $shaderFile
+        }
+    }
+
+    # Second pass: assign sequential slots to any still-unidentified windows
+    $nextSlot = 1
+    for ($i = 0; $i -lt $result.Count; $i++) {
+        if (-not $result[$i].Slot) {
+            while ($usedSlots.ContainsKey($nextSlot)) { $nextSlot++ }
+            $result[$i].Slot = $nextSlot
+            $result[$i].ShaderFile = "Matrix-$nextSlot.hlsl"
+            $usedSlots[$nextSlot] = $true
+            $nextSlot++
+        }
+        $result[$i].ShaderPath = "$shadersDir\$($result[$i].ShaderFile)"
+    }
+
+    return $result | Sort-Object { $_.Slot }
 }
 
 function Apply-WindowTransparency {
-    # Apply transparency to ALL Matrix windows via Windows API (uses EnumWindows)
-    $windows = Get-MatrixWindows
-    foreach ($win in $windows) {
-        $hwnd = $win.Key
-        $exStyle = [WindowAPI]::GetWindowLong($hwnd, [WindowAPI]::GWL_EXSTYLE)
+    # Apply transparency via Windows Terminal profile settings (background only, not text/effects)
+    # This modifies settings.json and Windows Terminal hot-reloads
+    try {
+        $content = Get-Content $wtSettingsPath -Raw -ErrorAction Stop
+        $settings = $content | ConvertFrom-Json -ErrorAction Stop
 
+        # Apply to profiles.defaults (affects windows using default profile)
         if ($script:transparency) {
-            # Enable layered window and set alpha
-            $newStyle = $exStyle -bor [WindowAPI]::WS_EX_LAYERED
-            [WindowAPI]::SetWindowLong($hwnd, [WindowAPI]::GWL_EXSTYLE, $newStyle) | Out-Null
-            $alpha = [byte]([int]($script:opacity * 2.55))  # Convert 0-100 to 0-255
-            [WindowAPI]::SetLayeredWindowAttributes($hwnd, 0, $alpha, [WindowAPI]::LWA_ALPHA) | Out-Null
+            $settings.profiles.defaults | Add-Member -NotePropertyName 'opacity' -NotePropertyValue $script:opacity -Force
         } else {
-            # Remove layered style (fully opaque)
-            $newStyle = $exStyle -band (-bnot [WindowAPI]::WS_EX_LAYERED)
-            [WindowAPI]::SetWindowLong($hwnd, [WindowAPI]::GWL_EXSTYLE, $newStyle) | Out-Null
+            $settings.profiles.defaults.PSObject.Properties.Remove('opacity')
         }
+
+        # Apply to ALL Matrix-N profiles
+        for ($i = 0; $i -lt $settings.profiles.list.Count; $i++) {
+            $profileName = $settings.profiles.list[$i].name
+            if ($profileName -match "^Matrix-\d+$") {
+                if ($script:transparency) {
+                    $settings.profiles.list[$i] | Add-Member -NotePropertyName 'opacity' -NotePropertyValue $script:opacity -Force
+                } else {
+                    $settings.profiles.list[$i].PSObject.Properties.Remove('opacity')
+                }
+            }
+        }
+
+        # Safe atomic write
+        $json = $settings | ConvertTo-Json -Depth 10
+        $tempPath = "$wtSettingsPath.tmp"
+        [System.IO.File]::WriteAllText($tempPath, $json, [System.Text.Encoding]::UTF8)
+        Move-Item $tempPath $wtSettingsPath -Force -ErrorAction Stop
     }
+    catch { }
 }
 
 function Launch-MatrixWindows([int]$count) {
@@ -424,24 +631,38 @@ function Launch-MatrixWindows([int]$count) {
 
 function UI {
     Clear-Host
-    $openSlots = Get-OpenMatrixSlots  # Only show OPEN windows, not all shader files
+    $windowInfo = Get-MatrixWindowInfo  # Get ALL Windows Terminal windows except Redpill
     $dirtyMark = if ($dirty) { "*" } else { " " }
 
     Write-Host ""
     Write-Host " RED PILL$dirtyMark- Tab $currentSlot" -ForegroundColor Red
     Write-Host ""
 
-    # Tab selector - only shows currently open Matrix windows
+    # Tab selector - shows ALL Windows Terminal windows with shader effects
     Write-Host " TABS: " -NoNewline
-    if ($openSlots.Count -eq 0) {
-        Write-Host "(no Matrix windows open)" -ForegroundColor DarkGray -NoNewline
+    if ($windowInfo.Count -eq 0) {
+        Write-Host "(no Matrix windows detected)" -ForegroundColor DarkGray -NoNewline
     } else {
-        foreach ($slot in $openSlots) {
-            $cfg = Load-Shader $slot
-            if ($slot -eq $currentSlot) {
-                Write-Host "[$slot]$(Swatch $cfg.R $cfg.G $cfg.B 1)" -NoNewline -ForegroundColor Yellow
+        foreach ($winInfo in $windowInfo) {
+            $slot = $winInfo.Slot
+            $title = $winInfo.Title
+            # For Matrix-N windows, load their shader config. For others, use defaults
+            if ($slot -lt 100) {
+                $cfg = Load-Shader $slot
+                $displayName = "$slot"
             } else {
-                Write-Host " $slot $(Swatch $cfg.R $cfg.G $cfg.B 1)" -NoNewline -ForegroundColor DarkGray
+                $cfg = $defaults.Clone()
+                # Abbreviate long titles (first 8 chars)
+                if ($title.Length -gt 8) {
+                    $displayName = $title.Substring(0, 8) + ".."
+                } else {
+                    $displayName = $title
+                }
+            }
+            if ($slot -eq $currentSlot) {
+                Write-Host "[$displayName]$(Swatch $cfg.R $cfg.G $cfg.B 1)" -NoNewline -ForegroundColor Yellow
+            } else {
+                Write-Host " $displayName $(Swatch $cfg.R $cfg.G $cfg.B 1)" -NoNewline -ForegroundColor DarkGray
             }
             Write-Host " " -NoNewline
         }
@@ -537,6 +758,10 @@ if ($existingSlots.Count -eq 0) {
     exit 1
 }
 
+# Clean stale window registry entries and populate with current windows
+Clean-WindowRegistry
+Populate-WindowRegistry
+
 # Load first OPEN slot (or first existing if none open)
 $openSlots = Get-OpenMatrixSlots
 if ($openSlots.Count -gt 0) {
@@ -557,6 +782,11 @@ try {
 
         # Tab key (VK 9) to switch between OPEN windows only
         if ($vk -eq 9) {
+            # Auto-save before switching tabs
+            if ($dirty) {
+                Save-Shader $currentSlot $s
+                $dirty = $false
+            }
             $openSlots = Get-OpenMatrixSlots
             if ($openSlots.Count -gt 0) {
                 $idx = [array]::IndexOf($openSlots, $currentSlot)
@@ -585,6 +815,7 @@ try {
         }
         # Escape key (VK 27) to quit
         elseif ($vk -eq 27) {
+            Save-CurrentState  # Save current window setup for next Blue Pill run
             return
         }
         else {
