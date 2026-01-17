@@ -2,6 +2,7 @@
 
 $matrixDir = "$env:USERPROFILE\Documents\Matrix"
 $shadersDir = "$matrixDir\shaders"
+$stateFile = "$matrixDir\matrix_state.json"
 $wtSettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
 
 $shaderTemplate = @'
@@ -111,10 +112,14 @@ function Write-Shader($slot, $cfg) {
     [System.IO.File]::WriteAllText($path, $content)
 }
 
-# Window Positioning API
+# Window Positioning API + Window Registry
 Add-Type @"
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Diagnostics;
+
 public class WindowPositioning {
     [DllImport("user32.dll")]
     public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
@@ -123,17 +128,84 @@ public class WindowPositioning {
     public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
     [DllImport("user32.dll")]
-    public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
     [DllImport("user32.dll")]
     public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
 
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_SHOWWINDOW = 0x0040;
+
+    private static List<KeyValuePair<IntPtr, string>> foundWindows;
+
+    // Find ALL Windows Terminal windows (by process name)
+    public static List<KeyValuePair<IntPtr, string>> FindAllTerminalWindows() {
+        foundWindows = new List<KeyValuePair<IntPtr, string>>();
+        EnumWindows((hWnd, lParam) => {
+            if (IsWindowVisible(hWnd)) {
+                uint processId;
+                GetWindowThreadProcessId(hWnd, out processId);
+                try {
+                    var process = Process.GetProcessById((int)processId);
+                    if (process.ProcessName.Equals("WindowsTerminal", StringComparison.OrdinalIgnoreCase)) {
+                        var sb = new StringBuilder(256);
+                        GetWindowText(hWnd, sb, 256);
+                        var title = sb.ToString();
+                        if (!string.IsNullOrEmpty(title)) {
+                            foundWindows.Add(new KeyValuePair<IntPtr, string>(hWnd, title));
+                        }
+                    }
+                } catch { }
+            }
+            return true;
+        }, IntPtr.Zero);
+        return foundWindows;
+    }
 }
 "@ -ErrorAction SilentlyContinue
+
+$windowRegistryPath = "$matrixDir\window-registry.json"
+
+function Get-AllTerminalWindows {
+    return [WindowPositioning]::FindAllTerminalWindows()
+}
+
+function Register-MatrixWindow($ShaderFile) {
+    # Wait for window to appear and stabilize
+    Start-Sleep -Milliseconds 800
+
+    $windows = Get-AllTerminalWindows
+    if ($windows.Count -eq 0) { return }
+
+    # Get the newest window (last one found, likely the one just opened)
+    $newest = $windows | Select-Object -Last 1
+
+    # Load existing registry
+    $registry = @{}
+    if (Test-Path $windowRegistryPath) {
+        try {
+            $content = Get-Content $windowRegistryPath -Raw
+            $data = $content | ConvertFrom-Json
+            # Convert PSObject to hashtable
+            $data.PSObject.Properties | ForEach-Object { $registry[$_.Name] = $_.Value }
+        } catch { }
+    }
+
+    # Add/update entry
+    $registry[$newest.Key.ToString()] = $ShaderFile
+
+    # Save registry
+    try {
+        $registry | ConvertTo-Json | Set-Content $windowRegistryPath -Encoding UTF8
+    } catch {
+        Write-Host "   Warning: Could not save window registry" -ForegroundColor Yellow
+    }
+}
 
 function Get-ScreenDimensions {
     Add-Type -AssemblyName System.Windows.Forms
@@ -234,6 +306,58 @@ if (-not (Test-Path $shadersDir)) {
     New-Item -ItemType Directory -Path $shadersDir -Force | Out-Null
 }
 
+# State persistence functions
+function Save-MatrixState($slots) {
+    $state = @{
+        lastSlots = $slots
+        lastSaved = (Get-Date).ToString("o")
+    }
+    try {
+        $state | ConvertTo-Json | Set-Content $stateFile -Encoding UTF8
+    } catch {
+        Write-Host "   Warning: Could not save state: $_" -ForegroundColor Yellow
+    }
+}
+
+function Load-MatrixState {
+    if (Test-Path $stateFile) {
+        try {
+            $state = Get-Content $stateFile -Raw | ConvertFrom-Json
+            return $state
+        } catch {
+            return $null
+        }
+    }
+    return $null
+}
+
+function Load-ShaderConfig($slot) {
+    # Read shader config from existing HLSL file
+    $path = "$shadersDir\Matrix-$slot.hlsl"
+    $cfg = $defaults.Clone()
+    if (Test-Path $path) {
+        try {
+            $c = Get-Content $path -Raw
+            $map = @{ R="RAIN_R"; G="RAIN_G"; B="RAIN_B"; Speed="RAIN_SPEED"; Glow="GLOW_STRENGTH"; Width="CHAR_WIDTH"; Trail="TRAIL_POWER"; Dens="RAIN_DENSITY" }
+            foreach ($k in $map.Keys) {
+                $m = [regex]::Match($c, "#define $($map[$k])\s+([\d\.]+)")
+                if ($m.Success) { $cfg[$k] = $m.Groups[1].Value }
+            }
+        } catch { }
+    }
+    $cfg['Slot'] = $slot
+    # Determine color name based on RGB values
+    $cfg['Name'] = "Custom"
+    foreach ($k in ('1','2','3','4','5','6')) {
+        $p = $presets[$k]
+        if ($cfg.R -eq $p.R -and $cfg.G -eq $p.G -and $cfg.B -eq $p.B) {
+            $cfg['Name'] = $p.Name
+            break
+        }
+    }
+    return $cfg
+}
+
 # MAIN
 Clear-Host
 Write-Host ""
@@ -241,39 +365,65 @@ Write-Host " WAKE UP, NEO..." -ForegroundColor Green
 Write-Host " ========================================" -ForegroundColor DarkGray
 Write-Host ""
 
-$numInput = Read-Host " How many Matrix tabs? (1-8)"
-$numTabs = [Math]::Max(1, [Math]::Min(8, [int]$numInput))
+# Check for previous state
+$previousState = Load-MatrixState
+$usePreviousState = $false
 
-$tabConfigs = @()
-
-for ($i = 1; $i -le $numTabs; $i++) {
-    Clear-Host
+if ($previousState -and $previousState.lastSlots.Count -gt 0) {
+    Write-Host " Previous session found:" -ForegroundColor Cyan
+    Write-Host "   $($previousState.lastSlots.Count) windows, slots: [$($previousState.lastSlots -join ', ')]" -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host " TAB $i OF $numTabs" -ForegroundColor Green
-    Write-Host " ========================================" -ForegroundColor DarkGray
-    Write-Host ""
-    foreach ($k in ('1','2','3','4','5','6')) {
-        $p = $presets[$k]
-        Write-Host "   [$k] $(Swatch $p.R $p.G $p.B 2) $($p.Name)"
+    $restore = Read-Host " Restore previous? (y/n)"
+    if ($restore -eq 'y' -or $restore -eq 'Y') {
+        $usePreviousState = $true
+        $numTabs = $previousState.lastSlots.Count
+        $tabConfigs = @()
+        foreach ($slot in $previousState.lastSlots) {
+            $cfg = Load-ShaderConfig $slot
+            $tabConfigs += $cfg
+        }
+        Write-Host ""
+        Write-Host " Restoring $numTabs window(s)..." -ForegroundColor Green
+    } else {
+        Write-Host ""
     }
-    Write-Host ""
+}
 
-    $choice = Read-Host " Color (1-6)"
-    if (-not $choice -or -not $presets.ContainsKey($choice)) { $choice = '1' }
-    $color = $presets[$choice]
+if (-not $usePreviousState) {
+    $numInput = Read-Host " How many Matrix tabs? (1-8)"
+    $numTabs = [Math]::Max(1, [Math]::Min(8, [int]$numInput))
 
-    $cfg = $defaults.Clone()
-    $cfg.R = $color.R
-    $cfg.G = $color.G
-    $cfg.B = $color.B
+    $tabConfigs = @()
 
-    $cfg['Slot'] = $i
-    $cfg['Name'] = $color.Name
-    $tabConfigs += $cfg
+    for ($i = 1; $i -le $numTabs; $i++) {
+        Clear-Host
+        Write-Host ""
+        Write-Host " TAB $i OF $numTabs" -ForegroundColor Green
+        Write-Host " ========================================" -ForegroundColor DarkGray
+        Write-Host ""
+        foreach ($k in ('1','2','3','4','5','6')) {
+            $p = $presets[$k]
+            Write-Host "   [$k] $(Swatch $p.R $p.G $p.B 2) $($p.Name)"
+        }
+        Write-Host ""
 
-    Write-Host ""
-    Write-Host " Tab ${i} - $(Swatch $cfg.R $cfg.G $cfg.B 2) $($color.Name)" -ForegroundColor Cyan
-    Start-Sleep -Milliseconds 300
+        $choice = Read-Host " Color (1-6)"
+        if (-not $choice -or -not $presets.ContainsKey($choice)) { $choice = '1' }
+        $color = $presets[$choice]
+
+        $cfg = $defaults.Clone()
+        $cfg.R = $color.R
+        $cfg.G = $color.G
+        $cfg.B = $color.B
+
+        $cfg['Slot'] = $i
+        $cfg['Name'] = $color.Name
+        $tabConfigs += $cfg
+
+        Write-Host ""
+        Write-Host " Tab ${i} - $(Swatch $cfg.R $cfg.G $cfg.B 2) $($color.Name)" -ForegroundColor Cyan
+        Start-Sleep -Milliseconds 300
+    }
 }
 
 # Summary
@@ -308,6 +458,10 @@ foreach ($cfg in $tabConfigs) {
     Write-Host "   Matrix-$($cfg.Slot).hlsl -> profile updated" -ForegroundColor DarkGray
 }
 
+# Save state for future "restore previous" option
+$slotsUsed = $tabConfigs | ForEach-Object { $_.Slot }
+Save-MatrixState $slotsUsed
+
 Start-Sleep -Milliseconds 500
 
 if ($choice -eq '2') {
@@ -320,9 +474,10 @@ if ($choice -eq '2') {
     foreach ($cfg in $tabConfigs) {
         $slot = $cfg.Slot
         $pname = "Matrix-$slot"
+        $shaderFile = "Matrix-$slot.hlsl"
         Write-Host "   Opening $pname..." -ForegroundColor DarkGray
         Start-Process wt -ArgumentList "-p `"$pname`""
-        Start-Sleep -Milliseconds 1500
+        Register-MatrixWindow $shaderFile
     }
 
     Write-Host ""
@@ -347,9 +502,10 @@ Write-Host " Opening windows..." -ForegroundColor Cyan
 foreach ($cfg in $tabConfigs) {
     $slot = $cfg.Slot
     $pname = "Matrix-$slot"
+    $shaderFile = "Matrix-$slot.hlsl"
     Write-Host "   Opening $pname..." -ForegroundColor DarkGray
     Start-Process wt -ArgumentList "-p `"$pname`""
-    Start-Sleep -Milliseconds 1500
+    Register-MatrixWindow $shaderFile
 }
 
 Write-Host ""

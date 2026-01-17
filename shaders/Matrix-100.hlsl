@@ -1,15 +1,15 @@
-// MATRIX SHADER - SLOT 2
-#define RAIN_R         1.0
-#define RAIN_G         0.7
-#define RAIN_B         0.0
+// MATRIX SHADER - SLOT 100
+#define RAIN_R         0.0
+#define RAIN_G         0.6
+#define RAIN_B         1.0
 #define RAIN_SPEED     0.8
 #define GLOW_STRENGTH  0.8
 #define FONT_SCALE     1.0
 #define CHAR_WIDTH     10.0
-#define TRAIL_POWER    7.5
+#define TRAIL_POWER    8.0
 #define RAIN_DENSITY   0.4
 #define SHOW_L1        1.0
-#define SHOW_L2        1.0
+#define SHOW_L2        0.0
 #define SHOW_L3        1.0
 
 Texture2D shaderTexture;
