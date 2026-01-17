@@ -76,8 +76,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Removed: space key handler (7 lines), Save-TerminalEffects function (5 lines), [SPACE] apply UI hint. -15 LOC."
     },
     {
       "id": "US-006",
