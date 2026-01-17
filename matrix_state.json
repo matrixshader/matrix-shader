@@ -1,7 +1,10 @@
 ﻿{
-    "lastSaved":  "2026-01-16T21:10:33.5149921-05:00",
-    "lastSlots":  [
-                      1,
-                      2
-                  ]
+    "lastSlots":  1,
+    "layout":  {
+                   "gapSize":  60,
+                   "preferredScreen":  0,
+                   "maxPillarsPerScreen":  4,
+                   "mode":  "Pillars"
+               },
+    "lastSaved":  "2026-01-17T14:49:31.9642219-05:00"
 }
