@@ -106,8 +106,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added UI Automation detection: Get-ProfileFromUIAutomation reads actual profile name from TermControl element. Updated Get-MatrixWindowInfo in matrix_control.ps1 to use UI Automation as primary detection (Priority 1), title match as fallback. Non-Matrix windows excluded. Updated Position-MatrixWindows in matrix_setup.ps1 with same UI Automation detection. Fixed bluepill.ps1: now uses matrix_state.json for slots (was incorrectly counting all shader files), uses UI Automation for detection, skips already-open windows. All three scripts (matrix_control.ps1, matrix_setup.ps1, bluepill.ps1) now use consistent UI Automation-based slot detection and positioning."
     },
     {
       "id": "US-008",
@@ -122,8 +122,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "TESTED. Fast title-only search (FindWindowsByPattern) - no process lookup. Multi-window: 670ms, 663ms, 958ms. Timeout: 5016ms. All 3 scripts use fast method. test-us008.ps1 verifies."
     },
     {
       "id": "US-009",
@@ -139,7 +139,7 @@
       ],
       "priority": 9,
       "passes": false,
-      "notes": ""
+      "notes": "NOT APPROVED. Test exists but awaiting permission to verify."
     },
     {
       "id": "US-010",
@@ -154,7 +154,7 @@
       ],
       "priority": 10,
       "passes": false,
-      "notes": ""
+      "notes": "NOT APPROVED. Test exists but awaiting permission to verify."
     }
   ]
 }
