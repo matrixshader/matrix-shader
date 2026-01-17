@@ -166,13 +166,59 @@ public class WindowPositioning {
         }, IntPtr.Zero);
         return foundWindows;
     }
+
+    // Fast title-only search (no process lookup) for polling
+    public static List<KeyValuePair<IntPtr, string>> FindWindowsByPattern(string pattern) {
+        foundWindows = new List<KeyValuePair<IntPtr, string>>();
+        EnumWindows((hWnd, lParam) => {
+            if (IsWindowVisible(hWnd)) {
+                var sb = new StringBuilder(256);
+                GetWindowText(hWnd, sb, 256);
+                var title = sb.ToString();
+                if (!string.IsNullOrEmpty(title) && System.Text.RegularExpressions.Regex.IsMatch(title, pattern)) {
+                    foundWindows.Add(new KeyValuePair<IntPtr, string>(hWnd, title));
+                }
+            }
+            return true;
+        }, IntPtr.Zero);
+        return foundWindows;
+    }
 }
 "@ -ErrorAction SilentlyContinue
+
+# Import WindowLayoutEngine for centralized positioning
+. "$PSScriptRoot\WindowLayoutEngine.ps1"
+
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
 
 $windowRegistryPath = "$matrixDir\window-registry.json"
 
 function Get-AllTerminalWindows {
     return [WindowPositioning]::FindAllTerminalWindows()
+}
+
+function Wait-ForMatrixWindow([string]$profileName, [int]$timeoutMs = 5000) {
+    # Poll for window with title containing profileName
+    # Returns $true if found, $false if timeout
+    # Uses fast title-only search (no process lookup) for speed
+    $pollInterval = 100
+    $startTime = Get-Date
+
+    while ($true) {
+        Start-Sleep -Milliseconds $pollInterval
+
+        # Strict timeout check
+        if (((Get-Date) - $startTime).TotalMilliseconds -ge $timeoutMs) {
+            return $false
+        }
+
+        # Fast check - just look for window title matching profile name
+        $matches = [WindowPositioning]::FindWindowsByPattern($profileName)
+        if ($matches.Count -gt 0) {
+            return $true
+        }
+    }
 }
 
 function Register-MatrixWindow($ShaderFile) {
@@ -218,56 +264,53 @@ function Get-ScreenDimensions {
     }
 }
 
+function Get-ProfileFromUIAutomation($windowHandle) {
+    # Use UI Automation to detect the actual profile name from TermControl element
+    try {
+        $auto = [System.Windows.Automation.AutomationElement]
+        $winElement = $auto::FromHandle($windowHandle)
+        if (-not $winElement) { return $null }
+
+        $allCondition = [System.Windows.Automation.Condition]::TrueCondition
+        $children = $winElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $allCondition)
+
+        foreach ($child in $children) {
+            $childName = $child.Current.Name
+            if ($childName -match "^Matrix-(\d+)$") {
+                return [int]$Matches[1]
+            }
+        }
+    } catch { }
+    return $null
+}
+
 function Position-MatrixWindows([int]$WindowCount) {
     # Wait for windows to fully initialize
     Start-Sleep -Milliseconds 500
 
-    $screen = Get-ScreenDimensions
+    # Find all Matrix windows and detect their slots via UI Automation
+    $windows = Get-AllTerminalWindows
+    $windowHandles = @{}
 
-    # Calculate gap size based on window count
-    # 2 windows = 150px gap, 4 windows = 75px gap, etc.
-    $gapSize = [int](300 / $WindowCount)
-    if ($gapSize -lt 50) { $gapSize = 50 }
+    foreach ($win in $windows) {
+        # Skip Redpill window
+        if ($win.Value -match "Redpill") { continue }
 
-    # Calculate window width
-    $totalGaps = ($WindowCount + 1) * $gapSize
-    $windowWidth = [int](($screen.Width - $totalGaps) / $WindowCount)
-
-    # Find Windows Terminal windows
-    $wtProcesses = Get-Process -Name "WindowsTerminal" -ErrorAction SilentlyContinue
-    if (-not $wtProcesses) {
-        Write-Host "   Could not find Windows Terminal processes" -ForegroundColor Yellow
-        return
-    }
-
-    # Get main window handles
-    $handles = @()
-    foreach ($proc in $wtProcesses) {
-        if ($proc.MainWindowHandle -ne [IntPtr]::Zero) {
-            $handles += $proc.MainWindowHandle
+        $slot = Get-ProfileFromUIAutomation $win.Key
+        if ($slot) {
+            $windowHandles["Matrix-$slot"] = @{ Handle = $win.Key }
         }
     }
 
-    # Position each window
-    $positioned = 0
-    foreach ($handle in $handles) {
-        if ($positioned -ge $WindowCount) { break }
-
-        $x = $screen.Left + $gapSize + ($positioned * ($windowWidth + $gapSize))
-        $y = $screen.Top
-
-        [WindowPositioning]::SetWindowPos(
-            $handle,
-            [IntPtr]::Zero,
-            $x, $y,
-            $windowWidth, $screen.Height,
-            [WindowPositioning]::SWP_NOZORDER -bor [WindowPositioning]::SWP_SHOWWINDOW
-        ) | Out-Null
-
-        $positioned++
+    if ($windowHandles.Count -eq 0) {
+        Write-Host "   No Matrix windows detected" -ForegroundColor Yellow
+        return
     }
 
-    Write-Host "   Positioned $positioned windows" -ForegroundColor DarkGray
+    # Use WindowLayoutEngine for positioning
+    $result = Invoke-MatrixWindowLayout -WindowHandles $windowHandles -Mode 'Auto'
+
+    Write-Host "   Positioned $($windowHandles.Count) windows by slot order" -ForegroundColor DarkGray
 }
 
 function Update-ProfileShaderPath([int]$Slot) {
@@ -474,10 +517,14 @@ if ($choice -eq '2') {
     foreach ($cfg in $tabConfigs) {
         $slot = $cfg.Slot
         $pname = "Matrix-$slot"
-        $shaderFile = "Matrix-$slot.hlsl"
-        Write-Host "   Opening $pname..." -ForegroundColor DarkGray
+        Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
         Start-Process wt -ArgumentList "-p `"$pname`""
-        Register-MatrixWindow $shaderFile
+
+        if (Wait-ForMatrixWindow $pname) {
+            Write-Host " OK" -ForegroundColor Green
+        } else {
+            Write-Host " TIMEOUT" -ForegroundColor Yellow
+        }
     }
 
     Write-Host ""
@@ -495,17 +542,21 @@ if ($choice -eq '2') {
     exit
 }
 
-# Blue Pill path - just open windows (shaders already created above)
+# Blue Pill path - launch windows user just configured
 Write-Host ""
 Write-Host " Opening windows..." -ForegroundColor Cyan
 
 foreach ($cfg in $tabConfigs) {
     $slot = $cfg.Slot
     $pname = "Matrix-$slot"
-    $shaderFile = "Matrix-$slot.hlsl"
-    Write-Host "   Opening $pname..." -ForegroundColor DarkGray
+    Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
     Start-Process wt -ArgumentList "-p `"$pname`""
-    Register-MatrixWindow $shaderFile
+
+    if (Wait-ForMatrixWindow $pname) {
+        Write-Host " OK" -ForegroundColor Green
+    } else {
+        Write-Host " TIMEOUT" -ForegroundColor Yellow
+    }
 }
 
 Write-Host ""

@@ -103,6 +103,16 @@ $opacity = 100
 # Launch settings
 $launchCount = 0
 
+# Diagnostic logging (only when MATRIX_DEBUG=1)
+$debugLogPath = "$matrixDir\debug.log"
+
+function Write-Log([string]$message, [string]$operation = "INFO") {
+    if ($env:MATRIX_DEBUG -ne "1") { return }
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
+    $entry = "[$timestamp] [$operation] $message"
+    Add-Content -Path $debugLogPath -Value $entry -ErrorAction SilentlyContinue
+}
+
 function Swatch($r,$g,$b,$w) {
     "$([char]27)[48;2;$([int]([float]$r*255));$([int]([float]$g*255));$([int]([float]$b*255))m$(' '*$w)$([char]27)[0m"
 }
@@ -147,15 +157,18 @@ function Load-Shader($slot) {
 
 function Save-Shader($slot, $cfg) {
     $path = "$shadersDir\Matrix-$slot.hlsl"
+    Write-Log "Saving shader slot=$slot R=$($cfg.R) G=$($cfg.G) B=$($cfg.B)" "SAVE"
     $content = $shaderTemplate -replace '\{SLOT\}',$slot -replace '\{R\}',$cfg.R -replace '\{G\}',$cfg.G -replace '\{B\}',$cfg.B `
         -replace '\{SPEED\}',$cfg.Speed -replace '\{GLOW\}',$cfg.Glow -replace '\{WIDTH\}',$cfg.Width `
         -replace '\{TRAIL\}',$cfg.Trail -replace '\{DENS\}',$cfg.Dens `
         -replace '\{L1\}',$cfg.L1 -replace '\{L2\}',$cfg.L2 -replace '\{L3\}',$cfg.L3
     try {
         [System.IO.File]::WriteAllText($path, $content)
+        Write-Log "Shader saved successfully: $path" "SAVE"
         return $true
     }
     catch {
+        Write-Log "ERROR saving shader: $($_.Exception.Message)" "SAVE"
         Write-Host ""
         Write-Host " Error saving shader: $($_.Exception.Message)" -ForegroundColor Red
         Start-Sleep -Seconds 2
@@ -251,6 +264,14 @@ public class WindowAPI {
     [DllImport("user32.dll", SetLastError = true)]
     public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
+
+    public const int SW_RESTORE = 9;
+
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT {
         public int Left, Top, Right, Bottom;
@@ -312,6 +333,11 @@ public class WindowAPI {
 "@
 
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+
+# Import Window Layout Engine
+. "$PSScriptRoot\WindowLayoutEngine.ps1"
 
 function Get-ScreenDimensions {
     $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
@@ -324,25 +350,33 @@ function Get-ScreenDimensions {
 }
 
 function Position-MatrixWindows {
-    # Position ALL open Windows Terminal windows (except Redpill) evenly across screen
+    # Position ALL open Windows Terminal windows (except Redpill) using the Window Layout Engine
+    # Supports Pillars (vertical columns) and Quads (2x2 grid) layout modes
+    Write-Log "Positioning windows via Layout Engine..." "POSITION"
     Start-Sleep -Milliseconds 300
     $windowInfo = Get-MatrixWindowInfo
-    if ($windowInfo.Count -eq 0) { return }
+    if ($windowInfo.Count -eq 0) {
+        Write-Log "No windows to position" "POSITION"
+        return
+    }
 
-    # Already sorted by slot number from Get-MatrixWindowInfo
-    $sortedWindows = $windowInfo
+    # Build hashtable for Invoke-MatrixWindowLayout: Key = shader name, Value = @{Handle}
+    $windowHandles = @{}
+    foreach ($win in $windowInfo) {
+        $windowHandles["Matrix-$($win.Slot)"] = @{ Handle = $win.Handle }
+    }
 
-    $screen = Get-ScreenDimensions
-    $windowCount = $sortedWindows.Count
-    $gapSize = [int](300 / $windowCount)
-    if ($gapSize -lt 50) { $gapSize = 50 }
-    $totalGaps = ($windowCount + 1) * $gapSize
-    $windowWidth = [int](($screen.Width - $totalGaps) / $windowCount)
+    # Get layout configuration and invoke the layout engine
+    $config = Get-MatrixLayoutConfig
+    $mode = if ($config.Mode) { $config.Mode } else { 'Pillars' }
+    Write-Log "Layout mode: $mode, Windows: $($windowInfo.Count)" "POSITION"
 
-    for ($i = 0; $i -lt $sortedWindows.Count; $i++) {
-        $hwnd = $sortedWindows[$i].Handle
-        $x = $screen.X + $gapSize + ($i * ($windowWidth + $gapSize))
-        [WindowAPI]::SetWindowPos($hwnd, [IntPtr]::Zero, $x, $screen.Y, $windowWidth, $screen.Height, 0x0014) | Out-Null
+    try {
+        Invoke-MatrixWindowLayout -WindowHandles $windowHandles -Mode $mode
+        Write-Log "Layout applied successfully" "POSITION"
+    }
+    catch {
+        Write-Log "ERROR applying layout: $($_.Exception.Message)" "POSITION"
     }
 }
 
@@ -419,9 +453,12 @@ function Populate-WindowRegistry {
         if ($win.Value -match "Matrix-(\d+)") {
             $slot = [int]$Matches[1]
         }
-        # Try to determine from profile settings
+        # Try to determine from profile settings (only if slot not already used)
         else {
-            $slot = Get-SlotFromSettings $win.Value
+            $profileSlot = Get-SlotFromSettings $win.Value
+            if ($profileSlot -and -not $usedSlots.ContainsKey($profileSlot)) {
+                $slot = $profileSlot
+            }
         }
 
         # If still no slot, assign next available
@@ -487,64 +524,82 @@ function Get-SlotFromSettings($windowTitle) {
     return $null
 }
 
-function Get-MatrixWindowInfo {
-    # Returns array of @{Handle, Title, Slot, ShaderPath} for all Matrix windows
-    # Uses registry first, then title/profile matching, then sequential fallback
-    $windows = Get-MatrixWindows
-    $registry = Get-WindowShaderMapping
-    $result = @()
-    $usedSlots = @{}
+function Get-ProfileFromUIAutomation($windowHandle) {
+    # Use UI Automation to detect the actual profile name from TermControl element
+    try {
+        $auto = [System.Windows.Automation.AutomationElement]
+        $winElement = $auto::FromHandle($windowHandle)
+        if (-not $winElement) { return $null }
 
-    # First pass: assign slots from registry, title matching, or profile detection
+        $allCondition = [System.Windows.Automation.Condition]::TrueCondition
+        $children = $winElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $allCondition)
+
+        foreach ($child in $children) {
+            $childName = $child.Current.Name
+            if ($childName -match "^Matrix-(\d+)$") {
+                return [int]$Matches[1]
+            }
+        }
+    } catch { }
+    return $null
+}
+
+function Get-MatrixWindowInfo {
+    # Returns array of @{Handle, Title, Slot, ShaderPath} for Matrix windows ONLY
+    # Only includes windows with detected Matrix-N profile (via UI Automation or title)
+    # Windows without Matrix profiles are excluded
+    Write-Log "Detecting Matrix windows..." "DETECT"
+    $windows = Get-MatrixWindows
+    Write-Log "Found $($windows.Count) terminal windows" "DETECT"
+    $result = @()
+
     foreach ($win in $windows) {
-        $handleKey = $win.Key.ToString()
         $slot = $null
         $shaderFile = $null
 
-        # Priority 1: Registry lookup (recorded at launch time)
-        if ($registry.ContainsKey($handleKey)) {
-            $shaderFile = $registry[$handleKey]
-            if ($shaderFile -match "Matrix-(\d+)\.hlsl") {
-                $slot = [int]$Matches[1]
-            }
+        # Priority 1: UI Automation - reads actual profile from TermControl
+        $uiSlot = Get-ProfileFromUIAutomation $win.Key
+        if ($uiSlot) {
+            $slot = $uiSlot
+            $shaderFile = "Matrix-$slot.hlsl"
+            Write-Log "  UI Automation: handle=$($win.Key) -> Slot $slot" "DETECT"
         }
         # Priority 2: Title matching (Matrix-N in title)
         elseif ($win.Value -match "Matrix-(\d+)") {
             $slot = [int]$Matches[1]
             $shaderFile = "Matrix-$slot.hlsl"
+            Write-Log "  Title match: handle=$($win.Key) -> Slot $slot" "DETECT"
         }
-        # Priority 3: Check profile settings for this window's title
+        # No Matrix profile detected - skip this window
         else {
-            $slot = Get-SlotFromSettings $win.Value
-            if ($slot) {
-                $shaderFile = "Matrix-$slot.hlsl"
-            }
+            Write-Log "  Skipping non-Matrix window: handle=$($win.Key) title='$($win.Value)'" "DETECT"
+            continue
         }
-
-        if ($slot) { $usedSlots[$slot] = $true }
 
         $result += @{
             Handle = $win.Key
             Title = $win.Value
             Slot = $slot
             ShaderFile = $shaderFile
+            ShaderPath = "$shadersDir\$shaderFile"
         }
     }
 
-    # Second pass: assign sequential slots to any still-unidentified windows
-    $nextSlot = 1
-    for ($i = 0; $i -lt $result.Count; $i++) {
-        if (-not $result[$i].Slot) {
-            while ($usedSlots.ContainsKey($nextSlot)) { $nextSlot++ }
-            $result[$i].Slot = $nextSlot
-            $result[$i].ShaderFile = "Matrix-$nextSlot.hlsl"
-            $usedSlots[$nextSlot] = $true
-            $nextSlot++
-        }
-        $result[$i].ShaderPath = "$shadersDir\$($result[$i].ShaderFile)"
+    # Update registry with detected mappings
+    $registry = @{}
+    foreach ($w in $result) {
+        $registry[$w.Handle.ToString()] = $w.ShaderFile
     }
+    try {
+        $registry | ConvertTo-Json | Set-Content $windowRegistryPath -Encoding UTF8
+    } catch { }
 
-    return $result | Sort-Object { $_.Slot }
+    $sorted = $result | Sort-Object { $_.Slot }
+    Write-Log "Detected $($sorted.Count) Matrix windows" "DETECT"
+    foreach ($w in $sorted) {
+        Write-Log "  Slot $($w.Slot): handle=$($w.Handle) title='$($w.Title)'" "DETECT"
+    }
+    return $sorted
 }
 
 function Apply-WindowTransparency {
@@ -582,14 +637,40 @@ function Apply-WindowTransparency {
     catch { }
 }
 
+function Wait-ForMatrixWindow([string]$profileName, [int]$timeoutMs = 5000) {
+    # Poll for window with title containing profileName (e.g., "Matrix-1")
+    # Returns $true if found, $false if timeout
+    # Uses fast title-only search (no process lookup) for speed
+    $pollInterval = 100
+    $startTime = Get-Date
+
+    while ($true) {
+        Start-Sleep -Milliseconds $pollInterval
+
+        # Strict timeout check
+        if (((Get-Date) - $startTime).TotalMilliseconds -ge $timeoutMs) {
+            return $false
+        }
+
+        # Fast check - just look for window title matching profile name
+        $matches = [WindowAPI]::FindWindowsByPattern($profileName)
+        if ($matches.Count -gt 0) {
+            return $true
+        }
+    }
+}
+
 function Launch-MatrixWindows([int]$count) {
+    Write-Log "Launch requested: count=$count" "LAUNCH"
     $existingSlots = Get-ExistingSlots
     $openSlots = Get-OpenMatrixSlots
+    Write-Log "Existing slots: $($existingSlots -join ',') Open: $($openSlots -join ',')" "LAUNCH"
 
     # Find available slots (exist but not currently open)
     $availableSlots = $existingSlots | Where-Object { $_ -notin $openSlots }
 
     if ($availableSlots.Count -eq 0) {
+        Write-Log "No available slots to launch" "LAUNCH"
         Write-Host ""
         Write-Host " All Matrix windows are already open!" -ForegroundColor Yellow
         Start-Sleep -Seconds 2
@@ -598,6 +679,7 @@ function Launch-MatrixWindows([int]$count) {
 
     $numWindows = [Math]::Min($count, $availableSlots.Count)
     $slotsToLaunch = $availableSlots | Select-Object -First $numWindows
+    Write-Log "Launching slots: $($slotsToLaunch -join ',')" "LAUNCH"
 
     # Save shaders for slots we're launching
     foreach ($slot in $slotsToLaunch) {
@@ -611,9 +693,16 @@ function Launch-MatrixWindows([int]$count) {
 
     foreach ($slot in $slotsToLaunch) {
         $pname = "Matrix-$slot"
-        Write-Host "   Opening $pname..." -ForegroundColor DarkGray
+        Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
         Start-Process wt -ArgumentList "-p `"$pname`""
-        Start-Sleep -Milliseconds 1500
+
+        if (Wait-ForMatrixWindow $pname) {
+            Write-Log "Window $pname launched successfully" "LAUNCH"
+            Write-Host " OK" -ForegroundColor Green
+        } else {
+            Write-Log "Window $pname TIMEOUT after 5s" "LAUNCH"
+            Write-Host " TIMEOUT (5s)" -ForegroundColor Yellow
+        }
     }
 
     # Position ALL open Matrix windows (existing + new)
@@ -699,15 +788,21 @@ function UI {
     Write-Host "  [9] Near: " -NoNewline; Write-Host $l3 -ForegroundColor $l3c
     Write-Host ""
 
-    # Terminal Effects (transparency)
+    # Terminal Effects (transparency and layout)
     Write-Host " WINDOW EFFECTS" -ForegroundColor Cyan
     $transStatus = if($transparency){"ON "}else{"off"}
     $transColor = if($transparency){"Cyan"}else{"DarkGray"}
     Write-Host " [B] Transparency:  " -NoNewline; Write-Host $transStatus -ForegroundColor $transColor -NoNewline
     Write-Host "  (toggles & applies)" -ForegroundColor DarkGray
     if ($transparency) {
-        Write-Host " [K/L] Opacity:     $($opacity.ToString().PadLeft(3))% $(Bar $opacity 0 100 15)"
+        Write-Host " [K/l] Opacity:     $($opacity.ToString().PadLeft(3))% $(Bar $opacity 0 100 15)"
     }
+    # Layout mode display
+    $layoutConfig = Get-MatrixLayoutConfig
+    $layoutMode = if ($layoutConfig.Mode) { $layoutConfig.Mode } else { 'Pillars' }
+    $layoutColor = if ($layoutMode -eq 'Pillars') { "Yellow" } else { "Magenta" }
+    Write-Host " [Shift+L] Layout:  " -NoNewline; Write-Host $layoutMode -ForegroundColor $layoutColor -NoNewline
+    Write-Host "  (Pillars=columns, Quads=2x2)" -ForegroundColor DarkGray
     Write-Host ""
 
     # Launch section
@@ -805,7 +900,25 @@ try {
             return
         }
         else {
-            switch -CaseSensitive ($k) {
+            # Handle Shift+L (uppercase L) for layout mode BEFORE normalizing
+            # This preserves case-sensitivity for layout toggle vs opacity control
+            if ($k -ceq 'L') {
+                # Cycle layout mode: Pillars -> Quads -> Pillars
+                $config = Get-MatrixLayoutConfig
+                $newMode = if ($config.Mode -eq 'Pillars') { 'Quads' } else { 'Pillars' }
+                $config.Mode = $newMode
+                Set-MatrixLayoutConfig -Config $config
+                Position-MatrixWindows
+                Write-Host ""
+                Write-Host " Layout mode: $newMode" -ForegroundColor Cyan
+                Start-Sleep -Milliseconds 800
+                continue
+            }
+
+            # Normalize letter keys to lowercase for case-insensitive handling
+            $key = if ($k -match '^[A-Za-z]$') { $k.ToLower() } else { $k }
+
+            switch ($key) {
                 # Color presets (1-6)
                 '1' { $s.R="0.0"; $s.G="1.0"; $s.B="0.3"; $dirty=$true }
                 '2' { $s.R="0.0"; $s.G="0.6"; $s.B="1.0"; $dirty=$true }
@@ -816,80 +929,35 @@ try {
 
                 # RGB controls (Q/W, A/S, Z/X)
                 'q' { Adj 'R' -0.05 0 1 }
-                'Q' { Adj 'R' -0.05 0 1 }
                 'w' { Adj 'R' 0.05 0 1 }
-                'W' { Adj 'R' 0.05 0 1 }
                 'a' { Adj 'G' -0.05 0 1 }
-                'A' { Adj 'G' -0.05 0 1 }
                 's' { Adj 'G' 0.05 0 1 }
-                'S' { Adj 'G' 0.05 0 1 }
                 'z' { Adj 'B' -0.05 0 1 }
-                'Z' { Adj 'B' -0.05 0 1 }
                 'x' { Adj 'B' 0.05 0 1 }
-                'X' { Adj 'B' 0.05 0 1 }
 
                 # Effects (paired keys for -/+)
                 'e' { Adj 'Speed' -0.1 0.1 3 }
-                'E' { Adj 'Speed' -0.1 0.1 3 }
                 'r' { Adj 'Speed' 0.1 0.1 3 }
-                'R' { Adj 'Speed' 0.1 0.1 3 }
                 'd' { Adj 'Glow' -0.1 0.2 3 }
-                'D' { Adj 'Glow' -0.1 0.2 3 }
                 'f' { Adj 'Glow' 0.1 0.2 3 }
-                'F' { Adj 'Glow' 0.1 0.2 3 }
                 'c' { Adj 'Width' -1 6 20 }
-                'C' { Adj 'Width' -1 6 20 }
                 'v' { Adj 'Width' 1 6 20 }
-                'V' { Adj 'Width' 1 6 20 }
                 't' { Adj 'Trail' -0.5 4 15 }
-                'T' { Adj 'Trail' -0.5 4 15 }
                 'y' { Adj 'Trail' 0.5 4 15 }
-                'Y' { Adj 'Trail' 0.5 4 15 }
                 'g' { Adj 'Dens' -0.1 0.2 1 }
-                'G' { Adj 'Dens' -0.1 0.2 1 }
                 'h' { Adj 'Dens' 0.1 0.2 1 }
-                'H' { Adj 'Dens' 0.1 0.2 1 }
 
                 # Layers (7/8/9)
                 '7' { $s.L1 = if($s.L1 -eq "1.0"){"0.0"}else{"1.0"}; $dirty=$true }
                 '8' { $s.L2 = if($s.L2 -eq "1.0"){"0.0"}else{"1.0"}; $dirty=$true }
                 '9' { $s.L3 = if($s.L3 -eq "1.0"){"0.0"}else{"1.0"}; $dirty=$true }
 
-                # Window transparency - applies directly to live windows via Windows API
-                'b' {
-                    $script:transparency = -not $transparency
-                    Apply-WindowTransparency
-                }
-                'B' {
-                    $script:transparency = -not $transparency
-                    Apply-WindowTransparency
-                }
-                'k' {
-                    if ($transparency -and $opacity -gt 0) {
-                        $script:opacity = $opacity - 5
-                        Apply-WindowTransparency
-                    }
-                }
-                'K' {
-                    if ($transparency -and $opacity -gt 0) {
-                        $script:opacity = $opacity - 5
-                        Apply-WindowTransparency
-                    }
-                }
-                'l' {
-                    if ($transparency -and $opacity -lt 100) {
-                        $script:opacity = $opacity + 5
-                        Apply-WindowTransparency
-                    }
-                }
-                'L' {
-                    if ($transparency -and $opacity -lt 100) {
-                        $script:opacity = $opacity + 5
-                        Apply-WindowTransparency
-                    }
-                }
+                # Window transparency
+                'b' { $script:transparency = -not $transparency; Apply-WindowTransparency }
+                'k' { if ($transparency -and $opacity -gt 0) { $script:opacity = $opacity - 5; Apply-WindowTransparency } }
+                'l' { if ($transparency -and $opacity -lt 100) { $script:opacity = $opacity + 5; Apply-WindowTransparency } }
 
-                # Launch count controls (based on available slots, not all slots)
+                # Launch count controls
                 '-' { if ($launchCount -gt 0) { $script:launchCount = $launchCount - 1 } }
                 '+' {
                     $existingSlots = Get-ExistingSlots
@@ -907,15 +975,8 @@ try {
                 # Reset
                 '0' { $s = $defaults.Clone(); $dirty=$true }
 
-                # Save shader (P key)
+                # Save shader
                 'p' {
-                    Save-Shader $currentSlot $s
-                    $dirty = $false
-                    Write-Host ""
-                    Write-Host " Shader saved! Changes apply automatically." -ForegroundColor Green
-                    Start-Sleep -Milliseconds 1200
-                }
-                'P' {
                     Save-Shader $currentSlot $s
                     $dirty = $false
                     Write-Host ""
