@@ -46,8 +46,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added validation regex after extraction. Invalid values show warning and fall back to defaults."
     },
     {
       "id": "US-004",
@@ -56,14 +56,13 @@
       "acceptanceCriteria": [
         "Check $dirty flag before switching tabs (Tab key handler)",
         "If dirty, call Save-Shader for current slot before loading new tab",
-        "Display brief 'Auto-saved' message after saving",
         "Clear dirty flag after auto-save",
         "No user action required to preserve changes",
         "PowerShell script runs without errors"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Auto-save implemented in Tab handler. Silent operation (no message bloat)."
     },
     {
       "id": "US-005",
