@@ -198,12 +198,6 @@ function Load-TerminalEffects($slot) {
     }
 }
 
-function Save-TerminalEffects($slot) {
-    # Just call Apply-WindowTransparency which handles all profiles
-    Apply-WindowTransparency
-    return $true
-}
-
 function Adj($p, $d, $mn, $mx) {
     $v = [float]$s[$p] + $d
     if ($v -ge $mn -and $v -le $mx) {
@@ -712,8 +706,7 @@ function UI {
     Write-Host " [B] Transparency:  " -NoNewline; Write-Host $transStatus -ForegroundColor $transColor -NoNewline
     Write-Host "  (toggles & applies)" -ForegroundColor DarkGray
     if ($transparency) {
-        Write-Host " [K/L] Opacity:     $($opacity.ToString().PadLeft(3))% $(Bar $opacity 0 100 15)" -NoNewline
-        Write-Host "  [SPACE] apply" -ForegroundColor DarkGray
+        Write-Host " [K/L] Opacity:     $($opacity.ToString().PadLeft(3))% $(Bar $opacity 0 100 15)"
     }
     Write-Host ""
 
@@ -805,13 +798,6 @@ try {
                 $dirty = $false
                 Launch-MatrixWindows $launchCount
             }
-        }
-        # Space key (VK 32) to apply window effects
-        elseif ($vk -eq 32) {
-            Save-TerminalEffects $currentSlot
-            Write-Host ""
-            Write-Host " Window effects applied!" -ForegroundColor Cyan
-            Start-Sleep -Milliseconds 800
         }
         # Escape key (VK 27) to quit
         elseif ($vk -eq 27) {
