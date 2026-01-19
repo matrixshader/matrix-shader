@@ -1,0 +1,12 @@
+{
+  "slots": {
+    "1": { "r": 0.0, "g": 1.0, "b": 0.2, "speed": 1.0, "glow": 1.5, "scale": 1.0, "width": 8.0, "trail": 8.0, "density": 1.0, "l1": true, "l2": true, "l3": true },
+    "2": { "r": 0.0, "g": 0.5, "b": 1.0, "speed": 1.0, "glow": 1.5, "scale": 1.0, "width": 8.0, "trail": 8.0, "density": 1.0, "l1": true, "l2": true, "l3": true },
+    "3": { "r": 1.0, "g": 0.0, "b": 0.0, "speed": 1.0, "glow": 1.5, "scale": 1.0, "width": 8.0, "trail": 8.0, "density": 1.0, "l1": true, "l2": true, "l3": true },
+    "4": { "r": 0.8, "g": 0.0, "b": 1.0, "speed": 1.0, "glow": 1.5, "scale": 1.0, "width": 8.0, "trail": 8.0, "density": 1.0, "l1": true, "l2": true, "l3": true },
+    "5": { "r": 1.0, "g": 0.8, "b": 0.0, "speed": 1.0, "glow": 1.5, "scale": 1.0, "width": 8.0, "trail": 8.0, "density": 1.0, "l1": true, "l2": true, "l3": true },
+    "6": { "r": 0.0, "g": 1.0, "b": 1.0, "speed": 1.0, "glow": 1.5, "scale": 1.0, "width": 8.0, "trail": 8.0, "density": 1.0, "l1": true, "l2": true, "l3": true },
+    "7": { "r": 1.0, "g": 0.4, "b": 0.7, "speed": 1.0, "glow": 1.5, "scale": 1.0, "width": 8.0, "trail": 8.0, "density": 1.0, "l1": true, "l2": true, "l3": true },
+    "8": { "r": 1.0, "g": 1.0, "b": 1.0, "speed": 1.0, "glow": 1.5, "scale": 1.0, "width": 8.0, "trail": 8.0, "density": 1.0, "l1": true, "l2": true, "l3": true }
+  }
+}

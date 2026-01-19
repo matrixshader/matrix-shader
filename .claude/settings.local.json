@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(start notepad:*)"
+    ]
+  },
+  "enabledPlugins": {
+    "explanatory-output-style@claude-code-plugins": true
+  }
+}

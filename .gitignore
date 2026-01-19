@@ -1,0 +1,14 @@
+# Temporary files
+nul
+*.tmp
+
+# Image assets (working files)
+*.jpg
+*.png
+
+# Debug logs
+debug.log
+*.log
+
+# PowerShell temp files
+*.ps1.bak
