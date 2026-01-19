@@ -219,7 +219,20 @@ function Get-ScreenTopology {
             }
         }
 
-        return $topology
+        # Sort screens: Primary first, then left-to-right by position
+        # This ensures Windows' actual primary monitor is always index 0
+        $sorted = $topology | Sort-Object -Property @(
+            @{Expression = {-[int]$_.IsPrimary}; Ascending = $true},  # Primary first (IsPrimary=true sorts before false)
+            @{Expression = {$_.Left}; Ascending = $true}               # Then left-to-right
+        )
+
+        # Re-index after sorting so Index matches position in array
+        for ($i = 0; $i -lt $sorted.Count; $i++) {
+            $sorted[$i].Index = $i
+        }
+
+        Write-LayoutLog "Screen topology: $($sorted.Count) screens, primary at index 0" -Level "DEBUG"
+        return $sorted
     }
     catch {
         Write-Warning "Failed to detect screen topology: $_"
@@ -340,6 +353,130 @@ function Get-WindowDistribution {
     return $distribution
 }
 
+<#
+.SYNOPSIS
+    Distribute windows with user-controlled primary screen allocation.
+
+.DESCRIPTION
+    Distributes windows across screens, respecting the WindowsOnPrimary setting.
+    Primary screen (index 0) gets the specified number of windows first,
+    then overflow goes to secondary screens.
+
+    Examples:
+    - WindowsOnPrimary=3, Total=5: Primary gets 3, Secondary gets 2
+    - WindowsOnPrimary=null (Auto): All windows on primary (single-screen behavior)
+    - WindowsOnPrimary=0: All windows on secondary screens
+
+.PARAMETER WindowCount
+    Total number of windows to distribute
+
+.PARAMETER ScreenCount
+    Number of available screens
+
+.PARAMETER WindowsOnPrimary
+    Number of windows to place on primary screen (index 0).
+    - null or -1: Auto mode - all windows on primary (backward compatible)
+    - 0: All windows on secondary screens
+    - N: Exactly N windows on primary, rest overflow to secondary
+
+.PARAMETER MaxPerScreen
+    Maximum windows allowed per screen (default: 4)
+
+.OUTPUTS
+    Array of integers representing window count per screen
+
+.EXAMPLE
+    Get-WindowDistributionWithPrimary -WindowCount 5 -ScreenCount 2 -WindowsOnPrimary 3 -MaxPerScreen 4
+    # Returns: @(3, 2) - 3 on primary, 2 on secondary
+
+.EXAMPLE
+    Get-WindowDistributionWithPrimary -WindowCount 4 -ScreenCount 2 -WindowsOnPrimary $null -MaxPerScreen 4
+    # Returns: @(4, 0) - Auto mode, all on primary
+#>
+function Get-WindowDistributionWithPrimary {
+    param(
+        [Parameter(Mandatory)]
+        [int]$WindowCount,
+
+        [Parameter(Mandatory)]
+        [int]$ScreenCount,
+
+        [object]$WindowsOnPrimary = $null,  # Use [object] to allow $null, or an integer
+
+        [int]$MaxPerScreen = 4
+    )
+
+    $typeStr = if ($null -eq $WindowsOnPrimary) { "null" } else { $WindowsOnPrimary.GetType().Name }
+    Write-LayoutLog "Get-WindowDistributionWithPrimary: WindowCount=$WindowCount, ScreenCount=$ScreenCount, WindowsOnPrimary=$WindowsOnPrimary (type=$typeStr)" -Level "DEBUG"
+
+    if ($WindowCount -le 0) {
+        return @(0) * $ScreenCount
+    }
+
+    if ($ScreenCount -le 0) {
+        Write-Warning "Invalid ScreenCount: $ScreenCount"
+        return @()
+    }
+
+    # Initialize distribution array
+    $distribution = @(0) * $ScreenCount
+
+    # Single screen - put everything there
+    if ($ScreenCount -eq 1) {
+        $distribution[0] = $WindowCount
+        Write-LayoutLog "Single screen: all $WindowCount windows on screen 0" -Level "DEBUG"
+        return $distribution
+    }
+
+    # Multi-screen distribution
+    # Auto mode (null): Balanced distribution with max 4 per screen
+    # User-specified: Put exactly N on primary, rest on secondary
+
+    if ($null -eq $WindowsOnPrimary) {
+        # AUTO MODE: Balanced distribution across screens
+        # Divide evenly, primary gets remainder (e.g., 5 windows / 2 screens = 3 + 2)
+        $base = [Math]::Floor($WindowCount / $ScreenCount)
+        $remainder = $WindowCount % $ScreenCount
+
+        for ($i = 0; $i -lt $ScreenCount; $i++) {
+            # Each screen gets base count, first screens get +1 for remainder
+            $count = $base
+            if ($i -lt $remainder) {
+                $count++
+            }
+            # Cap at MaxPerScreen
+            $distribution[$i] = [Math]::Min($count, $MaxPerScreen)
+        }
+
+        Write-LayoutLog "Auto mode: balanced distribution $($distribution -join ', ') (base=$base, remainder=$remainder)" -Level "DEBUG"
+    }
+    else {
+        # User-specified primary allocation
+        $primaryCount = [Math]::Max(0, [Math]::Min([int]$WindowsOnPrimary, $WindowCount))
+        $distribution[0] = $primaryCount
+        $remaining = $WindowCount - $primaryCount
+
+        Write-LayoutLog "User mode: primary gets $primaryCount (user specified $WindowsOnPrimary), $remaining remaining" -Level "DEBUG"
+
+        # Distribute remaining windows to secondary screens (index 1+)
+        if ($remaining -gt 0 -and $ScreenCount -gt 1) {
+            $secondaryScreens = $ScreenCount - 1
+            $perSecondary = [Math]::Ceiling($remaining / $secondaryScreens)
+            $perSecondary = [Math]::Min($perSecondary, $MaxPerScreen)
+
+            for ($i = 1; $i -lt $ScreenCount; $i++) {
+                if ($remaining -le 0) { break }
+                $windowsForThisScreen = [Math]::Min($remaining, $perSecondary)
+                $distribution[$i] = $windowsForThisScreen
+                $remaining -= $windowsForThisScreen
+            }
+        }
+    }
+
+    Write-LayoutLog "Final distribution: $($distribution -join ', ')" -Level "DEBUG"
+    return $distribution
+}
+
 # --- PILLARS LAYOUT STRATEGY ---
 
 <#
@@ -385,10 +522,15 @@ function Get-PillarsLayout {
 
         [int]$MaxPillarsPerScreen = 4,
 
-        [int]$GapSize = 60
+        [int]$GapSize = 60,
+
+        [object]$WindowsOnPrimary = $null  # Use [object] to allow $null
     )
 
-    Write-LayoutLog "Get-PillarsLayout called: WindowCount=$WindowCount, ScreenCount=$($Screens.Count), MaxPillars=$MaxPillarsPerScreen, GapSize=$GapSize" -Level "DEBUG"
+    # Enforce minimum gap to ensure visible separation between windows
+    $GapSize = [Math]::Max($GapSize, 30)
+
+    Write-LayoutLog "Get-PillarsLayout called: WindowCount=$WindowCount, ScreenCount=$($Screens.Count), MaxPillars=$MaxPillarsPerScreen, GapSize=$GapSize, WindowsOnPrimary=$WindowsOnPrimary" -Level "DEBUG"
 
     if ($WindowCount -le 0) {
         Write-LayoutLog "Get-PillarsLayout: Zero or negative window count, returning empty" -Level "DEBUG"
@@ -400,10 +542,11 @@ function Get-PillarsLayout {
         return @()
     }
 
-    # Step 1: Distribute windows across screens
-    $distribution = Get-WindowDistribution -WindowCount $WindowCount `
-                                          -ScreenCount $Screens.Count `
-                                          -MaxPerScreen $MaxPillarsPerScreen
+    # Step 1: Distribute windows across screens (respects WindowsOnPrimary setting)
+    $distribution = Get-WindowDistributionWithPrimary -WindowCount $WindowCount `
+                                                      -ScreenCount $Screens.Count `
+                                                      -WindowsOnPrimary $WindowsOnPrimary `
+                                                      -MaxPerScreen $MaxPillarsPerScreen
 
     $rectangles = @()
     $windowIndex = 0
@@ -417,18 +560,18 @@ function Get-PillarsLayout {
             continue
         }
 
-        # Step 3: Determine if single row or multi-row
-        if ($windowsOnScreen -le $MaxPillarsPerScreen) {
-            # Single row layout
-            $columns = $windowsOnScreen
-            $rows = 1
-        } else {
-            # Multi-row layout: 4 columns, multiple rows
+        # Step 3: Calculate pillar dimensions based on ACTUAL window count
+        # Pillars fill the available space while maintaining tall aspect ratio
+        $columns = [Math]::Min($windowsOnScreen, $MaxPillarsPerScreen)
+        $rows = 1
+
+        # If more windows than fit in one row, use multi-row
+        if ($windowsOnScreen -gt $MaxPillarsPerScreen) {
             $columns = $MaxPillarsPerScreen
             $rows = [Math]::Ceiling($windowsOnScreen / $columns)
         }
 
-        # Step 4: Calculate cell dimensions
+        # Step 4: Calculate cell dimensions to FILL the screen
         # Formula: (N+1) gaps for N columns/rows
         $totalHGaps = ($columns + 1) * $GapSize
         $totalVGaps = ($rows + 1) * $GapSize
@@ -528,10 +671,15 @@ function Get-QuadsLayout {
         [AllowEmptyCollection()]
         [array]$Screens,
 
-        [int]$GapSize = 60
+        [int]$GapSize = 60,
+
+        [object]$WindowsOnPrimary = $null  # Use [object] to allow $null
     )
 
-    Write-LayoutLog "Get-QuadsLayout called: WindowCount=$WindowCount, ScreenCount=$($Screens.Count), GapSize=$GapSize" -Level "DEBUG"
+    # Enforce minimum gap to ensure visible separation between windows
+    $GapSize = [Math]::Max($GapSize, 30)
+
+    Write-LayoutLog "Get-QuadsLayout called: WindowCount=$WindowCount, ScreenCount=$($Screens.Count), GapSize=$GapSize, WindowsOnPrimary=$WindowsOnPrimary" -Level "DEBUG"
 
     if ($WindowCount -le 0) {
         Write-LayoutLog "Get-QuadsLayout: Zero or negative window count, returning empty" -Level "DEBUG"
@@ -547,6 +695,12 @@ function Get-QuadsLayout {
     $windowIndex = 0
     $windowsPerQuad = 4
 
+    # Get distribution using WindowsOnPrimary setting
+    $distribution = Get-WindowDistributionWithPrimary -WindowCount $WindowCount `
+                                                      -ScreenCount $Screens.Count `
+                                                      -WindowsOnPrimary $WindowsOnPrimary `
+                                                      -MaxPerScreen $windowsPerQuad
+
     # Calculate total capacity (4 windows per screen in standard quad layout)
     $totalCapacity = $Screens.Count * $windowsPerQuad
 
@@ -555,19 +709,13 @@ function Get-QuadsLayout {
         Write-LayoutLog "Quads overflow: $WindowCount windows > $totalCapacity capacity, using extended grid layout" -Level "INFO"
 
         # Fall back to a grid layout that can handle all windows
-        # Calculate optimal grid: aim for roughly 2:1 aspect ratio cells
-        $windowsRemaining = $WindowCount
-
         for ($screenIdx = 0; $screenIdx -lt $Screens.Count; $screenIdx++) {
-            if ($windowsRemaining -le 0) {
-                break
+            $windowsOnThisScreen = $distribution[$screenIdx]
+            if ($windowsOnThisScreen -le 0) {
+                continue
             }
 
             $screen = $Screens[$screenIdx]
-
-            # Calculate how many windows to place on this screen
-            # Distribute evenly, with earlier screens getting any remainder
-            $windowsOnThisScreen = [Math]::Ceiling($windowsRemaining / ($Screens.Count - $screenIdx))
 
             # Calculate grid dimensions to fit all windows
             # Try to maintain roughly square cells
@@ -600,8 +748,6 @@ function Get-QuadsLayout {
                     WindowIndex = $windowIndex++
                 }
             }
-
-            $windowsRemaining -= $windowsOnThisScreen
         }
 
         # Always return as array to prevent single-item unwrapping
@@ -610,17 +756,14 @@ function Get-QuadsLayout {
     }
 
     # Standard quad layout (4 or fewer windows per screen)
-    $windowsRemaining = $WindowCount
-
+    # Use pre-computed distribution from Get-WindowDistributionWithPrimary
     for ($screenIdx = 0; $screenIdx -lt $Screens.Count; $screenIdx++) {
-        if ($windowsRemaining -le 0) {
-            break
+        $windowsOnThisScreen = $distribution[$screenIdx]
+        if ($windowsOnThisScreen -le 0) {
+            continue
         }
 
         $screen = $Screens[$screenIdx]
-
-        # Determine how many windows on this screen (max 4 per quad)
-        $windowsOnThisScreen = [Math]::Min($windowsRemaining, $windowsPerQuad)
 
         Write-LayoutLog "Screen ${screenIdx}: $windowsOnThisScreen windows in quad positions" -Level "DEBUG"
 
@@ -651,8 +794,6 @@ function Get-QuadsLayout {
             }
             Write-LayoutLog "  Placed window $($windowIndex-1) at $($quadPositions[$posIdx].Label): ($($quadPositions[$posIdx].X), $($quadPositions[$posIdx].Y))" -Level "DEBUG"
         }
-
-        $windowsRemaining -= $windowsOnThisScreen
     }
 
     Write-LayoutLog "Get-QuadsLayout complete: $($rectangles.Count) rectangles calculated" -Level "DEBUG"
@@ -694,6 +835,7 @@ function Get-MatrixLayoutConfig {
         MaxPillarsPerScreen = 4
         GapSize = 60
         PreferredScreen = 0
+        WindowsOnPrimary = $null  # null = Auto (all windows on primary for single-screen behavior)
     }
 
     # Try to load existing state (US-002 pattern: JSON error handling)
@@ -709,6 +851,7 @@ function Get-MatrixLayoutConfig {
                     MaxPillarsPerScreen = if ($state.layout.maxPillarsPerScreen) { $state.layout.maxPillarsPerScreen } else { $defaultConfig.MaxPillarsPerScreen }
                     GapSize = if ($state.layout.gapSize) { $state.layout.gapSize } else { $defaultConfig.GapSize }
                     PreferredScreen = if ($state.layout.preferredScreen -ne $null) { $state.layout.preferredScreen } else { $defaultConfig.PreferredScreen }
+                    WindowsOnPrimary = if ($null -ne $state.layout.windowsOnPrimary) { $state.layout.windowsOnPrimary } else { $defaultConfig.WindowsOnPrimary }
                 }
                 return $config
             }
@@ -783,6 +926,7 @@ function Set-MatrixLayoutConfig {
             maxPillarsPerScreen = if ($Config.MaxPillarsPerScreen) { $Config.MaxPillarsPerScreen } else { 4 }
             gapSize = if ($Config.GapSize) { $Config.GapSize } else { 60 }
             preferredScreen = if ($Config.PreferredScreen -ne $null) { $Config.PreferredScreen } else { 0 }
+            windowsOnPrimary = $Config.WindowsOnPrimary  # null = Auto (all on primary)
         }
 
         # Convert to JSON
@@ -928,17 +1072,18 @@ function Invoke-MatrixWindowLayout {
         return @()
     }
 
-    # Get gap size from config
+    # Get gap size and windowsOnPrimary from config
     $gapSize = if ($config.GapSize) { $config.GapSize } else { 60 }
+    $windowsOnPrimary = $config.WindowsOnPrimary  # null = Auto (all on primary)
 
     # Calculate layout based on mode
     $layout = switch ($effectiveMode) {
         'Pillars' {
             $maxPillars = if ($config.MaxPillarsPerScreen) { $config.MaxPillarsPerScreen } else { 4 }
-            Get-PillarsLayout -WindowCount $windowCount -Screens $screens -MaxPillarsPerScreen $maxPillars -GapSize $gapSize
+            Get-PillarsLayout -WindowCount $windowCount -Screens $screens -MaxPillarsPerScreen $maxPillars -GapSize $gapSize -WindowsOnPrimary $windowsOnPrimary
         }
         'Quads' {
-            Get-QuadsLayout -WindowCount $windowCount -Screens $screens -GapSize $gapSize
+            Get-QuadsLayout -WindowCount $windowCount -Screens $screens -GapSize $gapSize -WindowsOnPrimary $windowsOnPrimary
         }
     }
 
@@ -1042,5 +1187,333 @@ function Get-MatrixWindowLayout {
         'Quads' {
             Get-QuadsLayout -WindowCount $WindowCount -Screens $Screens -GapSize $gapSize
         }
+    }
+}
+
+# --- POSITION TRACKING FOR DRAG DETECTION ---
+
+# Module-level state for position tracking
+$script:LastKnownPositions = @{}
+$script:DragThreshold = 50  # Minimum pixels of movement to consider a drag
+
+<#
+.SYNOPSIS
+    Get current window positions for a set of window handles.
+
+.DESCRIPTION
+    Uses GetWindowRect API to retrieve current X, Y, Width, Height for each window.
+    Returns a hashtable keyed by handle (as string) with position data.
+
+.PARAMETER WindowHandles
+    Array of window handle IntPtrs
+
+.OUTPUTS
+    Hashtable @{ "handle" = @{ X, Y, Width, Height } }
+
+.EXAMPLE
+    $positions = Get-WindowPositions -WindowHandles @($hwnd1, $hwnd2)
+#>
+function Get-WindowPositions {
+    param(
+        [Parameter(Mandatory)]
+        [array]$WindowHandles
+    )
+
+    $positions = @{}
+
+    foreach ($handle in $WindowHandles) {
+        if (-not $handle -or $handle -eq [IntPtr]::Zero) { continue }
+
+        try {
+            $rect = New-Object WindowLayoutAPI+RECT
+            if ([WindowLayoutAPI]::GetWindowRect($handle, [ref]$rect)) {
+                $positions[$handle.ToString()] = @{
+                    X = $rect.Left
+                    Y = $rect.Top
+                    Width = $rect.Right - $rect.Left
+                    Height = $rect.Bottom - $rect.Top
+                }
+            }
+        }
+        catch {
+            Write-LayoutLog "Failed to get position for handle $handle : $_" -Level "DEBUG"
+        }
+    }
+
+    return $positions
+}
+
+<#
+.SYNOPSIS
+    Initialize position tracking for a set of windows.
+
+.DESCRIPTION
+    Captures current window positions and stores them as the baseline
+    for drag detection. Should be called when windows are first positioned.
+
+.PARAMETER WindowHandles
+    Array of window handle IntPtrs to track
+
+.EXAMPLE
+    Initialize-PositionTracking -WindowHandles @($hwnd1, $hwnd2)
+#>
+function Initialize-PositionTracking {
+    param(
+        [Parameter(Mandatory)]
+        [array]$WindowHandles
+    )
+
+    $script:LastKnownPositions = Get-WindowPositions -WindowHandles $WindowHandles
+    Write-LayoutLog "Initialized position tracking for $($WindowHandles.Count) windows" -Level "DEBUG"
+}
+
+<#
+.SYNOPSIS
+    Detect if any window has been dragged since last check.
+
+.DESCRIPTION
+    Compares current window positions to last known positions.
+    Returns $true if any window has moved more than the drag threshold.
+
+.PARAMETER WindowHandles
+    Array of window handle IntPtrs to check
+
+.OUTPUTS
+    $true if drag detected, $false otherwise
+
+.EXAMPLE
+    if (Test-WindowDragDetected -WindowHandles @($hwnd1, $hwnd2)) {
+        # Window was dragged, reposition all
+    }
+#>
+function Test-WindowDragDetected {
+    param(
+        [Parameter(Mandatory)]
+        [array]$WindowHandles
+    )
+
+    if ($script:LastKnownPositions.Count -eq 0) {
+        # No baseline - initialize and return false
+        Initialize-PositionTracking -WindowHandles $WindowHandles
+        return $false
+    }
+
+    $currentPositions = Get-WindowPositions -WindowHandles $WindowHandles
+
+    foreach ($handleKey in $currentPositions.Keys) {
+        if (-not $script:LastKnownPositions.ContainsKey($handleKey)) {
+            # New window appeared - treat as drag event
+            Write-LayoutLog "New window detected: $handleKey" -Level "DEBUG"
+            return $true
+        }
+
+        $current = $currentPositions[$handleKey]
+        $last = $script:LastKnownPositions[$handleKey]
+
+        $deltaX = [Math]::Abs($current.X - $last.X)
+        $deltaY = [Math]::Abs($current.Y - $last.Y)
+
+        if ($deltaX -gt $script:DragThreshold -or $deltaY -gt $script:DragThreshold) {
+            Write-LayoutLog "Drag detected on $handleKey : delta ($deltaX, $deltaY)" -Level "DEBUG"
+            return $true
+        }
+    }
+
+    return $false
+}
+
+<#
+.SYNOPSIS
+    Update the last known positions after repositioning.
+
+.DESCRIPTION
+    Should be called after Invoke-MatrixWindowLayout to update the baseline.
+
+.PARAMETER WindowHandles
+    Array of window handle IntPtrs
+
+.EXAMPLE
+    Update-PositionTracking -WindowHandles @($hwnd1, $hwnd2)
+#>
+function Update-PositionTracking {
+    param(
+        [Parameter(Mandatory)]
+        [array]$WindowHandles
+    )
+
+    $script:LastKnownPositions = Get-WindowPositions -WindowHandles $WindowHandles
+    Write-LayoutLog "Updated position tracking for $($WindowHandles.Count) windows" -Level "DEBUG"
+}
+
+# --- POSITION PERSISTENCE ---
+
+<#
+.SYNOPSIS
+    Save window positions to matrix_state.json for later restoration.
+
+.DESCRIPTION
+    Persists current window positions (X, Y, Width, Height) keyed by shader name.
+    Uses atomic write pattern to prevent corruption.
+
+.PARAMETER WindowInfo
+    Array of @{ Handle, Slot } objects from Get-MatrixWindowInfo
+
+.EXAMPLE
+    $windowInfo = Get-MatrixWindowInfo
+    Save-WindowPositions -WindowInfo $windowInfo
+#>
+function Save-WindowPositions {
+    param(
+        [Parameter(Mandatory)]
+        [array]$WindowInfo
+    )
+
+    $stateFilePath = "$env:USERPROFILE\Documents\Matrix\matrix_state.json"
+
+    try {
+        # Load existing state
+        $state = @{}
+        if (Test-Path $stateFilePath) {
+            try {
+                $stateJson = Get-Content -Path $stateFilePath -Raw -ErrorAction Stop
+                $stateObj = $stateJson | ConvertFrom-Json -ErrorAction Stop
+                $stateObj.PSObject.Properties | ForEach-Object {
+                    $state[$_.Name] = $_.Value
+                }
+            }
+            catch {
+                Write-LayoutLog "Failed to load existing state for position save: $_" -Level "WARN"
+            }
+        }
+
+        # Build window positions
+        $positions = @{}
+        foreach ($win in $WindowInfo) {
+            if (-not $win.Handle -or $win.Handle -eq [IntPtr]::Zero) { continue }
+
+            try {
+                $rect = New-Object WindowLayoutAPI+RECT
+                if ([WindowLayoutAPI]::GetWindowRect($win.Handle, [ref]$rect)) {
+                    $shaderName = "Matrix-$($win.Slot)"
+                    $positions[$shaderName] = @{
+                        x = $rect.Left
+                        y = $rect.Top
+                        width = $rect.Right - $rect.Left
+                        height = $rect.Bottom - $rect.Top
+                    }
+                    Write-LayoutLog "Saved position for $shaderName : ($($rect.Left), $($rect.Top)) $($rect.Right - $rect.Left)x$($rect.Bottom - $rect.Top)" -Level "DEBUG"
+                }
+            }
+            catch {
+                Write-LayoutLog "Failed to get position for slot $($win.Slot): $_" -Level "DEBUG"
+            }
+        }
+
+        # Update state
+        $state.windowPositions = $positions
+        $state.positionsSavedAt = (Get-Date).ToString("o")
+
+        # Atomic write
+        $stateJson = $state | ConvertTo-Json -Depth 10 -ErrorAction Stop
+        $tempFile = [System.IO.Path]::GetTempFileName()
+        $stateJson | Out-File -FilePath $tempFile -Encoding UTF8 -ErrorAction Stop
+        Move-Item -Path $tempFile -Destination $stateFilePath -Force -ErrorAction Stop
+
+        Write-LayoutLog "Saved positions for $($positions.Count) windows" -Level "INFO"
+        return $true
+    }
+    catch {
+        Write-LayoutLog "Failed to save window positions: $_" -Level "ERROR"
+        return $false
+    }
+}
+
+<#
+.SYNOPSIS
+    Restore window positions from matrix_state.json.
+
+.DESCRIPTION
+    Reads saved positions and applies them to windows.
+    Returns $true if positions were restored, $false if no saved positions or error.
+
+.PARAMETER WindowInfo
+    Array of @{ Handle, Slot } objects from Get-MatrixWindowInfo
+
+.OUTPUTS
+    $true if restored, $false otherwise
+
+.EXAMPLE
+    $windowInfo = Get-MatrixWindowInfo
+    if (Restore-WindowPositions -WindowInfo $windowInfo) {
+        Write-Host "Restored saved positions"
+    } else {
+        # Fall back to layout engine
+        Position-MatrixWindows
+    }
+#>
+function Restore-WindowPositions {
+    param(
+        [Parameter(Mandatory)]
+        [array]$WindowInfo
+    )
+
+    $stateFilePath = "$env:USERPROFILE\Documents\Matrix\matrix_state.json"
+
+    try {
+        if (-not (Test-Path $stateFilePath)) {
+            Write-LayoutLog "No state file for position restore" -Level "DEBUG"
+            return $false
+        }
+
+        $stateJson = Get-Content -Path $stateFilePath -Raw -ErrorAction Stop
+        $state = $stateJson | ConvertFrom-Json -ErrorAction Stop
+
+        if (-not $state.windowPositions) {
+            Write-LayoutLog "No saved positions in state file" -Level "DEBUG"
+            return $false
+        }
+
+        $restoredCount = 0
+        foreach ($win in $WindowInfo) {
+            $shaderName = "Matrix-$($win.Slot)"
+
+            # Check if we have saved position for this shader
+            $savedPos = $state.windowPositions.$shaderName
+            if (-not $savedPos) {
+                Write-LayoutLog "No saved position for $shaderName" -Level "DEBUG"
+                continue
+            }
+
+            try {
+                [WindowLayoutAPI]::SetWindowPos(
+                    $win.Handle,
+                    [IntPtr]::Zero,
+                    [int]$savedPos.x,
+                    [int]$savedPos.y,
+                    [int]$savedPos.width,
+                    [int]$savedPos.height,
+                    ([WindowLayoutAPI]::SWP_NOZORDER -bor [WindowLayoutAPI]::SWP_SHOWWINDOW)
+                ) | Out-Null
+
+                Write-LayoutLog "Restored position for $shaderName : ($($savedPos.x), $($savedPos.y)) $($savedPos.width)x$($savedPos.height)" -Level "DEBUG"
+                $restoredCount++
+            }
+            catch {
+                Write-LayoutLog "Failed to restore position for $shaderName : $_" -Level "WARN"
+            }
+        }
+
+        if ($restoredCount -gt 0) {
+            Write-LayoutLog "Restored positions for $restoredCount windows" -Level "INFO"
+            return $true
+        }
+        else {
+            Write-LayoutLog "No positions were restored" -Level "DEBUG"
+            return $false
+        }
+    }
+    catch {
+        Write-LayoutLog "Failed to restore window positions: $_" -Level "ERROR"
+        return $false
     }
 }
