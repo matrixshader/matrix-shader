@@ -985,6 +985,10 @@ function Save-IdentityRegistry {
     }
     catch {
         Write-IdentityLog "Failed to save identity registry: $_" -Level "WARN"
+        # Clean up temp file if it exists (US-001 pattern)
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
