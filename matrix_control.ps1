@@ -333,8 +333,6 @@ public class WindowAPI {
 "@
 
 Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
 
 # Import Window Layout Engine
 . "$PSScriptRoot\WindowLayoutEngine.ps1"
@@ -374,6 +372,12 @@ function Position-MatrixWindows {
     try {
         Invoke-MatrixWindowLayout -WindowHandles $windowHandles -Mode $mode
         Write-Log "Layout applied successfully" "POSITION"
+
+        # Update position tracking after repositioning
+        $handleArray = @($windowInfo | ForEach-Object { $_.Handle })
+        if ($handleArray.Count -gt 0) {
+            Update-PositionTracking -WindowHandles $handleArray
+        }
     }
     catch {
         Write-Log "ERROR applying layout: $($_.Exception.Message)" "POSITION"
@@ -524,30 +528,9 @@ function Get-SlotFromSettings($windowTitle) {
     return $null
 }
 
-function Get-ProfileFromUIAutomation($windowHandle) {
-    # Use UI Automation to detect the actual profile name from TermControl element
-    try {
-        $auto = [System.Windows.Automation.AutomationElement]
-        $winElement = $auto::FromHandle($windowHandle)
-        if (-not $winElement) { return $null }
-
-        $allCondition = [System.Windows.Automation.Condition]::TrueCondition
-        $children = $winElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $allCondition)
-
-        foreach ($child in $children) {
-            $childName = $child.Current.Name
-            if ($childName -match "^Matrix-(\d+)$") {
-                return [int]$Matches[1]
-            }
-        }
-    } catch { }
-    return $null
-}
-
 function Get-MatrixWindowInfo {
     # Returns array of @{Handle, Title, Slot, ShaderPath} for Matrix windows ONLY
-    # Only includes windows with detected Matrix-N profile (via UI Automation or title)
-    # Windows without Matrix profiles are excluded
+    # Uses title matching to detect Matrix-N windows
     Write-Log "Detecting Matrix windows..." "DETECT"
     $windows = Get-MatrixWindows
     Write-Log "Found $($windows.Count) terminal windows" "DETECT"
@@ -557,15 +540,8 @@ function Get-MatrixWindowInfo {
         $slot = $null
         $shaderFile = $null
 
-        # Priority 1: UI Automation - reads actual profile from TermControl
-        $uiSlot = Get-ProfileFromUIAutomation $win.Key
-        if ($uiSlot) {
-            $slot = $uiSlot
-            $shaderFile = "Matrix-$slot.hlsl"
-            Write-Log "  UI Automation: handle=$($win.Key) -> Slot $slot" "DETECT"
-        }
-        # Priority 2: Title matching (Matrix-N in title)
-        elseif ($win.Value -match "Matrix-(\d+)") {
+        # Title matching (Matrix-N in title)
+        if ($win.Value -match "Matrix-(\d+)") {
             $slot = [int]$Matches[1]
             $shaderFile = "Matrix-$slot.hlsl"
             Write-Log "  Title match: handle=$($win.Key) -> Slot $slot" "DETECT"
@@ -708,6 +684,13 @@ function Launch-MatrixWindows([int]$count) {
     # Position ALL open Matrix windows (existing + new)
     Write-Host " Positioning windows..." -ForegroundColor Cyan
     Position-MatrixWindows
+
+    # Start background monitor for drag-snap (if not already running)
+    $monitorScript = "$PSScriptRoot\matrix_monitor.ps1"
+    if (Test-Path $monitorScript) {
+        Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$monitorScript`"" -WindowStyle Hidden
+    }
+
     Write-Host " THE MATRIX HAS YOU." -ForegroundColor Green
     Start-Sleep -Seconds 2
 }
@@ -803,6 +786,21 @@ function UI {
     $layoutColor = if ($layoutMode -eq 'Pillars') { "Yellow" } else { "Magenta" }
     Write-Host " [Shift+L] Layout:  " -NoNewline; Write-Host $layoutMode -ForegroundColor $layoutColor -NoNewline
     Write-Host "  (Pillars=columns, Quads=2x2)" -ForegroundColor DarkGray
+
+    # Windows on Primary display
+    $screens = Get-ScreenTopology
+    if ($screens.Count -gt 1) {
+        $windowsOnPrimary = $layoutConfig.WindowsOnPrimary
+        if ($null -eq $windowsOnPrimary -or $windowsOnPrimary -lt 0) {
+            $primaryDisplay = "Auto"
+            $primaryColor = "Cyan"
+        } else {
+            $primaryDisplay = "$windowsOnPrimary"
+            $primaryColor = "Yellow"
+        }
+        Write-Host " [</>] Primary:     " -NoNewline; Write-Host $primaryDisplay -ForegroundColor $primaryColor -NoNewline
+        Write-Host "  (windows on primary monitor)  [)] Auto" -ForegroundColor DarkGray
+    }
     Write-Host ""
 
     # Launch section
@@ -860,6 +858,9 @@ if ($openSlots.Count -gt 0) {
 $s = Load-Shader $currentSlot
 Load-TerminalEffects $currentSlot
 
+# Drag detection is handled by matrix_monitor.ps1 background process
+# Redpill uses simple blocking input for responsive UI
+
 [Console]::CursorVisible = $false
 try {
     while ($true) {
@@ -896,7 +897,15 @@ try {
         }
         # Escape key (VK 27) to quit
         elseif ($vk -eq 27) {
-            Save-CurrentState  # Save current window setup for next Blue Pill run
+            # Save current window setup for next Blue Pill run
+            Save-CurrentState
+
+            # Save window positions for exact restoration (like Chrome)
+            $windowInfo = Get-MatrixWindowInfo
+            if ($windowInfo.Count -gt 0) {
+                Save-WindowPositions -WindowInfo $windowInfo
+            }
+
             return
         }
         else {
@@ -916,7 +925,7 @@ try {
             }
 
             # Normalize letter keys to lowercase for case-insensitive handling
-            $key = if ($k -match '^[A-Za-z]$') { $k.ToLower() } else { $k }
+            $key = if ($k -match '^[A-Za-z]$') { [char]::ToLower($k) } else { $k }
 
             switch ($key) {
                 # Color presets (1-6)
@@ -982,6 +991,60 @@ try {
                     Write-Host ""
                     Write-Host " Shader saved! Changes apply automatically." -ForegroundColor Green
                     Start-Sleep -Milliseconds 1200
+                }
+
+                # Windows on Primary controls (< and > keys = comma and period)
+                ',' {
+                    # Decrease windows on primary
+                    $config = Get-MatrixLayoutConfig
+                    $screens = Get-ScreenTopology
+                    if ($screens.Count -gt 1) {
+                        $current = $config.WindowsOnPrimary
+                        if ($null -eq $current -or $current -lt 0) {
+                            # Auto mode -> switch to one less than total windows
+                            $openCount = (Get-OpenMatrixSlots).Count
+                            $config.WindowsOnPrimary = [Math]::Max(0, $openCount - 1)
+                        } elseif ($current -gt 0) {
+                            $config.WindowsOnPrimary = $current - 1
+                        }
+                        Set-MatrixLayoutConfig -Config $config
+                        Position-MatrixWindows
+                        Write-Host ""
+                        Write-Host " Primary: $($config.WindowsOnPrimary) windows" -ForegroundColor Cyan
+                        Start-Sleep -Milliseconds 500
+                    }
+                }
+                '.' {
+                    # Increase windows on primary
+                    $config = Get-MatrixLayoutConfig
+                    $screens = Get-ScreenTopology
+                    if ($screens.Count -gt 1) {
+                        $current = $config.WindowsOnPrimary
+                        $openCount = (Get-OpenMatrixSlots).Count
+                        if ($null -eq $current -or $current -lt 0) {
+                            # Already auto (all on primary), can't increase more
+                        } elseif ($current -lt $openCount) {
+                            $config.WindowsOnPrimary = $current + 1
+                            Set-MatrixLayoutConfig -Config $config
+                            Position-MatrixWindows
+                            Write-Host ""
+                            Write-Host " Primary: $($config.WindowsOnPrimary) windows" -ForegroundColor Cyan
+                            Start-Sleep -Milliseconds 500
+                        }
+                    }
+                }
+                ')' {
+                    # Reset to Auto (Shift+0)
+                    $config = Get-MatrixLayoutConfig
+                    $screens = Get-ScreenTopology
+                    if ($screens.Count -gt 1) {
+                        $config.WindowsOnPrimary = $null
+                        Set-MatrixLayoutConfig -Config $config
+                        Position-MatrixWindows
+                        Write-Host ""
+                        Write-Host " Primary: Auto (all windows)" -ForegroundColor Cyan
+                        Start-Sleep -Milliseconds 500
+                    }
                 }
             }
         }

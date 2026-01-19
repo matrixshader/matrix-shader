@@ -172,29 +172,50 @@ function Wait-ForMatrixWindow([string]$profileName, [int]$timeoutMs = 5000) {
     }
 }
 
-function Position-MatrixWindows {
-    Start-Sleep -Milliseconds 500
-
+function Get-MatrixWindowInfoForBluepill {
+    # Returns array of @{Handle, Slot} for Matrix windows
     $windows = [BluepillAPI]::FindAllTerminalWindows()
-    $windowHandles = @{}
+    $result = @()
 
     foreach ($win in $windows) {
         if ($win.Value -match "Redpill") { continue }
         $slot = Get-ProfileFromUIAutomation $win.Key
         if ($slot) {
-            $windowHandles["Matrix-$slot"] = @{ Handle = $win.Key }
+            $result += @{
+                Handle = $win.Key
+                Slot = $slot
+            }
         }
     }
 
-    if ($windowHandles.Count -eq 0) {
+    return $result
+}
+
+function Position-MatrixWindows {
+    Start-Sleep -Milliseconds 500
+
+    $windowInfo = Get-MatrixWindowInfoForBluepill
+
+    if ($windowInfo.Count -eq 0) {
         Write-Host "   No Matrix windows detected" -ForegroundColor Yellow
         return
     }
 
-    # Use WindowLayoutEngine for positioning
+    # Try to restore saved positions first (like Chrome restoring window positions)
+    if (Restore-WindowPositions -WindowInfo $windowInfo) {
+        Write-Host "   Restored $($windowInfo.Count) windows to saved positions" -ForegroundColor Green
+        return
+    }
+
+    # Fall back to layout engine if no saved positions
+    $windowHandles = @{}
+    foreach ($win in $windowInfo) {
+        $windowHandles["Matrix-$($win.Slot)"] = @{ Handle = $win.Handle }
+    }
+
     $result = Invoke-MatrixWindowLayout -WindowHandles $windowHandles -Mode 'Auto'
 
-    Write-Host "   Positioned $($windowHandles.Count) windows by slot order" -ForegroundColor Green
+    Write-Host "   Positioned $($windowInfo.Count) windows using layout engine" -ForegroundColor Green
 }
 
 # Find which slots are already open
@@ -241,6 +262,14 @@ if ($launched -eq 0 -and $openSlots.Count -gt 0) {
 Write-Host ""
 Write-Host " Positioning windows..." -ForegroundColor Cyan
 Position-MatrixWindows
+
+# Start background monitor for drag-and-drop snap
+# Runs silently, auto-exits when Matrix windows close
+$monitorScript = "$matrixDir\matrix_monitor.ps1"
+if (Test-Path $monitorScript) {
+    Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$monitorScript`"" -WindowStyle Hidden
+    Write-Host " Window monitor started (drag-snap enabled)" -ForegroundColor DarkGray
+}
 
 Write-Host ""
 Write-Host " THE MATRIX HAS YOU." -ForegroundColor Green

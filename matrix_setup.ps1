@@ -531,6 +531,12 @@ if ($choice -eq '2') {
     Write-Host " Positioning windows..." -ForegroundColor Cyan
     Position-MatrixWindows $numTabs
 
+    # Start background monitor for drag-snap
+    $monitorScript = "$matrixDir\matrix_monitor.ps1"
+    if (Test-Path $monitorScript) {
+        Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$monitorScript`"" -WindowStyle Hidden
+    }
+
     Write-Host ""
     Write-Host " Opening control panel..." -ForegroundColor Cyan
     Start-Process "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe" -ArgumentList "--profile `"Redpill`""
@@ -562,6 +568,12 @@ foreach ($cfg in $tabConfigs) {
 Write-Host ""
 Write-Host " Positioning windows..." -ForegroundColor Cyan
 Position-MatrixWindows $numTabs
+
+# Start background monitor for drag-snap
+$monitorScript = "$matrixDir\matrix_monitor.ps1"
+if (Test-Path $monitorScript) {
+    Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$monitorScript`"" -WindowStyle Hidden
+}
 
 Write-Host ""
 Write-Host " FOLLOW THE WHITE RABBIT." -ForegroundColor Green
