@@ -1,167 +1,127 @@
 # Matrix Terminal Shader
 
-**Real-time controllable Matrix rain effect for Windows Terminal**
+A multi-window Matrix rain effect system for Windows Terminal with automatic window positioning, real-time shader control, and multi-monitor support.
 
-Transform your terminal into the iconic Matrix digital rain with live parameter controls. Perfect for multi-AI-agent workflows, streaming setups, or just looking cool.
+## What It Does
 
-## Features
+Transform your Windows Terminal into a Matrix-style command center. Launch multiple shader windows that automatically position themselves across your monitors, then control them all from a single TUI control panel.
 
-- **Real-time controls** - Adjust colors, speed, density, and more without restarting
-- **6 color presets** - Classic green, cyber blue, blood red, neon purple, solar gold, teal cyan
-- **3 depth layers** - Toggle far, mid, and near rain layers independently
-- **Hot-reload** - Changes apply instantly via Windows Terminal's shader system
-- **Zero dependencies** - Just 2 files, pure PowerShell + HLSL
-- **Low overhead** - GPU-accelerated, minimal CPU impact
+**Key Capabilities:**
+- Launch 1-6 Matrix shader windows that auto-arrange across multiple monitors
+- Two layout modes: **Pillars** (side-by-side columns) or **Quads** (2x2 grid per screen)
+- Real-time parameter control: speed, color, density, glyph style, layer visibility
+- Hot-reload: Changes appear instantly (~100ms) without restarting anything
+- Interactive setup wizard with Blue Pill (simple) and Red Pill (full system) paths
 
-## Requirements
+## System Architecture
 
-- Windows Terminal 1.12+ (with pixel shader support enabled)
-- Windows 10/11
-- PowerShell 5.1+
-- GPU with DirectX 11 support
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         matrix_setup.ps1                                 │
+│                    (Setup Wizard - Blue/Red Pill)                        │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+         ┌──────────────────┐            ┌──────────────────────┐
+         │   bluepill.ps1   │            │  matrix_control.ps1  │
+         │  (Simple Install)│            │   (Control Panel)    │
+         └──────────────────┘            └──────────────────────┘
+                    │                               │
+                    └───────────────┬───────────────┘
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │    WindowLayoutEngine.ps1     │
+                    │  - Multi-monitor detection    │
+                    │  - Pillars/Quads layouts      │
+                    │  - Windows API (SetWindowPos) │
+                    └───────────────────────────────┘
+                                    │
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │      shaders/*.hlsl           │
+                    │  - Matrix rain effects        │
+                    │  - 3D corridor (Neo vision)   │
+                    │  - Hot-reload via timestamp   │
+                    └───────────────────────────────┘
+                                    │
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │       Windows Terminal        │
+                    │   (GPU shader rendering)      │
+                    └───────────────────────────────┘
+```
+
+**Hot-Reload Mechanism:** PowerShell regenerates shader files with new `#define` values. Windows Terminal watches for file timestamp changes and reloads automatically.
 
 ## Quick Start
 
-1. Copy `Matrix.hlsl` to your Documents folder
-2. Enable shader in Windows Terminal settings (see Installation below)
-3. Run `.\matrix_tool.ps1` to launch the control panel
-
-## Installation
-
-### Step 1: Copy Shader File
-
-Copy `Matrix.hlsl` to:
-```
-C:\Users\<YourUsername>\Documents\Matrix.hlsl
-```
-
-### Step 2: Enable Shaders in Windows Terminal
-
-1. Open Windows Terminal Settings (`Ctrl+,`)
-2. Click **Open JSON file** (bottom left)
-3. Find your profile and add the shader path:
-
-```json
-{
-    "profiles": {
-        "defaults": {},
-        "list": [
-            {
-                "name": "PowerShell",
-                "experimental.pixelShaderPath": "C:\\Users\\<YourUsername>\\Documents\\Matrix.hlsl"
-            }
-        ]
-    }
-}
-```
-
-4. Save and restart Windows Terminal
-
-### Step 3: Run Control Panel
-
 ```powershell
-.\matrix_tool.ps1
+# Run the setup wizard
+.\matrix_setup.ps1
 ```
 
-## Usage
+Choose your path:
+- **Blue Pill**: Simple single-shader install for your terminal background
+- **Red Pill**: Full multi-window system with control panel and Neo vision
 
-### Key Bindings
+## Control Panel
 
-| Key | Action | Range |
-|-----|--------|-------|
-| `1-6` | Color presets | See presets below |
-| `7/8/9` | Toggle layers | Far/Mid/Near |
-| `r/R` | Red channel | -/+ (0.0-1.0) |
-| `g/G` | Green channel | -/+ (0.0-1.0) |
-| `b/B` | Blue channel | -/+ (0.0-1.0) |
-| `s/S` | Speed | -/+ (0.1-5.0) |
-| `l/L` | Glow/Brightness | -/+ (0.2-10.0) |
-| `w/W` | Character width | -/+ (4.0-20.0) |
-| `t/T` | Trail length | -/+ (2.0-20.0) |
-| `d/D` | Rain density | -/+ (0.1-1.0) |
-| `q` | Quit | - |
+The control panel (`matrix_control.ps1`) provides:
+- **Tabbed interface** for switching between shader windows
+- **Keyboard controls** for all parameters (arrows, +/-, letters)
+- **Shift+L** to cycle between Pillars and Quads layout modes
+- **Live preview** as you adjust settings
 
-### Color Presets
+## Window Layout Engine
 
-| Key | Name | RGB |
-|-----|------|-----|
-| `1` | Classic Green | 0.0, 1.0, 0.2 |
-| `2` | Cyber Blue | 0.0, 0.5, 1.0 |
-| `3` | Blood Red | 1.0, 0.0, 0.0 |
-| `4` | Neon Purple | 0.8, 0.0, 1.0 |
-| `5` | Solar Gold | 1.0, 0.8, 0.0 |
-| `6` | Teal Cyan | 0.0, 1.0, 1.0 |
+The `WindowLayoutEngine.ps1` handles all window positioning:
 
-## Use Cases
+| Mode | Description |
+|------|-------------|
+| **Pillars** | Side-by-side columns with configurable gap. Best for 1-4 windows. |
+| **Quads** | 2x2 grid per screen. Scales to any number of windows across monitors. |
 
-### Multi-Agent Monitoring
-Use different colors to identify different AI coding assistants:
-- **Green** - Primary agent
-- **Blue** - Code reviewer
-- **Red** - Testing agent
-- **Purple** - Documentation agent
+Features:
+- Automatic multi-monitor detection via `[System.Windows.Forms.Screen]::AllScreens`
+- Windows API integration (P/Invoke): `SetWindowPos`, `EnumWindows`, `IsWindowVisible`
+- Configurable gaps, taskbar-aware positioning
+- Handles edge cases: zero windows, 10+ windows, screen disconnection, invalid handles
 
-### Streaming & Demos
-Create eye-catching terminal visuals for:
-- Live coding streams
-- Technical presentations
-- YouTube tutorials
+## Files
 
-## Troubleshooting
+| File | Purpose |
+|------|---------|
+| `matrix_setup.ps1` | Interactive setup wizard |
+| `matrix_control.ps1` | Multi-window TUI control panel |
+| `WindowLayoutEngine.ps1` | Centralized window positioning (1046 lines) |
+| `bluepill.ps1` | Blue Pill installation script |
+| `shaders/Matrix-1.hlsl` - `Matrix-6.hlsl` | Classic Matrix rain shaders |
+| `shaders/Redpill-Neo.hlsl` | 3D corridor with glowing logo (Red Pill background) |
 
-### Shader not appearing
-1. Verify Windows Terminal version is 1.12+
-2. Check the shader path in settings.json is correct
-3. Ensure shader file exists at the specified location
-4. Restart Windows Terminal after enabling
+## Technical Details
 
-### Controls not working
-1. Make sure `matrix_tool.ps1` is running
-2. Check that the shader path in the script matches your file location
-3. Verify you have write permissions to the shader file
+### HLSL Glyph System
+Katakana glyphs are bit-packed: 35 bits (5x7 pixels) per character in `uint32` constants. GPU-side lookup: `(GLYPHS[idx] >> bit_index) & 1u`
 
-### Performance issues
-1. Try disabling one or two layers (keys 7, 8, 9)
-2. Reduce rain density (key d)
-3. Lower glow strength (key l)
+### Layer System
+Three parallax depth layers (FAR/MID/NEAR) rendered additively. Each toggleable for different visual effects.
 
-### PowerShell execution policy
-If the script won't run, try:
+### Windows API Integration
 ```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+# P/Invoke declarations in WindowLayoutEngine.ps1
+[DllImport("user32.dll")] SetWindowPos()
+[DllImport("user32.dll")] EnumWindows()
+[DllImport("user32.dll")] IsWindowVisible()
+[DllImport("user32.dll")] GetWindowText()
 ```
 
-## File Structure
+## Requirements
 
-```
-Matrix.hlsl       - HLSL pixel shader (runs in Windows Terminal)
-matrix_tool.ps1   - PowerShell control panel (real-time parameter adjustment)
-```
-
-## How It Works
-
-The system uses Windows Terminal's pixel shader feature with a file-watching hot-reload mechanism:
-
-1. `matrix_tool.ps1` captures keyboard input
-2. User adjusts parameters via key presses
-3. Script regenerates `Matrix.hlsl` with new values
-4. Windows Terminal detects file change and reloads shader
-5. Effect updates in real-time
-
-## Support
-
-If you find this useful, consider buying me a coffee!
-
-<!-- Add your Buy Me a Coffee link here -->
+- Windows 10/11
+- Windows Terminal (with pixel shader support)
+- PowerShell 5.1+
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file
-
-## Contributing
-
-Contributions welcome! Please open an issue or PR on GitHub.
-
----
-
-*Inspired by The Matrix (1999) - "There is no spoon."*
+MIT License

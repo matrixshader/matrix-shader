@@ -1,0 +1,32 @@
+# Progress Log
+Started: 2026-01-11
+
+## Project: Matrix Control Panel Hardening
+
+### Overview
+Reliability hardening for matrix_control.ps1 based on code review findings.
+Goal: Fix critical bugs for public release readiness.
+
+### User Stories (10 total)
+- US-001: Safe Atomic File Write
+- US-002: JSON Error Handling
+- US-003: Shader Value Validation
+- US-004: Auto-Save on Tab Switch
+- US-005: Remove Dead Code
+- US-006: Robust Window Detection
+- US-007: Robust Window Positioning
+- US-008: Poll-Based Window Launch
+- US-009: Add Diagnostic Logging
+- US-010: Consolidate Key Handlers
+
+### Key Files
+- `C:\Users\ehome\Documents\Matrix\matrix_control.ps1` - Main TUI (target of hardening)
+- `C:\Users\ehome\Documents\Matrix\matrix_setup.ps1` - Setup wizard
+- Windows Terminal settings: `%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json`
+
+---
+
+## Implementation Log
+
+(No entries yet)
+

@@ -1,0 +1,160 @@
+{
+  "project": "Matrix Control Panel Hardening",
+  "branchName": "ralph/control-panel-hardening",
+  "description": "Reliability hardening for matrix_control.ps1 - fix critical bugs identified in code review for public release readiness",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Safe Atomic File Write",
+      "description": "As a user, I want settings.json writes to be truly atomic so that my Windows Terminal settings are never lost or corrupted.",
+      "acceptanceCriteria": [
+        "Replace delete+rename pattern with Move-Item -Force in Save-TerminalEffects function",
+        "Write to temp file first, then move to overwrite original",
+        "If move fails, original file remains intact (no data loss)",
+        "Add try-catch with user-friendly error message on failure",
+        "PowerShell script runs without errors"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Implemented Move-Item -Force with try-catch error handling. Commit: 97e02de"
+    },
+    {
+      "id": "US-002",
+      "title": "JSON Error Handling",
+      "description": "As a user, I want the control panel to handle corrupted or locked settings gracefully so that it doesn't crash unexpectedly.",
+      "acceptanceCriteria": [
+        "Wrap all ConvertFrom-Json calls in try-catch blocks",
+        "Wrap all file read/write operations in try-catch blocks",
+        "Display clear error message when settings.json is malformed",
+        "Display clear error message when settings.json is locked by another process",
+        "Script continues running in degraded mode rather than crashing",
+        "PowerShell script runs without errors"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Added try-catch to Load-TerminalEffects, Load-Shader, Save-Shader. Commit: 5387d9f"
+    },
+    {
+      "id": "US-003",
+      "title": "Shader Value Validation",
+      "description": "As a user, I want shader parameter parsing to reject invalid values so that shaders always compile correctly.",
+      "acceptanceCriteria": [
+        "Regex pattern in Load-Shader rejects multiple decimal points (e.g. 1.2.3)",
+        "Regex pattern only matches valid float format: ^\\d+\\.?\\d*$",
+        "Invalid values fall back to defaults from $defaults hashtable",
+        "Display warning message when invalid value detected",
+        "PowerShell script runs without errors"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Added validation regex after extraction. Invalid values show warning and fall back to defaults."
+    },
+    {
+      "id": "US-004",
+      "title": "Auto-Save on Tab Switch",
+      "description": "As a user, I want my shader changes automatically saved when switching tabs so that I never lose work.",
+      "acceptanceCriteria": [
+        "Check $dirty flag before switching tabs (Tab key handler)",
+        "If dirty, call Save-Shader for current slot before loading new tab",
+        "Clear dirty flag after auto-save",
+        "No user action required to preserve changes",
+        "PowerShell script runs without errors"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Auto-save implemented in Tab handler. Silent operation (no message bloat)."
+    },
+    {
+      "id": "US-005",
+      "title": "Remove Dead Code",
+      "description": "As a developer, I want dead code removed so that the codebase is clean and maintainable.",
+      "acceptanceCriteria": [
+        "Remove space key (VK 32) handler - transparency already auto-saves on B/K/L keys",
+        "Remove any unreachable or unused code paths",
+        "Verify all keyboard controls still work after removal",
+        "Update comments to reflect current behavior",
+        "PowerShell script runs without errors"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Removed: space key handler (7 lines), Save-TerminalEffects function (5 lines), [SPACE] apply UI hint. -15 LOC."
+    },
+    {
+      "id": "US-006",
+      "title": "Robust Window Detection",
+      "description": "As a user, I want window detection to accurately identify Matrix windows so that launching and positioning work correctly.",
+      "acceptanceCriteria": [
+        "Get-OpenMatrixSlots matches windows by exact title pattern Matrix-N where N is 1-8",
+        "Filter to only WindowsTerminal process windows (check process name)",
+        "Ignore non-Windows Terminal processes with similar titles",
+        "Return accurate sorted list of open slot numbers",
+        "PowerShell script runs without errors"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Already implemented: FindAllTerminalWindows checks ProcessName='WindowsTerminal'. Registry+title+profile detection. Sorted unique slots."
+    },
+    {
+      "id": "US-007",
+      "title": "Robust Window Positioning",
+      "description": "As a user, I want window positioning to work reliably regardless of handle values so that windows are always arranged correctly.",
+      "acceptanceCriteria": [
+        "Position-MatrixWindows matches handles to specific Matrix-N windows by title",
+        "Do not rely on handle value sort order",
+        "Position windows in slot order (Matrix-1 leftmost, Matrix-2 next, etc.)",
+        "Handle case where slots are non-sequential (e.g. only Matrix-1 and Matrix-3)",
+        "PowerShell script runs without errors"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Added UI Automation detection: Get-ProfileFromUIAutomation reads actual profile name from TermControl element. Updated Get-MatrixWindowInfo in matrix_control.ps1 to use UI Automation as primary detection (Priority 1), title match as fallback. Non-Matrix windows excluded. Updated Position-MatrixWindows in matrix_setup.ps1 with same UI Automation detection. Fixed bluepill.ps1: now uses matrix_state.json for slots (was incorrectly counting all shader files), uses UI Automation for detection, skips already-open windows. All three scripts (matrix_control.ps1, matrix_setup.ps1, bluepill.ps1) now use consistent UI Automation-based slot detection and positioning."
+    },
+    {
+      "id": "US-008",
+      "title": "Poll-Based Window Launch",
+      "description": "As a user, I want window launching to be responsive and reliable so that I don't wait unnecessarily.",
+      "acceptanceCriteria": [
+        "Replace fixed 1500ms Start-Sleep with polling loop in Launch-MatrixWindows",
+        "Poll every 100ms for window title to appear",
+        "Timeout after 5 seconds with error message",
+        "Proceed immediately when window is detected",
+        "Display progress indicator: Waiting for Matrix-N...",
+        "PowerShell script runs without errors"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "TESTED. Fast title-only search (FindWindowsByPattern) - no process lookup. Multi-window: 670ms, 663ms, 958ms. Timeout: 5016ms. All 3 scripts use fast method. test-us008.ps1 verifies."
+    },
+    {
+      "id": "US-009",
+      "title": "Add Diagnostic Logging",
+      "description": "As a developer, I want diagnostic logging so that issues can be debugged when users report problems.",
+      "acceptanceCriteria": [
+        "Add Write-Log helper function that writes to $matrixDir\\debug.log",
+        "Log only when $env:MATRIX_DEBUG equals 1",
+        "Log key operations: file saves, window detection, launches, positioning",
+        "Log errors with context (operation, values involved)",
+        "Logs don't appear in normal operation (clean UI preserved)",
+        "PowerShell script runs without errors"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "NOT APPROVED. Test exists but awaiting permission to verify."
+    },
+    {
+      "id": "US-010",
+      "title": "Consolidate Key Handlers",
+      "description": "As a developer, I want duplicate key handlers consolidated so that code is DRY and maintainable.",
+      "acceptanceCriteria": [
+        "Create Handle-Key helper that normalizes to lowercase before matching",
+        "Replace duplicate uppercase/lowercase switch cases with single entries",
+        "Reduce key handling code by approximately 30%",
+        "All existing keyboard controls still work identically",
+        "PowerShell script runs without errors"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "NOT APPROVED. Test exists but awaiting permission to verify."
+    }
+  ]
+}
