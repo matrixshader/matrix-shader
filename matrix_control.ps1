@@ -336,6 +336,7 @@ Add-Type -AssemblyName System.Windows.Forms
 
 # Import Window Layout Engine
 . "$PSScriptRoot\WindowLayoutEngine.ps1"
+. "$PSScriptRoot\WindowIdentityService.ps1"
 
 function Get-ScreenDimensions {
     $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
@@ -885,6 +886,8 @@ try {
                 $s = Load-Shader $currentSlot
                 Load-TerminalEffects $currentSlot
                 $dirty = $false
+                # Track tab focus for smart window management
+                Update-WindowUsage -ProfileName "Matrix-$($script:currentSlot)" -EventType "Focus"
             }
         }
         # Enter key (VK 13) to launch windows (only if launchCount > 0)
@@ -920,6 +923,53 @@ try {
                 Position-MatrixWindows
                 Write-Host ""
                 Write-Host " Layout mode: $newMode" -ForegroundColor Cyan
+                Start-Sleep -Milliseconds 800
+                continue
+            }
+
+            # Shift+S: Save Snapback
+            if ($k -ceq 'S') {
+                try {
+                    Save-PositionPreset -Name "_snapback"
+                    Write-Host ""
+                    Write-Host " Snapback position saved" -ForegroundColor Green
+                    Start-Sleep -Milliseconds 800
+                } catch {
+                    Write-Host ""
+                    Write-Host " Failed to save snapback: $_" -ForegroundColor Red
+                    Start-Sleep -Seconds 2
+                }
+                continue
+            }
+
+            # Shift+R: Restore Snapback
+            if ($k -ceq 'R') {
+                try {
+                    $result = Restore-PositionPreset -Name "_snapback"
+                    Write-Host ""
+                    if ($result) {
+                        Write-Host " Snapback restored" -ForegroundColor Green
+                    } else {
+                        Write-Host " No snapback saved" -ForegroundColor Yellow
+                    }
+                    Start-Sleep -Milliseconds 800
+                } catch {
+                    Write-Host ""
+                    Write-Host " Failed to restore: $_" -ForegroundColor Red
+                    Start-Sleep -Seconds 2
+                }
+                continue
+            }
+
+            # Shift+P: Toggle Priority Lock
+            if ($k -ceq 'P') {
+                $profile = "Matrix-$($script:currentSlot)"
+                $usage = Get-WindowUsageData -ProfileName $profile
+                $newLock = -not ($usage.isPriorityLocked -eq $true)
+                Set-WindowPriority -ProfileName $profile -Locked $newLock
+                $status = if ($newLock) { "LOCKED" } else { "unlocked" }
+                Write-Host ""
+                Write-Host " $profile priority: $status" -ForegroundColor Cyan
                 Start-Sleep -Milliseconds 800
                 continue
             }
