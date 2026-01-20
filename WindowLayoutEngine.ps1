@@ -1517,3 +1517,690 @@ function Restore-WindowPositions {
         return $false
     }
 }
+
+# --- USAGE TRACKING SYSTEM ---
+# Phase 2: Track window usage for intelligent bump decisions
+
+# Module-level state for usage tracking
+$script:UsageTrackingData = @{}
+$script:UsageTrackingStateFile = "$env:USERPROFILE\Documents\Matrix\matrix_state.json"
+$script:FocusStartTimes = @{}  # Track when each window gained focus
+$script:UsageHalfLifeMinutes = 30  # Recency score half-life
+
+<#
+.SYNOPSIS
+    Load usage tracking data from matrix_state.json.
+
+.DESCRIPTION
+    Reads the usageTracking section from the persistent state file.
+    Returns an empty hashtable if no data exists or on error.
+    Implements US-002 error handling pattern.
+
+.OUTPUTS
+    Hashtable of usage tracking data keyed by profile name
+
+.EXAMPLE
+    $usageData = Import-UsageTrackingData
+#>
+function Import-UsageTrackingData {
+    try {
+        if (-not (Test-Path $script:UsageTrackingStateFile)) {
+            Write-LayoutLog "No state file for usage tracking, starting fresh" -Level "DEBUG"
+            return @{}
+        }
+
+        $stateJson = Get-Content -Path $script:UsageTrackingStateFile -Raw -ErrorAction Stop
+        $state = $stateJson | ConvertFrom-Json -ErrorAction Stop
+
+        if (-not $state.usageTracking) {
+            Write-LayoutLog "No usageTracking section in state file" -Level "DEBUG"
+            return @{}
+        }
+
+        # Convert PSCustomObject to hashtable
+        $usageData = @{}
+        $state.usageTracking.PSObject.Properties | ForEach-Object {
+            $profileName = $_.Name
+            $data = $_.Value
+            $usageData[$profileName] = @{
+                lastFocusTime = if ($data.lastFocusTime) { [DateTime]::Parse($data.lastFocusTime) } else { [DateTime]::MinValue }
+                focusDurationMs = if ($null -ne $data.focusDurationMs) { [int]$data.focusDurationMs } else { 0 }
+                focusCount = if ($null -ne $data.focusCount) { [int]$data.focusCount } else { 0 }
+                usageScore = if ($null -ne $data.usageScore) { [double]$data.usageScore } else { 0.0 }
+                isPriorityLocked = if ($null -ne $data.isPriorityLocked) { [bool]$data.isPriorityLocked } else { $false }
+            }
+        }
+
+        Write-LayoutLog "Loaded usage tracking data for $($usageData.Count) profiles" -Level "DEBUG"
+        return $usageData
+    }
+    catch {
+        Write-LayoutLog "Failed to load usage tracking data: $_" -Level "WARN"
+        return @{}
+    }
+}
+
+<#
+.SYNOPSIS
+    Save usage tracking data to matrix_state.json.
+
+.DESCRIPTION
+    Persists usage tracking data to state file. Uses atomic write pattern (US-001)
+    to prevent corruption. Merges with existing state to preserve other data.
+
+.PARAMETER UsageData
+    Hashtable of usage tracking data keyed by profile name
+
+.EXAMPLE
+    Export-UsageTrackingData -UsageData $script:UsageTrackingData
+
+.NOTES
+    Implements US-001 pattern: atomic write with Move-Item -Force
+    Implements US-002 pattern: try-catch on JSON operations
+#>
+function Export-UsageTrackingData {
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$UsageData
+    )
+
+    $matrixDir = "$env:USERPROFILE\Documents\Matrix"
+
+    try {
+        # Ensure directory exists
+        if (-not (Test-Path $matrixDir)) {
+            New-Item -Path $matrixDir -ItemType Directory -Force | Out-Null
+        }
+
+        # Load existing state or create new (US-002 pattern)
+        $state = @{}
+        if (Test-Path $script:UsageTrackingStateFile) {
+            try {
+                $stateJson = Get-Content -Path $script:UsageTrackingStateFile -Raw -ErrorAction Stop
+                $stateObj = $stateJson | ConvertFrom-Json -ErrorAction Stop
+
+                # Convert PSCustomObject to hashtable (preserve existing data)
+                $stateObj.PSObject.Properties | ForEach-Object {
+                    $state[$_.Name] = $_.Value
+                }
+            }
+            catch {
+                Write-LayoutLog "Failed to load existing state for usage export, creating new: $_" -Level "WARN"
+            }
+        }
+
+        # Convert usage data to serializable format
+        $usageTracking = @{}
+        foreach ($profileName in $UsageData.Keys) {
+            $data = $UsageData[$profileName]
+            $usageTracking[$profileName] = @{
+                lastFocusTime = $data.lastFocusTime.ToString("o")
+                focusDurationMs = $data.focusDurationMs
+                focusCount = $data.focusCount
+                usageScore = [Math]::Round($data.usageScore, 4)
+                isPriorityLocked = $data.isPriorityLocked
+            }
+        }
+
+        $state.usageTracking = $usageTracking
+
+        # Convert to JSON
+        $stateJson = $state | ConvertTo-Json -Depth 10 -ErrorAction Stop
+
+        # Atomic write pattern (US-001): write to temp file, then move
+        $tempFile = [System.IO.Path]::GetTempFileName()
+        $stateJson | Out-File -FilePath $tempFile -Encoding UTF8 -ErrorAction Stop
+        Move-Item -Path $tempFile -Destination $script:UsageTrackingStateFile -Force -ErrorAction Stop
+
+        Write-LayoutLog "Saved usage tracking data for $($UsageData.Count) profiles" -Level "DEBUG"
+    }
+    catch {
+        Write-LayoutLog "Failed to save usage tracking data: $_" -Level "ERROR"
+        # Clean up temp file if it exists
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Initialize usage tracking system.
+
+.DESCRIPTION
+    Loads persisted usage data and sets up module-level state.
+    Should be called once when WindowLayoutEngine is loaded.
+
+.EXAMPLE
+    Initialize-UsageTracking
+#>
+function Initialize-UsageTracking {
+    $script:UsageTrackingData = Import-UsageTrackingData
+    $script:FocusStartTimes = @{}
+    Write-LayoutLog "Usage tracking initialized with $($script:UsageTrackingData.Count) profiles" -Level "INFO"
+}
+
+<#
+.SYNOPSIS
+    Update usage tracking when window gains or loses focus.
+
+.DESCRIPTION
+    Tracks focus events for windows. On Focus event, records start time.
+    On Blur event, calculates duration and updates tracking data.
+    Automatically recalculates usage scores after updates.
+
+.PARAMETER ProfileName
+    The profile/shader name (e.g., "Matrix-1", "Matrix-3")
+
+.PARAMETER EventType
+    The event type: "Focus" (gained focus) or "Blur" (lost focus)
+
+.EXAMPLE
+    Update-WindowUsage -ProfileName "Matrix-3" -EventType "Focus"
+    # Later when window loses focus:
+    Update-WindowUsage -ProfileName "Matrix-3" -EventType "Blur"
+#>
+function Update-WindowUsage {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileName,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('Focus', 'Blur')]
+        [string]$EventType
+    )
+
+    $now = Get-Date
+
+    # Ensure profile exists in tracking data
+    if (-not $script:UsageTrackingData.ContainsKey($ProfileName)) {
+        $script:UsageTrackingData[$ProfileName] = @{
+            lastFocusTime = [DateTime]::MinValue
+            focusDurationMs = 0
+            focusCount = 0
+            usageScore = 0.0
+            isPriorityLocked = $false
+        }
+    }
+
+    $profileData = $script:UsageTrackingData[$ProfileName]
+
+    switch ($EventType) {
+        'Focus' {
+            # Record focus start time
+            $script:FocusStartTimes[$ProfileName] = $now
+            $profileData.lastFocusTime = $now
+            $profileData.focusCount++
+            Write-LayoutLog "Focus gained: $ProfileName (count: $($profileData.focusCount))" -Level "DEBUG"
+        }
+        'Blur' {
+            # Calculate focus duration
+            if ($script:FocusStartTimes.ContainsKey($ProfileName)) {
+                $focusStart = $script:FocusStartTimes[$ProfileName]
+                $durationMs = ($now - $focusStart).TotalMilliseconds
+                $profileData.focusDurationMs += [int]$durationMs
+                $script:FocusStartTimes.Remove($ProfileName)
+                Write-LayoutLog "Focus lost: $ProfileName (duration: ${durationMs}ms, total: $($profileData.focusDurationMs)ms)" -Level "DEBUG"
+            }
+        }
+    }
+
+    # Update usage score
+    Update-UsageScore -ProfileName $ProfileName
+
+    # Persist to file (debounced - only save if significant time passed)
+    # For now, save on every update. In production, consider debouncing.
+    Export-UsageTrackingData -UsageData $script:UsageTrackingData
+}
+
+<#
+.SYNOPSIS
+    Calculate the usage score for a specific profile.
+
+.DESCRIPTION
+    Computes usage score based on:
+    - focusScore (0.4 weight): Normalized duration of time spent focused
+    - recencyScore (0.3 weight): Exponential decay from last focus (30-min half-life)
+    - frequencyScore (0.3 weight): How often window was focused (normalized)
+
+.PARAMETER ProfileName
+    The profile/shader name to calculate score for
+
+.NOTES
+    Formula: usageScore = (focusScore * 0.4) + (recencyScore * 0.3) + (frequencyScore * 0.3)
+#>
+function Update-UsageScore {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileName
+    )
+
+    if (-not $script:UsageTrackingData.ContainsKey($ProfileName)) {
+        return
+    }
+
+    $profileData = $script:UsageTrackingData[$ProfileName]
+    $now = Get-Date
+
+    # Calculate focusScore (normalized duration, 0-1)
+    # Normalize against 1 hour of focus time as "maximum"
+    $maxFocusDurationMs = 3600000  # 1 hour in ms
+    $focusScore = [Math]::Min(1.0, $profileData.focusDurationMs / $maxFocusDurationMs)
+
+    # Calculate recencyScore (exponential decay, 0-1)
+    # Half-life of 30 minutes: after 30 min, score = 0.5; after 60 min, score = 0.25
+    if ($profileData.lastFocusTime -eq [DateTime]::MinValue) {
+        $recencyScore = 0.0
+    }
+    else {
+        $minutesSinceLastFocus = ($now - $profileData.lastFocusTime).TotalMinutes
+        $recencyScore = [Math]::Pow(0.5, $minutesSinceLastFocus / $script:UsageHalfLifeMinutes)
+    }
+
+    # Calculate frequencyScore (normalized focus count, 0-1)
+    # Normalize against 20 focus events as "high frequency"
+    $maxFocusCount = 20
+    $frequencyScore = [Math]::Min(1.0, $profileData.focusCount / $maxFocusCount)
+
+    # Combine scores with weights
+    $usageScore = ($focusScore * 0.4) + ($recencyScore * 0.3) + ($frequencyScore * 0.3)
+
+    # Priority locked windows get maximum score (never bumped)
+    if ($profileData.isPriorityLocked) {
+        $usageScore = 999.0
+    }
+
+    $profileData.usageScore = $usageScore
+
+    Write-LayoutLog "Updated score for $ProfileName : focus=$([Math]::Round($focusScore, 3)), recency=$([Math]::Round($recencyScore, 3)), freq=$([Math]::Round($frequencyScore, 3)), total=$([Math]::Round($usageScore, 4))" -Level "DEBUG"
+}
+
+<#
+.SYNOPSIS
+    Get usage data for a specific window/profile.
+
+.DESCRIPTION
+    Returns the usage tracking data for a profile, or default values if not tracked.
+
+.PARAMETER ProfileName
+    The profile/shader name (e.g., "Matrix-3")
+
+.OUTPUTS
+    Hashtable with lastFocusTime, focusDurationMs, focusCount, usageScore, isPriorityLocked
+
+.EXAMPLE
+    $usage = Get-WindowUsageData -ProfileName "Matrix-3"
+    Write-Host "Usage score: $($usage.usageScore)"
+#>
+function Get-WindowUsageData {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileName
+    )
+
+    # Ensure data is loaded
+    if ($script:UsageTrackingData.Count -eq 0) {
+        Initialize-UsageTracking
+    }
+
+    if ($script:UsageTrackingData.ContainsKey($ProfileName)) {
+        return $script:UsageTrackingData[$ProfileName]
+    }
+
+    # Return default values for untracked profile
+    return @{
+        lastFocusTime = [DateTime]::MinValue
+        focusDurationMs = 0
+        focusCount = 0
+        usageScore = 0.0
+        isPriorityLocked = $false
+    }
+}
+
+<#
+.SYNOPSIS
+    Get the least-used window on a specific monitor.
+
+.DESCRIPTION
+    Returns the profile name of the window with the lowest usage score
+    on the specified monitor. Optionally excludes priority-locked windows.
+
+.PARAMETER MonitorIndex
+    The monitor index to search on
+
+.PARAMETER ExcludePriorityLocked
+    If set, excludes windows marked as priority locked
+
+.PARAMETER WindowsOnMonitor
+    Array of profile names currently on the monitor. If not provided,
+    returns the least-used window across all tracked windows.
+
+.OUTPUTS
+    String - The profile name of the least-used window, or $null if none found
+
+.EXAMPLE
+    $leastUsed = Get-LeastUsedWindow -MonitorIndex 0 -ExcludePriorityLocked
+    # Returns: "Matrix-3" (the least recently used window on monitor 0)
+#>
+function Get-LeastUsedWindow {
+    param(
+        [int]$MonitorIndex = 0,
+
+        [switch]$ExcludePriorityLocked,
+
+        [array]$WindowsOnMonitor = @()
+    )
+
+    # Ensure data is loaded
+    if ($script:UsageTrackingData.Count -eq 0) {
+        Initialize-UsageTracking
+    }
+
+    # If specific windows provided, filter to those
+    $candidates = @()
+    if ($WindowsOnMonitor.Count -gt 0) {
+        foreach ($profileName in $WindowsOnMonitor) {
+            if ($script:UsageTrackingData.ContainsKey($profileName)) {
+                $data = $script:UsageTrackingData[$profileName]
+
+                # Skip priority-locked if requested
+                if ($ExcludePriorityLocked -and $data.isPriorityLocked) {
+                    continue
+                }
+
+                $candidates += @{
+                    ProfileName = $profileName
+                    UsageScore = $data.usageScore
+                }
+            }
+            else {
+                # Untracked window - lowest score (0)
+                $candidates += @{
+                    ProfileName = $profileName
+                    UsageScore = 0.0
+                }
+            }
+        }
+    }
+    else {
+        # Use all tracked windows
+        foreach ($profileName in $script:UsageTrackingData.Keys) {
+            $data = $script:UsageTrackingData[$profileName]
+
+            # Skip priority-locked if requested
+            if ($ExcludePriorityLocked -and $data.isPriorityLocked) {
+                continue
+            }
+
+            $candidates += @{
+                ProfileName = $profileName
+                UsageScore = $data.usageScore
+            }
+        }
+    }
+
+    if ($candidates.Count -eq 0) {
+        Write-LayoutLog "No candidate windows for least-used selection (ExcludeLocked=$ExcludePriorityLocked)" -Level "DEBUG"
+        return $null
+    }
+
+    # Sort by usage score (lowest first) and return the least used
+    $sorted = $candidates | Sort-Object { $_.UsageScore }
+    $leastUsed = $sorted[0].ProfileName
+
+    Write-LayoutLog "Least-used window: $leastUsed (score: $($sorted[0].UsageScore))" -Level "DEBUG"
+    return $leastUsed
+}
+
+<#
+.SYNOPSIS
+    Mark a window as priority locked (never bumped).
+
+.DESCRIPTION
+    Sets or clears the priority lock flag for a window. Priority-locked
+    windows have a usage score of 999.0 and are never selected for bumping.
+
+.PARAMETER ProfileName
+    The profile/shader name (e.g., "Matrix-1")
+
+.PARAMETER Locked
+    $true to lock (never bump), $false to unlock
+
+.EXAMPLE
+    Set-WindowPriority -ProfileName "Matrix-1" -Locked $true
+    # Matrix-1 will never be bumped when accommodating other windows
+#>
+function Set-WindowPriority {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileName,
+
+        [Parameter(Mandatory)]
+        [bool]$Locked
+    )
+
+    # Ensure data is loaded
+    if ($script:UsageTrackingData.Count -eq 0) {
+        Initialize-UsageTracking
+    }
+
+    # Ensure profile exists
+    if (-not $script:UsageTrackingData.ContainsKey($ProfileName)) {
+        $script:UsageTrackingData[$ProfileName] = @{
+            lastFocusTime = [DateTime]::MinValue
+            focusDurationMs = 0
+            focusCount = 0
+            usageScore = 0.0
+            isPriorityLocked = $false
+        }
+    }
+
+    $script:UsageTrackingData[$ProfileName].isPriorityLocked = $Locked
+
+    # Recalculate score (priority locked = 999.0)
+    Update-UsageScore -ProfileName $ProfileName
+
+    # Persist
+    Export-UsageTrackingData -UsageData $script:UsageTrackingData
+
+    $status = if ($Locked) { "LOCKED (never bumped)" } else { "UNLOCKED" }
+    Write-LayoutLog "Priority for $ProfileName : $status" -Level "INFO"
+}
+
+<#
+.SYNOPSIS
+    Get all windows sorted by usage score (lowest first).
+
+.DESCRIPTION
+    Returns an array of all tracked windows sorted by usage score,
+    with the least-used windows first. Useful for bump selection
+    or displaying usage statistics.
+
+.PARAMETER ExcludePriorityLocked
+    If set, excludes windows marked as priority locked from results
+
+.OUTPUTS
+    Array of @{ ProfileName, UsageScore, LastFocusTime, FocusDurationMs, FocusCount, IsPriorityLocked }
+
+.EXAMPLE
+    $windows = Get-WindowsByUsage
+    $windows | ForEach-Object { Write-Host "$($_.ProfileName): $($_.UsageScore)" }
+#>
+function Get-WindowsByUsage {
+    param(
+        [switch]$ExcludePriorityLocked
+    )
+
+    # Ensure data is loaded
+    if ($script:UsageTrackingData.Count -eq 0) {
+        Initialize-UsageTracking
+    }
+
+    $results = @()
+    foreach ($profileName in $script:UsageTrackingData.Keys) {
+        $data = $script:UsageTrackingData[$profileName]
+
+        # Skip priority-locked if requested
+        if ($ExcludePriorityLocked -and $data.isPriorityLocked) {
+            continue
+        }
+
+        $results += @{
+            ProfileName = $profileName
+            UsageScore = $data.usageScore
+            LastFocusTime = $data.lastFocusTime
+            FocusDurationMs = $data.focusDurationMs
+            FocusCount = $data.focusCount
+            IsPriorityLocked = $data.isPriorityLocked
+        }
+    }
+
+    # Sort by usage score (lowest first)
+    return ($results | Sort-Object { $_.UsageScore })
+}
+
+<#
+.SYNOPSIS
+    Recalculate usage scores for all tracked windows.
+
+.DESCRIPTION
+    Updates the usage score for every tracked profile. Call this periodically
+    to ensure recency scores decay properly over time.
+
+.EXAMPLE
+    Update-AllUsageScores
+#>
+function Update-AllUsageScores {
+    # Ensure data is loaded
+    if ($script:UsageTrackingData.Count -eq 0) {
+        Initialize-UsageTracking
+    }
+
+    foreach ($profileName in $script:UsageTrackingData.Keys) {
+        Update-UsageScore -ProfileName $profileName
+    }
+
+    # Persist updated scores
+    Export-UsageTrackingData -UsageData $script:UsageTrackingData
+
+    Write-LayoutLog "Updated usage scores for $($script:UsageTrackingData.Count) profiles" -Level "DEBUG"
+}
+
+<#
+.SYNOPSIS
+    Clear stale usage tracking data older than specified days.
+
+.DESCRIPTION
+    Removes tracking data for windows that haven't been focused
+    in the specified number of days. Helps keep the state file clean.
+
+.PARAMETER OlderThanDays
+    Remove entries where lastFocusTime is older than this many days (default: 7)
+
+.EXAMPLE
+    Clear-StaleUsageData -OlderThanDays 7
+    # Removes tracking data for windows not focused in the last week
+#>
+function Clear-StaleUsageData {
+    param(
+        [int]$OlderThanDays = 7
+    )
+
+    # Ensure data is loaded
+    if ($script:UsageTrackingData.Count -eq 0) {
+        Initialize-UsageTracking
+    }
+
+    $cutoffDate = (Get-Date).AddDays(-$OlderThanDays)
+    $toRemove = @()
+
+    foreach ($profileName in $script:UsageTrackingData.Keys) {
+        $data = $script:UsageTrackingData[$profileName]
+
+        # Skip priority-locked windows (never remove)
+        if ($data.isPriorityLocked) {
+            continue
+        }
+
+        # Check if stale
+        if ($data.lastFocusTime -lt $cutoffDate) {
+            $toRemove += $profileName
+        }
+    }
+
+    # Remove stale entries
+    foreach ($profileName in $toRemove) {
+        $script:UsageTrackingData.Remove($profileName)
+        Write-LayoutLog "Removed stale usage data: $profileName" -Level "DEBUG"
+    }
+
+    if ($toRemove.Count -gt 0) {
+        Export-UsageTrackingData -UsageData $script:UsageTrackingData
+        Write-LayoutLog "Cleared $($toRemove.Count) stale usage entries (older than $OlderThanDays days)" -Level "INFO"
+    }
+}
+
+<#
+.SYNOPSIS
+    Reset all usage tracking data.
+
+.DESCRIPTION
+    Clears all usage tracking data and resets to empty state.
+    Use with caution - this loses all historical usage information.
+
+.EXAMPLE
+    Reset-UsageTracking
+#>
+function Reset-UsageTracking {
+    $script:UsageTrackingData = @{}
+    $script:FocusStartTimes = @{}
+
+    # Save empty data
+    Export-UsageTrackingData -UsageData $script:UsageTrackingData
+
+    Write-LayoutLog "Usage tracking data has been reset" -Level "INFO"
+}
+
+<#
+.SYNOPSIS
+    Get a summary of current usage tracking state.
+
+.DESCRIPTION
+    Returns a formatted string summarizing the usage tracking state,
+    useful for debugging and UI display.
+
+.OUTPUTS
+    String with formatted usage summary
+
+.EXAMPLE
+    $summary = Get-UsageTrackingSummary
+    Write-Host $summary
+#>
+function Get-UsageTrackingSummary {
+    # Ensure data is loaded
+    if ($script:UsageTrackingData.Count -eq 0) {
+        Initialize-UsageTracking
+    }
+
+    $windows = Get-WindowsByUsage
+
+    if ($windows.Count -eq 0) {
+        return "No windows tracked"
+    }
+
+    $lines = @()
+    $lines += "Usage Tracking Summary ($($windows.Count) windows)"
+    $lines += "=" * 50
+
+    foreach ($win in $windows) {
+        $focusDur = [Math]::Round($win.FocusDurationMs / 1000, 1)
+        $score = [Math]::Round($win.UsageScore, 3)
+        $locked = if ($win.IsPriorityLocked) { " [LOCKED]" } else { "" }
+        $lines += "$($win.ProfileName): score=$score, focus=${focusDur}s, count=$($win.FocusCount)$locked"
+    }
+
+    return ($lines -join "`n")
+}
+
+# Initialize usage tracking when module is loaded
+Initialize-UsageTracking
