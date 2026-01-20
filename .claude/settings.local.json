@@ -3,7 +3,8 @@
     "allow": [
       "Bash(powershell -ExecutionPolicy Bypass -File:*)",
       "Bash(powershell -Command:*)",
-      "Bash(start notepad:*)"
+      "Bash(start notepad:*)",
+      "Bash(git checkout:*)"
     ]
   },
   "enabledPlugins": {
