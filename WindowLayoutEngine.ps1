@@ -1521,6 +1521,631 @@ function Restore-WindowPositions {
     }
 }
 
+# --- POSITION PRESETS SYSTEM ---
+# Phase 4: Save and restore custom window positions
+
+<#
+.SYNOPSIS
+    Generate a unique monitor configuration string for the current display setup.
+
+.DESCRIPTION
+    Creates a hash-like string that uniquely identifies the current monitor configuration.
+    Used to detect when presets were saved with a different display setup.
+    Format: "MONITOR_<hash>_<width>x<height>+MONITOR_<hash>_<width>x<height>"
+
+.OUTPUTS
+    String representing the current monitor configuration
+
+.EXAMPLE
+    $config = Get-MonitorConfigString
+    # Returns: "MONITOR_0_1920x1040+MONITOR_1_2560x1400"
+#>
+function Get-MonitorConfigString {
+    try {
+        $screens = Get-ScreenTopology
+        $configParts = @()
+
+        foreach ($screen in $screens) {
+            # Include index, dimensions, and position for uniqueness
+            $part = "MONITOR_$($screen.Index)_$($screen.Width)x$($screen.Height)@$($screen.Left),$($screen.Top)"
+            $configParts += $part
+        }
+
+        $configString = $configParts -join "+"
+        Write-LayoutLog "Monitor config string: $configString" -Level "DEBUG"
+        return $configString
+    }
+    catch {
+        Write-LayoutLog "Failed to generate monitor config string: $_" -Level "ERROR"
+        return "UNKNOWN"
+    }
+}
+
+<#
+.SYNOPSIS
+    Save current window positions as a named preset.
+
+.DESCRIPTION
+    Captures current positions of all Matrix windows and saves them to matrix_state.json
+    under the positionPresets key. The special name "_snapback" is used for quick save/restore.
+    Uses atomic write pattern (US-001) to prevent corruption.
+
+.PARAMETER Name
+    Name of the preset (e.g., "_snapback", "Coding", "Monitoring")
+
+.PARAMETER WindowInfo
+    Optional array of @{ Handle, Slot } objects. If not provided, uses Get-MatrixWindowInfo.
+
+.OUTPUTS
+    $true if save succeeded, $false otherwise
+
+.EXAMPLE
+    Save-PositionPreset -Name "_snapback"
+
+.EXAMPLE
+    Save-PositionPreset -Name "Coding"
+#>
+function Save-PositionPreset {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name,
+
+        [array]$WindowInfo
+    )
+
+    $stateFilePath = "$env:USERPROFILE\Documents\Matrix\matrix_state.json"
+
+    try {
+        # Get window info if not provided
+        if (-not $WindowInfo -or $WindowInfo.Count -eq 0) {
+            # Try to get windows from global handles if available
+            if ($global:matrixWindowHandles) {
+                $WindowInfo = @()
+                foreach ($key in $global:matrixWindowHandles.Keys) {
+                    $entry = $global:matrixWindowHandles[$key]
+                    $handle = if ($entry -is [hashtable]) { $entry.Handle } else { $entry }
+                    if ($handle -and $handle -ne [IntPtr]::Zero) {
+                        # Extract slot number from key (e.g., "Matrix-1" -> 1)
+                        if ($key -match 'Matrix-(\d+)') {
+                            $WindowInfo += @{
+                                Handle = $handle
+                                Slot = [int]$Matches[1]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (-not $WindowInfo -or $WindowInfo.Count -eq 0) {
+            Write-LayoutLog "No windows to save for preset '$Name'" -Level "WARN"
+            return $false
+        }
+
+        # Load existing state
+        $state = @{}
+        if (Test-Path $stateFilePath) {
+            try {
+                $stateJson = Get-Content -Path $stateFilePath -Raw -ErrorAction Stop
+                $stateObj = $stateJson | ConvertFrom-Json -ErrorAction Stop
+                $stateObj.PSObject.Properties | ForEach-Object {
+                    $state[$_.Name] = $_.Value
+                }
+            }
+            catch {
+                Write-LayoutLog "Failed to load existing state for preset save: $_" -Level "WARN"
+            }
+        }
+
+        # Ensure positionPresets exists
+        if (-not $state.positionPresets) {
+            $state.positionPresets = @{}
+        }
+        # Convert PSCustomObject to hashtable if needed
+        elseif ($state.positionPresets -is [PSCustomObject]) {
+            $presetsHash = @{}
+            $state.positionPresets.PSObject.Properties | ForEach-Object {
+                $presetsHash[$_.Name] = $_.Value
+            }
+            $state.positionPresets = $presetsHash
+        }
+
+        # Get current monitor configuration
+        $monitorConfig = Get-MonitorConfigString
+
+        # Build window positions with monitor info
+        $positions = @{}
+        $screens = Get-ScreenTopology
+
+        foreach ($win in $WindowInfo) {
+            if (-not $win.Handle -or $win.Handle -eq [IntPtr]::Zero) { continue }
+
+            try {
+                $rect = New-Object WindowLayoutAPI+RECT
+                if ([WindowLayoutAPI]::GetWindowRect($win.Handle, [ref]$rect)) {
+                    $shaderName = "Matrix-$($win.Slot)"
+
+                    # Determine which monitor this window is on
+                    $centerX = ($rect.Left + $rect.Right) / 2
+                    $centerY = ($rect.Top + $rect.Bottom) / 2
+                    $monitorIndex = Get-MonitorAtPoint -X $centerX -Y $centerY
+
+                    $positions[$shaderName] = @{
+                        x = $rect.Left
+                        y = $rect.Top
+                        width = $rect.Right - $rect.Left
+                        height = $rect.Bottom - $rect.Top
+                        monitor = $monitorIndex
+                    }
+                    Write-LayoutLog "Preset '$Name': Captured $shaderName at ($($rect.Left), $($rect.Top)) $($rect.Right - $rect.Left)x$($rect.Bottom - $rect.Top) on monitor $monitorIndex" -Level "DEBUG"
+                }
+            }
+            catch {
+                Write-LayoutLog "Failed to get position for slot $($win.Slot) in preset: $_" -Level "DEBUG"
+            }
+        }
+
+        if ($positions.Count -eq 0) {
+            Write-LayoutLog "No positions captured for preset '$Name'" -Level "WARN"
+            return $false
+        }
+
+        # Create preset entry
+        $preset = @{
+            savedAt = (Get-Date).ToString("o")
+            monitorConfig = $monitorConfig
+            positions = $positions
+        }
+
+        # Save preset
+        $state.positionPresets[$Name] = $preset
+
+        # Atomic write
+        $stateJson = $state | ConvertTo-Json -Depth 10 -ErrorAction Stop
+        $tempFile = [System.IO.Path]::GetTempFileName()
+        $stateJson | Out-File -FilePath $tempFile -Encoding UTF8 -ErrorAction Stop
+        Move-Item -Path $tempFile -Destination $stateFilePath -Force -ErrorAction Stop
+
+        Write-LayoutLog "Saved preset '$Name' with $($positions.Count) window positions" -Level "INFO"
+        return $true
+    }
+    catch {
+        Write-LayoutLog "Failed to save position preset '$Name': $_" -Level "ERROR"
+        return $false
+    }
+}
+
+<#
+.SYNOPSIS
+    Restore window positions from a saved preset.
+
+.DESCRIPTION
+    Reads a preset from matrix_state.json and applies positions to matching windows.
+    Handles monitor configuration mismatches by scaling positions proportionally.
+
+.PARAMETER Name
+    Name of the preset to restore (e.g., "_snapback", "Coding")
+
+.PARAMETER WindowInfo
+    Optional array of @{ Handle, Slot } objects. If not provided, uses global handles.
+
+.PARAMETER Force
+    If $true, restore even if monitor configuration doesn't match (with scaling)
+
+.OUTPUTS
+    $true if restore succeeded, $false otherwise
+
+.EXAMPLE
+    Restore-PositionPreset -Name "_snapback"
+
+.EXAMPLE
+    Restore-PositionPreset -Name "Coding" -Force
+#>
+function Restore-PositionPreset {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name,
+
+        [array]$WindowInfo,
+
+        [switch]$Force
+    )
+
+    $stateFilePath = "$env:USERPROFILE\Documents\Matrix\matrix_state.json"
+
+    try {
+        # Load state
+        if (-not (Test-Path $stateFilePath)) {
+            Write-LayoutLog "No state file found for preset restore" -Level "WARN"
+            return $false
+        }
+
+        $stateJson = Get-Content -Path $stateFilePath -Raw -ErrorAction Stop
+        $state = $stateJson | ConvertFrom-Json -ErrorAction Stop
+
+        if (-not $state.positionPresets) {
+            Write-LayoutLog "No presets found in state file" -Level "WARN"
+            return $false
+        }
+
+        # Get preset
+        $preset = $state.positionPresets.$Name
+        if (-not $preset) {
+            Write-LayoutLog "Preset '$Name' not found" -Level "WARN"
+            return $false
+        }
+
+        # Check monitor compatibility
+        $currentConfig = Get-MonitorConfigString
+        $savedConfig = $preset.monitorConfig
+        $configMatches = ($currentConfig -eq $savedConfig)
+
+        if (-not $configMatches -and -not $Force) {
+            Write-LayoutLog "Monitor configuration changed since preset was saved. Use -Force to restore anyway." -Level "WARN"
+            Write-LayoutLog "  Saved: $savedConfig" -Level "DEBUG"
+            Write-LayoutLog "  Current: $currentConfig" -Level "DEBUG"
+            # Still proceed but log warning - auto-scale positions
+        }
+
+        # Get window info if not provided
+        if (-not $WindowInfo -or $WindowInfo.Count -eq 0) {
+            if ($global:matrixWindowHandles) {
+                $WindowInfo = @()
+                foreach ($key in $global:matrixWindowHandles.Keys) {
+                    $entry = $global:matrixWindowHandles[$key]
+                    $handle = if ($entry -is [hashtable]) { $entry.Handle } else { $entry }
+                    if ($handle -and $handle -ne [IntPtr]::Zero) {
+                        if ($key -match 'Matrix-(\d+)') {
+                            $WindowInfo += @{
+                                Handle = $handle
+                                Slot = [int]$Matches[1]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (-not $WindowInfo -or $WindowInfo.Count -eq 0) {
+            Write-LayoutLog "No windows available to restore preset '$Name'" -Level "WARN"
+            return $false
+        }
+
+        # Get current screens for scaling
+        $screens = Get-ScreenTopology
+
+        # Calculate scaling factors if config doesn't match
+        $scaleFactors = @{}
+        if (-not $configMatches) {
+            # Parse saved config to extract monitor dimensions
+            # Format: MONITOR_0_1920x1040@0,0+MONITOR_1_2560x1400@1920,0
+            $savedParts = $savedConfig -split '\+'
+            foreach ($part in $savedParts) {
+                if ($part -match 'MONITOR_(\d+)_(\d+)x(\d+)@(-?\d+),(-?\d+)') {
+                    $monIdx = [int]$Matches[1]
+                    $savedWidth = [int]$Matches[2]
+                    $savedHeight = [int]$Matches[3]
+                    $savedLeft = [int]$Matches[4]
+                    $savedTop = [int]$Matches[5]
+
+                    # Find corresponding current screen
+                    $currentScreen = $screens | Where-Object { $_.Index -eq $monIdx } | Select-Object -First 1
+                    if ($currentScreen) {
+                        $scaleFactors[$monIdx] = @{
+                            ScaleX = $currentScreen.Width / $savedWidth
+                            ScaleY = $currentScreen.Height / $savedHeight
+                            OffsetX = $currentScreen.Left - $savedLeft
+                            OffsetY = $currentScreen.Top - $savedTop
+                            CurrentScreen = $currentScreen
+                        }
+                    }
+                }
+            }
+        }
+
+        # Restore positions
+        $restoredCount = 0
+        foreach ($win in $WindowInfo) {
+            $shaderName = "Matrix-$($win.Slot)"
+
+            # Get saved position
+            $savedPos = $preset.positions.$shaderName
+            if (-not $savedPos) {
+                Write-LayoutLog "No saved position for $shaderName in preset '$Name'" -Level "DEBUG"
+                continue
+            }
+
+            # Calculate final position (with scaling if needed)
+            $finalX = [int]$savedPos.x
+            $finalY = [int]$savedPos.y
+            $finalWidth = [int]$savedPos.width
+            $finalHeight = [int]$savedPos.height
+
+            if (-not $configMatches -and $scaleFactors.Count -gt 0) {
+                $monitorIdx = if ($null -ne $savedPos.monitor) { [int]$savedPos.monitor } else { 0 }
+
+                if ($scaleFactors.ContainsKey($monitorIdx)) {
+                    $sf = $scaleFactors[$monitorIdx]
+                    $currentScreen = $sf.CurrentScreen
+
+                    # Scale position relative to monitor origin
+                    $relX = $savedPos.x - ($currentScreen.Left - $sf.OffsetX)
+                    $relY = $savedPos.y - ($currentScreen.Top - $sf.OffsetY)
+
+                    $scaledRelX = [int]($relX * $sf.ScaleX)
+                    $scaledRelY = [int]($relY * $sf.ScaleY)
+                    $scaledWidth = [int]($savedPos.width * $sf.ScaleX)
+                    $scaledHeight = [int]($savedPos.height * $sf.ScaleY)
+
+                    $finalX = $currentScreen.Left + $scaledRelX
+                    $finalY = $currentScreen.Top + $scaledRelY
+                    $finalWidth = $scaledWidth
+                    $finalHeight = $scaledHeight
+
+                    Write-LayoutLog "Scaled $shaderName from ($($savedPos.x),$($savedPos.y)) to ($finalX,$finalY)" -Level "DEBUG"
+                }
+            }
+
+            try {
+                [WindowLayoutAPI]::SetWindowPos(
+                    $win.Handle,
+                    [IntPtr]::Zero,
+                    $finalX,
+                    $finalY,
+                    $finalWidth,
+                    $finalHeight,
+                    ([WindowLayoutAPI]::SWP_NOZORDER -bor [WindowLayoutAPI]::SWP_SHOWWINDOW)
+                ) | Out-Null
+
+                Write-LayoutLog "Restored $shaderName to ($finalX, $finalY) $($finalWidth)x$($finalHeight)" -Level "DEBUG"
+                $restoredCount++
+            }
+            catch {
+                Write-LayoutLog "Failed to restore position for $shaderName : $_" -Level "WARN"
+            }
+        }
+
+        if ($restoredCount -gt 0) {
+            Write-LayoutLog "Restored $restoredCount windows from preset '$Name'" -Level "INFO"
+            return $true
+        }
+        else {
+            Write-LayoutLog "No positions were restored from preset '$Name'" -Level "WARN"
+            return $false
+        }
+    }
+    catch {
+        Write-LayoutLog "Failed to restore position preset '$Name': $_" -Level "ERROR"
+        return $false
+    }
+}
+
+<#
+.SYNOPSIS
+    List all available position presets.
+
+.DESCRIPTION
+    Returns an array of preset information including name, save time, and window count.
+
+.OUTPUTS
+    Array of @{ Name, SavedAt, WindowCount, MonitorConfig, IsCompatible }
+
+.EXAMPLE
+    $presets = Get-PositionPresets
+    $presets | Format-Table -AutoSize
+#>
+function Get-PositionPresets {
+    $stateFilePath = "$env:USERPROFILE\Documents\Matrix\matrix_state.json"
+
+    try {
+        if (-not (Test-Path $stateFilePath)) {
+            Write-LayoutLog "No state file found" -Level "DEBUG"
+            return @()
+        }
+
+        $stateJson = Get-Content -Path $stateFilePath -Raw -ErrorAction Stop
+        $state = $stateJson | ConvertFrom-Json -ErrorAction Stop
+
+        if (-not $state.positionPresets) {
+            Write-LayoutLog "No presets in state file" -Level "DEBUG"
+            return @()
+        }
+
+        $currentConfig = Get-MonitorConfigString
+        $presets = @()
+
+        $state.positionPresets.PSObject.Properties | ForEach-Object {
+            $presetName = $_.Name
+            $presetData = $_.Value
+
+            # Count positions
+            $windowCount = 0
+            if ($presetData.positions) {
+                $windowCount = ($presetData.positions.PSObject.Properties | Measure-Object).Count
+            }
+
+            $presets += @{
+                Name = $presetName
+                SavedAt = if ($presetData.savedAt) { $presetData.savedAt } else { "Unknown" }
+                WindowCount = $windowCount
+                MonitorConfig = if ($presetData.monitorConfig) { $presetData.monitorConfig } else { "Unknown" }
+                IsCompatible = ($presetData.monitorConfig -eq $currentConfig)
+            }
+        }
+
+        return $presets
+    }
+    catch {
+        Write-LayoutLog "Failed to get position presets: $_" -Level "ERROR"
+        return @()
+    }
+}
+
+<#
+.SYNOPSIS
+    Remove a position preset.
+
+.DESCRIPTION
+    Deletes a named preset from matrix_state.json. Uses atomic write pattern.
+
+.PARAMETER Name
+    Name of the preset to remove
+
+.OUTPUTS
+    $true if removed, $false if not found or error
+
+.EXAMPLE
+    Remove-PositionPreset -Name "OldPreset"
+#>
+function Remove-PositionPreset {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    $stateFilePath = "$env:USERPROFILE\Documents\Matrix\matrix_state.json"
+
+    try {
+        if (-not (Test-Path $stateFilePath)) {
+            Write-LayoutLog "No state file found" -Level "WARN"
+            return $false
+        }
+
+        $stateJson = Get-Content -Path $stateFilePath -Raw -ErrorAction Stop
+        $stateObj = $stateJson | ConvertFrom-Json -ErrorAction Stop
+
+        # Convert to hashtable for manipulation
+        $state = @{}
+        $stateObj.PSObject.Properties | ForEach-Object {
+            $state[$_.Name] = $_.Value
+        }
+
+        if (-not $state.positionPresets) {
+            Write-LayoutLog "No presets section in state file" -Level "WARN"
+            return $false
+        }
+
+        # Convert presets to hashtable
+        $presetsHash = @{}
+        $state.positionPresets.PSObject.Properties | ForEach-Object {
+            $presetsHash[$_.Name] = $_.Value
+        }
+
+        if (-not $presetsHash.ContainsKey($Name)) {
+            Write-LayoutLog "Preset '$Name' not found" -Level "WARN"
+            return $false
+        }
+
+        # Remove preset
+        $presetsHash.Remove($Name)
+        $state.positionPresets = $presetsHash
+
+        # Atomic write
+        $stateJson = $state | ConvertTo-Json -Depth 10 -ErrorAction Stop
+        $tempFile = [System.IO.Path]::GetTempFileName()
+        $stateJson | Out-File -FilePath $tempFile -Encoding UTF8 -ErrorAction Stop
+        Move-Item -Path $tempFile -Destination $stateFilePath -Force -ErrorAction Stop
+
+        Write-LayoutLog "Removed preset '$Name'" -Level "INFO"
+        return $true
+    }
+    catch {
+        Write-LayoutLog "Failed to remove preset '$Name': $_" -Level "ERROR"
+        return $false
+    }
+}
+
+<#
+.SYNOPSIS
+    Test if a preset is compatible with current monitor configuration.
+
+.DESCRIPTION
+    Checks if a preset's monitor configuration matches the current setup.
+    Returns detailed compatibility information.
+
+.PARAMETER PresetName
+    Name of the preset to check
+
+.OUTPUTS
+    Hashtable with compatibility details: @{ IsCompatible, Reason, ScalingRequired, MissingMonitors }
+
+.EXAMPLE
+    $compat = Test-PresetCompatible -PresetName "_snapback"
+    if ($compat.IsCompatible) { Restore-PositionPreset -Name "_snapback" }
+#>
+function Test-PresetCompatible {
+    param(
+        [Parameter(Mandatory)]
+        [string]$PresetName
+    )
+
+    $stateFilePath = "$env:USERPROFILE\Documents\Matrix\matrix_state.json"
+
+    $result = @{
+        IsCompatible = $false
+        Reason = "Unknown"
+        ScalingRequired = $false
+        MissingMonitors = @()
+    }
+
+    try {
+        if (-not (Test-Path $stateFilePath)) {
+            $result.Reason = "No state file found"
+            return $result
+        }
+
+        $stateJson = Get-Content -Path $stateFilePath -Raw -ErrorAction Stop
+        $state = $stateJson | ConvertFrom-Json -ErrorAction Stop
+
+        if (-not $state.positionPresets) {
+            $result.Reason = "No presets in state file"
+            return $result
+        }
+
+        $preset = $state.positionPresets.$PresetName
+        if (-not $preset) {
+            $result.Reason = "Preset '$PresetName' not found"
+            return $result
+        }
+
+        $currentConfig = Get-MonitorConfigString
+        $savedConfig = $preset.monitorConfig
+
+        if ($currentConfig -eq $savedConfig) {
+            $result.IsCompatible = $true
+            $result.Reason = "Exact match"
+            return $result
+        }
+
+        # Parse configs to check compatibility
+        $currentScreens = Get-ScreenTopology
+        $savedMonitorCount = ($savedConfig -split '\+').Count
+        $currentMonitorCount = $currentScreens.Count
+
+        if ($currentMonitorCount -lt $savedMonitorCount) {
+            $result.Reason = "Fewer monitors ($currentMonitorCount) than preset ($savedMonitorCount)"
+            $result.MissingMonitors = @($savedMonitorCount - $currentMonitorCount)
+        }
+        elseif ($currentMonitorCount -gt $savedMonitorCount) {
+            $result.IsCompatible = $true
+            $result.Reason = "More monitors available ($currentMonitorCount vs $savedMonitorCount preset)"
+            $result.ScalingRequired = $true
+        }
+        else {
+            # Same monitor count but different config - likely resolution change
+            $result.IsCompatible = $true
+            $result.Reason = "Same monitor count, different resolution/position"
+            $result.ScalingRequired = $true
+        }
+
+        return $result
+    }
+    catch {
+        $result.Reason = "Error checking compatibility: $_"
+        return $result
+    }
+}
+
 # --- USAGE TRACKING SYSTEM ---
 # Phase 2: Track window usage for intelligent bump decisions
 
