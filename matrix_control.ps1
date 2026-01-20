@@ -334,9 +334,14 @@ public class WindowAPI {
 
 Add-Type -AssemblyName System.Windows.Forms
 
-# Import Window Layout Engine
+# Import Window Layout Engine and Identity Service
 . "$PSScriptRoot\WindowLayoutEngine.ps1"
 . "$PSScriptRoot\WindowIdentityService.ps1"
+
+# Enable identity service verbose logging if MATRIX_DEBUG=1
+if ($env:MATRIX_DEBUG -eq "1") {
+    Enable-IdentityVerboseLogging
+}
 
 function Get-ScreenDimensions {
     $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
@@ -386,8 +391,9 @@ function Position-MatrixWindows {
 }
 
 function Get-MatrixWindows {
+    # DEPRECATED: Use Get-AllMatrixWindows from WindowIdentityService instead
+    # Keeping for backward compatibility with Position-MatrixWindows
     # Find ALL Windows Terminal windows EXCEPT the Redpill control panel
-    # These are all "Matrix windows" because they run with shader effects
     $windows = [WindowAPI]::FindAllTerminalWindows("Redpill")
     return $windows
 }
@@ -531,35 +537,33 @@ function Get-SlotFromSettings($windowTitle) {
 
 function Get-MatrixWindowInfo {
     # Returns array of @{Handle, Title, Slot, ShaderPath} for Matrix windows ONLY
-    # Uses title matching to detect Matrix-N windows
-    Write-Log "Detecting Matrix windows..." "DETECT"
-    $windows = Get-MatrixWindows
-    Write-Log "Found $($windows.Count) terminal windows" "DETECT"
+    # Uses WindowIdentityService's 4-layer identity hierarchy instead of title-only matching
+    Write-Log "Detecting Matrix windows via WindowIdentityService..." "DETECT"
+
+    # Use WindowIdentityService to get all Matrix windows (exclude Redpill)
+    $identityWindows = Get-AllMatrixWindows -IncludeRedpill:$false
+    Write-Log "Found $($identityWindows.Count) Matrix windows" "DETECT"
+
     $result = @()
 
-    foreach ($win in $windows) {
-        $slot = $null
-        $shaderFile = $null
-
-        # Title matching (Matrix-N in title)
-        if ($win.Value -match "Matrix-(\d+)") {
-            $slot = [int]$Matches[1]
-            $shaderFile = "Matrix-$slot.hlsl"
-            Write-Log "  Title match: handle=$($win.Key) -> Slot $slot" "DETECT"
-        }
-        # No Matrix profile detected - skip this window
-        else {
-            Write-Log "  Skipping non-Matrix window: handle=$($win.Key) title='$($win.Value)'" "DETECT"
+    foreach ($win in $identityWindows) {
+        # Skip if no slot (shouldn't happen for Matrix windows, but safety check)
+        if (-not $win.Slot) {
+            Write-Log "  Skipping window without slot: handle=$($win.Handle) title='$($win.Title)'" "DETECT"
             continue
         }
 
         $result += @{
-            Handle = $win.Key
-            Title = $win.Value
-            Slot = $slot
-            ShaderFile = $shaderFile
-            ShaderPath = "$shadersDir\$shaderFile"
+            Handle = $win.Handle
+            Title = $win.Title
+            Slot = $win.Slot
+            ShaderFile = $win.ShaderFile
+            ShaderPath = "$shadersDir\$($win.ShaderFile)"
+            IdentitySource = $win.IdentitySource
+            Confidence = $win.Confidence
         }
+
+        Write-Log "  Slot $($win.Slot): handle=$($win.Handle) via $($win.IdentitySource) (conf: $($win.Confidence))" "DETECT"
     }
 
     # Update registry with detected mappings
@@ -572,10 +576,7 @@ function Get-MatrixWindowInfo {
     } catch { }
 
     $sorted = $result | Sort-Object { $_.Slot }
-    Write-Log "Detected $($sorted.Count) Matrix windows" "DETECT"
-    foreach ($w in $sorted) {
-        Write-Log "  Slot $($w.Slot): handle=$($w.Handle) title='$($w.Title)'" "DETECT"
-    }
+    Write-Log "Detected $($sorted.Count) Matrix windows via identity service" "DETECT"
     return $sorted
 }
 
@@ -671,10 +672,18 @@ function Launch-MatrixWindows([int]$count) {
     foreach ($slot in $slotsToLaunch) {
         $pname = "Matrix-$slot"
         Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
+
+        # LAYER 1 INTEGRATION: Capture existing handles BEFORE launch
+        $existingHandles = Get-ExistingWindowHandles
+
         Start-Process wt -ArgumentList "-p `"$pname`""
 
-        if (Wait-ForMatrixWindow $pname) {
-            Write-Log "Window $pname launched successfully" "LAUNCH"
+        # LAYER 1 INTEGRATION: Wait for new handle and register it with WindowIdentityService
+        $newHandle = Wait-ForNewMatrixWindow -ProfileName $pname -ExistingHandles $existingHandles
+
+        if ($newHandle -ne [IntPtr]::Zero) {
+            Register-MatrixWindowByHandle -ProfileName $pname -WindowHandle $newHandle
+            Write-Log "Window $pname launched successfully (handle: $newHandle)" "LAUNCH"
             Write-Host " OK" -ForegroundColor Green
         } else {
             Write-Log "Window $pname TIMEOUT after 5s" "LAUNCH"

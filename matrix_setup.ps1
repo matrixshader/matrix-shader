@@ -189,6 +189,9 @@ public class WindowPositioning {
 # Import WindowLayoutEngine for centralized positioning
 . "$PSScriptRoot\WindowLayoutEngine.ps1"
 
+# Import WindowIdentityService for launch tracking
+. "$PSScriptRoot\WindowIdentityService.ps1"
+
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
@@ -288,17 +291,13 @@ function Position-MatrixWindows([int]$WindowCount) {
     # Wait for windows to fully initialize
     Start-Sleep -Milliseconds 500
 
-    # Find all Matrix windows and detect their slots via UI Automation
-    $windows = Get-AllTerminalWindows
+    # Use WindowIdentityService to find all Matrix windows
+    $identityWindows = Get-AllMatrixWindows -IncludeRedpill:$false
     $windowHandles = @{}
 
-    foreach ($win in $windows) {
-        # Skip Redpill window
-        if ($win.Value -match "Redpill") { continue }
-
-        $slot = Get-ProfileFromUIAutomation $win.Key
-        if ($slot) {
-            $windowHandles["Matrix-$slot"] = @{ Handle = $win.Key }
+    foreach ($win in $identityWindows) {
+        if ($win.Slot) {
+            $windowHandles["Matrix-$($win.Slot)"] = @{ Handle = $win.Handle }
         }
     }
 
@@ -310,7 +309,7 @@ function Position-MatrixWindows([int]$WindowCount) {
     # Use WindowLayoutEngine for positioning
     $result = Invoke-MatrixWindowLayout -WindowHandles $windowHandles -Mode 'Auto'
 
-    Write-Host "   Positioned $($windowHandles.Count) windows by slot order" -ForegroundColor DarkGray
+    Write-Host "   Positioned $($windowHandles.Count) windows via identity service" -ForegroundColor DarkGray
 }
 
 function Update-ProfileShaderPath([int]$Slot) {
@@ -518,9 +517,17 @@ if ($choice -eq '2') {
         $slot = $cfg.Slot
         $pname = "Matrix-$slot"
         Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
+
+        # LAYER 1 INTEGRATION: Capture existing handles BEFORE launch
+        $existingHandles = Get-ExistingWindowHandles
+
         Start-Process wt -ArgumentList "-p `"$pname`""
 
-        if (Wait-ForMatrixWindow $pname) {
+        # LAYER 1 INTEGRATION: Wait for new handle and register it
+        $newHandle = Wait-ForNewMatrixWindow -ProfileName $pname -ExistingHandles $existingHandles
+
+        if ($newHandle -ne [IntPtr]::Zero) {
+            Register-MatrixWindowByHandle -ProfileName $pname -WindowHandle $newHandle
             Write-Host " OK" -ForegroundColor Green
         } else {
             Write-Host " TIMEOUT" -ForegroundColor Yellow
@@ -556,9 +563,17 @@ foreach ($cfg in $tabConfigs) {
     $slot = $cfg.Slot
     $pname = "Matrix-$slot"
     Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
+
+    # LAYER 1 INTEGRATION: Capture existing handles BEFORE launch
+    $existingHandles = Get-ExistingWindowHandles
+
     Start-Process wt -ArgumentList "-p `"$pname`""
 
-    if (Wait-ForMatrixWindow $pname) {
+    # LAYER 1 INTEGRATION: Wait for new handle and register it
+    $newHandle = Wait-ForNewMatrixWindow -ProfileName $pname -ExistingHandles $existingHandles
+
+    if ($newHandle -ne [IntPtr]::Zero) {
+        Register-MatrixWindowByHandle -ProfileName $pname -WindowHandle $newHandle
         Write-Host " OK" -ForegroundColor Green
     } else {
         Write-Host " TIMEOUT" -ForegroundColor Yellow

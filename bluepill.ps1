@@ -116,6 +116,9 @@ public class BluepillAPI {
 # Import WindowLayoutEngine for centralized positioning
 . "$PSScriptRoot\WindowLayoutEngine.ps1"
 
+# Import WindowIdentityService for launch tracking
+. "$PSScriptRoot\WindowIdentityService.ps1"
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
@@ -174,16 +177,18 @@ function Wait-ForMatrixWindow([string]$profileName, [int]$timeoutMs = 5000) {
 
 function Get-MatrixWindowInfoForBluepill {
     # Returns array of @{Handle, Slot} for Matrix windows
-    $windows = [BluepillAPI]::FindAllTerminalWindows()
-    $result = @()
+    # Uses WindowIdentityService's 4-layer identity hierarchy
 
-    foreach ($win in $windows) {
-        if ($win.Value -match "Redpill") { continue }
-        $slot = Get-ProfileFromUIAutomation $win.Key
-        if ($slot) {
+    # Use WindowIdentityService to get all Matrix windows (exclude Redpill)
+    $identityWindows = Get-AllMatrixWindows -IncludeRedpill:$false
+
+    $result = @()
+    foreach ($win in $identityWindows) {
+        if ($win.Slot) {
             $result += @{
-                Handle = $win.Key
-                Slot = $slot
+                Handle = $win.Handle
+                Slot = $win.Slot
+                IdentitySource = $win.IdentitySource
             }
         }
     }
@@ -218,17 +223,15 @@ function Position-MatrixWindows {
     Write-Host "   Positioned $($windowInfo.Count) windows using layout engine" -ForegroundColor Green
 }
 
-# Find which slots are already open
+# Find which slots are already open using WindowIdentityService
 Write-Host " Checking for existing windows..." -ForegroundColor Cyan
-$existingWindows = [BluepillAPI]::FindAllTerminalWindows()
+$identityWindows = Get-AllMatrixWindows -IncludeRedpill:$false
 $openSlots = @{}
 
-foreach ($win in $existingWindows) {
-    if ($win.Value -match "Redpill") { continue }
-    $slot = Get-ProfileFromUIAutomation $win.Key
-    if ($slot) {
-        $openSlots[$slot] = $true
-        Write-Host "   Slot $slot already open" -ForegroundColor DarkGray
+foreach ($win in $identityWindows) {
+    if ($win.Slot) {
+        $openSlots[$win.Slot] = $true
+        Write-Host "   Slot $($win.Slot) already open (via $($win.IdentitySource))" -ForegroundColor DarkGray
     }
 }
 
@@ -245,9 +248,17 @@ foreach ($slot in $slots) {
     }
 
     Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
+
+    # LAYER 1 INTEGRATION: Capture existing handles BEFORE launch
+    $existingHandles = Get-ExistingWindowHandles
+
     Start-Process wt -ArgumentList "-p `"$pname`""
 
-    if (Wait-ForMatrixWindow $pname) {
+    # LAYER 1 INTEGRATION: Wait for new handle and register it
+    $newHandle = Wait-ForNewMatrixWindow -ProfileName $pname -ExistingHandles $existingHandles
+
+    if ($newHandle -ne [IntPtr]::Zero) {
+        Register-MatrixWindowByHandle -ProfileName $pname -WindowHandle $newHandle
         Write-Host " OK" -ForegroundColor Green
     } else {
         Write-Host " TIMEOUT" -ForegroundColor Yellow
