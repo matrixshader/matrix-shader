@@ -1216,6 +1216,7 @@ $script:DragThreshold = 50  # Minimum pixels of movement to consider a drag
 function Get-WindowPositions {
     param(
         [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
         [array]$WindowHandles
     )
 
@@ -1260,6 +1261,7 @@ function Get-WindowPositions {
 function Initialize-PositionTracking {
     param(
         [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
         [array]$WindowHandles
     )
 
@@ -1338,6 +1340,7 @@ function Test-WindowDragDetected {
 function Update-PositionTracking {
     param(
         [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
         [array]$WindowHandles
     )
 
@@ -2204,3 +2207,954 @@ function Get-UsageTrackingSummary {
 
 # Initialize usage tracking when module is loaded
 Initialize-UsageTracking
+
+# --- DYNAMIC ACCOMMODATION SYSTEM (Phase 3) ---
+# Implements intelligent window accommodation when dragging across monitors
+
+# Module-level state for accommodation state machine
+$script:AccommodationState = 'IDLE'
+$script:DragStartTime = $null
+$script:DraggedWindowInfo = $null
+$script:WindowMonitorAssignments = @{}  # Track which monitor each window is on
+$script:DragThresholdMs = 300  # Minimum drag duration to confirm intent
+$script:CrossMonitorDragThreshold = 50  # Pixels of movement to detect drag
+
+# Accommodation State Machine States:
+# IDLE - No drag in progress
+# DRAG_DETECTING - Movement detected, waiting to confirm intent
+# DRAG_CONFIRMED - User has dragged window significantly
+# CALCULATING - Determining target monitor and capacity
+# ACCOMMODATING - Making room (if needed) or adding directly
+# BUMP_SELECTING - Choosing which window to bump
+# ANIMATING - Moving windows to new positions
+# FINALIZING - Updating tracking and completing
+
+<#
+.SYNOPSIS
+    Get which monitor a point is located on.
+
+.DESCRIPTION
+    Determines which screen contains the given point by checking against
+    all screen boundaries. Returns the screen index (0-based).
+
+.PARAMETER X
+    X coordinate in screen pixels
+
+.PARAMETER Y
+    Y coordinate in screen pixels
+
+.OUTPUTS
+    Integer - Monitor index (0-based), or 0 if point outside all monitors
+
+.EXAMPLE
+    $monitorIdx = Get-MonitorAtPoint -X 1000 -Y 500
+    # Returns: 0 (if point is on primary monitor)
+#>
+function Get-MonitorAtPoint {
+    param(
+        [Parameter(Mandatory)]
+        [int]$X,
+
+        [Parameter(Mandatory)]
+        [int]$Y
+    )
+
+    $screens = Get-ScreenTopology
+
+    for ($i = 0; $i -lt $screens.Count; $i++) {
+        $screen = $screens[$i]
+        if ($X -ge $screen.Left -and $X -lt ($screen.Left + $screen.Width) -and
+            $Y -ge $screen.Top -and $Y -lt ($screen.Top + $screen.Height)) {
+            return $i
+        }
+    }
+
+    # Point outside all monitors - return primary (0)
+    Write-LayoutLog "Point ($X, $Y) outside all monitors, defaulting to 0" -Level "DEBUG"
+    return 0
+}
+
+<#
+.SYNOPSIS
+    Get the maximum capacity for a monitor based on layout mode.
+
+.DESCRIPTION
+    Returns the maximum number of windows that can fit on a monitor
+    based on the current layout mode (Pillars or Quads).
+
+.PARAMETER MonitorIndex
+    The monitor index (0-based)
+
+.PARAMETER Mode
+    Layout mode: 'Pillars', 'Quads', or 'Auto'
+
+.OUTPUTS
+    Integer - Maximum window capacity for the monitor
+
+.EXAMPLE
+    $capacity = Get-MonitorCapacity -MonitorIndex 0 -Mode 'Quads'
+    # Returns: 4
+#>
+function Get-MonitorCapacity {
+    param(
+        [int]$MonitorIndex = 0,
+
+        [ValidateSet('Pillars', 'Quads', 'Auto')]
+        [string]$Mode = 'Auto'
+    )
+
+    $config = Get-MatrixLayoutConfig
+    $effectiveMode = $Mode
+
+    if ($effectiveMode -eq 'Auto') {
+        $effectiveMode = if ($config.Mode) { $config.Mode } else { 'Pillars' }
+    }
+
+    switch ($effectiveMode) {
+        'Pillars' {
+            # Pillars mode uses MaxPillarsPerScreen
+            if ($config.MaxPillarsPerScreen) { return $config.MaxPillarsPerScreen } else { return 4 }
+        }
+        'Quads' {
+            # Quads mode is always 4 per monitor
+            return 4
+        }
+        default {
+            return 4
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Get the current layout mode from configuration.
+
+.DESCRIPTION
+    Returns the effective layout mode, resolving 'Auto' to the actual mode.
+
+.OUTPUTS
+    String - 'Pillars' or 'Quads'
+
+.EXAMPLE
+    $mode = Get-CurrentLayoutMode
+    # Returns: "Pillars"
+#>
+function Get-CurrentLayoutMode {
+    $config = Get-MatrixLayoutConfig
+    $mode = if ($config.Mode) { $config.Mode } else { 'Pillars' }
+
+    if ($mode -eq 'Auto') {
+        # For Auto, count current windows and decide
+        $totalWindows = 0
+        foreach ($key in $script:WindowMonitorAssignments.Keys) {
+            $totalWindows++
+        }
+        if ($totalWindows -le 4) { return 'Pillars' } else { return 'Quads' }
+    }
+
+    return $mode
+}
+
+<#
+.SYNOPSIS
+    Get all windows currently assigned to a specific monitor.
+
+.DESCRIPTION
+    Returns an array of profile names (e.g., "Matrix-1", "Matrix-2") for
+    windows that are currently on the specified monitor.
+
+.PARAMETER MonitorIndex
+    The monitor index (0-based)
+
+.OUTPUTS
+    Array of profile name strings
+
+.EXAMPLE
+    $windowsOnMon0 = Get-WindowsOnMonitor -MonitorIndex 0
+    # Returns: @("Matrix-1", "Matrix-2", "Matrix-3")
+#>
+function Get-WindowsOnMonitor {
+    param(
+        [Parameter(Mandatory)]
+        [int]$MonitorIndex
+    )
+
+    $windows = @()
+
+    foreach ($profileName in $script:WindowMonitorAssignments.Keys) {
+        $assignment = $script:WindowMonitorAssignments[$profileName]
+        if ($assignment.MonitorIndex -eq $MonitorIndex) {
+            $windows += $profileName
+        }
+    }
+
+    Write-LayoutLog "Get-WindowsOnMonitor($MonitorIndex): Found $($windows.Count) windows - $($windows -join ', ')" -Level "DEBUG"
+    return $windows
+}
+
+<#
+.SYNOPSIS
+    Update the window-to-monitor assignment tracking.
+
+.DESCRIPTION
+    Scans all tracked windows and updates which monitor they are currently on
+    based on their window center position. This keeps the assignment cache
+    in sync with actual window positions.
+
+.PARAMETER WindowHandles
+    Hashtable where keys are profile names (e.g., "Matrix-1") and values
+    contain Handle property
+
+.EXAMPLE
+    Update-WindowMonitorAssignments -WindowHandles $global:matrixWindowHandles
+#>
+function Update-WindowMonitorAssignments {
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$WindowHandles
+    )
+
+    foreach ($profileName in $WindowHandles.Keys) {
+        $entry = $WindowHandles[$profileName]
+        $handle = if ($entry -is [hashtable]) { $entry.Handle } else { $entry }
+
+        if (-not $handle -or $handle -eq [IntPtr]::Zero) { continue }
+
+        try {
+            $rect = New-Object WindowLayoutAPI+RECT
+            if ([WindowLayoutAPI]::GetWindowRect($handle, [ref]$rect)) {
+                # Calculate window center
+                $centerX = $rect.Left + (($rect.Right - $rect.Left) / 2)
+                $centerY = $rect.Top + (($rect.Bottom - $rect.Top) / 2)
+
+                # Determine which monitor the center is on
+                $monitorIdx = Get-MonitorAtPoint -X $centerX -Y $centerY
+
+                # Update assignment
+                $script:WindowMonitorAssignments[$profileName] = @{
+                    Handle = $handle
+                    MonitorIndex = $monitorIdx
+                    X = $rect.Left
+                    Y = $rect.Top
+                    Width = $rect.Right - $rect.Left
+                    Height = $rect.Bottom - $rect.Top
+                    CenterX = $centerX
+                    CenterY = $centerY
+                }
+            }
+        }
+        catch {
+            Write-LayoutLog "Failed to update assignment for $profileName : $_" -Level "DEBUG"
+        }
+    }
+
+    Write-LayoutLog "Updated monitor assignments for $($WindowHandles.Count) windows" -Level "DEBUG"
+}
+
+<#
+.SYNOPSIS
+    Enhanced drag detection with cross-monitor awareness.
+
+.DESCRIPTION
+    Detects if a window is being dragged and whether it has crossed
+    from one monitor to another. Returns detailed information about
+    the drag state including source and target monitors.
+
+.PARAMETER WindowHandle
+    The window handle to check
+
+.PARAMETER ProfileName
+    The profile name (e.g., "Matrix-3") of the window
+
+.PARAMETER CurrentPosition
+    Hashtable with current X, Y, Width, Height
+
+.OUTPUTS
+    Hashtable with:
+    - IsDrag: $true if window was dragged significantly
+    - FromMonitor: Source monitor index
+    - ToMonitor: Target monitor index
+    - CrossedMonitor: $true if monitors are different
+    - DraggedProfileName: The profile name of the dragged window
+    - Movement: Total pixels moved (Euclidean distance)
+
+.EXAMPLE
+    $dragInfo = Test-DragIntention -WindowHandle $hwnd -ProfileName "Matrix-3" -CurrentPosition @{X=100; Y=200; Width=400; Height=600}
+    if ($dragInfo.IsDrag -and $dragInfo.CrossedMonitor) {
+        # Handle cross-monitor drag
+    }
+#>
+function Test-DragIntention {
+    param(
+        [Parameter(Mandatory)]
+        [IntPtr]$WindowHandle,
+
+        [Parameter(Mandatory)]
+        [string]$ProfileName,
+
+        [Parameter(Mandatory)]
+        [hashtable]$CurrentPosition
+    )
+
+    $result = @{
+        IsDrag = $false
+        FromMonitor = 0
+        ToMonitor = 0
+        CrossedMonitor = $false
+        DraggedProfileName = $ProfileName
+        Movement = 0
+    }
+
+    # Get last known position for this window
+    $handleKey = $WindowHandle.ToString()
+    if (-not $script:LastKnownPositions.ContainsKey($handleKey)) {
+        Write-LayoutLog "No last known position for $ProfileName, initializing" -Level "DEBUG"
+        return $result
+    }
+
+    $lastKnown = $script:LastKnownPositions[$handleKey]
+
+    # Calculate movement (Euclidean distance)
+    $movement = [Math]::Sqrt(
+        [Math]::Pow($CurrentPosition.X - $lastKnown.X, 2) +
+        [Math]::Pow($CurrentPosition.Y - $lastKnown.Y, 2)
+    )
+    $result.Movement = $movement
+
+    # Must move more than threshold
+    if ($movement -lt $script:CrossMonitorDragThreshold) {
+        return $result
+    }
+
+    $result.IsDrag = $true
+
+    # Calculate window center for both positions
+    $lastCenterX = $lastKnown.X + ($lastKnown.Width / 2)
+    $lastCenterY = $lastKnown.Y + ($lastKnown.Height / 2)
+    $currentCenterX = $CurrentPosition.X + ($CurrentPosition.Width / 2)
+    $currentCenterY = $CurrentPosition.Y + ($CurrentPosition.Height / 2)
+
+    # Determine monitors
+    $result.FromMonitor = Get-MonitorAtPoint -X $lastCenterX -Y $lastCenterY
+    $result.ToMonitor = Get-MonitorAtPoint -X $currentCenterX -Y $currentCenterY
+    $result.CrossedMonitor = ($result.FromMonitor -ne $result.ToMonitor)
+
+    Write-LayoutLog "Drag detected for $ProfileName : movement=$([int]$movement)px, from monitor $($result.FromMonitor) to $($result.ToMonitor), crossed=$($result.CrossedMonitor)" -Level "DEBUG"
+
+    return $result
+}
+
+<#
+.SYNOPSIS
+    Move a window to a specific monitor (update tracking only).
+
+.DESCRIPTION
+    Updates the internal tracking to associate a window with a new monitor.
+    Does NOT physically move the window - that is done by Recalculate-AffectedLayouts.
+
+.PARAMETER ProfileName
+    The profile name (e.g., "Matrix-3")
+
+.PARAMETER TargetMonitor
+    The target monitor index
+
+.EXAMPLE
+    Move-WindowToMonitor -ProfileName "Matrix-2" -TargetMonitor 1
+#>
+function Move-WindowToMonitor {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileName,
+
+        [Parameter(Mandatory)]
+        [int]$TargetMonitor
+    )
+
+    if ($script:WindowMonitorAssignments.ContainsKey($ProfileName)) {
+        $oldMonitor = $script:WindowMonitorAssignments[$ProfileName].MonitorIndex
+        $script:WindowMonitorAssignments[$ProfileName].MonitorIndex = $TargetMonitor
+        Write-LayoutLog "Moved $ProfileName from monitor $oldMonitor to $TargetMonitor (tracking only)" -Level "INFO"
+    }
+    else {
+        Write-LayoutLog "Cannot move $ProfileName - not in assignments" -Level "WARN"
+    }
+}
+
+<#
+.SYNOPSIS
+    Recalculate and apply layouts for affected monitors.
+
+.DESCRIPTION
+    Takes the current window-to-monitor assignments and recalculates
+    the layout for each affected monitor, then physically positions
+    the windows using SetWindowPos.
+
+.PARAMETER MonitorIndices
+    Array of monitor indices that need recalculation.
+    If not specified, recalculates all monitors that have windows.
+
+.PARAMETER WindowHandles
+    Hashtable of window handles keyed by profile name.
+    Required for physically positioning windows.
+
+.EXAMPLE
+    Recalculate-AffectedLayouts -MonitorIndices @(0, 1) -WindowHandles $global:matrixWindowHandles
+#>
+function Recalculate-AffectedLayouts {
+    param(
+        [array]$MonitorIndices = @(),
+
+        [Parameter(Mandatory)]
+        [hashtable]$WindowHandles
+    )
+
+    $config = Get-MatrixLayoutConfig
+    $mode = Get-CurrentLayoutMode
+    $gapSize = if ($config.GapSize) { $config.GapSize } else { 60 }
+    $screens = Get-ScreenTopology
+
+    # If no specific monitors specified, find all monitors with windows
+    if ($MonitorIndices.Count -eq 0) {
+        $affectedMonitors = @{}
+        foreach ($profileName in $script:WindowMonitorAssignments.Keys) {
+            $monIdx = $script:WindowMonitorAssignments[$profileName].MonitorIndex
+            $affectedMonitors[$monIdx] = $true
+        }
+        $MonitorIndices = @($affectedMonitors.Keys)
+    }
+
+    Write-LayoutLog "Recalculating layouts for monitors: $($MonitorIndices -join ', ') (mode: $mode)" -Level "INFO"
+
+    # Process each monitor
+    foreach ($monitorIdx in $MonitorIndices) {
+        if ($monitorIdx -ge $screens.Count) {
+            Write-LayoutLog "Monitor index $monitorIdx out of range (only $($screens.Count) screens)" -Level "WARN"
+            continue
+        }
+
+        $screen = $screens[$monitorIdx]
+        $windowsOnMonitor = Get-WindowsOnMonitor -MonitorIndex $monitorIdx
+
+        if ($windowsOnMonitor.Count -eq 0) {
+            Write-LayoutLog "No windows on monitor $monitorIdx, skipping" -Level "DEBUG"
+            continue
+        }
+
+        # Sort windows by name for consistent ordering
+        $sortedWindows = $windowsOnMonitor | Sort-Object
+
+        # Calculate positions based on layout mode
+        $positions = @()
+        $windowCount = $sortedWindows.Count
+
+        switch ($mode) {
+            'Pillars' {
+                $maxPillars = if ($config.MaxPillarsPerScreen) { $config.MaxPillarsPerScreen } else { 4 }
+                $columns = [Math]::Min($windowCount, $maxPillars)
+                $rows = [Math]::Ceiling($windowCount / $columns)
+
+                $totalHGaps = ($columns + 1) * $gapSize
+                $totalVGaps = ($rows + 1) * $gapSize
+                $cellWidth = [int](($screen.Width - $totalHGaps) / $columns)
+                $cellHeight = [int](($screen.Height - $totalVGaps) / $rows)
+
+                for ($i = 0; $i -lt $windowCount; $i++) {
+                    $col = $i % $columns
+                    $row = [Math]::Floor($i / $columns)
+                    $positions += @{
+                        X = $screen.Left + $gapSize + ($col * ($cellWidth + $gapSize))
+                        Y = $screen.Top + $gapSize + ($row * ($cellHeight + $gapSize))
+                        Width = $cellWidth
+                        Height = $cellHeight
+                    }
+                }
+            }
+            'Quads' {
+                # Quads: 2x2 grid with plus-shaped gap
+                $halfWidth = [int](($screen.Width - (3 * $gapSize)) / 2)
+                $halfHeight = [int](($screen.Height - (3 * $gapSize)) / 2)
+
+                $quadPositions = @(
+                    @{ X = $screen.Left + $gapSize; Y = $screen.Top + $gapSize },
+                    @{ X = $screen.Left + (2 * $gapSize) + $halfWidth; Y = $screen.Top + $gapSize },
+                    @{ X = $screen.Left + $gapSize; Y = $screen.Top + (2 * $gapSize) + $halfHeight },
+                    @{ X = $screen.Left + (2 * $gapSize) + $halfWidth; Y = $screen.Top + (2 * $gapSize) + $halfHeight }
+                )
+
+                for ($i = 0; $i -lt [Math]::Min($windowCount, 4); $i++) {
+                    $positions += @{
+                        X = $quadPositions[$i].X
+                        Y = $quadPositions[$i].Y
+                        Width = $halfWidth
+                        Height = $halfHeight
+                    }
+                }
+
+                # If more than 4 windows, expand to grid
+                if ($windowCount -gt 4) {
+                    $cols = [Math]::Ceiling([Math]::Sqrt($windowCount * ($screen.Width / $screen.Height)))
+                    $cols = [Math]::Max($cols, 2)
+                    $rows = [Math]::Ceiling($windowCount / $cols)
+
+                    $totalHGaps = ($cols + 1) * $gapSize
+                    $totalVGaps = ($rows + 1) * $gapSize
+                    $cellWidth = [int](($screen.Width - $totalHGaps) / $cols)
+                    $cellHeight = [int](($screen.Height - $totalVGaps) / $rows)
+
+                    $positions = @()  # Reset positions
+                    for ($i = 0; $i -lt $windowCount; $i++) {
+                        $col = $i % $cols
+                        $row = [Math]::Floor($i / $cols)
+                        $positions += @{
+                            X = $screen.Left + $gapSize + ($col * ($cellWidth + $gapSize))
+                            Y = $screen.Top + $gapSize + ($row * ($cellHeight + $gapSize))
+                            Width = $cellWidth
+                            Height = $cellHeight
+                        }
+                    }
+                }
+            }
+        }
+
+        # Apply positions to windows
+        for ($i = 0; $i -lt $sortedWindows.Count; $i++) {
+            $profileName = $sortedWindows[$i]
+            $position = $positions[$i]
+
+            if (-not $WindowHandles.ContainsKey($profileName)) {
+                Write-LayoutLog "No handle found for $profileName" -Level "WARN"
+                continue
+            }
+
+            $entry = $WindowHandles[$profileName]
+            $handle = if ($entry -is [hashtable]) { $entry.Handle } else { $entry }
+
+            if (-not $handle -or $handle -eq [IntPtr]::Zero) {
+                Write-LayoutLog "Invalid handle for $profileName" -Level "WARN"
+                continue
+            }
+
+            try {
+                [WindowLayoutAPI]::SetWindowPos(
+                    $handle,
+                    [IntPtr]::Zero,
+                    $position.X,
+                    $position.Y,
+                    $position.Width,
+                    $position.Height,
+                    ([WindowLayoutAPI]::SWP_NOZORDER -bor [WindowLayoutAPI]::SWP_SHOWWINDOW)
+                ) | Out-Null
+
+                Write-LayoutLog "Positioned $profileName on monitor $monitorIdx at ($($position.X), $($position.Y)) size $($position.Width)x$($position.Height)" -Level "DEBUG"
+
+                # Update the assignment with new position
+                $script:WindowMonitorAssignments[$profileName].X = $position.X
+                $script:WindowMonitorAssignments[$profileName].Y = $position.Y
+                $script:WindowMonitorAssignments[$profileName].Width = $position.Width
+                $script:WindowMonitorAssignments[$profileName].Height = $position.Height
+            }
+            catch {
+                Write-LayoutLog "Failed to position $profileName : $_" -Level "ERROR"
+            }
+        }
+    }
+
+    # Update position tracking after layout changes
+    $handles = @()
+    foreach ($profileName in $WindowHandles.Keys) {
+        $entry = $WindowHandles[$profileName]
+        $handle = if ($entry -is [hashtable]) { $entry.Handle } else { $entry }
+        if ($handle -and $handle -ne [IntPtr]::Zero) {
+            $handles += $handle
+        }
+    }
+    Update-PositionTracking -WindowHandles $handles
+}
+
+<#
+.SYNOPSIS
+    The core dynamic accommodation function.
+
+.DESCRIPTION
+    Handles the logic when a window is dragged to a new monitor:
+    1. If target monitor has room: just add the window
+    2. If target monitor is at capacity: bump the least-used window to source monitor
+    3. Recalculate layouts for all affected monitors
+
+    This implements the "Accommodate, Don't Deport" principle - user intent is honored.
+
+.PARAMETER DraggedWindow
+    Hashtable with ProfileName and SourceMonitor of the dragged window
+
+.PARAMETER TargetMonitor
+    The monitor index where the window was dropped
+
+.PARAMETER WindowHandles
+    Hashtable of all window handles keyed by profile name
+
+.OUTPUTS
+    Hashtable with:
+    - Success: $true if accommodation succeeded
+    - Action: 'Added' | 'Swapped' | 'Expanded' | 'Failed'
+    - BumpedWindow: Profile name of bumped window (if any)
+    - AffectedMonitors: Array of monitor indices that were recalculated
+
+.EXAMPLE
+    $result = Invoke-DynamicAccommodation -DraggedWindow @{ProfileName="Matrix-3"; SourceMonitor=0} -TargetMonitor 1 -WindowHandles $handles
+    if ($result.Success) {
+        Write-Host "Window accommodated via $($result.Action)"
+    }
+#>
+function Invoke-DynamicAccommodation {
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$DraggedWindow,
+
+        [Parameter(Mandatory)]
+        [int]$TargetMonitor,
+
+        [Parameter(Mandatory)]
+        [hashtable]$WindowHandles
+    )
+
+    $result = @{
+        Success = $false
+        Action = 'Failed'
+        BumpedWindow = $null
+        AffectedMonitors = @()
+    }
+
+    $profileName = $DraggedWindow.ProfileName
+    $sourceMonitor = $DraggedWindow.SourceMonitor
+
+    Write-LayoutLog "=== Dynamic Accommodation ===" -Level "INFO"
+    Write-LayoutLog "Dragged: $profileName from monitor $sourceMonitor to monitor $TargetMonitor" -Level "INFO"
+
+    # Update state machine
+    $script:AccommodationState = 'CALCULATING'
+
+    # Get current windows on target monitor (excluding the dragged window if it's already counted)
+    $windowsOnTarget = Get-WindowsOnMonitor -MonitorIndex $TargetMonitor
+    $windowsOnTarget = $windowsOnTarget | Where-Object { $_ -ne $profileName }
+
+    # Get capacity for target monitor
+    $mode = Get-CurrentLayoutMode
+    $capacity = Get-MonitorCapacity -MonitorIndex $TargetMonitor -Mode $mode
+
+    Write-LayoutLog "Target monitor $TargetMonitor : $($windowsOnTarget.Count) windows (capacity: $capacity)" -Level "INFO"
+
+    # Check if target has room
+    if ($windowsOnTarget.Count -lt $capacity) {
+        # Room available - just move the window
+        $script:AccommodationState = 'ACCOMMODATING'
+        Write-LayoutLog "Target has room - adding window directly" -Level "INFO"
+
+        # Update tracking: move dragged window to target monitor
+        Move-WindowToMonitor -ProfileName $profileName -TargetMonitor $TargetMonitor
+
+        $result.Action = 'Added'
+        $result.AffectedMonitors = @($sourceMonitor, $TargetMonitor) | Select-Object -Unique
+    }
+    else {
+        # At capacity - need to bump a window
+        $script:AccommodationState = 'BUMP_SELECTING'
+        Write-LayoutLog "Target at capacity - selecting window to bump" -Level "INFO"
+
+        # Get least-used window on target (excluding priority-locked)
+        $toBump = Get-LeastUsedWindow -MonitorIndex $TargetMonitor -ExcludePriorityLocked -WindowsOnMonitor $windowsOnTarget
+
+        if ($toBump) {
+            Write-LayoutLog "Bumping $toBump to make room for $profileName" -Level "INFO"
+
+            # Swap: bumped window goes to source monitor, dragged window goes to target
+            Move-WindowToMonitor -ProfileName $toBump -TargetMonitor $sourceMonitor
+            Move-WindowToMonitor -ProfileName $profileName -TargetMonitor $TargetMonitor
+
+            $result.Action = 'Swapped'
+            $result.BumpedWindow = $toBump
+            $result.AffectedMonitors = @($sourceMonitor, $TargetMonitor) | Select-Object -Unique
+        }
+        else {
+            # All windows on target are priority-locked - expand layout instead
+            Write-LayoutLog "All windows priority-locked - expanding layout" -Level "INFO"
+
+            # Just add the window anyway (layout will accommodate by shrinking)
+            Move-WindowToMonitor -ProfileName $profileName -TargetMonitor $TargetMonitor
+
+            $result.Action = 'Expanded'
+            $result.AffectedMonitors = @($sourceMonitor, $TargetMonitor) | Select-Object -Unique
+        }
+    }
+
+    # Recalculate layouts for affected monitors
+    $script:AccommodationState = 'ANIMATING'
+    Recalculate-AffectedLayouts -MonitorIndices $result.AffectedMonitors -WindowHandles $WindowHandles
+
+    # Finalize
+    $script:AccommodationState = 'FINALIZING'
+    $result.Success = $true
+
+    Write-LayoutLog "Accommodation complete: $($result.Action)" -Level "INFO"
+    if ($result.BumpedWindow) {
+        Write-LayoutLog "  Bumped window: $($result.BumpedWindow)" -Level "INFO"
+    }
+    Write-LayoutLog "  Affected monitors: $($result.AffectedMonitors -join ', ')" -Level "INFO"
+
+    # Return to idle
+    $script:AccommodationState = 'IDLE'
+
+    return $result
+}
+
+<#
+.SYNOPSIS
+    Check if a window position is stable (not still being dragged).
+
+.DESCRIPTION
+    Samples the window position twice with a delay to verify the window
+    has stopped moving. Returns $true if position is stable.
+
+.PARAMETER WindowHandle
+    The window handle to check
+
+.PARAMETER StabilityDelayMs
+    Milliseconds to wait between position checks (default: 150)
+
+.PARAMETER TolerancePx
+    Maximum pixels of movement to still consider stable (default: 10)
+
+.OUTPUTS
+    $true if position is stable, $false if still moving
+
+.EXAMPLE
+    if (Test-PositionStable -WindowHandle $hwnd) {
+        # Window has stopped moving, safe to accommodate
+    }
+#>
+function Test-PositionStable {
+    param(
+        [Parameter(Mandatory)]
+        [IntPtr]$WindowHandle,
+
+        [int]$StabilityDelayMs = 150,
+
+        [int]$TolerancePx = 10
+    )
+
+    try {
+        # Get first position
+        $rect1 = New-Object WindowLayoutAPI+RECT
+        if (-not [WindowLayoutAPI]::GetWindowRect($WindowHandle, [ref]$rect1)) {
+            return $false
+        }
+
+        # Wait for stability check
+        Start-Sleep -Milliseconds $StabilityDelayMs
+
+        # Get second position
+        $rect2 = New-Object WindowLayoutAPI+RECT
+        if (-not [WindowLayoutAPI]::GetWindowRect($WindowHandle, [ref]$rect2)) {
+            return $false
+        }
+
+        # Check if position changed significantly
+        $deltaX = [Math]::Abs($rect2.Left - $rect1.Left)
+        $deltaY = [Math]::Abs($rect2.Top - $rect1.Top)
+
+        $isStable = ($deltaX -le $TolerancePx -and $deltaY -le $TolerancePx)
+
+        Write-LayoutLog "Position stability check: deltaX=$deltaX, deltaY=$deltaY, stable=$isStable" -Level "DEBUG"
+
+        return $isStable
+    }
+    catch {
+        Write-LayoutLog "Position stability check failed: $_" -Level "DEBUG"
+        return $false
+    }
+}
+
+<#
+.SYNOPSIS
+    Process potential drag events for all tracked windows.
+
+.DESCRIPTION
+    Main entry point for drag-snap monitoring. Checks all windows for
+    drag events and triggers accommodation when a cross-monitor drag is detected.
+
+.PARAMETER WindowHandles
+    Hashtable of window handles keyed by profile name
+
+.OUTPUTS
+    Hashtable with:
+    - DragDetected: $true if any window was dragged across monitors
+    - ProcessedWindow: Profile name of the window that triggered accommodation
+    - AccommodationResult: Result from Invoke-DynamicAccommodation (if triggered)
+
+.EXAMPLE
+    # Call periodically from monitor loop
+    $result = Process-WindowDragEvents -WindowHandles $global:matrixWindowHandles
+    if ($result.DragDetected) {
+        Write-Host "Accommodated $($result.ProcessedWindow)"
+    }
+
+.NOTES
+    This function is designed to be called repeatedly from a polling loop
+    (e.g., every 200ms). It will only trigger accommodation when:
+    1. A window has moved > 50px
+    2. The window center has crossed to a different monitor
+    3. The window position has stabilized (not still being dragged)
+#>
+function Process-WindowDragEvents {
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$WindowHandles
+    )
+
+    $result = @{
+        DragDetected = $false
+        ProcessedWindow = $null
+        AccommodationResult = $null
+    }
+
+    # First, update current positions
+    $handles = @()
+    foreach ($profileName in $WindowHandles.Keys) {
+        $entry = $WindowHandles[$profileName]
+        $handle = if ($entry -is [hashtable]) { $entry.Handle } else { $entry }
+        if ($handle -and $handle -ne [IntPtr]::Zero) {
+            $handles += $handle
+        }
+    }
+
+    $currentPositions = Get-WindowPositions -WindowHandles $handles
+
+    # Update window-monitor assignments
+    Update-WindowMonitorAssignments -WindowHandles $WindowHandles
+
+    # Check each window for drag
+    foreach ($profileName in $WindowHandles.Keys) {
+        $entry = $WindowHandles[$profileName]
+        $handle = if ($entry -is [hashtable]) { $entry.Handle } else { $entry }
+
+        if (-not $handle -or $handle -eq [IntPtr]::Zero) { continue }
+
+        $handleKey = $handle.ToString()
+        if (-not $currentPositions.ContainsKey($handleKey)) { continue }
+
+        $currentPos = $currentPositions[$handleKey]
+
+        # Check for drag intention
+        $dragInfo = Test-DragIntention -WindowHandle $handle -ProfileName $profileName -CurrentPosition $currentPos
+
+        if ($dragInfo.IsDrag -and $dragInfo.CrossedMonitor) {
+            Write-LayoutLog "Cross-monitor drag detected for $profileName" -Level "INFO"
+
+            # Verify position is stable (user has finished dragging)
+            if (Test-PositionStable -WindowHandle $handle) {
+                Write-LayoutLog "Position stable - triggering accommodation" -Level "INFO"
+
+                # Trigger accommodation
+                $accommodationResult = Invoke-DynamicAccommodation -DraggedWindow @{
+                    ProfileName = $profileName
+                    SourceMonitor = $dragInfo.FromMonitor
+                } -TargetMonitor $dragInfo.ToMonitor -WindowHandles $WindowHandles
+
+                $result.DragDetected = $true
+                $result.ProcessedWindow = $profileName
+                $result.AccommodationResult = $accommodationResult
+
+                # Only process one drag per cycle to avoid race conditions
+                break
+            }
+            else {
+                Write-LayoutLog "Position not stable - user still dragging" -Level "DEBUG"
+            }
+        }
+    }
+
+    # Update last known positions for next cycle
+    Update-PositionTracking -WindowHandles $handles
+
+    return $result
+}
+
+<#
+.SYNOPSIS
+    Get a summary of current accommodation state.
+
+.DESCRIPTION
+    Returns a formatted string showing the current state of the
+    dynamic accommodation system, including windows per monitor
+    and any active drag operations.
+
+.OUTPUTS
+    String with formatted accommodation state
+
+.EXAMPLE
+    $summary = Get-AccommodationStateSummary
+    Write-Host $summary
+#>
+function Get-AccommodationStateSummary {
+    $screens = Get-ScreenTopology
+    $mode = Get-CurrentLayoutMode
+
+    $lines = @()
+    $lines += "Dynamic Accommodation State"
+    $lines += "=" * 40
+    $lines += "State: $script:AccommodationState"
+    $lines += "Mode: $mode"
+    $lines += ""
+    $lines += "Monitor Assignments:"
+
+    for ($i = 0; $i -lt $screens.Count; $i++) {
+        $windowsOnMon = Get-WindowsOnMonitor -MonitorIndex $i
+        $capacity = Get-MonitorCapacity -MonitorIndex $i -Mode $mode
+        $lines += "  Monitor $i : $($windowsOnMon.Count)/$capacity - $($windowsOnMon -join ', ')"
+    }
+
+    return ($lines -join "`n")
+}
+
+<#
+.SYNOPSIS
+    Initialize the accommodation system with current window state.
+
+.DESCRIPTION
+    Sets up the window-monitor assignments based on current window positions.
+    Should be called when starting the monitor loop or after significant changes.
+
+.PARAMETER WindowHandles
+    Hashtable of window handles keyed by profile name
+
+.EXAMPLE
+    Initialize-AccommodationSystem -WindowHandles $global:matrixWindowHandles
+#>
+function Initialize-AccommodationSystem {
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$WindowHandles
+    )
+
+    Write-LayoutLog "Initializing accommodation system..." -Level "INFO"
+
+    # Reset state
+    $script:AccommodationState = 'IDLE'
+    $script:WindowMonitorAssignments = @{}
+
+    # Update assignments based on current positions
+    Update-WindowMonitorAssignments -WindowHandles $WindowHandles
+
+    # Initialize position tracking
+    $handles = @()
+    foreach ($profileName in $WindowHandles.Keys) {
+        $entry = $WindowHandles[$profileName]
+        $handle = if ($entry -is [hashtable]) { $entry.Handle } else { $entry }
+        if ($handle -and $handle -ne [IntPtr]::Zero) {
+            $handles += $handle
+        }
+    }
+    Initialize-PositionTracking -WindowHandles $handles
+
+    Write-LayoutLog "Accommodation system initialized with $($WindowHandles.Count) windows" -Level "INFO"
+    Write-LayoutLog (Get-AccommodationStateSummary) -Level "DEBUG"
+}
