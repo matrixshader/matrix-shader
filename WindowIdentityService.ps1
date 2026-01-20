@@ -318,6 +318,194 @@ function Register-MatrixWindowLaunch {
 
 <#
 .SYNOPSIS
+    Register a Matrix window by its window handle (for launch tracking).
+
+.DESCRIPTION
+    Called after detecting a new window handle post-launch. This is the
+    reliable way to track windows since wt.exe is just a launcher that exits.
+
+.PARAMETER ProfileName
+    The Windows Terminal profile name (e.g., "Matrix-1", "Matrix-3")
+
+.PARAMETER WindowHandle
+    The window handle (IntPtr) of the newly created window
+
+.PARAMETER CorrelationId
+    Optional unique ID to correlate launch with window appearance
+
+.EXAMPLE
+    Register-MatrixWindowByHandle -ProfileName "Matrix-1" -WindowHandle $newHwnd
+#>
+function Register-MatrixWindowByHandle {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileName,
+
+        [Parameter(Mandatory)]
+        [IntPtr]$WindowHandle,
+
+        [string]$CorrelationId = $null
+    )
+
+    if (-not $CorrelationId) {
+        $CorrelationId = [Guid]::NewGuid().ToString("N").Substring(0, 8)
+    }
+
+    # Get the process ID from the window handle
+    $processId = [MatrixWindowAPI]::GetProcessId($WindowHandle)
+
+    # Store in runtime registry using handle as key (more reliable than PID for wt.exe launches)
+    $handleKey = $WindowHandle.ToString()
+    $script:LaunchRegistry[$handleKey] = @{
+        ProfileName = $ProfileName
+        LaunchTime = (Get-Date)
+        CorrelationId = $CorrelationId
+        WindowHandle = $WindowHandle
+        ProcessId = $processId
+    }
+
+    Write-IdentityLog "Registered window: Handle=$WindowHandle, PID=$processId, Profile=$ProfileName, Correlation=$CorrelationId" -Level "INFO"
+
+    # Also persist to disk for cross-session recovery
+    Save-IdentityRegistry
+}
+
+<#
+.SYNOPSIS
+    Wait for a new Matrix window to appear after launching a profile.
+
+.DESCRIPTION
+    Compares window handles before and after launch to detect the new window.
+    Uses polling with timeout to find the new handle.
+
+.PARAMETER ProfileName
+    The profile name being launched (used for title matching fallback)
+
+.PARAMETER ExistingHandles
+    Array of IntPtr handles that existed BEFORE the launch
+
+.PARAMETER TimeoutMs
+    Maximum time to wait in milliseconds (default: 5000)
+
+.PARAMETER PollIntervalMs
+    Polling interval in milliseconds (default: 100)
+
+.OUTPUTS
+    IntPtr - The handle of the new window, or [IntPtr]::Zero if timeout
+
+.EXAMPLE
+    $beforeHandles = Get-ExistingWindowHandles
+    Start-Process wt -ArgumentList "-p Matrix-1"
+    $newHandle = Wait-ForNewMatrixWindow -ProfileName "Matrix-1" -ExistingHandles $beforeHandles
+#>
+function Wait-ForNewMatrixWindow {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProfileName,
+
+        [Parameter(Mandatory)]
+        [IntPtr[]]$ExistingHandles,
+
+        [int]$TimeoutMs = 5000,
+
+        [int]$PollIntervalMs = 100
+    )
+
+    $startTime = Get-Date
+
+    while (((Get-Date) - $startTime).TotalMilliseconds -lt $TimeoutMs) {
+        Start-Sleep -Milliseconds $PollIntervalMs
+
+        # Get current windows
+        $currentWindows = [MatrixWindowAPI]::FindAllTerminalWindows()
+
+        foreach ($win in $currentWindows) {
+            $handle = $win.Handle
+
+            # Skip if this handle existed before launch
+            if ($handle -in $ExistingHandles) {
+                continue
+            }
+
+            # New window found!
+            $title = $win.Title
+            Write-IdentityLog "New window detected: Handle=$handle, Title='$title'" -Level "DEBUG"
+            return $handle
+        }
+    }
+
+    Write-IdentityLog "Timeout waiting for new window: $ProfileName" -Level "WARN"
+    return [IntPtr]::Zero
+}
+
+<#
+.SYNOPSIS
+    Get handles of all existing Windows Terminal windows.
+
+.OUTPUTS
+    IntPtr[] - Array of window handles
+#>
+function Get-ExistingWindowHandles {
+    $windows = [MatrixWindowAPI]::FindAllTerminalWindows()
+    return @($windows | ForEach-Object { $_.Handle })
+}
+
+<#
+.SYNOPSIS
+    Look up a window's identity from the launch registry by handle.
+
+.DESCRIPTION
+    Attempts to resolve window identity using the launch tracking registry,
+    looking up by window handle instead of process ID.
+
+.PARAMETER WindowHandle
+    The window handle (IntPtr)
+
+.OUTPUTS
+    Hashtable with ProfileName, ShaderFile, IdentitySource, Confidence
+    or $null if not found
+#>
+function Get-LaunchRegistryIdentityByHandle {
+    param(
+        [Parameter(Mandatory)]
+        [IntPtr]$WindowHandle
+    )
+
+    $handleKey = $WindowHandle.ToString()
+
+    # Check runtime registry
+    if ($script:LaunchRegistry.ContainsKey($handleKey)) {
+        $entry = $script:LaunchRegistry[$handleKey]
+
+        # Validate the window still exists
+        if (Test-WindowHandleValid -Handle $WindowHandle) {
+            $slotNum = if ($entry.ProfileName -match "Matrix-(\d+)") { [int]$Matches[1] } else { $null }
+            $shaderFile = if ($slotNum) { "Matrix-$slotNum.hlsl" } else { $null }
+
+            Write-IdentityLog "Launch registry (handle) hit: Handle=$WindowHandle -> $($entry.ProfileName)" -Level "DEBUG"
+
+            return @{
+                ProfileName = $entry.ProfileName
+                ShaderFile = $shaderFile
+                Slot = $slotNum
+                IdentitySource = "LaunchTracking"
+                Confidence = 1.0
+                LaunchTime = $entry.LaunchTime
+                CorrelationId = $entry.CorrelationId
+            }
+        }
+        else {
+            # Window no longer exists - clean up stale entry
+            Write-IdentityLog "Removing stale launch entry: Handle=$WindowHandle (window gone)" -Level "DEBUG"
+            $script:LaunchRegistry.Remove($handleKey)
+        }
+    }
+
+    return $null
+}
+
+<#
+.SYNOPSIS
     Look up a window's identity from the launch registry.
 
 .DESCRIPTION
@@ -653,7 +841,44 @@ function Get-UIAutomationIdentity {
             }
         }
 
-        # Try walking the tree to find tab elements
+        # PRIORITY 1: Look for TermControl elements - these have the PROFILE NAME in their Name property
+        # This is the most reliable UI Automation method
+        $classCondition = New-Object System.Windows.Automation.PropertyCondition(
+            [System.Windows.Automation.AutomationElement]::ClassNameProperty,
+            "TermControl"
+        )
+
+        $termControls = $element.FindAll([System.Windows.Automation.TreeScope]::Descendants, $classCondition)
+
+        foreach ($tc in $termControls) {
+            $tcName = $tc.Current.Name
+            Write-IdentityLog "  Found TermControl: Name='$tcName'" -Level "DEBUG"
+
+            if ($tcName -match "Matrix-(\d+)") {
+                $slotNum = [int]$Matches[1]
+
+                return @{
+                    ProfileName = "Matrix-$slotNum"
+                    ShaderFile = "Matrix-$slotNum.hlsl"
+                    Slot = $slotNum
+                    IdentitySource = "UIAutomation-TermControl"
+                    Confidence = 0.95
+                }
+            }
+
+            if ($tcName -match "(?i)(redpill|red\s*pill)") {
+                return @{
+                    ProfileName = "Redpill"
+                    ShaderFile = "Redpill-Neo.hlsl"
+                    Slot = 0
+                    IdentitySource = "UIAutomation-TermControl"
+                    Confidence = 0.95
+                    IsRedpill = $true
+                }
+            }
+        }
+
+        # PRIORITY 2: Fall back to tab elements if TermControl not found
         $tabCondition = New-Object System.Windows.Automation.PropertyCondition(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
             [System.Windows.Automation.ControlType]::TabItem
@@ -672,7 +897,7 @@ function Get-UIAutomationIdentity {
                     ProfileName = "Matrix-$slotNum"
                     ShaderFile = "Matrix-$slotNum.hlsl"
                     Slot = $slotNum
-                    IdentitySource = "UIAutomation"
+                    IdentitySource = "UIAutomation-Tab"
                     Confidence = 0.85
                 }
             }
@@ -798,10 +1023,17 @@ function Resolve-WindowIdentity {
 
     Write-IdentityLog "Resolving identity: Handle=$WindowHandle, PID=$ProcessId, Title='$WindowTitle'" -Level "DEBUG"
 
-    # LAYER 1: Launch Tracking (fastest, most reliable)
+    # LAYER 1: Launch Tracking - Try handle-based lookup first (most reliable)
+    $identity = Get-LaunchRegistryIdentityByHandle -WindowHandle $WindowHandle
+    if ($identity) {
+        Write-IdentityLog "  -> Layer 1 (Launch Tracking by Handle): $($identity.ProfileName)" -Level "DEBUG"
+        return $identity
+    }
+
+    # LAYER 1: Launch Tracking - Fall back to PID-based lookup
     $identity = Get-LaunchRegistryIdentity -ProcessId $ProcessId
     if ($identity) {
-        Write-IdentityLog "  -> Layer 1 (Launch Tracking): $($identity.ProfileName)" -Level "DEBUG"
+        Write-IdentityLog "  -> Layer 1 (Launch Tracking by PID): $($identity.ProfileName)" -Level "DEBUG"
         return $identity
     }
 
