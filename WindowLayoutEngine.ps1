@@ -1427,6 +1427,10 @@ function Save-WindowPositions {
     }
     catch {
         Write-LayoutLog "Failed to save window positions: $_" -Level "ERROR"
+        # Clean up temp file if it exists (US-001 pattern)
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
         return $false
     }
 }
@@ -1711,6 +1715,10 @@ function Save-PositionPreset {
     }
     catch {
         Write-LayoutLog "Failed to save position preset '$Name': $_" -Level "ERROR"
+        # Clean up temp file if it exists (US-001 pattern)
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
         return $false
     }
 }
@@ -2051,6 +2059,10 @@ function Remove-PositionPreset {
     }
     catch {
         Write-LayoutLog "Failed to remove preset '$Name': $_" -Level "ERROR"
+        # Clean up temp file if it exists (US-001 pattern)
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
         return $false
     }
 }
