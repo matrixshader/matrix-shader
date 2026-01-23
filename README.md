@@ -1,127 +1,165 @@
 # Matrix Terminal Shader
 
-A multi-window Matrix rain effect system for Windows Terminal with automatic window positioning, real-time shader control, and multi-monitor support.
+Real-time Matrix rain effect for Windows Terminal with multi-window control, automatic positioning, and GPU-accelerated rendering.
 
-## What It Does
+![Matrix Shader Demo](https://raw.githubusercontent.com/matrixshader/matrix-shader/main/demo.gif)
 
-Transform your Windows Terminal into a Matrix-style command center. Launch multiple shader windows that automatically position themselves across your monitors, then control them all from a single TUI control panel.
+## Installation
 
-**Key Capabilities:**
-- Launch 1-6 Matrix shader windows that auto-arrange across multiple monitors
-- Two layout modes: **Pillars** (side-by-side columns) or **Quads** (2x2 grid per screen)
-- Real-time parameter control: speed, color, density, glyph style, layer visibility
-- Hot-reload: Changes appear instantly (~100ms) without restarting anything
-- Interactive setup wizard with Blue Pill (simple) and Red Pill (full system) paths
-
-## System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         matrix_setup.ps1                                 │
-│                    (Setup Wizard - Blue/Red Pill)                        │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┴───────────────┐
-                    ▼                               ▼
-         ┌──────────────────┐            ┌──────────────────────┐
-         │   bluepill.ps1   │            │  matrix_control.ps1  │
-         │  (Simple Install)│            │   (Control Panel)    │
-         └──────────────────┘            └──────────────────────┘
-                    │                               │
-                    └───────────────┬───────────────┘
-                                    ▼
-                    ┌───────────────────────────────┐
-                    │    WindowLayoutEngine.ps1     │
-                    │  - Multi-monitor detection    │
-                    │  - Pillars/Quads layouts      │
-                    │  - Windows API (SetWindowPos) │
-                    └───────────────────────────────┘
-                                    │
-                                    ▼
-                    ┌───────────────────────────────┐
-                    │      shaders/*.hlsl           │
-                    │  - Matrix rain effects        │
-                    │  - 3D corridor (Neo vision)   │
-                    │  - Hot-reload via timestamp   │
-                    └───────────────────────────────┘
-                                    │
-                                    ▼
-                    ┌───────────────────────────────┐
-                    │       Windows Terminal        │
-                    │   (GPU shader rendering)      │
-                    └───────────────────────────────┘
+```bash
+npm install -g matrix-shader
 ```
 
-**Hot-Reload Mechanism:** PowerShell regenerates shader files with new `#define` values. Windows Terminal watches for file timestamp changes and reloads automatically.
+**Requirements:**
+- Windows 10/11
+- Windows Terminal (from Microsoft Store)
+- Node.js 14+
 
 ## Quick Start
 
-```powershell
-# Run the setup wizard
-.\matrix_setup.ps1
+```bash
+# Launch the setup wizard
+wakeupneo
 ```
 
 Choose your path:
-- **Blue Pill**: Simple single-shader install for your terminal background
-- **Red Pill**: Full multi-window system with control panel and Neo vision
+- **Blue Pill** - Quick setup, launches Matrix windows
+- **Red Pill** - Full control panel with live parameter editing
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `wakeupneo` | Setup wizard - configure colors, window count |
+| `bluepill` | Quick launch with last saved settings |
+| `redpill` | Open the control panel for live adjustments |
+| `matrix-hotkeys` | Start background hotkey daemon |
+
+## Features
+
+**Multi-Window System**
+- Launch up to 8 independent Matrix shader windows
+- Each window can have different colors and settings
+- Automatic positioning across multiple monitors
+
+**Layout Modes**
+- **Pillars** - Side-by-side columns (best for 2-4 windows)
+- **Quads** - 2x2 grid per monitor (scales to any count)
+
+**Real-Time Control**
+- Adjust speed, color, density, glow on the fly
+- Changes appear instantly (~100ms hot-reload)
+- Toggle individual depth layers (far/mid/near)
+
+**Global Hotkeys** (run `matrix-hotkeys`)
+- `Win+Alt+Left/Right` - Swap window positions
+- `Win+Alt+L` - Cycle layout mode
+- `Win+Alt+B` - Toggle transparency
+- `Win+Alt+J/K` - Adjust opacity
 
 ## Control Panel
 
-The control panel (`matrix_control.ps1`) provides:
-- **Tabbed interface** for switching between shader windows
-- **Keyboard controls** for all parameters (arrows, +/-, letters)
-- **Shift+L** to cycle between Pillars and Quads layout modes
-- **Live preview** as you adjust settings
+Run `redpill` to open the TUI control panel:
 
-## Window Layout Engine
-
-The `WindowLayoutEngine.ps1` handles all window positioning:
-
-| Mode | Description |
-|------|-------------|
-| **Pillars** | Side-by-side columns with configurable gap. Best for 1-4 windows. |
-| **Quads** | 2x2 grid per screen. Scales to any number of windows across monitors. |
-
-Features:
-- Automatic multi-monitor detection via `[System.Windows.Forms.Screen]::AllScreens`
-- Windows API integration (P/Invoke): `SetWindowPos`, `EnumWindows`, `IsWindowVisible`
-- Configurable gaps, taskbar-aware positioning
-- Handles edge cases: zero windows, 10+ windows, screen disconnection, invalid handles
-
-## Files
-
-| File | Purpose |
-|------|---------|
-| `matrix_setup.ps1` | Interactive setup wizard |
-| `matrix_control.ps1` | Multi-window TUI control panel |
-| `WindowLayoutEngine.ps1` | Centralized window positioning (1046 lines) |
-| `bluepill.ps1` | Blue Pill installation script |
-| `shaders/Matrix-1.hlsl` - `Matrix-6.hlsl` | Classic Matrix rain shaders |
-| `shaders/Redpill-Neo.hlsl` | 3D corridor with glowing logo (Red Pill background) |
-
-## Technical Details
-
-### HLSL Glyph System
-Katakana glyphs are bit-packed: 35 bits (5x7 pixels) per character in `uint32` constants. GPU-side lookup: `(GLYPHS[idx] >> bit_index) & 1u`
-
-### Layer System
-Three parallax depth layers (FAR/MID/NEAR) rendered additively. Each toggleable for different visual effects.
-
-### Windows API Integration
-```powershell
-# P/Invoke declarations in WindowLayoutEngine.ps1
-[DllImport("user32.dll")] SetWindowPos()
-[DllImport("user32.dll")] EnumWindows()
-[DllImport("user32.dll")] IsWindowVisible()
-[DllImport("user32.dll")] GetWindowText()
+```
+┌─────────────────────────────────────────┐
+│  RED PILL - Tab 1                       │
+│  ═══════════════════════════════════════│
+│                                         │
+│  Color: ██ Classic Green                │
+│  Speed: ████████░░ 0.8                  │
+│  Density: ██████░░░░ 0.6                │
+│                                         │
+│  [1-6] Tab  [←→] Speed  [↑↓] Density   │
+│  [C] Color  [L] Layers  [Shift+L] Layout│
+└─────────────────────────────────────────┘
 ```
 
-## Requirements
+**Keyboard Controls:**
+- `1-8` - Switch between shader tabs
+- `←/→` - Adjust speed
+- `↑/↓` - Adjust density
+- `C` - Cycle color preset
+- `G` - Adjust glow
+- `W` - Adjust character width
+- `1/2/3` - Toggle depth layers
+- `Shift+L` - Cycle layout mode
+- `Shift+N` - Launch new window
+- `Q` - Quit
 
-- Windows 10/11
-- Windows Terminal (with pixel shader support)
-- PowerShell 5.1+
+## Color Presets
+
+| Key | Name | RGB |
+|-----|------|-----|
+| 1 | Classic | Green (0, 1, 0.3) |
+| 2 | Cyber | Blue (0, 0.6, 1) |
+| 3 | Blood | Red (1, 0.1, 0.1) |
+| 4 | Purple | Violet (0.7, 0, 1) |
+| 5 | Gold | Amber (1, 0.7, 0) |
+| 6 | Cyan | Teal (0, 0.9, 0.9) |
+
+## How It Works
+
+```
+PowerShell Control → Shader Files (.hlsl) → Windows Terminal GPU
+     ↓                      ↓                       ↓
+  User Input         #define values          Real-time render
+                     (hot-reload)
+```
+
+1. Control scripts modify shader `#define` parameters
+2. File timestamp change triggers Windows Terminal reload
+3. GPU renders the updated effect in ~100ms
+
+## Shader System
+
+Each Matrix window uses an HLSL pixel shader with:
+- **Bit-packed Katakana glyphs** - 35 bits per character (5x7 pixels)
+- **Three parallax layers** - Far, Mid, Near for depth effect
+- **Configurable parameters** - Speed, color, density, glow, trail
+
+The Neo vision shader (`Redpill-Neo.hlsl`) features:
+- 3D box corridor with Matrix code on walls
+- SDF-rendered glowing "MATRIX SHADER" logo
+- Used as the Red Pill control panel background
+
+## Troubleshooting
+
+**Windows don't position correctly**
+- Run `wakeupneo` again to re-detect monitors
+- Check if Windows Terminal is running as admin
+
+**Shader doesn't load**
+- Verify Windows Terminal supports pixel shaders
+- Check `shaders/` folder exists with `.hlsl` files
+
+**Hotkeys not working**
+- Run `matrix-hotkeys` in a separate terminal
+- Check for conflicting global hotkeys
+
+## Uninstall
+
+```bash
+npm uninstall -g matrix-shader
+```
+
+Then remove Matrix profiles from Windows Terminal settings manually, or delete:
+```
+%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json
+```
+(Windows Terminal will recreate it with defaults)
 
 ## License
 
-MIT License
+Copyright (c) 2024 matrixshader.com. All Rights Reserved.
+
+Free for personal, non-commercial use.
+Commercial use, redistribution, and modification require written permission.
+
+---
+
+Inspired by The Matrix (1999).
+Not affiliated with or endorsed by Warner Bros. Entertainment Inc.
+
+If you are a rights holder and are interested in collaboration,
+please contact: architect@matrixshader.com
