@@ -103,19 +103,11 @@ $opacity = 100
 # Launch settings
 $launchCount = 0
 
-# Diagnostic logging (only when MATRIX_DEBUG=1)
-$debugLogPath = "$matrixDir\debug.log"
+# Unified logging
+. "$PSScriptRoot\MatrixLogging.ps1"
 
-function Write-Log([string]$message, [string]$operation = "INFO") {
-    if ($env:MATRIX_DEBUG -ne "1") { return }
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
-    $entry = "[$timestamp] [$operation] $message"
-    Add-Content -Path $debugLogPath -Value $entry -ErrorAction SilentlyContinue
-}
-
-function Swatch($r,$g,$b,$w) {
-    "$([char]27)[48;2;$([int]([float]$r*255));$([int]([float]$g*255));$([int]([float]$b*255))m$(' '*$w)$([char]27)[0m"
-}
+# Shared utilities (Swatch, Get-ScreenDimensions)
+. "$PSScriptRoot\MatrixUtils.ps1"
 
 function Get-ExistingSlots {
     $slots = @()
@@ -157,18 +149,18 @@ function Load-Shader($slot) {
 
 function Save-Shader($slot, $cfg) {
     $path = "$shadersDir\Matrix-$slot.hlsl"
-    Write-Log "Saving shader slot=$slot R=$($cfg.R) G=$($cfg.G) B=$($cfg.B)" "SAVE"
+    Write-MatrixLog "Saving shader slot=$slot R=$($cfg.R) G=$($cfg.G) B=$($cfg.B)" -Source CONTROL
     $content = $shaderTemplate -replace '\{SLOT\}',$slot -replace '\{R\}',$cfg.R -replace '\{G\}',$cfg.G -replace '\{B\}',$cfg.B `
         -replace '\{SPEED\}',$cfg.Speed -replace '\{GLOW\}',$cfg.Glow -replace '\{WIDTH\}',$cfg.Width `
         -replace '\{TRAIL\}',$cfg.Trail -replace '\{DENS\}',$cfg.Dens `
         -replace '\{L1\}',$cfg.L1 -replace '\{L2\}',$cfg.L2 -replace '\{L3\}',$cfg.L3
     try {
         [System.IO.File]::WriteAllText($path, $content)
-        Write-Log "Shader saved successfully: $path" "SAVE"
+        Write-MatrixLog "Shader saved successfully: $path" -Source CONTROL
         return $true
     }
     catch {
-        Write-Log "ERROR saving shader: $($_.Exception.Message)" "SAVE"
+        Write-MatrixLog "ERROR saving shader: $($_.Exception.Message)" -Source CONTROL -Level ERROR
         Write-Host ""
         Write-Host " Error saving shader: $($_.Exception.Message)" -ForegroundColor Red
         Start-Sleep -Seconds 2
@@ -195,16 +187,19 @@ function Load-TerminalEffects($slot) {
         }
     }
     catch [System.IO.IOException] {
+        Write-MatrixLog "Cannot read settings.json (file locked): $($_.Exception.Message)" -Source CONTROL -Level ERROR
         Write-Host " Warning: Cannot read settings.json (file locked)" -ForegroundColor Yellow
         Write-Host " Using default transparency settings" -ForegroundColor DarkGray
         Start-Sleep -Milliseconds 1500
     }
     catch [System.ArgumentException] {
+        Write-MatrixLog "settings.json is malformed: $($_.Exception.Message)" -Source CONTROL -Level ERROR
         Write-Host " Warning: settings.json is malformed" -ForegroundColor Yellow
         Write-Host " Using default transparency settings" -ForegroundColor DarkGray
         Start-Sleep -Milliseconds 1500
     }
     catch {
+        Write-MatrixLog "Could not load terminal settings: $($_.Exception.Message)" -Source CONTROL -Level ERROR
         Write-Host " Warning: Could not load terminal settings: $($_.Exception.Message)" -ForegroundColor Yellow
         Write-Host " Using default transparency settings" -ForegroundColor DarkGray
         Start-Sleep -Milliseconds 1500
@@ -338,29 +333,18 @@ Add-Type -AssemblyName System.Windows.Forms
 . "$PSScriptRoot\WindowLayoutEngine.ps1"
 . "$PSScriptRoot\WindowIdentityService.ps1"
 
-# Enable identity service verbose logging if MATRIX_DEBUG=1
-if ($env:MATRIX_DEBUG -eq "1") {
-    Enable-IdentityVerboseLogging
-}
-
-function Get-ScreenDimensions {
-    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-    return @{
-        Width = $screen.Width
-        Height = $screen.Height
-        X = $screen.X
-        Y = $screen.Y
-    }
-}
-
 function Position-MatrixWindows {
+    param(
+        [switch]$PreserveMonitors  # Keep windows on their current monitors when switching layout modes
+    )
+
     # Position ALL open Windows Terminal windows (except Redpill) using the Window Layout Engine
     # Supports Pillars (vertical columns) and Quads (2x2 grid) layout modes
-    Write-Log "Positioning windows via Layout Engine..." "POSITION"
+    Write-MatrixLog "Positioning windows via Layout Engine... (PreserveMonitors=$PreserveMonitors)" -Source CONTROL
     Start-Sleep -Milliseconds 300
     $windowInfo = Get-MatrixWindowInfo
     if ($windowInfo.Count -eq 0) {
-        Write-Log "No windows to position" "POSITION"
+        Write-MatrixLog "No windows to position" -Source CONTROL -Level WARN
         return
     }
 
@@ -373,11 +357,15 @@ function Position-MatrixWindows {
     # Get layout configuration and invoke the layout engine
     $config = Get-MatrixLayoutConfig
     $mode = if ($config.Mode) { $config.Mode } else { 'Pillars' }
-    Write-Log "Layout mode: $mode, Windows: $($windowInfo.Count)" "POSITION"
+    Write-MatrixLog "Layout mode: $mode, Windows: $($windowInfo.Count)" -Source CONTROL
 
     try {
-        Invoke-MatrixWindowLayout -WindowHandles $windowHandles -Mode $mode
-        Write-Log "Layout applied successfully" "POSITION"
+        if ($PreserveMonitors) {
+            Invoke-MatrixWindowLayout -WindowHandles $windowHandles -Mode $mode -PreserveMonitors
+        } else {
+            Invoke-MatrixWindowLayout -WindowHandles $windowHandles -Mode $mode
+        }
+        Write-MatrixLog "Layout applied successfully" -Source CONTROL
 
         # Update position tracking after repositioning
         $handleArray = @($windowInfo | ForEach-Object { $_.Handle })
@@ -386,16 +374,8 @@ function Position-MatrixWindows {
         }
     }
     catch {
-        Write-Log "ERROR applying layout: $($_.Exception.Message)" "POSITION"
+        Write-MatrixLog "ERROR applying layout: $($_.Exception.Message)" -Source CONTROL -Level ERROR
     }
-}
-
-function Get-MatrixWindows {
-    # DEPRECATED: Use Get-AllMatrixWindows from WindowIdentityService instead
-    # Keeping for backward compatibility with Position-MatrixWindows
-    # Find ALL Windows Terminal windows EXCEPT the Redpill control panel
-    $windows = [WindowAPI]::FindAllTerminalWindows("Redpill")
-    return $windows
 }
 
 function Get-WindowShaderMapping {
@@ -418,8 +398,8 @@ function Clean-WindowRegistry {
 
     try {
         $registry = Get-WindowShaderMapping
-        $currentWindows = Get-MatrixWindows
-        $validHandles = $currentWindows | ForEach-Object { $_.Key.ToString() }
+        $currentWindows = Get-AllMatrixWindows -IncludeRedpill:$false
+        $validHandles = $currentWindows | ForEach-Object { $_.Handle.ToString() }
 
         $cleanedRegistry = @{}
         foreach ($key in $registry.Keys) {
@@ -428,14 +408,22 @@ function Clean-WindowRegistry {
             }
         }
 
-        $cleanedRegistry | ConvertTo-Json | Set-Content $windowRegistryPath -Encoding UTF8
-    } catch { }
+        # US-001: Atomic write pattern - temp file + move
+        $tempFile = [System.IO.Path]::GetTempFileName()
+        $cleanedRegistry | ConvertTo-Json | Out-File -FilePath $tempFile -Encoding UTF8
+        Move-Item -Path $tempFile -Destination $windowRegistryPath -Force
+    } catch {
+        # Clean up temp file on failure
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Populate-WindowRegistry {
     # Assign shaders to current windows that aren't in registry yet
-    # Uses title matching, profile detection, then sequential assignment
-    $windows = Get-MatrixWindows
+    # Uses identity service for detection, then sequential assignment for unidentified
+    $windows = Get-AllMatrixWindows -IncludeRedpill:$false
     $registry = Get-WindowShaderMapping
     $usedSlots = @{}
 
@@ -446,30 +434,28 @@ function Populate-WindowRegistry {
         }
     }
 
-    # Also track slots from windows with Matrix-N titles
+    # Track slots from windows that already have identity resolved
     foreach ($win in $windows) {
-        if ($win.Value -match "Matrix-(\d+)") {
-            $usedSlots[[int]$Matches[1]] = $true
+        if ($win.Slot) {
+            $usedSlots[[int]$win.Slot] = $true
         }
     }
 
     $nextSlot = 1
     foreach ($win in $windows) {
-        $handleKey = $win.Key.ToString()
+        $handleKey = $win.Handle.ToString()
 
         # Skip if already in registry
         if ($registry.ContainsKey($handleKey)) { continue }
 
-        # Try to determine slot from title
-        if ($win.Value -match "Matrix-(\d+)") {
-            $slot = [int]$Matches[1]
+        # Use slot from identity service if available
+        $slot = $null
+        if ($win.Slot) {
+            $slot = [int]$win.Slot
         }
-        # Try to determine from profile settings (only if slot not already used)
-        else {
-            $profileSlot = Get-SlotFromSettings $win.Value
-            if ($profileSlot -and -not $usedSlots.ContainsKey($profileSlot)) {
-                $slot = $profileSlot
-            }
+        # Try to determine from title pattern
+        elseif ($win.Title -match "Matrix-(\d+)") {
+            $slot = [int]$Matches[1]
         }
 
         # If still no slot, assign next available
@@ -485,8 +471,16 @@ function Populate-WindowRegistry {
 
     # Save updated registry
     try {
-        $registry | ConvertTo-Json | Set-Content $windowRegistryPath -Encoding UTF8
-    } catch { }
+        # US-001: Atomic write pattern - temp file + move
+        $tempFile = [System.IO.Path]::GetTempFileName()
+        $registry | ConvertTo-Json | Out-File -FilePath $tempFile -Encoding UTF8
+        Move-Item -Path $tempFile -Destination $windowRegistryPath -Force
+    } catch {
+        # Clean up temp file on failure
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Save-CurrentState {
@@ -500,8 +494,16 @@ function Save-CurrentState {
     }
 
     try {
-        $state | ConvertTo-Json | Set-Content $stateFile -Encoding UTF8
-    } catch { }
+        # US-001: Atomic write pattern - temp file + move
+        $tempFile = [System.IO.Path]::GetTempFileName()
+        $state | ConvertTo-Json | Out-File -FilePath $tempFile -Encoding UTF8
+        Move-Item -Path $tempFile -Destination $stateFile -Force
+    } catch {
+        # Clean up temp file on failure
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Get-OpenMatrixSlots {
@@ -538,18 +540,18 @@ function Get-SlotFromSettings($windowTitle) {
 function Get-MatrixWindowInfo {
     # Returns array of @{Handle, Title, Slot, ShaderPath} for Matrix windows ONLY
     # Uses WindowIdentityService's 4-layer identity hierarchy instead of title-only matching
-    Write-Log "Detecting Matrix windows via WindowIdentityService..." "DETECT"
+    Write-MatrixLog "Detecting Matrix windows via WindowIdentityService..." -Source CONTROL
 
     # Use WindowIdentityService to get all Matrix windows (exclude Redpill)
     $identityWindows = Get-AllMatrixWindows -IncludeRedpill:$false
-    Write-Log "Found $($identityWindows.Count) Matrix windows" "DETECT"
+    Write-MatrixLog "Found $($identityWindows.Count) Matrix windows" -Source CONTROL
 
     $result = @()
 
     foreach ($win in $identityWindows) {
         # Skip if no slot (shouldn't happen for Matrix windows, but safety check)
         if (-not $win.Slot) {
-            Write-Log "  Skipping window without slot: handle=$($win.Handle) title='$($win.Title)'" "DETECT"
+            Write-MatrixLog "  Skipping window without slot: handle=$($win.Handle) title='$($win.Title)'" -Source CONTROL -Level DEBUG
             continue
         }
 
@@ -563,7 +565,7 @@ function Get-MatrixWindowInfo {
             Confidence = $win.Confidence
         }
 
-        Write-Log "  Slot $($win.Slot): handle=$($win.Handle) via $($win.IdentitySource) (conf: $($win.Confidence))" "DETECT"
+        Write-MatrixLog "  Slot $($win.Slot): handle=$($win.Handle) via $($win.IdentitySource) (conf: $($win.Confidence))" -Source CONTROL -Level DEBUG
     }
 
     # Update registry with detected mappings
@@ -572,11 +574,19 @@ function Get-MatrixWindowInfo {
         $registry[$w.Handle.ToString()] = $w.ShaderFile
     }
     try {
-        $registry | ConvertTo-Json | Set-Content $windowRegistryPath -Encoding UTF8
-    } catch { }
+        # US-001: Atomic write pattern - temp file + move
+        $tempFile = [System.IO.Path]::GetTempFileName()
+        $registry | ConvertTo-Json | Out-File -FilePath $tempFile -Encoding UTF8
+        Move-Item -Path $tempFile -Destination $windowRegistryPath -Force
+    } catch {
+        # Clean up temp file on failure
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
+    }
 
     $sorted = $result | Sort-Object { $_.Slot }
-    Write-Log "Detected $($sorted.Count) Matrix windows via identity service" "DETECT"
+    Write-MatrixLog "Detected $($sorted.Count) Matrix windows via identity service" -Source CONTROL
     return $sorted
 }
 
@@ -615,40 +625,17 @@ function Apply-WindowTransparency {
     catch { }
 }
 
-function Wait-ForMatrixWindow([string]$profileName, [int]$timeoutMs = 5000) {
-    # Poll for window with title containing profileName (e.g., "Matrix-1")
-    # Returns $true if found, $false if timeout
-    # Uses fast title-only search (no process lookup) for speed
-    $pollInterval = 100
-    $startTime = Get-Date
-
-    while ($true) {
-        Start-Sleep -Milliseconds $pollInterval
-
-        # Strict timeout check
-        if (((Get-Date) - $startTime).TotalMilliseconds -ge $timeoutMs) {
-            return $false
-        }
-
-        # Fast check - just look for window title matching profile name
-        $matches = [WindowAPI]::FindWindowsByPattern($profileName)
-        if ($matches.Count -gt 0) {
-            return $true
-        }
-    }
-}
-
 function Launch-MatrixWindows([int]$count) {
-    Write-Log "Launch requested: count=$count" "LAUNCH"
+    Write-MatrixLog "Launch requested: count=$count" -Source CONTROL
     $existingSlots = Get-ExistingSlots
     $openSlots = Get-OpenMatrixSlots
-    Write-Log "Existing slots: $($existingSlots -join ',') Open: $($openSlots -join ',')" "LAUNCH"
+    Write-MatrixLog "Existing slots: $($existingSlots -join ',') Open: $($openSlots -join ',')" -Source CONTROL
 
     # Find available slots (exist but not currently open)
     $availableSlots = $existingSlots | Where-Object { $_ -notin $openSlots }
 
     if ($availableSlots.Count -eq 0) {
-        Write-Log "No available slots to launch" "LAUNCH"
+        Write-MatrixLog "No available slots to launch" -Source CONTROL -Level WARN
         Write-Host ""
         Write-Host " All Matrix windows are already open!" -ForegroundColor Yellow
         Start-Sleep -Seconds 2
@@ -657,7 +644,7 @@ function Launch-MatrixWindows([int]$count) {
 
     $numWindows = [Math]::Min($count, $availableSlots.Count)
     $slotsToLaunch = $availableSlots | Select-Object -First $numWindows
-    Write-Log "Launching slots: $($slotsToLaunch -join ',')" "LAUNCH"
+    Write-MatrixLog "Launching slots: $($slotsToLaunch -join ',')" -Source CONTROL
 
     # Save shaders for slots we're launching
     foreach ($slot in $slotsToLaunch) {
@@ -683,10 +670,10 @@ function Launch-MatrixWindows([int]$count) {
 
         if ($newHandle -ne [IntPtr]::Zero) {
             Register-MatrixWindowByHandle -ProfileName $pname -WindowHandle $newHandle
-            Write-Log "Window $pname launched successfully (handle: $newHandle)" "LAUNCH"
+            Write-MatrixLog "Window $pname launched successfully (handle: $newHandle)" -Source CONTROL
             Write-Host " OK" -ForegroundColor Green
         } else {
-            Write-Log "Window $pname TIMEOUT after 5s" "LAUNCH"
+            Write-MatrixLog "Window $pname TIMEOUT after 5s" -Source CONTROL -Level WARN
             Write-Host " TIMEOUT (5s)" -ForegroundColor Yellow
         }
     }
@@ -796,6 +783,13 @@ function UI {
     $layoutColor = if ($layoutMode -eq 'Pillars') { "Yellow" } else { "Magenta" }
     Write-Host " [Shift+L] Layout:  " -NoNewline; Write-Host $layoutMode -ForegroundColor $layoutColor -NoNewline
     Write-Host "  (Pillars=columns, Quads=2x2)" -ForegroundColor DarkGray
+
+    # Glitch (auto-snap) display
+    $glitchEnabled = if ($null -ne $layoutConfig.GlitchEnabled) { $layoutConfig.GlitchEnabled } else { $true }
+    $glitchStatus = if ($glitchEnabled) { "ON" } else { "OFF" }
+    $glitchColor = if ($glitchEnabled) { "Green" } else { "DarkGray" }
+    Write-Host " [Shift+G] Glitch:  " -NoNewline; Write-Host $glitchStatus -ForegroundColor $glitchColor -NoNewline
+    Write-Host "  (auto-snap windows to grid)" -ForegroundColor DarkGray
 
     # Windows on Primary display
     $screens = Get-ScreenTopology
@@ -925,11 +919,12 @@ try {
             # This preserves case-sensitivity for layout toggle vs opacity control
             if ($k -ceq 'L') {
                 # Cycle layout mode: Pillars -> Quads -> Pillars
+                # Use -PreserveMonitors to keep windows on their current monitors
                 $config = Get-MatrixLayoutConfig
                 $newMode = if ($config.Mode -eq 'Pillars') { 'Quads' } else { 'Pillars' }
                 $config.Mode = $newMode
                 Set-MatrixLayoutConfig -Config $config
-                Position-MatrixWindows
+                Position-MatrixWindows -PreserveMonitors
                 Write-Host ""
                 Write-Host " Layout mode: $newMode" -ForegroundColor Cyan
                 Start-Sleep -Milliseconds 800
@@ -979,6 +974,20 @@ try {
                 $status = if ($newLock) { "LOCKED" } else { "unlocked" }
                 Write-Host ""
                 Write-Host " $profile priority: $status" -ForegroundColor Cyan
+                Start-Sleep -Milliseconds 800
+                continue
+            }
+
+            # Shift+G: Toggle Glitch (auto-snap)
+            if ($k -ceq 'G') {
+                $config = Get-MatrixLayoutConfig
+                $newGlitch = -not ($config.GlitchEnabled -eq $true)
+                $config.GlitchEnabled = $newGlitch
+                Set-MatrixLayoutConfig -Config $config
+                $status = if ($newGlitch) { "ON" } else { "OFF" }
+                $color = if ($newGlitch) { "Green" } else { "Yellow" }
+                Write-Host ""
+                Write-Host " Glitch: $status" -ForegroundColor $color
                 Start-Sleep -Milliseconds 800
                 continue
             }

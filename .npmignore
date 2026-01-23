@@ -1,0 +1,43 @@
+# Test files
+test-*.ps1
+debug-*.ps1
+check-*.ps1
+
+# Development files
+.git/
+.github/
+.claude/
+RECOVERY/
+MVP/
+archive/
+tasks/
+
+# Temp files
+*.tmp
+tmpclaude-*
+
+# Documentation (keep README)
+CLAUDE.md
+ARCHITECTURE*.md
+*_SUMMARY.md
+*_CHECKLIST.md
+*.txt
+
+# IDE
+.vscode/
+*.code-workspace
+
+# Logs
+*.log
+debug.log
+
+# State files (created at runtime)
+matrix_state.json
+identity-registry.json
+window-registry.json
+layout-config.json
+
+# Backup files
+*.backup
+*.bak
+*.matrix-backup
