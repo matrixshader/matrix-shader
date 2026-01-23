@@ -40,140 +40,16 @@ Write-Host " =========================" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host " Saved state: slots [$($slots -join ', ')]" -ForegroundColor DarkGray
 
-# --- WINDOW POSITIONING (P/Invoke) ---
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-using System.Collections.Generic;
-using System.Text;
-using System.Diagnostics;
-
-public class BluepillAPI {
-    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
-
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-
-    [DllImport("user32.dll")]
-    public static extern bool IsWindowVisible(IntPtr hWnd);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
-    [DllImport("user32.dll")]
-    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
-    public const uint SWP_NOZORDER = 0x0004;
-    public const uint SWP_SHOWWINDOW = 0x0040;
-
-    private static List<KeyValuePair<IntPtr, string>> foundWindows;
-
-    public static List<KeyValuePair<IntPtr, string>> FindAllTerminalWindows() {
-        foundWindows = new List<KeyValuePair<IntPtr, string>>();
-        EnumWindows((hWnd, lParam) => {
-            if (IsWindowVisible(hWnd)) {
-                uint processId;
-                GetWindowThreadProcessId(hWnd, out processId);
-                try {
-                    var process = Process.GetProcessById((int)processId);
-                    if (process.ProcessName.Equals("WindowsTerminal", StringComparison.OrdinalIgnoreCase)) {
-                        var sb = new StringBuilder(256);
-                        GetWindowText(hWnd, sb, 256);
-                        var title = sb.ToString();
-                        if (!string.IsNullOrEmpty(title)) {
-                            foundWindows.Add(new KeyValuePair<IntPtr, string>(hWnd, title));
-                        }
-                    }
-                } catch { }
-            }
-            return true;
-        }, IntPtr.Zero);
-        return foundWindows;
-    }
-
-    // Fast title-only search (no process lookup) for polling
-    public static List<KeyValuePair<IntPtr, string>> FindWindowsByPattern(string pattern) {
-        foundWindows = new List<KeyValuePair<IntPtr, string>>();
-        EnumWindows((hWnd, lParam) => {
-            if (IsWindowVisible(hWnd)) {
-                var sb = new StringBuilder(256);
-                GetWindowText(hWnd, sb, 256);
-                var title = sb.ToString();
-                if (!string.IsNullOrEmpty(title) && System.Text.RegularExpressions.Regex.IsMatch(title, pattern)) {
-                    foundWindows.Add(new KeyValuePair<IntPtr, string>(hWnd, title));
-                }
-            }
-            return true;
-        }, IntPtr.Zero);
-        return foundWindows;
-    }
-}
-"@ -ErrorAction SilentlyContinue
+# Import shared utilities
+. "$PSScriptRoot\MatrixUtils.ps1"
 
 # Import WindowLayoutEngine for centralized positioning
 . "$PSScriptRoot\WindowLayoutEngine.ps1"
 
-# Import WindowIdentityService for launch tracking
+# Import WindowIdentityService for launch tracking and window detection
 . "$PSScriptRoot\WindowIdentityService.ps1"
 
 Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
-
-function Get-ScreenDimensions {
-    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-    return @{
-        Width = $screen.Width
-        Height = $screen.Height
-        Left = $screen.X
-        Top = $screen.Y
-    }
-}
-
-function Get-ProfileFromUIAutomation($windowHandle) {
-    try {
-        $auto = [System.Windows.Automation.AutomationElement]
-        $winElement = $auto::FromHandle($windowHandle)
-        if (-not $winElement) { return $null }
-
-        $allCondition = [System.Windows.Automation.Condition]::TrueCondition
-        $children = $winElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $allCondition)
-
-        foreach ($child in $children) {
-            $childName = $child.Current.Name
-            if ($childName -match "^Matrix-(\d+)$") {
-                return [int]$Matches[1]
-            }
-        }
-    } catch { }
-    return $null
-}
-
-function Wait-ForMatrixWindow([string]$profileName, [int]$timeoutMs = 5000) {
-    # Poll for window with title containing profileName
-    # Returns $true if found, $false if timeout
-    # Uses fast title-only search (no process lookup) for speed
-    $pollInterval = 100
-    $startTime = Get-Date
-
-    while ($true) {
-        Start-Sleep -Milliseconds $pollInterval
-
-        # Strict timeout check
-        if (((Get-Date) - $startTime).TotalMilliseconds -ge $timeoutMs) {
-            return $false
-        }
-
-        # Fast check - just look for window title matching profile name
-        $matches = [BluepillAPI]::FindWindowsByPattern($profileName)
-        if ($matches.Count -gt 0) {
-            return $true
-        }
-    }
-}
 
 function Get-MatrixWindowInfoForBluepill {
     # Returns array of @{Handle, Slot} for Matrix windows

@@ -66,119 +66,9 @@ public class WindowLayoutAPI {
 # Load System.Windows.Forms for screen detection
 Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
 
-# --- VERBOSE LOGGING SYSTEM ---
-
-# Global toggle for verbose layout logging (set to $true to enable)
-$script:LayoutEngineVerbose = $false
-$script:LayoutLogFile = "$env:USERPROFILE\Documents\Matrix\layout_debug.log"
-
-<#
-.SYNOPSIS
-    Write a log message for layout engine debugging.
-
-.DESCRIPTION
-    Writes timestamped messages to both console (when verbose) and optional log file.
-    Controlled by $script:LayoutEngineVerbose global variable.
-    Integrates with US-009 diagnostic logging pattern.
-
-.PARAMETER Message
-    The message to log
-
-.PARAMETER Level
-    Log level: INFO, WARN, ERROR, DEBUG (default: INFO)
-
-.PARAMETER Force
-    If set, writes message even when verbose mode is disabled (for warnings/errors)
-
-.EXAMPLE
-    Write-LayoutLog "Starting layout calculation" -Level "INFO"
-    Write-LayoutLog "Invalid handle detected" -Level "WARN" -Force
-#>
-function Write-LayoutLog {
-    param(
-        [Parameter(Mandatory)]
-        [string]$Message,
-
-        [ValidateSet('INFO', 'WARN', 'ERROR', 'DEBUG')]
-        [string]$Level = 'INFO',
-
-        [switch]$Force
-    )
-
-    # Skip if verbose mode is disabled (unless Force or it's a warning/error)
-    if (-not $script:LayoutEngineVerbose -and -not $Force -and $Level -notin @('WARN', 'ERROR')) {
-        return
-    }
-
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
-    $logEntry = "[$timestamp] [$Level] $Message"
-
-    # Console output with color coding
-    $color = switch ($Level) {
-        'INFO'  { 'Gray' }
-        'WARN'  { 'Yellow' }
-        'ERROR' { 'Red' }
-        'DEBUG' { 'DarkGray' }
-    }
-
-    if ($script:LayoutEngineVerbose -or $Force -or $Level -in @('WARN', 'ERROR')) {
-        Write-Host $logEntry -ForegroundColor $color
-    }
-
-    # File logging (only when verbose is enabled)
-    if ($script:LayoutEngineVerbose) {
-        try {
-            # Ensure log directory exists
-            $logDir = Split-Path $script:LayoutLogFile -Parent
-            if (-not (Test-Path $logDir)) {
-                New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-            }
-            Add-Content -Path $script:LayoutLogFile -Value $logEntry -ErrorAction SilentlyContinue
-        }
-        catch {
-            # Silently fail file logging - don't interrupt layout operations
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Enable verbose layout logging.
-
-.DESCRIPTION
-    Sets the LayoutEngineVerbose flag and optionally clears the log file.
-
-.PARAMETER ClearLog
-    If set, clears the existing log file
-
-.EXAMPLE
-    Enable-LayoutVerboseLogging -ClearLog
-#>
-function Enable-LayoutVerboseLogging {
-    param(
-        [switch]$ClearLog
-    )
-
-    $script:LayoutEngineVerbose = $true
-    Write-LayoutLog "Verbose logging ENABLED" -Level "INFO" -Force
-
-    if ($ClearLog -and (Test-Path $script:LayoutLogFile)) {
-        Remove-Item $script:LayoutLogFile -Force -ErrorAction SilentlyContinue
-        Write-LayoutLog "Log file cleared" -Level "INFO" -Force
-    }
-}
-
-<#
-.SYNOPSIS
-    Disable verbose layout logging.
-
-.EXAMPLE
-    Disable-LayoutVerboseLogging
-#>
-function Disable-LayoutVerboseLogging {
-    Write-LayoutLog "Verbose logging DISABLED" -Level "INFO" -Force
-    $script:LayoutEngineVerbose = $false
-}
+# --- UNIFIED LOGGING ---
+# Import unified logging module (respects $env:MATRIX_DEBUG)
+. "$PSScriptRoot\MatrixLogging.ps1"
 
 # --- SCREEN TOPOLOGY DETECTION ---
 
@@ -231,7 +121,7 @@ function Get-ScreenTopology {
             $sorted[$i].Index = $i
         }
 
-        Write-LayoutLog "Screen topology: $($sorted.Count) screens, primary at index 0" -Level "DEBUG"
+        Write-MatrixLog "Screen topology: $($sorted.Count) screens, primary at index 0" -Source LAYOUT -Level DEBUG
         return $sorted
     }
     catch {
@@ -407,7 +297,7 @@ function Get-WindowDistributionWithPrimary {
     )
 
     $typeStr = if ($null -eq $WindowsOnPrimary) { "null" } else { $WindowsOnPrimary.GetType().Name }
-    Write-LayoutLog "Get-WindowDistributionWithPrimary: WindowCount=$WindowCount, ScreenCount=$ScreenCount, WindowsOnPrimary=$WindowsOnPrimary (type=$typeStr)" -Level "DEBUG"
+    Write-MatrixLog "Get-WindowDistributionWithPrimary: WindowCount=$WindowCount, ScreenCount=$ScreenCount, WindowsOnPrimary=$WindowsOnPrimary (type=$typeStr)" -Source LAYOUT -Level DEBUG
 
     if ($WindowCount -le 0) {
         return @(0) * $ScreenCount
@@ -424,7 +314,7 @@ function Get-WindowDistributionWithPrimary {
     # Single screen - put everything there
     if ($ScreenCount -eq 1) {
         $distribution[0] = $WindowCount
-        Write-LayoutLog "Single screen: all $WindowCount windows on screen 0" -Level "DEBUG"
+        Write-MatrixLog "Single screen: all $WindowCount windows on screen 0" -Source LAYOUT -Level DEBUG
         return $distribution
     }
 
@@ -448,7 +338,7 @@ function Get-WindowDistributionWithPrimary {
             $distribution[$i] = [Math]::Min($count, $MaxPerScreen)
         }
 
-        Write-LayoutLog "Auto mode: balanced distribution $($distribution -join ', ') (base=$base, remainder=$remainder)" -Level "DEBUG"
+        Write-MatrixLog "Auto mode: balanced distribution $($distribution -join ', ') (base=$base, remainder=$remainder)" -Source LAYOUT -Level DEBUG
     }
     else {
         # User-specified primary allocation
@@ -456,7 +346,7 @@ function Get-WindowDistributionWithPrimary {
         $distribution[0] = $primaryCount
         $remaining = $WindowCount - $primaryCount
 
-        Write-LayoutLog "User mode: primary gets $primaryCount (user specified $WindowsOnPrimary), $remaining remaining" -Level "DEBUG"
+        Write-MatrixLog "User mode: primary gets $primaryCount (user specified $WindowsOnPrimary), $remaining remaining" -Source LAYOUT -Level DEBUG
 
         # Distribute remaining windows to secondary screens (index 1+)
         if ($remaining -gt 0 -and $ScreenCount -gt 1) {
@@ -473,7 +363,7 @@ function Get-WindowDistributionWithPrimary {
         }
     }
 
-    Write-LayoutLog "Final distribution: $($distribution -join ', ')" -Level "DEBUG"
+    Write-MatrixLog "Final distribution: $($distribution -join ', ')" -Source LAYOUT -Level DEBUG
     return $distribution
 }
 
@@ -527,18 +417,18 @@ function Get-PillarsLayout {
         [object]$WindowsOnPrimary = $null  # Use [object] to allow $null
     )
 
-    # Enforce minimum gap to ensure visible separation between windows
-    $GapSize = [Math]::Max($GapSize, 30)
+    # Allow zero gap for tight pillar layouts on constrained screens
+    $GapSize = [Math]::Max($GapSize, 0)
 
-    Write-LayoutLog "Get-PillarsLayout called: WindowCount=$WindowCount, ScreenCount=$($Screens.Count), MaxPillars=$MaxPillarsPerScreen, GapSize=$GapSize, WindowsOnPrimary=$WindowsOnPrimary" -Level "DEBUG"
+    Write-MatrixLog "Get-PillarsLayout called: WindowCount=$WindowCount, ScreenCount=$($Screens.Count), MaxPillars=$MaxPillarsPerScreen, GapSize=$GapSize, WindowsOnPrimary=$WindowsOnPrimary" -Source LAYOUT -Level DEBUG
 
     if ($WindowCount -le 0) {
-        Write-LayoutLog "Get-PillarsLayout: Zero or negative window count, returning empty" -Level "DEBUG"
+        Write-MatrixLog "Get-PillarsLayout: Zero or negative window count, returning empty" -Source LAYOUT -Level DEBUG
         return @()
     }
 
     if (-not $Screens -or $Screens.Count -eq 0) {
-        Write-LayoutLog "No screens available for Pillars layout" -Level "WARN"
+        Write-MatrixLog "No screens available for Pillars layout" -Source LAYOUT -Level WARN
         return @()
     }
 
@@ -573,10 +463,35 @@ function Get-PillarsLayout {
 
         # Step 4: Calculate cell dimensions to FILL the screen
         # Formula: (N+1) gaps for N columns/rows
+        # Windows Terminal minimum width constraint (~478px)
+        # Set threshold at 475 to allow tight 4-pillar layouts on 1920px screens
+        $minWindowWidth = 475
+
+        # Auto-reduce columns if calculated width would be below minimum
+        $originalColumns = $columns
+        do {
+            $totalHGaps = ($columns + 1) * $GapSize
+            $totalVGaps = ($rows + 1) * $GapSize
+            $cellWidth = [int](($screen.Width - $totalHGaps) / $columns)
+
+            if ($cellWidth -lt $minWindowWidth -and $columns -gt 1) {
+                $columns--
+                $rows = [Math]::Ceiling($windowsOnScreen / $columns)
+                Write-MatrixLog "Auto-reduced columns from $($columns+1) to $columns (width $cellWidth < min $minWindowWidth)" -Source LAYOUT -Level WARN -Force
+            } else {
+                break
+            }
+        } while ($columns -ge 1)
+
+        # Recalculate after column adjustment
         $totalHGaps = ($columns + 1) * $GapSize
         $totalVGaps = ($rows + 1) * $GapSize
         $cellWidth = [int](($screen.Width - $totalHGaps) / $columns)
         $cellHeight = [int](($screen.Height - $totalVGaps) / $rows)
+
+        if ($columns -ne $originalColumns) {
+            Write-MatrixLog "Layout adjusted: $windowsOnScreen windows in ${columns}x${rows} grid (was ${originalColumns}x1)" -Source LAYOUT -Force
+        }
 
         # Step 5: Place each window in grid
         for ($i = 0; $i -lt $windowsOnScreen; $i++) {
@@ -676,18 +591,18 @@ function Get-QuadsLayout {
         [object]$WindowsOnPrimary = $null  # Use [object] to allow $null
     )
 
-    # Enforce minimum gap to ensure visible separation between windows
-    $GapSize = [Math]::Max($GapSize, 30)
+    # Allow zero gap for tight pillar layouts on constrained screens
+    $GapSize = [Math]::Max($GapSize, 0)
 
-    Write-LayoutLog "Get-QuadsLayout called: WindowCount=$WindowCount, ScreenCount=$($Screens.Count), GapSize=$GapSize, WindowsOnPrimary=$WindowsOnPrimary" -Level "DEBUG"
+    Write-MatrixLog "Get-QuadsLayout called: WindowCount=$WindowCount, ScreenCount=$($Screens.Count), GapSize=$GapSize, WindowsOnPrimary=$WindowsOnPrimary" -Source LAYOUT -Level DEBUG
 
     if ($WindowCount -le 0) {
-        Write-LayoutLog "Get-QuadsLayout: Zero or negative window count, returning empty" -Level "DEBUG"
+        Write-MatrixLog "Get-QuadsLayout: Zero or negative window count, returning empty" -Source LAYOUT -Level DEBUG
         return @()
     }
 
     if (-not $Screens -or $Screens.Count -eq 0) {
-        Write-LayoutLog "No screens available for Quads layout" -Level "WARN"
+        Write-MatrixLog "No screens available for Quads layout" -Source LAYOUT -Level WARN
         return @()
     }
 
@@ -706,7 +621,7 @@ function Get-QuadsLayout {
 
     # Handle overflow: if more windows than quad capacity, use extended grid layout
     if ($WindowCount -gt $totalCapacity) {
-        Write-LayoutLog "Quads overflow: $WindowCount windows > $totalCapacity capacity, using extended grid layout" -Level "INFO"
+        Write-MatrixLog "Quads overflow: $WindowCount windows > $totalCapacity capacity, using extended grid layout" -Source LAYOUT
 
         # Fall back to a grid layout that can handle all windows
         for ($screenIdx = 0; $screenIdx -lt $Screens.Count; $screenIdx++) {
@@ -723,7 +638,7 @@ function Get-QuadsLayout {
             $cols = [Math]::Max($cols, 2)  # At least 2 columns for quad-like appearance
             $rows = [Math]::Ceiling($windowsOnThisScreen / $cols)
 
-            Write-LayoutLog "Screen ${screenIdx}: $windowsOnThisScreen windows in ${cols}x${rows} grid" -Level "DEBUG"
+            Write-MatrixLog "Screen ${screenIdx}: $windowsOnThisScreen windows in ${cols}x${rows} grid" -Source LAYOUT -Level DEBUG
 
             # Calculate cell dimensions with gaps
             $totalHGaps = ($cols + 1) * $GapSize
@@ -765,7 +680,7 @@ function Get-QuadsLayout {
 
         $screen = $Screens[$screenIdx]
 
-        Write-LayoutLog "Screen ${screenIdx}: $windowsOnThisScreen windows in quad positions" -Level "DEBUG"
+        Write-MatrixLog "Screen ${screenIdx}: $windowsOnThisScreen windows in quad positions" -Source LAYOUT -Level DEBUG
 
         # Plus-gap calculation:
         # Each dimension has 3 gaps: edge + center + edge
@@ -792,11 +707,11 @@ function Get-QuadsLayout {
                 ScreenIndex = $screenIdx
                 WindowIndex = $windowIndex++
             }
-            Write-LayoutLog "  Placed window $($windowIndex-1) at $($quadPositions[$posIdx].Label): ($($quadPositions[$posIdx].X), $($quadPositions[$posIdx].Y))" -Level "DEBUG"
+            Write-MatrixLog "  Placed window $($windowIndex-1) at $($quadPositions[$posIdx].Label): ($($quadPositions[$posIdx].X), $($quadPositions[$posIdx].Y))" -Source LAYOUT -Level DEBUG
         }
     }
 
-    Write-LayoutLog "Get-QuadsLayout complete: $($rectangles.Count) rectangles calculated" -Level "DEBUG"
+    Write-MatrixLog "Get-QuadsLayout complete: $($rectangles.Count) rectangles calculated" -Source LAYOUT -Level DEBUG
     # Always return as array to prevent single-item unwrapping
     Write-Output $rectangles -NoEnumerate
 }
@@ -836,6 +751,7 @@ function Get-MatrixLayoutConfig {
         GapSize = 60
         PreferredScreen = 0
         WindowsOnPrimary = $null  # null = Auto (all windows on primary for single-screen behavior)
+        GlitchEnabled = $true     # Glitch = auto-snap windows to layout grid (default ON)
     }
 
     # Try to load existing state (US-002 pattern: JSON error handling)
@@ -852,6 +768,7 @@ function Get-MatrixLayoutConfig {
                     GapSize = if ($state.layout.gapSize) { $state.layout.gapSize } else { $defaultConfig.GapSize }
                     PreferredScreen = if ($state.layout.preferredScreen -ne $null) { $state.layout.preferredScreen } else { $defaultConfig.PreferredScreen }
                     WindowsOnPrimary = if ($null -ne $state.layout.windowsOnPrimary) { $state.layout.windowsOnPrimary } else { $defaultConfig.WindowsOnPrimary }
+                    GlitchEnabled = if ($null -ne $state.layout.glitchEnabled) { $state.layout.glitchEnabled } else { $defaultConfig.GlitchEnabled }
                 }
                 return $config
             }
@@ -927,6 +844,7 @@ function Set-MatrixLayoutConfig {
             gapSize = if ($Config.GapSize) { $Config.GapSize } else { 60 }
             preferredScreen = if ($Config.PreferredScreen -ne $null) { $Config.PreferredScreen } else { 0 }
             windowsOnPrimary = $Config.WindowsOnPrimary  # null = Auto (all on primary)
+            glitchEnabled = if ($null -ne $Config.GlitchEnabled) { $Config.GlitchEnabled } else { $true }  # Glitch = auto-snap (default ON)
         }
 
         # Convert to JSON
@@ -1002,10 +920,14 @@ function Invoke-MatrixWindowLayout {
         [ValidateSet('Pillars', 'Quads', 'Auto')]
         [string]$Mode = 'Auto',
 
-        [switch]$DryRun
+        [switch]$DryRun,
+
+        [switch]$PreserveMonitors,
+
+        [switch]$Force  # Bypass Glitch check (for manual layout triggers)
     )
 
-    Write-LayoutLog "Invoke-MatrixWindowLayout called: Mode=$Mode, DryRun=$DryRun, InputHandles=$($WindowHandles.Count)" -Level "DEBUG"
+    Write-MatrixLog "Invoke-MatrixWindowLayout called: Mode=$Mode, DryRun=$DryRun, PreserveMonitors=$PreserveMonitors, Force=$Force, InputHandles=$($WindowHandles.Count)" -Source LAYOUT -Level DEBUG
 
     # Get valid window handles (filter out any invalid ones)
     $validWindows = @()
@@ -1019,7 +941,7 @@ function Invoke-MatrixWindowLayout {
             if ([WindowLayoutAPI]::IsWindowVisible($handle)) {
                 # Restore if minimized
                 if ([WindowLayoutAPI]::IsIconic($handle)) {
-                    Write-LayoutLog "Restoring minimized window: $name" -Level "DEBUG"
+                    Write-MatrixLog "Restoring minimized window: $name" -Source LAYOUT -Level DEBUG
                     [WindowLayoutAPI]::ShowWindow($handle, [WindowLayoutAPI]::SW_RESTORE) | Out-Null
                     Start-Sleep -Milliseconds 100
                 }
@@ -1029,28 +951,34 @@ function Invoke-MatrixWindowLayout {
                     Handle = $handle
                 }
             } else {
-                Write-LayoutLog "Filtered invalid/invisible window: $name (handle=$handle)" -Level "DEBUG"
+                Write-MatrixLog "Filtered invalid/invisible window: $name (handle=$handle)" -Source LAYOUT -Level DEBUG
                 $invalidCount++
             }
         } else {
-            Write-LayoutLog "Filtered null/zero handle: $name" -Level "DEBUG"
+            Write-MatrixLog "Filtered null/zero handle: $name" -Source LAYOUT -Level DEBUG
             $invalidCount++
         }
     }
 
     if ($invalidCount -gt 0) {
-        Write-LayoutLog "Filtered out $invalidCount invalid window handle(s)" -Level "INFO"
+        Write-MatrixLog "Filtered out $invalidCount invalid window handle(s)" -Source LAYOUT
     }
 
     $windowCount = $validWindows.Count
 
     if ($windowCount -eq 0) {
-        Write-LayoutLog "No valid windows to layout - returning empty" -Level "INFO"
+        Write-MatrixLog "No valid windows to layout - returning empty" -Source LAYOUT
         return @()
     }
 
     # Get configuration
     $config = Get-MatrixLayoutConfig
+
+    # Check Glitch setting - if disabled and not forced, skip auto-layout
+    if (-not $config.GlitchEnabled -and -not $Force) {
+        Write-MatrixLog "Glitch is OFF - skipping auto-layout (use -Force to override)" -Source LAYOUT
+        return @()
+    }
 
     # Determine effective mode
     $effectiveMode = $Mode
@@ -1075,6 +1003,103 @@ function Invoke-MatrixWindowLayout {
     # Get gap size and windowsOnPrimary from config
     $gapSize = if ($config.GapSize) { $config.GapSize } else { 60 }
     $windowsOnPrimary = $config.WindowsOnPrimary  # null = Auto (all on primary)
+
+    # If PreserveMonitors is set, keep windows on their current monitors
+    if ($PreserveMonitors) {
+        Write-MatrixLog "PreserveMonitors mode: keeping windows on current monitors" -Source LAYOUT
+
+        # Group windows by their current monitor
+        $windowsByMonitor = @{}
+        foreach ($window in $validWindows) {
+            $rect = New-Object WindowLayoutAPI+RECT
+            if ([WindowLayoutAPI]::GetWindowRect($window.Handle, [ref]$rect)) {
+                $centerX = ($rect.Left + $rect.Right) / 2
+                $centerY = ($rect.Top + $rect.Bottom) / 2
+
+                # Find which monitor this window is on
+                $monitorIndex = 0
+                for ($i = 0; $i -lt $screens.Count; $i++) {
+                    $scr = $screens[$i]
+                    if ($centerX -ge $scr.Left -and $centerX -lt ($scr.Left + $scr.Width) -and
+                        $centerY -ge $scr.Top -and $centerY -lt ($scr.Top + $scr.Height)) {
+                        $monitorIndex = $i
+                        break
+                    }
+                }
+
+                if (-not $windowsByMonitor.ContainsKey($monitorIndex)) {
+                    $windowsByMonitor[$monitorIndex] = @()
+                }
+                $windowsByMonitor[$monitorIndex] += $window
+            }
+        }
+
+        Write-MatrixLog "Windows by monitor: $($windowsByMonitor.Keys | ForEach-Object { "Mon$_=$($windowsByMonitor[$_].Count)" })" -Source LAYOUT -Level DEBUG
+
+        # Calculate layout for each monitor's windows separately
+        $result = @()
+        foreach ($monitorIndex in $windowsByMonitor.Keys) {
+            $monitorWindows = $windowsByMonitor[$monitorIndex]
+            $monitorScreen = $screens[$monitorIndex]
+            $windowCountOnMonitor = $monitorWindows.Count
+
+            if ($windowCountOnMonitor -eq 0) { continue }
+
+            # Create single-screen layout for this monitor
+            $singleScreen = @($monitorScreen)
+            $monitorLayout = switch ($effectiveMode) {
+                'Pillars' {
+                    $maxPillars = if ($config.MaxPillarsPerScreen) { $config.MaxPillarsPerScreen } else { 4 }
+                    Get-PillarsLayout -WindowCount $windowCountOnMonitor -Screens $singleScreen -MaxPillarsPerScreen $maxPillars -GapSize $gapSize -WindowsOnPrimary $windowCountOnMonitor
+                }
+                'Quads' {
+                    Get-QuadsLayout -WindowCount $windowCountOnMonitor -Screens $singleScreen -GapSize $gapSize -WindowsOnPrimary $windowCountOnMonitor
+                }
+            }
+
+            # Sort windows on this monitor by name
+            $sortedMonitorWindows = $monitorWindows | Sort-Object { $_.Name }
+
+            # Apply positions
+            for ($i = 0; $i -lt [Math]::Min($sortedMonitorWindows.Count, $monitorLayout.Count); $i++) {
+                $window = $sortedMonitorWindows[$i]
+                $position = $monitorLayout[$i]
+
+                $result += @{
+                    Name = $window.Name
+                    Handle = $window.Handle
+                    X = $position.X
+                    Y = $position.Y
+                    Width = $position.Width
+                    Height = $position.Height
+                    ScreenIndex = $monitorIndex
+                }
+            }
+        }
+
+        # Apply layout if not dry run
+        if (-not $DryRun) {
+            foreach ($item in $result) {
+                try {
+                    [WindowLayoutAPI]::SetWindowPos(
+                        $item.Handle,
+                        [IntPtr]::Zero,
+                        $item.X,
+                        $item.Y,
+                        $item.Width,
+                        $item.Height,
+                        ([WindowLayoutAPI]::SWP_NOZORDER -bor [WindowLayoutAPI]::SWP_SHOWWINDOW)
+                    ) | Out-Null
+                    Write-MatrixLog "Positioned $($item.Name) at ($($item.X), $($item.Y)) on monitor $($item.ScreenIndex)" -Source LAYOUT -Level DEBUG
+                }
+                catch {
+                    Write-Warning "Failed to position $($item.Name): $_"
+                }
+            }
+        }
+
+        return $result
+    }
 
     # Calculate layout based on mode
     $layout = switch ($effectiveMode) {
@@ -1237,7 +1262,7 @@ function Get-WindowPositions {
             }
         }
         catch {
-            Write-LayoutLog "Failed to get position for handle $handle : $_" -Level "DEBUG"
+            Write-MatrixLog "Failed to get position for handle $handle : $_" -Source LAYOUT -Level DEBUG
         }
     }
 
@@ -1266,7 +1291,7 @@ function Initialize-PositionTracking {
     )
 
     $script:LastKnownPositions = Get-WindowPositions -WindowHandles $WindowHandles
-    Write-LayoutLog "Initialized position tracking for $($WindowHandles.Count) windows" -Level "DEBUG"
+    Write-MatrixLog "Initialized position tracking for $($WindowHandles.Count) windows" -Source LAYOUT -Level DEBUG
 }
 
 <#
@@ -1305,7 +1330,7 @@ function Test-WindowDragDetected {
     foreach ($handleKey in $currentPositions.Keys) {
         if (-not $script:LastKnownPositions.ContainsKey($handleKey)) {
             # New window appeared - treat as drag event
-            Write-LayoutLog "New window detected: $handleKey" -Level "DEBUG"
+            Write-MatrixLog "New window detected: $handleKey" -Source LAYOUT -Level DEBUG
             return $true
         }
 
@@ -1316,7 +1341,7 @@ function Test-WindowDragDetected {
         $deltaY = [Math]::Abs($current.Y - $last.Y)
 
         if ($deltaX -gt $script:DragThreshold -or $deltaY -gt $script:DragThreshold) {
-            Write-LayoutLog "Drag detected on $handleKey : delta ($deltaX, $deltaY)" -Level "DEBUG"
+            Write-MatrixLog "Drag detected on $handleKey : delta ($deltaX, $deltaY)" -Source LAYOUT -Level DEBUG
             return $true
         }
     }
@@ -1345,7 +1370,7 @@ function Update-PositionTracking {
     )
 
     $script:LastKnownPositions = Get-WindowPositions -WindowHandles $WindowHandles
-    Write-LayoutLog "Updated position tracking for $($WindowHandles.Count) windows" -Level "DEBUG"
+    Write-MatrixLog "Updated position tracking for $($WindowHandles.Count) windows" -Source LAYOUT -Level DEBUG
 }
 
 # --- POSITION PERSISTENCE ---
@@ -1385,7 +1410,7 @@ function Save-WindowPositions {
                 }
             }
             catch {
-                Write-LayoutLog "Failed to load existing state for position save: $_" -Level "WARN"
+                Write-MatrixLog "Failed to load existing state for position save: $_" -Source LAYOUT -Level WARN
             }
         }
 
@@ -1404,11 +1429,11 @@ function Save-WindowPositions {
                         width = $rect.Right - $rect.Left
                         height = $rect.Bottom - $rect.Top
                     }
-                    Write-LayoutLog "Saved position for $shaderName : ($($rect.Left), $($rect.Top)) $($rect.Right - $rect.Left)x$($rect.Bottom - $rect.Top)" -Level "DEBUG"
+                    Write-MatrixLog "Saved position for $shaderName : ($($rect.Left), $($rect.Top)) $($rect.Right - $rect.Left)x$($rect.Bottom - $rect.Top)" -Source LAYOUT -Level DEBUG
                 }
             }
             catch {
-                Write-LayoutLog "Failed to get position for slot $($win.Slot): $_" -Level "DEBUG"
+                Write-MatrixLog "Failed to get position for slot $($win.Slot): $_" -Source LAYOUT -Level DEBUG
             }
         }
 
@@ -1422,11 +1447,11 @@ function Save-WindowPositions {
         $stateJson | Out-File -FilePath $tempFile -Encoding UTF8 -ErrorAction Stop
         Move-Item -Path $tempFile -Destination $stateFilePath -Force -ErrorAction Stop
 
-        Write-LayoutLog "Saved positions for $($positions.Count) windows" -Level "INFO"
+        Write-MatrixLog "Saved positions for $($positions.Count) windows" -Source LAYOUT
         return $true
     }
     catch {
-        Write-LayoutLog "Failed to save window positions: $_" -Level "ERROR"
+        Write-MatrixLog "Failed to save window positions: $_" -Source LAYOUT -Level ERROR
         # Clean up temp file if it exists (US-001 pattern)
         if ($tempFile -and (Test-Path $tempFile)) {
             Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
@@ -1468,7 +1493,7 @@ function Restore-WindowPositions {
 
     try {
         if (-not (Test-Path $stateFilePath)) {
-            Write-LayoutLog "No state file for position restore" -Level "DEBUG"
+            Write-MatrixLog "No state file for position restore" -Source LAYOUT -Level DEBUG
             return $false
         }
 
@@ -1476,7 +1501,7 @@ function Restore-WindowPositions {
         $state = $stateJson | ConvertFrom-Json -ErrorAction Stop
 
         if (-not $state.windowPositions) {
-            Write-LayoutLog "No saved positions in state file" -Level "DEBUG"
+            Write-MatrixLog "No saved positions in state file" -Source LAYOUT -Level DEBUG
             return $false
         }
 
@@ -1487,7 +1512,7 @@ function Restore-WindowPositions {
             # Check if we have saved position for this shader
             $savedPos = $state.windowPositions.$shaderName
             if (-not $savedPos) {
-                Write-LayoutLog "No saved position for $shaderName" -Level "DEBUG"
+                Write-MatrixLog "No saved position for $shaderName" -Source LAYOUT -Level DEBUG
                 continue
             }
 
@@ -1502,25 +1527,25 @@ function Restore-WindowPositions {
                     ([WindowLayoutAPI]::SWP_NOZORDER -bor [WindowLayoutAPI]::SWP_SHOWWINDOW)
                 ) | Out-Null
 
-                Write-LayoutLog "Restored position for $shaderName : ($($savedPos.x), $($savedPos.y)) $($savedPos.width)x$($savedPos.height)" -Level "DEBUG"
+                Write-MatrixLog "Restored position for $shaderName : ($($savedPos.x), $($savedPos.y)) $($savedPos.width)x$($savedPos.height)" -Source LAYOUT -Level DEBUG
                 $restoredCount++
             }
             catch {
-                Write-LayoutLog "Failed to restore position for $shaderName : $_" -Level "WARN"
+                Write-MatrixLog "Failed to restore position for $shaderName : $_" -Source LAYOUT -Level WARN
             }
         }
 
         if ($restoredCount -gt 0) {
-            Write-LayoutLog "Restored positions for $restoredCount windows" -Level "INFO"
+            Write-MatrixLog "Restored positions for $restoredCount windows" -Source LAYOUT
             return $true
         }
         else {
-            Write-LayoutLog "No positions were restored" -Level "DEBUG"
+            Write-MatrixLog "No positions were restored" -Source LAYOUT -Level DEBUG
             return $false
         }
     }
     catch {
-        Write-LayoutLog "Failed to restore window positions: $_" -Level "ERROR"
+        Write-MatrixLog "Failed to restore window positions: $_" -Source LAYOUT -Level ERROR
         return $false
     }
 }
@@ -1556,11 +1581,11 @@ function Get-MonitorConfigString {
         }
 
         $configString = $configParts -join "+"
-        Write-LayoutLog "Monitor config string: $configString" -Level "DEBUG"
+        Write-MatrixLog "Monitor config string: $configString" -Source LAYOUT -Level DEBUG
         return $configString
     }
     catch {
-        Write-LayoutLog "Failed to generate monitor config string: $_" -Level "ERROR"
+        Write-MatrixLog "Failed to generate monitor config string: $_" -Source LAYOUT -Level ERROR
         return "UNKNOWN"
     }
 }
@@ -1622,7 +1647,7 @@ function Save-PositionPreset {
         }
 
         if (-not $WindowInfo -or $WindowInfo.Count -eq 0) {
-            Write-LayoutLog "No windows to save for preset '$Name'" -Level "WARN"
+            Write-MatrixLog "No windows to save for preset '$Name'" -Source LAYOUT -Level WARN
             return $false
         }
 
@@ -1637,7 +1662,7 @@ function Save-PositionPreset {
                 }
             }
             catch {
-                Write-LayoutLog "Failed to load existing state for preset save: $_" -Level "WARN"
+                Write-MatrixLog "Failed to load existing state for preset save: $_" -Source LAYOUT -Level WARN
             }
         }
 
@@ -1681,16 +1706,16 @@ function Save-PositionPreset {
                         height = $rect.Bottom - $rect.Top
                         monitor = $monitorIndex
                     }
-                    Write-LayoutLog "Preset '$Name': Captured $shaderName at ($($rect.Left), $($rect.Top)) $($rect.Right - $rect.Left)x$($rect.Bottom - $rect.Top) on monitor $monitorIndex" -Level "DEBUG"
+                    Write-MatrixLog "Preset '$Name': Captured $shaderName at ($($rect.Left), $($rect.Top)) $($rect.Right - $rect.Left)x$($rect.Bottom - $rect.Top) on monitor $monitorIndex" -Source LAYOUT -Level DEBUG
                 }
             }
             catch {
-                Write-LayoutLog "Failed to get position for slot $($win.Slot) in preset: $_" -Level "DEBUG"
+                Write-MatrixLog "Failed to get position for slot $($win.Slot) in preset: $_" -Source LAYOUT -Level DEBUG
             }
         }
 
         if ($positions.Count -eq 0) {
-            Write-LayoutLog "No positions captured for preset '$Name'" -Level "WARN"
+            Write-MatrixLog "No positions captured for preset '$Name'" -Source LAYOUT -Level WARN
             return $false
         }
 
@@ -1710,11 +1735,11 @@ function Save-PositionPreset {
         $stateJson | Out-File -FilePath $tempFile -Encoding UTF8 -ErrorAction Stop
         Move-Item -Path $tempFile -Destination $stateFilePath -Force -ErrorAction Stop
 
-        Write-LayoutLog "Saved preset '$Name' with $($positions.Count) window positions" -Level "INFO"
+        Write-MatrixLog "Saved preset '$Name' with $($positions.Count) window positions" -Source LAYOUT
         return $true
     }
     catch {
-        Write-LayoutLog "Failed to save position preset '$Name': $_" -Level "ERROR"
+        Write-MatrixLog "Failed to save position preset '$Name': $_" -Source LAYOUT -Level ERROR
         # Clean up temp file if it exists (US-001 pattern)
         if ($tempFile -and (Test-Path $tempFile)) {
             Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
@@ -1764,7 +1789,7 @@ function Restore-PositionPreset {
     try {
         # Load state
         if (-not (Test-Path $stateFilePath)) {
-            Write-LayoutLog "No state file found for preset restore" -Level "WARN"
+            Write-MatrixLog "No state file found for preset restore" -Source LAYOUT -Level WARN
             return $false
         }
 
@@ -1772,14 +1797,14 @@ function Restore-PositionPreset {
         $state = $stateJson | ConvertFrom-Json -ErrorAction Stop
 
         if (-not $state.positionPresets) {
-            Write-LayoutLog "No presets found in state file" -Level "WARN"
+            Write-MatrixLog "No presets found in state file" -Source LAYOUT -Level WARN
             return $false
         }
 
         # Get preset
         $preset = $state.positionPresets.$Name
         if (-not $preset) {
-            Write-LayoutLog "Preset '$Name' not found" -Level "WARN"
+            Write-MatrixLog "Preset '$Name' not found" -Source LAYOUT -Level WARN
             return $false
         }
 
@@ -1789,9 +1814,9 @@ function Restore-PositionPreset {
         $configMatches = ($currentConfig -eq $savedConfig)
 
         if (-not $configMatches -and -not $Force) {
-            Write-LayoutLog "Monitor configuration changed since preset was saved. Use -Force to restore anyway." -Level "WARN"
-            Write-LayoutLog "  Saved: $savedConfig" -Level "DEBUG"
-            Write-LayoutLog "  Current: $currentConfig" -Level "DEBUG"
+            Write-MatrixLog "Monitor configuration changed since preset was saved. Use -Force to restore anyway." -Source LAYOUT -Level WARN
+            Write-MatrixLog "  Saved: $savedConfig" -Source LAYOUT -Level DEBUG
+            Write-MatrixLog "  Current: $currentConfig" -Source LAYOUT -Level DEBUG
             # Still proceed but log warning - auto-scale positions
         }
 
@@ -1815,7 +1840,7 @@ function Restore-PositionPreset {
         }
 
         if (-not $WindowInfo -or $WindowInfo.Count -eq 0) {
-            Write-LayoutLog "No windows available to restore preset '$Name'" -Level "WARN"
+            Write-MatrixLog "No windows available to restore preset '$Name'" -Source LAYOUT -Level WARN
             return $false
         }
 
@@ -1859,7 +1884,7 @@ function Restore-PositionPreset {
             # Get saved position
             $savedPos = $preset.positions.$shaderName
             if (-not $savedPos) {
-                Write-LayoutLog "No saved position for $shaderName in preset '$Name'" -Level "DEBUG"
+                Write-MatrixLog "No saved position for $shaderName in preset '$Name'" -Source LAYOUT -Level DEBUG
                 continue
             }
 
@@ -1890,7 +1915,7 @@ function Restore-PositionPreset {
                     $finalWidth = $scaledWidth
                     $finalHeight = $scaledHeight
 
-                    Write-LayoutLog "Scaled $shaderName from ($($savedPos.x),$($savedPos.y)) to ($finalX,$finalY)" -Level "DEBUG"
+                    Write-MatrixLog "Scaled $shaderName from ($($savedPos.x),$($savedPos.y)) to ($finalX,$finalY)" -Source LAYOUT -Level DEBUG
                 }
             }
 
@@ -1905,25 +1930,25 @@ function Restore-PositionPreset {
                     ([WindowLayoutAPI]::SWP_NOZORDER -bor [WindowLayoutAPI]::SWP_SHOWWINDOW)
                 ) | Out-Null
 
-                Write-LayoutLog "Restored $shaderName to ($finalX, $finalY) $($finalWidth)x$($finalHeight)" -Level "DEBUG"
+                Write-MatrixLog "Restored $shaderName to ($finalX, $finalY) $($finalWidth)x$($finalHeight)" -Source LAYOUT -Level DEBUG
                 $restoredCount++
             }
             catch {
-                Write-LayoutLog "Failed to restore position for $shaderName : $_" -Level "WARN"
+                Write-MatrixLog "Failed to restore position for $shaderName : $_" -Source LAYOUT -Level WARN
             }
         }
 
         if ($restoredCount -gt 0) {
-            Write-LayoutLog "Restored $restoredCount windows from preset '$Name'" -Level "INFO"
+            Write-MatrixLog "Restored $restoredCount windows from preset '$Name'" -Source LAYOUT
             return $true
         }
         else {
-            Write-LayoutLog "No positions were restored from preset '$Name'" -Level "WARN"
+            Write-MatrixLog "No positions were restored from preset '$Name'" -Source LAYOUT -Level WARN
             return $false
         }
     }
     catch {
-        Write-LayoutLog "Failed to restore position preset '$Name': $_" -Level "ERROR"
+        Write-MatrixLog "Failed to restore position preset '$Name': $_" -Source LAYOUT -Level ERROR
         return $false
     }
 }
@@ -1947,7 +1972,7 @@ function Get-PositionPresets {
 
     try {
         if (-not (Test-Path $stateFilePath)) {
-            Write-LayoutLog "No state file found" -Level "DEBUG"
+            Write-MatrixLog "No state file found" -Source LAYOUT -Level DEBUG
             return @()
         }
 
@@ -1955,7 +1980,7 @@ function Get-PositionPresets {
         $state = $stateJson | ConvertFrom-Json -ErrorAction Stop
 
         if (-not $state.positionPresets) {
-            Write-LayoutLog "No presets in state file" -Level "DEBUG"
+            Write-MatrixLog "No presets in state file" -Source LAYOUT -Level DEBUG
             return @()
         }
 
@@ -1984,7 +2009,7 @@ function Get-PositionPresets {
         return $presets
     }
     catch {
-        Write-LayoutLog "Failed to get position presets: $_" -Level "ERROR"
+        Write-MatrixLog "Failed to get position presets: $_" -Source LAYOUT -Level ERROR
         return @()
     }
 }
@@ -2015,7 +2040,7 @@ function Remove-PositionPreset {
 
     try {
         if (-not (Test-Path $stateFilePath)) {
-            Write-LayoutLog "No state file found" -Level "WARN"
+            Write-MatrixLog "No state file found" -Source LAYOUT -Level WARN
             return $false
         }
 
@@ -2029,7 +2054,7 @@ function Remove-PositionPreset {
         }
 
         if (-not $state.positionPresets) {
-            Write-LayoutLog "No presets section in state file" -Level "WARN"
+            Write-MatrixLog "No presets section in state file" -Source LAYOUT -Level WARN
             return $false
         }
 
@@ -2040,7 +2065,7 @@ function Remove-PositionPreset {
         }
 
         if (-not $presetsHash.ContainsKey($Name)) {
-            Write-LayoutLog "Preset '$Name' not found" -Level "WARN"
+            Write-MatrixLog "Preset '$Name' not found" -Source LAYOUT -Level WARN
             return $false
         }
 
@@ -2054,11 +2079,11 @@ function Remove-PositionPreset {
         $stateJson | Out-File -FilePath $tempFile -Encoding UTF8 -ErrorAction Stop
         Move-Item -Path $tempFile -Destination $stateFilePath -Force -ErrorAction Stop
 
-        Write-LayoutLog "Removed preset '$Name'" -Level "INFO"
+        Write-MatrixLog "Removed preset '$Name'" -Source LAYOUT
         return $true
     }
     catch {
-        Write-LayoutLog "Failed to remove preset '$Name': $_" -Level "ERROR"
+        Write-MatrixLog "Failed to remove preset '$Name': $_" -Source LAYOUT -Level ERROR
         # Clean up temp file if it exists (US-001 pattern)
         if ($tempFile -and (Test-Path $tempFile)) {
             Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
@@ -2185,7 +2210,7 @@ $script:UsageHalfLifeMinutes = 30  # Recency score half-life
 function Import-UsageTrackingData {
     try {
         if (-not (Test-Path $script:UsageTrackingStateFile)) {
-            Write-LayoutLog "No state file for usage tracking, starting fresh" -Level "DEBUG"
+            Write-MatrixLog "No state file for usage tracking, starting fresh" -Source LAYOUT -Level DEBUG
             return @{}
         }
 
@@ -2193,7 +2218,7 @@ function Import-UsageTrackingData {
         $state = $stateJson | ConvertFrom-Json -ErrorAction Stop
 
         if (-not $state.usageTracking) {
-            Write-LayoutLog "No usageTracking section in state file" -Level "DEBUG"
+            Write-MatrixLog "No usageTracking section in state file" -Source LAYOUT -Level DEBUG
             return @{}
         }
 
@@ -2211,11 +2236,11 @@ function Import-UsageTrackingData {
             }
         }
 
-        Write-LayoutLog "Loaded usage tracking data for $($usageData.Count) profiles" -Level "DEBUG"
+        Write-MatrixLog "Loaded usage tracking data for $($usageData.Count) profiles" -Source LAYOUT -Level DEBUG
         return $usageData
     }
     catch {
-        Write-LayoutLog "Failed to load usage tracking data: $_" -Level "WARN"
+        Write-MatrixLog "Failed to load usage tracking data: $_" -Source LAYOUT -Level WARN
         return @{}
     }
 }
@@ -2265,7 +2290,7 @@ function Export-UsageTrackingData {
                 }
             }
             catch {
-                Write-LayoutLog "Failed to load existing state for usage export, creating new: $_" -Level "WARN"
+                Write-MatrixLog "Failed to load existing state for usage export, creating new: $_" -Source LAYOUT -Level WARN
             }
         }
 
@@ -2292,10 +2317,10 @@ function Export-UsageTrackingData {
         $stateJson | Out-File -FilePath $tempFile -Encoding UTF8 -ErrorAction Stop
         Move-Item -Path $tempFile -Destination $script:UsageTrackingStateFile -Force -ErrorAction Stop
 
-        Write-LayoutLog "Saved usage tracking data for $($UsageData.Count) profiles" -Level "DEBUG"
+        Write-MatrixLog "Saved usage tracking data for $($UsageData.Count) profiles" -Source LAYOUT -Level DEBUG
     }
     catch {
-        Write-LayoutLog "Failed to save usage tracking data: $_" -Level "ERROR"
+        Write-MatrixLog "Failed to save usage tracking data: $_" -Source LAYOUT -Level ERROR
         # Clean up temp file if it exists
         if ($tempFile -and (Test-Path $tempFile)) {
             Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
@@ -2317,7 +2342,7 @@ function Export-UsageTrackingData {
 function Initialize-UsageTracking {
     $script:UsageTrackingData = Import-UsageTrackingData
     $script:FocusStartTimes = @{}
-    Write-LayoutLog "Usage tracking initialized with $($script:UsageTrackingData.Count) profiles" -Level "INFO"
+    Write-MatrixLog "Usage tracking initialized with $($script:UsageTrackingData.Count) profiles" -Source LAYOUT
 }
 
 <#
@@ -2371,7 +2396,7 @@ function Update-WindowUsage {
             $script:FocusStartTimes[$ProfileName] = $now
             $profileData.lastFocusTime = $now
             $profileData.focusCount++
-            Write-LayoutLog "Focus gained: $ProfileName (count: $($profileData.focusCount))" -Level "DEBUG"
+            Write-MatrixLog "Focus gained: $ProfileName (count: $($profileData.focusCount))" -Source LAYOUT -Level DEBUG
         }
         'Blur' {
             # Calculate focus duration
@@ -2380,7 +2405,7 @@ function Update-WindowUsage {
                 $durationMs = ($now - $focusStart).TotalMilliseconds
                 $profileData.focusDurationMs += [int]$durationMs
                 $script:FocusStartTimes.Remove($ProfileName)
-                Write-LayoutLog "Focus lost: $ProfileName (duration: ${durationMs}ms, total: $($profileData.focusDurationMs)ms)" -Level "DEBUG"
+                Write-MatrixLog "Focus lost: $ProfileName (duration: ${durationMs}ms, total: $($profileData.focusDurationMs)ms)" -Source LAYOUT -Level DEBUG
             }
         }
     }
@@ -2452,7 +2477,7 @@ function Update-UsageScore {
 
     $profileData.usageScore = $usageScore
 
-    Write-LayoutLog "Updated score for $ProfileName : focus=$([Math]::Round($focusScore, 3)), recency=$([Math]::Round($recencyScore, 3)), freq=$([Math]::Round($frequencyScore, 3)), total=$([Math]::Round($usageScore, 4))" -Level "DEBUG"
+    Write-MatrixLog "Updated score for $ProfileName : focus=$([Math]::Round($focusScore, 3)), recency=$([Math]::Round($recencyScore, 3)), freq=$([Math]::Round($frequencyScore, 3)), total=$([Math]::Round($usageScore, 4))" -Source LAYOUT -Level DEBUG
 }
 
 <#
@@ -2580,7 +2605,7 @@ function Get-LeastUsedWindow {
     }
 
     if ($candidates.Count -eq 0) {
-        Write-LayoutLog "No candidate windows for least-used selection (ExcludeLocked=$ExcludePriorityLocked)" -Level "DEBUG"
+        Write-MatrixLog "No candidate windows for least-used selection (ExcludeLocked=$ExcludePriorityLocked)" -Source LAYOUT -Level DEBUG
         return $null
     }
 
@@ -2588,7 +2613,7 @@ function Get-LeastUsedWindow {
     $sorted = $candidates | Sort-Object { $_.UsageScore }
     $leastUsed = $sorted[0].ProfileName
 
-    Write-LayoutLog "Least-used window: $leastUsed (score: $($sorted[0].UsageScore))" -Level "DEBUG"
+    Write-MatrixLog "Least-used window: $leastUsed (score: $($sorted[0].UsageScore))" -Source LAYOUT -Level DEBUG
     return $leastUsed
 }
 
@@ -2644,7 +2669,7 @@ function Set-WindowPriority {
     Export-UsageTrackingData -UsageData $script:UsageTrackingData
 
     $status = if ($Locked) { "LOCKED (never bumped)" } else { "UNLOCKED" }
-    Write-LayoutLog "Priority for $ProfileName : $status" -Level "INFO"
+    Write-MatrixLog "Priority for $ProfileName : $status" -Source LAYOUT
 }
 
 <#
@@ -2723,7 +2748,7 @@ function Update-AllUsageScores {
     # Persist updated scores
     Export-UsageTrackingData -UsageData $script:UsageTrackingData
 
-    Write-LayoutLog "Updated usage scores for $($script:UsageTrackingData.Count) profiles" -Level "DEBUG"
+    Write-MatrixLog "Updated usage scores for $($script:UsageTrackingData.Count) profiles" -Source LAYOUT -Level DEBUG
 }
 
 <#
@@ -2771,12 +2796,12 @@ function Clear-StaleUsageData {
     # Remove stale entries
     foreach ($profileName in $toRemove) {
         $script:UsageTrackingData.Remove($profileName)
-        Write-LayoutLog "Removed stale usage data: $profileName" -Level "DEBUG"
+        Write-MatrixLog "Removed stale usage data: $profileName" -Source LAYOUT -Level DEBUG
     }
 
     if ($toRemove.Count -gt 0) {
         Export-UsageTrackingData -UsageData $script:UsageTrackingData
-        Write-LayoutLog "Cleared $($toRemove.Count) stale usage entries (older than $OlderThanDays days)" -Level "INFO"
+        Write-MatrixLog "Cleared $($toRemove.Count) stale usage entries (older than $OlderThanDays days)" -Source LAYOUT
     }
 }
 
@@ -2798,7 +2823,7 @@ function Reset-UsageTracking {
     # Save empty data
     Export-UsageTrackingData -UsageData $script:UsageTrackingData
 
-    Write-LayoutLog "Usage tracking data has been reset" -Level "INFO"
+    Write-MatrixLog "Usage tracking data has been reset" -Source LAYOUT
 }
 
 <#
@@ -2907,7 +2932,7 @@ function Get-MonitorAtPoint {
     }
 
     # Point outside all monitors - return primary (0)
-    Write-LayoutLog "Point ($X, $Y) outside all monitors, defaulting to 0" -Level "DEBUG"
+    Write-MatrixLog "Point ($X, $Y) outside all monitors, defaulting to 0" -Source LAYOUT -Level DEBUG
     return 0
 }
 
@@ -3025,7 +3050,7 @@ function Get-WindowsOnMonitor {
         }
     }
 
-    Write-LayoutLog "Get-WindowsOnMonitor($MonitorIndex): Found $($windows.Count) windows - $($windows -join ', ')" -Level "DEBUG"
+    Write-MatrixLog "Get-WindowsOnMonitor($MonitorIndex): Found $($windows.Count) windows - $($windows -join ', ')" -Source LAYOUT -Level DEBUG
     return $windows
 }
 
@@ -3081,11 +3106,11 @@ function Update-WindowMonitorAssignments {
             }
         }
         catch {
-            Write-LayoutLog "Failed to update assignment for $profileName : $_" -Level "DEBUG"
+            Write-MatrixLog "Failed to update assignment for $profileName : $_" -Source LAYOUT -Level DEBUG
         }
     }
 
-    Write-LayoutLog "Updated monitor assignments for $($WindowHandles.Count) windows" -Level "DEBUG"
+    Write-MatrixLog "Updated monitor assignments for $($WindowHandles.Count) windows" -Source LAYOUT -Level DEBUG
 }
 
 <#
@@ -3145,7 +3170,7 @@ function Test-DragIntention {
     # Get last known position for this window
     $handleKey = $WindowHandle.ToString()
     if (-not $script:LastKnownPositions.ContainsKey($handleKey)) {
-        Write-LayoutLog "No last known position for $ProfileName, initializing" -Level "DEBUG"
+        Write-MatrixLog "No last known position for $ProfileName, initializing" -Source LAYOUT -Level DEBUG
         return $result
     }
 
@@ -3176,7 +3201,7 @@ function Test-DragIntention {
     $result.ToMonitor = Get-MonitorAtPoint -X $currentCenterX -Y $currentCenterY
     $result.CrossedMonitor = ($result.FromMonitor -ne $result.ToMonitor)
 
-    Write-LayoutLog "Drag detected for $ProfileName : movement=$([int]$movement)px, from monitor $($result.FromMonitor) to $($result.ToMonitor), crossed=$($result.CrossedMonitor)" -Level "DEBUG"
+    Write-MatrixLog "Drag detected for $ProfileName : movement=$([int]$movement)px, from monitor $($result.FromMonitor) to $($result.ToMonitor), crossed=$($result.CrossedMonitor)" -Source LAYOUT -Level DEBUG
 
     return $result
 }
@@ -3210,10 +3235,10 @@ function Move-WindowToMonitor {
     if ($script:WindowMonitorAssignments.ContainsKey($ProfileName)) {
         $oldMonitor = $script:WindowMonitorAssignments[$ProfileName].MonitorIndex
         $script:WindowMonitorAssignments[$ProfileName].MonitorIndex = $TargetMonitor
-        Write-LayoutLog "Moved $ProfileName from monitor $oldMonitor to $TargetMonitor (tracking only)" -Level "INFO"
+        Write-MatrixLog "Moved $ProfileName from monitor $oldMonitor to $TargetMonitor (tracking only)" -Source LAYOUT
     }
     else {
-        Write-LayoutLog "Cannot move $ProfileName - not in assignments" -Level "WARN"
+        Write-MatrixLog "Cannot move $ProfileName - not in assignments" -Source LAYOUT -Level WARN
     }
 }
 
@@ -3260,12 +3285,12 @@ function Recalculate-AffectedLayouts {
         $MonitorIndices = @($affectedMonitors.Keys)
     }
 
-    Write-LayoutLog "Recalculating layouts for monitors: $($MonitorIndices -join ', ') (mode: $mode)" -Level "INFO"
+    Write-MatrixLog "Recalculating layouts for monitors: $($MonitorIndices -join ', ') (mode: $mode)" -Source LAYOUT
 
     # Process each monitor
     foreach ($monitorIdx in $MonitorIndices) {
         if ($monitorIdx -ge $screens.Count) {
-            Write-LayoutLog "Monitor index $monitorIdx out of range (only $($screens.Count) screens)" -Level "WARN"
+            Write-MatrixLog "Monitor index $monitorIdx out of range (only $($screens.Count) screens)" -Source LAYOUT -Level WARN
             continue
         }
 
@@ -3273,7 +3298,7 @@ function Recalculate-AffectedLayouts {
         $windowsOnMonitor = Get-WindowsOnMonitor -MonitorIndex $monitorIdx
 
         if ($windowsOnMonitor.Count -eq 0) {
-            Write-LayoutLog "No windows on monitor $monitorIdx, skipping" -Level "DEBUG"
+            Write-MatrixLog "No windows on monitor $monitorIdx, skipping" -Source LAYOUT -Level DEBUG
             continue
         }
 
@@ -3359,7 +3384,7 @@ function Recalculate-AffectedLayouts {
             $position = $positions[$i]
 
             if (-not $WindowHandles.ContainsKey($profileName)) {
-                Write-LayoutLog "No handle found for $profileName" -Level "WARN"
+                Write-MatrixLog "No handle found for $profileName" -Source LAYOUT -Level WARN
                 continue
             }
 
@@ -3367,7 +3392,7 @@ function Recalculate-AffectedLayouts {
             $handle = if ($entry -is [hashtable]) { $entry.Handle } else { $entry }
 
             if (-not $handle -or $handle -eq [IntPtr]::Zero) {
-                Write-LayoutLog "Invalid handle for $profileName" -Level "WARN"
+                Write-MatrixLog "Invalid handle for $profileName" -Source LAYOUT -Level WARN
                 continue
             }
 
@@ -3382,7 +3407,7 @@ function Recalculate-AffectedLayouts {
                     ([WindowLayoutAPI]::SWP_NOZORDER -bor [WindowLayoutAPI]::SWP_SHOWWINDOW)
                 ) | Out-Null
 
-                Write-LayoutLog "Positioned $profileName on monitor $monitorIdx at ($($position.X), $($position.Y)) size $($position.Width)x$($position.Height)" -Level "DEBUG"
+                Write-MatrixLog "Positioned $profileName on monitor $monitorIdx at ($($position.X), $($position.Y)) size $($position.Width)x$($position.Height)" -Source LAYOUT -Level DEBUG
 
                 # Update the assignment with new position
                 $script:WindowMonitorAssignments[$profileName].X = $position.X
@@ -3391,7 +3416,7 @@ function Recalculate-AffectedLayouts {
                 $script:WindowMonitorAssignments[$profileName].Height = $position.Height
             }
             catch {
-                Write-LayoutLog "Failed to position $profileName : $_" -Level "ERROR"
+                Write-MatrixLog "Failed to position $profileName : $_" -Source LAYOUT -Level ERROR
             }
         }
     }
@@ -3464,8 +3489,8 @@ function Invoke-DynamicAccommodation {
     $profileName = $DraggedWindow.ProfileName
     $sourceMonitor = $DraggedWindow.SourceMonitor
 
-    Write-LayoutLog "=== Dynamic Accommodation ===" -Level "INFO"
-    Write-LayoutLog "Dragged: $profileName from monitor $sourceMonitor to monitor $TargetMonitor" -Level "INFO"
+    Write-MatrixLog "=== Dynamic Accommodation ===" -Source LAYOUT
+    Write-MatrixLog "Dragged: $profileName from monitor $sourceMonitor to monitor $TargetMonitor" -Source LAYOUT
 
     # Update state machine
     $script:AccommodationState = 'CALCULATING'
@@ -3478,13 +3503,13 @@ function Invoke-DynamicAccommodation {
     $mode = Get-CurrentLayoutMode
     $capacity = Get-MonitorCapacity -MonitorIndex $TargetMonitor -Mode $mode
 
-    Write-LayoutLog "Target monitor $TargetMonitor : $($windowsOnTarget.Count) windows (capacity: $capacity)" -Level "INFO"
+    Write-MatrixLog "Target monitor $TargetMonitor : $($windowsOnTarget.Count) windows (capacity: $capacity)" -Source LAYOUT
 
     # Check if target has room
     if ($windowsOnTarget.Count -lt $capacity) {
         # Room available - just move the window
         $script:AccommodationState = 'ACCOMMODATING'
-        Write-LayoutLog "Target has room - adding window directly" -Level "INFO"
+        Write-MatrixLog "Target has room - adding window directly" -Source LAYOUT
 
         # Update tracking: move dragged window to target monitor
         Move-WindowToMonitor -ProfileName $profileName -TargetMonitor $TargetMonitor
@@ -3495,13 +3520,13 @@ function Invoke-DynamicAccommodation {
     else {
         # At capacity - need to bump a window
         $script:AccommodationState = 'BUMP_SELECTING'
-        Write-LayoutLog "Target at capacity - selecting window to bump" -Level "INFO"
+        Write-MatrixLog "Target at capacity - selecting window to bump" -Source LAYOUT
 
         # Get least-used window on target (excluding priority-locked)
         $toBump = Get-LeastUsedWindow -MonitorIndex $TargetMonitor -ExcludePriorityLocked -WindowsOnMonitor $windowsOnTarget
 
         if ($toBump) {
-            Write-LayoutLog "Bumping $toBump to make room for $profileName" -Level "INFO"
+            Write-MatrixLog "Bumping $toBump to make room for $profileName" -Source LAYOUT
 
             # Swap: bumped window goes to source monitor, dragged window goes to target
             Move-WindowToMonitor -ProfileName $toBump -TargetMonitor $sourceMonitor
@@ -3513,7 +3538,7 @@ function Invoke-DynamicAccommodation {
         }
         else {
             # All windows on target are priority-locked - expand layout instead
-            Write-LayoutLog "All windows priority-locked - expanding layout" -Level "INFO"
+            Write-MatrixLog "All windows priority-locked - expanding layout" -Source LAYOUT
 
             # Just add the window anyway (layout will accommodate by shrinking)
             Move-WindowToMonitor -ProfileName $profileName -TargetMonitor $TargetMonitor
@@ -3531,11 +3556,11 @@ function Invoke-DynamicAccommodation {
     $script:AccommodationState = 'FINALIZING'
     $result.Success = $true
 
-    Write-LayoutLog "Accommodation complete: $($result.Action)" -Level "INFO"
+    Write-MatrixLog "Accommodation complete: $($result.Action)" -Source LAYOUT
     if ($result.BumpedWindow) {
-        Write-LayoutLog "  Bumped window: $($result.BumpedWindow)" -Level "INFO"
+        Write-MatrixLog "  Bumped window: $($result.BumpedWindow)" -Source LAYOUT
     }
-    Write-LayoutLog "  Affected monitors: $($result.AffectedMonitors -join ', ')" -Level "INFO"
+    Write-MatrixLog "  Affected monitors: $($result.AffectedMonitors -join ', ')" -Source LAYOUT
 
     # Return to idle
     $script:AccommodationState = 'IDLE'
@@ -3600,12 +3625,12 @@ function Test-PositionStable {
 
         $isStable = ($deltaX -le $TolerancePx -and $deltaY -le $TolerancePx)
 
-        Write-LayoutLog "Position stability check: deltaX=$deltaX, deltaY=$deltaY, stable=$isStable" -Level "DEBUG"
+        Write-MatrixLog "Position stability check: deltaX=$deltaX, deltaY=$deltaY, stable=$isStable" -Source LAYOUT -Level DEBUG
 
         return $isStable
     }
     catch {
-        Write-LayoutLog "Position stability check failed: $_" -Level "DEBUG"
+        Write-MatrixLog "Position stability check failed: $_" -Source LAYOUT -Level DEBUG
         return $false
     }
 }
@@ -3683,28 +3708,60 @@ function Process-WindowDragEvents {
         # Check for drag intention
         $dragInfo = Test-DragIntention -WindowHandle $handle -ProfileName $profileName -CurrentPosition $currentPos
 
-        if ($dragInfo.IsDrag -and $dragInfo.CrossedMonitor) {
-            Write-LayoutLog "Cross-monitor drag detected for $profileName" -Level "INFO"
+        if ($dragInfo.IsDrag) {
+            # Check for overlap with other windows on the same monitor
+            $hasOverlap = $false
+            if (-not $dragInfo.CrossedMonitor) {
+                # Check if this window overlaps with any other window on the same monitor
+                foreach ($otherProfile in $WindowHandles.Keys) {
+                    if ($otherProfile -eq $profileName) { continue }
 
-            # Verify position is stable (user has finished dragging)
-            if (Test-PositionStable -WindowHandle $handle) {
-                Write-LayoutLog "Position stable - triggering accommodation" -Level "INFO"
+                    $otherEntry = $WindowHandles[$otherProfile]
+                    $otherHandle = if ($otherEntry -is [hashtable]) { $otherEntry.Handle } else { $otherEntry }
+                    if (-not $otherHandle -or $otherHandle -eq [IntPtr]::Zero) { continue }
 
-                # Trigger accommodation
-                $accommodationResult = Invoke-DynamicAccommodation -DraggedWindow @{
-                    ProfileName = $profileName
-                    SourceMonitor = $dragInfo.FromMonitor
-                } -TargetMonitor $dragInfo.ToMonitor -WindowHandles $WindowHandles
+                    $otherKey = $otherHandle.ToString()
+                    if (-not $currentPositions.ContainsKey($otherKey)) { continue }
 
-                $result.DragDetected = $true
-                $result.ProcessedWindow = $profileName
-                $result.AccommodationResult = $accommodationResult
+                    $otherPos = $currentPositions[$otherKey]
 
-                # Only process one drag per cycle to avoid race conditions
-                break
+                    # Check if windows overlap (bounding box intersection)
+                    $overlapX = ($currentPos.X -lt ($otherPos.X + $otherPos.Width)) -and (($currentPos.X + $currentPos.Width) -gt $otherPos.X)
+                    $overlapY = ($currentPos.Y -lt ($otherPos.Y + $otherPos.Height)) -and (($currentPos.Y + $currentPos.Height) -gt $otherPos.Y)
+
+                    if ($overlapX -and $overlapY) {
+                        $hasOverlap = $true
+                        Write-MatrixLog "Same-monitor overlap detected: $profileName overlaps with $otherProfile" -Source LAYOUT
+                        break
+                    }
+                }
             }
-            else {
-                Write-LayoutLog "Position not stable - user still dragging" -Level "DEBUG"
+
+            # Trigger accommodation if cross-monitor OR same-monitor overlap
+            if ($dragInfo.CrossedMonitor -or $hasOverlap) {
+                $triggerReason = if ($dragInfo.CrossedMonitor) { "cross-monitor drag" } else { "same-monitor overlap" }
+                Write-MatrixLog "Accommodation trigger: $profileName ($triggerReason)" -Source LAYOUT
+
+                # Verify position is stable (user has finished dragging)
+                if (Test-PositionStable -WindowHandle $handle) {
+                    Write-MatrixLog "Position stable - triggering accommodation" -Source LAYOUT
+
+                    # Trigger accommodation
+                    $accommodationResult = Invoke-DynamicAccommodation -DraggedWindow @{
+                        ProfileName = $profileName
+                        SourceMonitor = $dragInfo.FromMonitor
+                    } -TargetMonitor $dragInfo.ToMonitor -WindowHandles $WindowHandles
+
+                    $result.DragDetected = $true
+                    $result.ProcessedWindow = $profileName
+                    $result.AccommodationResult = $accommodationResult
+
+                    # Only process one drag per cycle to avoid race conditions
+                    break
+                }
+                else {
+                    Write-MatrixLog "Position not stable - user still dragging" -Source LAYOUT -Level DEBUG
+                }
             }
         }
     }
@@ -3772,7 +3829,7 @@ function Initialize-AccommodationSystem {
         [hashtable]$WindowHandles
     )
 
-    Write-LayoutLog "Initializing accommodation system..." -Level "INFO"
+    Write-MatrixLog "Initializing accommodation system..." -Source LAYOUT
 
     # Reset state
     $script:AccommodationState = 'IDLE'
@@ -3792,6 +3849,6 @@ function Initialize-AccommodationSystem {
     }
     Initialize-PositionTracking -WindowHandles $handles
 
-    Write-LayoutLog "Accommodation system initialized with $($WindowHandles.Count) windows" -Level "INFO"
-    Write-LayoutLog (Get-AccommodationStateSummary) -Level "DEBUG"
+    Write-MatrixLog "Accommodation system initialized with $($WindowHandles.Count) windows" -Source LAYOUT
+    Write-LayoutLog (Get-AccommodationStateSummary) -Source LAYOUT -Level DEBUG
 }

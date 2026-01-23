@@ -10,8 +10,6 @@
 
 # --- MODULE-LEVEL STATE ---
 $script:LaunchRegistry = @{}           # Runtime registry: @{ PID = @{ ProfileName, LaunchTime, CorrelationId } }
-$script:IdentityServiceVerbose = $false
-$script:IdentityLogFile = "$env:USERPROFILE\Documents\Matrix\identity_debug.log"
 $script:IdentityRegistryPath = "$env:USERPROFILE\Documents\Matrix\identity-registry.json"
 
 # --- UNIFIED P/INVOKE API CLASS ---
@@ -160,104 +158,9 @@ public class MatrixWindowAPI {
 }
 "@
 
-# --- LOGGING SYSTEM (US-009 Pattern) ---
-
-<#
-.SYNOPSIS
-    Write a log message for identity service debugging.
-
-.DESCRIPTION
-    Writes timestamped messages to console and log file.
-    Controlled by $script:IdentityServiceVerbose and $env:MATRIX_DEBUG.
-
-.PARAMETER Message
-    The message to log
-
-.PARAMETER Level
-    Log level: DEBUG, INFO, WARN, ERROR (default: INFO)
-
-.PARAMETER Force
-    If set, writes message even when verbose mode is disabled
-
-.EXAMPLE
-    Write-IdentityLog "Resolving identity for handle 12345" -Level "DEBUG"
-#>
-function Write-IdentityLog {
-    param(
-        [Parameter(Mandatory)]
-        [string]$Message,
-
-        [ValidateSet('DEBUG', 'INFO', 'WARN', 'ERROR')]
-        [string]$Level = 'INFO',
-
-        [switch]$Force
-    )
-
-    # Check if logging is enabled (verbose flag or MATRIX_DEBUG env var)
-    $isEnabled = $script:IdentityServiceVerbose -or ($env:MATRIX_DEBUG -eq "1")
-
-    # Skip if not enabled (unless Force or it's a warning/error)
-    if (-not $isEnabled -and -not $Force -and $Level -notin @('WARN', 'ERROR')) {
-        return
-    }
-
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
-    $logEntry = "[$timestamp] [IDENTITY] [$Level] $Message"
-
-    # Console output with color coding
-    $color = switch ($Level) {
-        'DEBUG' { 'DarkGray' }
-        'INFO'  { 'Gray' }
-        'WARN'  { 'Yellow' }
-        'ERROR' { 'Red' }
-    }
-
-    if ($isEnabled -or $Force -or $Level -in @('WARN', 'ERROR')) {
-        Write-Host $logEntry -ForegroundColor $color
-    }
-
-    # File logging (only when enabled)
-    if ($isEnabled) {
-        try {
-            $logDir = Split-Path $script:IdentityLogFile -Parent
-            if (-not (Test-Path $logDir)) {
-                New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-            }
-            Add-Content -Path $script:IdentityLogFile -Value $logEntry -ErrorAction SilentlyContinue
-        }
-        catch {
-            # Silently fail file logging
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Enable verbose identity logging.
-
-.PARAMETER ClearLog
-    If set, clears the existing log file
-#>
-function Enable-IdentityVerboseLogging {
-    param([switch]$ClearLog)
-
-    $script:IdentityServiceVerbose = $true
-    Write-IdentityLog "Verbose logging ENABLED" -Level "INFO" -Force
-
-    if ($ClearLog -and (Test-Path $script:IdentityLogFile)) {
-        Remove-Item $script:IdentityLogFile -Force -ErrorAction SilentlyContinue
-        Write-IdentityLog "Log file cleared" -Level "INFO" -Force
-    }
-}
-
-<#
-.SYNOPSIS
-    Disable verbose identity logging.
-#>
-function Disable-IdentityVerboseLogging {
-    Write-IdentityLog "Verbose logging DISABLED" -Level "INFO" -Force
-    $script:IdentityServiceVerbose = $false
-}
+# --- UNIFIED LOGGING ---
+# Import unified logging module (respects $env:MATRIX_DEBUG)
+. "$PSScriptRoot\MatrixLogging.ps1"
 
 # --- LAYER 1: LAUNCH TRACKING ---
 
@@ -310,7 +213,7 @@ function Register-MatrixWindowLaunch {
         ProcessId = $processId
     }
 
-    Write-IdentityLog "Registered launch: PID=$processId, Profile=$ProfileName, Correlation=$CorrelationId" -Level "INFO"
+    Write-MatrixLog "Registered launch: PID=$processId, Profile=$ProfileName, Correlation=$CorrelationId" -Source IDENTITY
 
     # Also persist to disk for cross-session recovery
     Save-IdentityRegistry
@@ -364,7 +267,7 @@ function Register-MatrixWindowByHandle {
         ProcessId = $processId
     }
 
-    Write-IdentityLog "Registered window: Handle=$WindowHandle, PID=$processId, Profile=$ProfileName, Correlation=$CorrelationId" -Level "INFO"
+    Write-MatrixLog "Registered window: Handle=$WindowHandle, PID=$processId, Profile=$ProfileName, Correlation=$CorrelationId" -Source IDENTITY
 
     # Also persist to disk for cross-session recovery
     Save-IdentityRegistry
@@ -429,12 +332,12 @@ function Wait-ForNewMatrixWindow {
 
             # New window found!
             $title = $win.Title
-            Write-IdentityLog "New window detected: Handle=$handle, Title='$title'" -Level "DEBUG"
+            Write-MatrixLog "New window detected: Handle=$handle, Title='$title'" -Source IDENTITY -Level DEBUG
             return $handle
         }
     }
 
-    Write-IdentityLog "Timeout waiting for new window: $ProfileName" -Level "WARN"
+    Write-MatrixLog "Timeout waiting for new window: $ProfileName" -Source IDENTITY -Level WARN
     return [IntPtr]::Zero
 }
 
@@ -482,7 +385,7 @@ function Get-LaunchRegistryIdentityByHandle {
             $slotNum = if ($entry.ProfileName -match "Matrix-(\d+)") { [int]$Matches[1] } else { $null }
             $shaderFile = if ($slotNum) { "Matrix-$slotNum.hlsl" } else { $null }
 
-            Write-IdentityLog "Launch registry (handle) hit: Handle=$WindowHandle -> $($entry.ProfileName)" -Level "DEBUG"
+            Write-MatrixLog "Launch registry (handle) hit: Handle=$WindowHandle -> $($entry.ProfileName)" -Source IDENTITY -Level DEBUG
 
             return @{
                 ProfileName = $entry.ProfileName
@@ -496,7 +399,7 @@ function Get-LaunchRegistryIdentityByHandle {
         }
         else {
             # Window no longer exists - clean up stale entry
-            Write-IdentityLog "Removing stale launch entry: Handle=$WindowHandle (window gone)" -Level "DEBUG"
+            Write-MatrixLog "Removing stale launch entry: Handle=$WindowHandle (window gone)" -Source IDENTITY -Level DEBUG
             $script:LaunchRegistry.Remove($handleKey)
         }
     }
@@ -542,7 +445,7 @@ function Get-LaunchRegistryIdentity {
             $slotNum = if ($entry.ProfileName -match "Matrix-(\d+)") { [int]$Matches[1] } else { $null }
             $shaderFile = if ($slotNum) { "Matrix-$slotNum.hlsl" } else { $null }
 
-            Write-IdentityLog "Launch registry hit: PID=$ProcessId -> $($entry.ProfileName)" -Level "DEBUG"
+            Write-MatrixLog "Launch registry hit: PID=$ProcessId -> $($entry.ProfileName)" -Source IDENTITY -Level DEBUG
 
             return @{
                 ProfileName = $entry.ProfileName
@@ -556,7 +459,7 @@ function Get-LaunchRegistryIdentity {
         }
         catch {
             # Process no longer exists - clean up stale entry
-            Write-IdentityLog "Removing stale launch entry: PID=$ProcessId (process gone)" -Level "DEBUG"
+            Write-MatrixLog "Removing stale launch entry: PID=$ProcessId (process gone)" -Source IDENTITY -Level DEBUG
             $script:LaunchRegistry.Remove($pidKey)
         }
     }
@@ -573,7 +476,7 @@ function Get-LaunchRegistryIdentity {
             $slotNum = if ($entry.ProfileName -match "Matrix-(\d+)") { [int]$Matches[1] } else { $null }
             $shaderFile = if ($slotNum) { "Matrix-$slotNum.hlsl" } else { $null }
 
-            Write-IdentityLog "Persisted registry hit: PID=$ProcessId -> $($entry.ProfileName)" -Level "DEBUG"
+            Write-MatrixLog "Persisted registry hit: PID=$ProcessId -> $($entry.ProfileName)" -Source IDENTITY -Level DEBUG
 
             # Promote to runtime registry for faster future lookups
             $script:LaunchRegistry[$pidKey] = $entry
@@ -588,7 +491,7 @@ function Get-LaunchRegistryIdentity {
             }
         }
         catch {
-            Write-IdentityLog "Persisted entry stale: PID=$ProcessId" -Level "DEBUG"
+            Write-MatrixLog "Persisted entry stale: PID=$ProcessId" -Source IDENTITY -Level DEBUG
         }
     }
 
@@ -628,7 +531,7 @@ function Get-CommandLineIdentities {
         return $results
     }
 
-    Write-IdentityLog "Querying command lines for $($ProcessIds.Count) processes" -Level "DEBUG"
+    Write-MatrixLog "Querying command lines for $($ProcessIds.Count) processes" -Source IDENTITY -Level DEBUG
 
     try {
         # Build WMI query for all PIDs at once (batch optimization)
@@ -645,7 +548,7 @@ function Get-CommandLineIdentities {
                 continue
             }
 
-            Write-IdentityLog "  PID $procId cmdline: $cmdLine" -Level "DEBUG"
+            Write-MatrixLog "  PID $procId cmdline: $cmdLine" -Source IDENTITY -Level DEBUG
 
             # Parse for profile argument: -p "Matrix-N" or --profile "Matrix-N"
             # Also handles: wt.exe -p Matrix-1 (without quotes)
@@ -672,7 +575,7 @@ function Get-CommandLineIdentities {
                     CommandLine = $cmdLine
                 }
 
-                Write-IdentityLog "  Command line match: PID=$procId -> $profileMatch (Slot $slotNum)" -Level "DEBUG"
+                Write-MatrixLog "  Command line match: PID=$procId -> $profileMatch (Slot $slotNum)" -Source IDENTITY -Level DEBUG
             }
             # Check for Redpill profile
             elseif ($profileMatch -and $profileMatch -match "(?i)redpill") {
@@ -686,15 +589,15 @@ function Get-CommandLineIdentities {
                     IsRedpill = $true
                 }
 
-                Write-IdentityLog "  Command line match: PID=$procId -> Redpill" -Level "DEBUG"
+                Write-MatrixLog "  Command line match: PID=$procId -> Redpill" -Source IDENTITY -Level DEBUG
             }
         }
     }
     catch {
-        Write-IdentityLog "WMI query failed: $_" -Level "WARN"
+        Write-MatrixLog "WMI query failed: $_" -Source IDENTITY -Level WARN
     }
 
-    Write-IdentityLog "Command line resolution: $($results.Count) matches from $($ProcessIds.Count) PIDs" -Level "DEBUG"
+    Write-MatrixLog "Command line resolution: $($results.Count) matches from $($ProcessIds.Count) PIDs" -Source IDENTITY -Level DEBUG
     return $results
 }
 
@@ -740,7 +643,7 @@ function Get-TitleIdentity {
     if ($WindowTitle -match "Matrix-(\d+)") {
         $slotNum = [int]$Matches[1]
 
-        Write-IdentityLog "Title match: '$WindowTitle' -> Matrix-$slotNum" -Level "DEBUG"
+        Write-MatrixLog "Title match: '$WindowTitle' -> Matrix-$slotNum" -Source IDENTITY -Level DEBUG
 
         return @{
             ProfileName = "Matrix-$slotNum"
@@ -753,7 +656,7 @@ function Get-TitleIdentity {
 
     # Pattern 2: Redpill or RED PILL in title
     if ($WindowTitle -match "(?i)(redpill|red\s*pill)") {
-        Write-IdentityLog "Title match: '$WindowTitle' -> Redpill" -Level "DEBUG"
+        Write-MatrixLog "Title match: '$WindowTitle' -> Redpill" -Source IDENTITY -Level DEBUG
 
         return @{
             ProfileName = "Redpill"
@@ -795,7 +698,7 @@ function Get-UIAutomationIdentity {
         [IntPtr]$WindowHandle
     )
 
-    Write-IdentityLog "UI Automation fallback for handle $WindowHandle" -Level "DEBUG"
+    Write-MatrixLog "UI Automation fallback for handle $WindowHandle" -Source IDENTITY -Level DEBUG
 
     try {
         # Load UI Automation assembly
@@ -806,7 +709,7 @@ function Get-UIAutomationIdentity {
         $element = [System.Windows.Automation.AutomationElement]::FromHandle($WindowHandle)
 
         if (-not $element) {
-            Write-IdentityLog "  Could not get AutomationElement" -Level "DEBUG"
+            Write-MatrixLog "  Could not get AutomationElement" -Source IDENTITY -Level DEBUG
             return $null
         }
 
@@ -814,7 +717,7 @@ function Get-UIAutomationIdentity {
         # Windows Terminal shows profile name in tab title and/or name property
         $name = $element.Current.Name
 
-        Write-IdentityLog "  AutomationElement.Name: '$name'" -Level "DEBUG"
+        Write-MatrixLog "  AutomationElement.Name: '$name'" -Source IDENTITY -Level DEBUG
 
         # Check if name contains Matrix profile
         if ($name -match "Matrix-(\d+)") {
@@ -852,7 +755,7 @@ function Get-UIAutomationIdentity {
 
         foreach ($tc in $termControls) {
             $tcName = $tc.Current.Name
-            Write-IdentityLog "  Found TermControl: Name='$tcName'" -Level "DEBUG"
+            Write-MatrixLog "  Found TermControl: Name='$tcName'" -Source IDENTITY -Level DEBUG
 
             if ($tcName -match "Matrix-(\d+)") {
                 $slotNum = [int]$Matches[1]
@@ -888,7 +791,7 @@ function Get-UIAutomationIdentity {
 
         foreach ($tab in $tabs) {
             $tabName = $tab.Current.Name
-            Write-IdentityLog "  Found tab: '$tabName'" -Level "DEBUG"
+            Write-MatrixLog "  Found tab: '$tabName'" -Source IDENTITY -Level DEBUG
 
             if ($tabName -match "Matrix-(\d+)") {
                 $slotNum = [int]$Matches[1]
@@ -904,7 +807,7 @@ function Get-UIAutomationIdentity {
         }
     }
     catch {
-        Write-IdentityLog "  UI Automation error: $_" -Level "DEBUG"
+        Write-MatrixLog "  UI Automation error: $_" -Source IDENTITY -Level DEBUG
     }
 
     return $null
@@ -1007,7 +910,7 @@ function Resolve-WindowIdentity {
 
     # Validate handle first
     if (-not (Test-WindowHandleValid -Handle $WindowHandle)) {
-        Write-IdentityLog "Invalid handle: $WindowHandle" -Level "DEBUG"
+        Write-MatrixLog "Invalid handle: $WindowHandle" -Source IDENTITY -Level DEBUG
         return $null
     }
 
@@ -1021,26 +924,26 @@ function Resolve-WindowIdentity {
         $WindowTitle = [MatrixWindowAPI]::GetWindowTitle($WindowHandle)
     }
 
-    Write-IdentityLog "Resolving identity: Handle=$WindowHandle, PID=$ProcessId, Title='$WindowTitle'" -Level "DEBUG"
+    Write-MatrixLog "Resolving identity: Handle=$WindowHandle, PID=$ProcessId, Title='$WindowTitle'" -Source IDENTITY -Level DEBUG
 
     # LAYER 1: Launch Tracking - Try handle-based lookup first (most reliable)
     $identity = Get-LaunchRegistryIdentityByHandle -WindowHandle $WindowHandle
     if ($identity) {
-        Write-IdentityLog "  -> Layer 1 (Launch Tracking by Handle): $($identity.ProfileName)" -Level "DEBUG"
+        Write-MatrixLog "  -> Layer 1 (Launch Tracking by Handle): $($identity.ProfileName)" -Source IDENTITY -Level DEBUG
         return $identity
     }
 
     # LAYER 1: Launch Tracking - Fall back to PID-based lookup
     $identity = Get-LaunchRegistryIdentity -ProcessId $ProcessId
     if ($identity) {
-        Write-IdentityLog "  -> Layer 1 (Launch Tracking by PID): $($identity.ProfileName)" -Level "DEBUG"
+        Write-MatrixLog "  -> Layer 1 (Launch Tracking by PID): $($identity.ProfileName)" -Source IDENTITY -Level DEBUG
         return $identity
     }
 
     # LAYER 2: Command Line Parsing
     if ($CommandLineCache -and $CommandLineCache.ContainsKey($ProcessId.ToString())) {
         $identity = $CommandLineCache[$ProcessId.ToString()]
-        Write-IdentityLog "  -> Layer 2 (Command Line Cache): $($identity.ProfileName)" -Level "DEBUG"
+        Write-MatrixLog "  -> Layer 2 (Command Line Cache): $($identity.ProfileName)" -Source IDENTITY -Level DEBUG
         return $identity
     }
     else {
@@ -1048,7 +951,7 @@ function Resolve-WindowIdentity {
         $cmdLineResults = Get-CommandLineIdentities -ProcessIds @($ProcessId)
         if ($cmdLineResults.ContainsKey($ProcessId.ToString())) {
             $identity = $cmdLineResults[$ProcessId.ToString()]
-            Write-IdentityLog "  -> Layer 2 (Command Line): $($identity.ProfileName)" -Level "DEBUG"
+            Write-MatrixLog "  -> Layer 2 (Command Line): $($identity.ProfileName)" -Source IDENTITY -Level DEBUG
             return $identity
         }
     }
@@ -1056,18 +959,18 @@ function Resolve-WindowIdentity {
     # LAYER 3: Title Matching
     $identity = Get-TitleIdentity -WindowHandle $WindowHandle -WindowTitle $WindowTitle
     if ($identity) {
-        Write-IdentityLog "  -> Layer 3 (Title Match): $($identity.ProfileName)" -Level "DEBUG"
+        Write-MatrixLog "  -> Layer 3 (Title Match): $($identity.ProfileName)" -Source IDENTITY -Level DEBUG
         return $identity
     }
 
     # LAYER 4: UI Automation (slow fallback)
     $identity = Get-UIAutomationIdentity -WindowHandle $WindowHandle
     if ($identity) {
-        Write-IdentityLog "  -> Layer 4 (UI Automation): $($identity.ProfileName)" -Level "DEBUG"
+        Write-MatrixLog "  -> Layer 4 (UI Automation): $($identity.ProfileName)" -Source IDENTITY -Level DEBUG
         return $identity
     }
 
-    Write-IdentityLog "  -> No identity resolved for Handle=$WindowHandle" -Level "WARN"
+    Write-MatrixLog "  -> No identity resolved for Handle=$WindowHandle" -Source IDENTITY -Level WARN
     return $null
 }
 
@@ -1120,14 +1023,14 @@ function Get-AllMatrixWindows {
     )
 
     $startTime = Get-Date
-    Write-IdentityLog "Get-AllMatrixWindows starting..." -Level "INFO"
+    Write-MatrixLog "Get-AllMatrixWindows starting..." -Source IDENTITY
 
     # Step 1: Find all Windows Terminal windows
     $allTerminalWindows = [MatrixWindowAPI]::FindAllTerminalWindows()
-    Write-IdentityLog "Found $($allTerminalWindows.Count) terminal windows" -Level "DEBUG"
+    Write-MatrixLog "Found $($allTerminalWindows.Count) terminal windows" -Source IDENTITY -Level DEBUG
 
     if ($allTerminalWindows.Count -eq 0) {
-        Write-IdentityLog "No terminal windows found" -Level "INFO"
+        Write-MatrixLog "No terminal windows found" -Source IDENTITY
         return @()
     }
 
@@ -1147,7 +1050,7 @@ function Get-AllMatrixWindows {
         if ($identity) {
             # Skip Redpill if not requested
             if (-not $IncludeRedpill -and $identity.IsRedpill) {
-                Write-IdentityLog "  Skipping Redpill window (excluded)" -Level "DEBUG"
+                Write-MatrixLog "  Skipping Redpill window (excluded)" -Source IDENTITY -Level DEBUG
                 continue
             }
 
@@ -1164,7 +1067,7 @@ function Get-AllMatrixWindows {
             }
         }
         else {
-            Write-IdentityLog "  Unidentified window: Handle=$($win.Handle), Title='$($win.Title)'" -Level "DEBUG"
+            Write-MatrixLog "  Unidentified window: Handle=$($win.Handle), Title='$($win.Title)'" -Source IDENTITY -Level DEBUG
         }
     }
 
@@ -1172,12 +1075,12 @@ function Get-AllMatrixWindows {
     $sorted = $results | Sort-Object { if ($_.Slot) { $_.Slot } else { 999 } }
 
     $elapsed = ((Get-Date) - $startTime).TotalMilliseconds
-    Write-IdentityLog "Get-AllMatrixWindows complete: $($sorted.Count) windows in ${elapsed}ms" -Level "INFO"
+    Write-MatrixLog "Get-AllMatrixWindows complete: $($sorted.Count) windows in ${elapsed}ms" -Source IDENTITY
 
     # Log identity breakdown
     $bySource = $sorted | Group-Object IdentitySource
     foreach ($group in $bySource) {
-        Write-IdentityLog "  $($group.Name): $($group.Count) windows" -Level "DEBUG"
+        Write-MatrixLog "  $($group.Name): $($group.Count) windows" -Source IDENTITY -Level DEBUG
     }
 
     return $sorted
@@ -1213,10 +1116,10 @@ function Save-IdentityRegistry {
         $json | Out-File -FilePath $tempFile -Encoding UTF8
         Move-Item -Path $tempFile -Destination $script:IdentityRegistryPath -Force
 
-        Write-IdentityLog "Identity registry saved ($($script:LaunchRegistry.Count) entries)" -Level "DEBUG"
+        Write-MatrixLog "Identity registry saved ($($script:LaunchRegistry.Count) entries)" -Source IDENTITY -Level DEBUG
     }
     catch {
-        Write-IdentityLog "Failed to save identity registry: $_" -Level "WARN"
+        Write-MatrixLog "Failed to save identity registry: $_" -Source IDENTITY -Level WARN
         # Clean up temp file if it exists (US-001 pattern)
         if ($tempFile -and (Test-Path $tempFile)) {
             Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
@@ -1257,11 +1160,11 @@ function Load-IdentityRegistry {
             }
         }
 
-        Write-IdentityLog "Identity registry loaded ($($entries.Count) entries)" -Level "DEBUG"
+        Write-MatrixLog "Identity registry loaded ($($entries.Count) entries)" -Source IDENTITY -Level DEBUG
         return $entries
     }
     catch {
-        Write-IdentityLog "Failed to load identity registry: $_" -Level "WARN"
+        Write-MatrixLog "Failed to load identity registry: $_" -Source IDENTITY -Level WARN
         return $null
     }
 }
@@ -1295,7 +1198,7 @@ function Clean-WindowIdentityRegistry {
     $cutoffTime = (Get-Date).AddHours(-$MaxAgeHours)
     $keysToRemove = @()
 
-    Write-IdentityLog "Cleaning identity registry (max age: $MaxAgeHours hours)" -Level "INFO"
+    Write-MatrixLog "Cleaning identity registry (max age: $MaxAgeHours hours)" -Source IDENTITY
 
     # Check runtime registry
     foreach ($pidKey in @($script:LaunchRegistry.Keys)) {
@@ -1308,7 +1211,7 @@ function Clean-WindowIdentityRegistry {
             $proc = Get-Process -Id $procId -ErrorAction Stop
         }
         catch {
-            Write-IdentityLog "  Marking stale (process gone): PID=$procId" -Level "DEBUG"
+            Write-MatrixLog "  Marking stale (process gone): PID=$procId" -Source IDENTITY -Level DEBUG
             $shouldRemove = $true
         }
 
@@ -1316,7 +1219,7 @@ function Clean-WindowIdentityRegistry {
         if (-not $shouldRemove -and $entry.LaunchTime) {
             $launchTime = [DateTime]$entry.LaunchTime
             if ($launchTime -lt $cutoffTime) {
-                Write-IdentityLog "  Marking stale (too old): PID=$procId, LaunchTime=$($entry.LaunchTime)" -Level "DEBUG"
+                Write-MatrixLog "  Marking stale (too old): PID=$procId, LaunchTime=$($entry.LaunchTime)" -Source IDENTITY -Level DEBUG
                 $shouldRemove = $true
             }
         }
@@ -1335,10 +1238,10 @@ function Clean-WindowIdentityRegistry {
     # Save cleaned registry
     if ($removedCount -gt 0) {
         Save-IdentityRegistry
-        Write-IdentityLog "Removed $removedCount stale entries from identity registry" -Level "INFO"
+        Write-MatrixLog "Removed $removedCount stale entries from identity registry" -Source IDENTITY
     }
     else {
-        Write-IdentityLog "No stale entries found" -Level "DEBUG"
+        Write-MatrixLog "No stale entries found" -Source IDENTITY -Level DEBUG
     }
 
     return $removedCount
@@ -1353,7 +1256,7 @@ function Clean-WindowIdentityRegistry {
     Use when debugging or when registry becomes corrupted.
 #>
 function Clear-WindowIdentityRegistry {
-    Write-IdentityLog "Clearing identity registry..." -Level "INFO"
+    Write-MatrixLog "Clearing identity registry..." -Source IDENTITY
 
     $script:LaunchRegistry = @{}
 
@@ -1361,7 +1264,7 @@ function Clear-WindowIdentityRegistry {
         Remove-Item $script:IdentityRegistryPath -Force -ErrorAction SilentlyContinue
     }
 
-    Write-IdentityLog "Identity registry cleared" -Level "INFO"
+    Write-MatrixLog "Identity registry cleared" -Source IDENTITY
 }
 
 # --- INITIALIZATION ---
@@ -1372,20 +1275,7 @@ if ($persisted) {
     $script:LaunchRegistry = $persisted
 }
 
-Write-IdentityLog "WindowIdentityService loaded ($($script:LaunchRegistry.Count) cached entries)" -Level "DEBUG"
+Write-MatrixLog "WindowIdentityService loaded ($($script:LaunchRegistry.Count) cached entries)" -Source IDENTITY -Level DEBUG
 
-# Export module functions (only when loaded as module)
-# When dot-sourced as script, all functions are automatically available
-if ($MyInvocation.MyCommand.ScriptBlock.Module) {
-    Export-ModuleMember -Function @(
-        'Register-MatrixWindowLaunch',
-        'Get-AllMatrixWindows',
-        'Resolve-WindowIdentity',
-        'Test-WindowHandleValid',
-        'Clean-WindowIdentityRegistry',
-        'Clear-WindowIdentityRegistry',
-        'Write-IdentityLog',
-        'Enable-IdentityVerboseLogging',
-        'Disable-IdentityVerboseLogging'
-    )
-}
+# Note: This file is designed to be dot-sourced, not imported as a module
+# All functions are automatically available when dot-sourced
