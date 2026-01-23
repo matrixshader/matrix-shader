@@ -14,6 +14,10 @@ Write-Host ""
 
 # --- Step 1: Create directories ---
 try {
+    if (-not (Test-Path $matrixDir)) {
+        New-Item -ItemType Directory -Path $matrixDir -Force | Out-Null
+        Write-Host " [OK] Created Matrix directory" -ForegroundColor Cyan
+    }
     if (-not (Test-Path $shadersDir)) {
         New-Item -ItemType Directory -Path $shadersDir -Force | Out-Null
         Write-Host " [OK] Created shaders directory" -ForegroundColor Cyan
@@ -25,7 +29,59 @@ try {
     exit 1
 }
 
-# --- Step 2: Add to PATH ---
+# --- Step 2: Copy shaders from package ---
+$packageShadersDir = Join-Path $PSScriptRoot "shaders"
+if (Test-Path $packageShadersDir) {
+    try {
+        $shaderFiles = Get-ChildItem -Path $packageShadersDir -Filter "*.hlsl"
+        foreach ($shader in $shaderFiles) {
+            $dest = Join-Path $shadersDir $shader.Name
+            Copy-Item -Path $shader.FullName -Destination $dest -Force
+        }
+        Write-Host " [OK] Copied $($shaderFiles.Count) shader files" -ForegroundColor Cyan
+    } catch {
+        Write-Host " [WARN] Could not copy shaders: $_" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host " [WARN] Package shaders not found at: $packageShadersDir" -ForegroundColor Yellow
+}
+
+# --- Step 3: Create default state files ---
+$stateFile = "$matrixDir\matrix_state.json"
+if (-not (Test-Path $stateFile)) {
+    try {
+        $defaultState = @{
+            lastSlots = @(1)
+            lastSaved = (Get-Date).ToString("o")
+        }
+        $defaultState | ConvertTo-Json | Out-File -FilePath $stateFile -Encoding UTF8
+        Write-Host " [OK] Created default state file" -ForegroundColor Cyan
+    } catch {
+        Write-Host " [WARN] Could not create state file: $_" -ForegroundColor Yellow
+    }
+}
+
+$identityFile = "$matrixDir\identity-registry.json"
+if (-not (Test-Path $identityFile)) {
+    try {
+        @{} | ConvertTo-Json | Out-File -FilePath $identityFile -Encoding UTF8
+        Write-Host " [OK] Created identity registry" -ForegroundColor Cyan
+    } catch {
+        Write-Host " [WARN] Could not create identity registry: $_" -ForegroundColor Yellow
+    }
+}
+
+$windowFile = "$matrixDir\window-registry.json"
+if (-not (Test-Path $windowFile)) {
+    try {
+        @{} | ConvertTo-Json | Out-File -FilePath $windowFile -Encoding UTF8
+        Write-Host " [OK] Created window registry" -ForegroundColor Cyan
+    } catch {
+        Write-Host " [WARN] Could not create window registry: $_" -ForegroundColor Yellow
+    }
+}
+
+# --- Step 4: Add to PATH ---
 try {
     $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
     if ($userPath -notlike "*$matrixDir*") {
@@ -40,7 +96,7 @@ try {
     Write-Host "        You may need to add $matrixDir to PATH manually" -ForegroundColor DarkGray
 }
 
-# --- Step 3: Configure Windows Terminal profiles ---
+# --- Step 5: Configure Windows Terminal profiles ---
 Write-Host ""
 Write-Host " Configuring Windows Terminal profiles..." -ForegroundColor Cyan
 
