@@ -106,43 +106,43 @@ Deferred to future release.
 | SHDR-08 | Phase 1 | Pending |
 | SHDR-09 | Phase 1 | Pending |
 | SHDR-10 | Phase 1 | Pending |
-| WNDW-01 | Phase 2 | Pending |
-| WNDW-02 | Phase 2 | Pending |
-| WNDW-03 | Phase 2 | Pending |
-| WNDW-04 | Phase 2 | Pending |
-| WNDW-05 | Phase 2 | Pending |
-| WNDW-06 | Phase 2 | Pending |
-| WNDW-07 | Phase 2 | Pending |
-| WNDW-08 | Phase 2 | Pending |
-| CLI-01 | Phase 3 | Pending |
-| CLI-02 | Phase 3 | Pending |
-| CLI-03 | Phase 3 | Pending |
-| CLI-04 | Phase 4 | Pending |
-| CLI-05 | Phase 4 | Pending |
-| STATE-01 | Phase 1 | Pending |
-| STATE-02 | Phase 2 | Pending |
-| STATE-03 | Phase 2 | Pending |
-| STATE-04 | Phase 2 | Pending |
-| STATE-05 | Phase 1 | Pending |
-| TERM-01 | Phase 3 | Pending |
-| TERM-02 | Phase 3 | Pending |
-| TERM-03 | Phase 3 | Pending |
-| TERM-04 | Phase 3 | Pending |
-| UX-01 | Phase 3 | Pending |
-| UX-02 | Phase 3 | Pending |
-| UX-03 | Phase 3 | Pending |
-| UX-04 | Phase 3 | Pending |
-| UX-05 | Phase 3 | Pending |
-| LITE-01 | Phase 4 | Pending |
-| LITE-02 | Phase 4 | Pending |
-| LITE-03 | Phase 4 | Pending |
-| LITE-04 | Phase 4 | Pending |
+| STATE-01 | Phase 2 | Pending |
+| STATE-05 | Phase 2 | Pending |
+| WNDW-01 | Phase 3 | Pending |
+| WNDW-06 | Phase 3 | Pending |
+| WNDW-02 | Phase 4 | Pending |
+| WNDW-08 | Phase 4 | Pending |
+| STATE-02 | Phase 4 | Pending |
+| STATE-03 | Phase 4 | Pending |
+| WNDW-03 | Phase 5 | Pending |
+| WNDW-04 | Phase 5 | Pending |
+| WNDW-05 | Phase 5 | Pending |
+| WNDW-07 | Phase 5 | Pending |
+| STATE-04 | Phase 5 | Pending |
+| CLI-01 | Phase 6 | Pending |
+| UX-01 | Phase 6 | Pending |
+| UX-03 | Phase 6 | Pending |
+| UX-04 | Phase 6 | Pending |
+| UX-05 | Phase 6 | Pending |
+| TERM-01 | Phase 7 | Pending |
+| TERM-02 | Phase 7 | Pending |
+| TERM-03 | Phase 7 | Pending |
+| TERM-04 | Phase 7 | Pending |
+| CLI-02 | Phase 8 | Pending |
+| CLI-03 | Phase 8 | Pending |
+| UX-02 | Phase 8 | Pending |
+| CLI-04 | Phase 9 | Pending |
+| CLI-05 | Phase 9 | Pending |
+| LITE-01 | Phase 10 | Pending |
+| LITE-02 | Phase 10 | Pending |
+| LITE-03 | Phase 10 | Pending |
+| LITE-04 | Phase 10 | Pending |
 
 **Coverage:**
 - v1 requirements: 38 total
 - Mapped to phases: 38
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-25 after initial definition*
+*Last updated: 2026-01-25 after roadmap creation (10-phase structure)*
