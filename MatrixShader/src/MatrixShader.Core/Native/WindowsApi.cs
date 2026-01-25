@@ -1,0 +1,344 @@
+using System.Runtime.InteropServices;
+using System.Text;
+using MatrixShader.Core.Models;
+
+namespace MatrixShader.Core.Native;
+
+/// <summary>
+/// P/Invoke declarations for Windows API functions.
+/// Used for window management and positioning.
+/// </summary>
+public static partial class WindowsApi
+{
+    #region Window Functions
+
+    /// <summary>
+    /// Retrieves a handle to the foreground window.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    public static partial nint GetForegroundWindow();
+
+    /// <summary>
+    /// Retrieves the window handle of the console.
+    /// </summary>
+    [LibraryImport("kernel32.dll")]
+    public static partial nint GetConsoleWindow();
+
+    /// <summary>
+    /// Retrieves the text of the specified window's title bar.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetWindowText(nint hWnd, StringBuilder lpString, int nMaxCount);
+
+    /// <summary>
+    /// Retrieves the length of the specified window's title bar text.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    public static partial int GetWindowTextLength(nint hWnd);
+
+    /// <summary>
+    /// Retrieves the name of the class to which the specified window belongs.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassName(nint hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    /// <summary>
+    /// Retrieves the identifier of the thread that created the specified window
+    /// and the identifier of the process that created the window.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    public static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
+
+    /// <summary>
+    /// Determines whether the specified window is visible.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsWindowVisible(nint hWnd);
+
+    /// <summary>
+    /// Determines whether the specified window is minimized.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsIconic(nint hWnd);
+
+    #endregion
+
+    #region Window Positioning
+
+    /// <summary>
+    /// Changes the size, position, and Z order of a window.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetWindowPos(
+        nint hWnd,
+        nint hWndInsertAfter,
+        int X,
+        int Y,
+        int cx,
+        int cy,
+        uint uFlags);
+
+    /// <summary>
+    /// Retrieves the dimensions of the bounding rectangle of the specified window.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetWindowRect(nint hWnd, out RECT lpRect);
+
+    /// <summary>
+    /// Shows/hides a window.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ShowWindow(nint hWnd, int nCmdShow);
+
+    /// <summary>
+    /// Brings the thread that created the window to the foreground.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetForegroundWindow(nint hWnd);
+
+    // SetWindowPos flags
+    public const uint SWP_NOSIZE = 0x0001;
+    public const uint SWP_NOMOVE = 0x0002;
+    public const uint SWP_NOZORDER = 0x0004;
+    public const uint SWP_NOACTIVATE = 0x0010;
+    public const uint SWP_SHOWWINDOW = 0x0040;
+
+    // ShowWindow commands
+    public const int SW_HIDE = 0;
+    public const int SW_SHOWNORMAL = 1;
+    public const int SW_SHOWMINIMIZED = 2;
+    public const int SW_SHOWMAXIMIZED = 3;
+    public const int SW_RESTORE = 9;
+
+    // Window insertion handles
+    public static readonly nint HWND_TOP = nint.Zero;
+    public static readonly nint HWND_BOTTOM = new(1);
+    public static readonly nint HWND_TOPMOST = new(-1);
+    public static readonly nint HWND_NOTOPMOST = new(-2);
+
+    #endregion
+
+    #region Window Enumeration
+
+    /// <summary>
+    /// Enumerates all top-level windows on the screen.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool EnumWindows(EnumWindowsProc lpEnumFunc, nint lParam);
+
+    /// <summary>
+    /// Callback function for EnumWindows.
+    /// </summary>
+    public delegate bool EnumWindowsProc(nint hWnd, nint lParam);
+
+    #endregion
+
+    #region Monitor Functions
+
+    /// <summary>
+    /// Enumerates display monitors.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool EnumDisplayMonitors(
+        nint hdc,
+        nint lprcClip,
+        MonitorEnumProc lpfnEnum,
+        nint dwData);
+
+    /// <summary>
+    /// Callback function for EnumDisplayMonitors.
+    /// </summary>
+    public delegate bool MonitorEnumProc(nint hMonitor, nint hdcMonitor, ref RECT lprcMonitor, nint dwData);
+
+    /// <summary>
+    /// Retrieves information about a display monitor.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern bool GetMonitorInfo(nint hMonitor, ref MONITORINFOEX lpmi);
+
+    /// <summary>
+    /// Retrieves a handle to the display monitor nearest to the specified window.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    public static partial nint MonitorFromWindow(nint hwnd, uint dwFlags);
+
+    public const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    #endregion
+
+    #region Process Functions
+
+    /// <summary>
+    /// Opens an existing local process object.
+    /// </summary>
+    [LibraryImport("kernel32.dll")]
+    public static partial nint OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, uint dwProcessId);
+
+    /// <summary>
+    /// Closes an open object handle.
+    /// </summary>
+    [LibraryImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool CloseHandle(nint hObject);
+
+    public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+    #endregion
+
+    #region Structures
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+
+        public readonly int Width => Right - Left;
+        public readonly int Height => Bottom - Top;
+
+        public readonly WindowRect ToWindowRect() =>
+            new() { Left = Left, Top = Top, Width = Width, Height = Height };
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct MONITORINFOEX
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string szDevice;
+
+        public static MONITORINFOEX Create()
+        {
+            var mi = new MONITORINFOEX();
+            mi.cbSize = Marshal.SizeOf<MONITORINFOEX>();
+            return mi;
+        }
+    }
+
+    public const uint MONITORINFOF_PRIMARY = 1;
+
+    #endregion
+
+    #region Helper Methods
+
+    /// <summary>
+    /// Gets the window title as a string.
+    /// </summary>
+    public static string GetWindowTitle(nint hWnd)
+    {
+        int length = GetWindowTextLength(hWnd);
+        if (length == 0) return string.Empty;
+
+        var sb = new StringBuilder(length + 1);
+        GetWindowText(hWnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Gets the window class name as a string.
+    /// </summary>
+    public static string GetWindowClassName(nint hWnd)
+    {
+        var sb = new StringBuilder(256);
+        GetClassName(hWnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Gets the process ID for a window.
+    /// </summary>
+    public static int GetWindowProcessId(nint hWnd)
+    {
+        GetWindowThreadProcessId(hWnd, out uint processId);
+        return (int)processId;
+    }
+
+    /// <summary>
+    /// Positions a window to the specified rectangle.
+    /// </summary>
+    public static bool PositionWindow(nint hWnd, WindowRect rect)
+    {
+        return SetWindowPos(
+            hWnd,
+            HWND_TOP,
+            rect.Left,
+            rect.Top,
+            rect.Width,
+            rect.Height,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    }
+
+    /// <summary>
+    /// Gets the current position of a window.
+    /// </summary>
+    public static WindowRect? GetWindowPosition(nint hWnd)
+    {
+        if (GetWindowRect(hWnd, out RECT rect))
+        {
+            return rect.ToWindowRect();
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Enumerates all visible top-level windows.
+    /// </summary>
+    public static List<nint> GetVisibleWindows()
+    {
+        var windows = new List<nint>();
+        EnumWindows((hWnd, _) =>
+        {
+            if (IsWindowVisible(hWnd) && !IsIconic(hWnd))
+            {
+                windows.Add(hWnd);
+            }
+            return true;
+        }, nint.Zero);
+        return windows;
+    }
+
+    /// <summary>
+    /// Gets information about all connected monitors.
+    /// </summary>
+    public static List<MonitorInfo> GetMonitors()
+    {
+        var monitors = new List<MonitorInfo>();
+        int index = 0;
+
+        EnumDisplayMonitors(nint.Zero, nint.Zero, (nint hMonitor, nint hdcMonitor, ref RECT lprcMonitor, nint dwData) =>
+        {
+            var mi = MONITORINFOEX.Create();
+            if (GetMonitorInfo(hMonitor, ref mi))
+            {
+                monitors.Add(new MonitorInfo
+                {
+                    Handle = hMonitor,
+                    Index = index++,
+                    Bounds = mi.rcMonitor.ToWindowRect(),
+                    WorkArea = mi.rcWork.ToWindowRect(),
+                    IsPrimary = (mi.dwFlags & MONITORINFOF_PRIMARY) != 0,
+                    DeviceName = mi.szDevice
+                });
+            }
+            return true;
+        }, nint.Zero);
+
+        return monitors;
+    }
+
+    #endregion
+}

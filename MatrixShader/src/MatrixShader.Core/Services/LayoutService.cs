@@ -1,0 +1,465 @@
+using MatrixShader.Core.Models;
+using MatrixShader.Core.Native;
+
+namespace MatrixShader.Core.Services;
+
+/// <summary>
+/// Service for calculating and applying window layouts.
+/// Ported from WindowLayoutEngine.ps1 with Pillars and Quads strategies.
+/// </summary>
+public class LayoutService : ILayoutService
+{
+    private const int MinWindowWidth = 475; // Windows Terminal minimum width constraint
+    private const int DefaultMaxPillars = 4;
+    private const int DefaultGapSize = 30;
+
+    /// <inheritdoc/>
+    public IReadOnlyList<MonitorInfo> GetMonitors()
+    {
+        var monitors = WindowsApi.GetMonitors();
+
+        // Sort: Primary first, then left-to-right by position
+        return monitors
+            .OrderByDescending(m => m.IsPrimary)
+            .ThenBy(m => m.WorkArea.Left)
+            .Select((m, i) => m with { Index = i })
+            .ToList();
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<WindowPosition> CalculateLayout(
+        IReadOnlyList<WindowInfo> windows,
+        LayoutConfig config)
+    {
+        if (windows.Count == 0)
+            return Array.Empty<WindowPosition>();
+
+        var monitors = GetMonitors();
+        if (monitors.Count == 0)
+            return Array.Empty<WindowPosition>();
+
+        // Determine effective mode
+        var mode = ParseLayoutMode(config.Mode);
+        if (mode == LayoutMode.Auto)
+        {
+            mode = windows.Count <= 4 ? LayoutMode.Pillars : LayoutMode.Quads;
+        }
+
+        // Calculate positions based on mode
+        var positions = mode switch
+        {
+            LayoutMode.Pillars => CalculatePillarsLayout(windows.Count, monitors, config),
+            LayoutMode.Quads => CalculateQuadsLayout(windows.Count, monitors, config),
+            LayoutMode.Overlap => CalculateOverlapLayout(windows.Count, monitors, config),
+            _ => CalculatePillarsLayout(windows.Count, monitors, config)
+        };
+
+        // Sort windows by shader index for consistent ordering
+        var sortedWindows = windows.OrderBy(w => w.ShaderIndex).ToList();
+
+        // Map windows to calculated positions
+        var result = new List<WindowPosition>();
+        for (int i = 0; i < Math.Min(sortedWindows.Count, positions.Count); i++)
+        {
+            result.Add(new WindowPosition
+            {
+                Window = sortedWindows[i],
+                Target = positions[i].Rect,
+                Monitor = positions[i].Monitor
+            });
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public void ApplyLayout(IReadOnlyList<WindowPosition> positions)
+    {
+        foreach (var pos in positions)
+        {
+            if (pos.Window.Handle == nint.Zero)
+                continue;
+
+            // Restore if minimized
+            if (WindowsApi.IsIconic(pos.Window.Handle))
+            {
+                WindowsApi.ShowWindow(pos.Window.Handle, WindowsApi.SW_RESTORE);
+                Thread.Sleep(100); // Brief delay for restore animation
+            }
+
+            // Position the window
+            WindowsApi.PositionWindow(pos.Window.Handle, pos.Target);
+        }
+    }
+
+    /// <inheritdoc/>
+    public LayoutMode CycleMode(LayoutMode currentMode)
+    {
+        return currentMode switch
+        {
+            LayoutMode.Pillars => LayoutMode.Quads,
+            LayoutMode.Quads => LayoutMode.Overlap,
+            LayoutMode.Overlap => LayoutMode.Auto,
+            LayoutMode.Auto => LayoutMode.Pillars,
+            _ => LayoutMode.Pillars
+        };
+    }
+
+    #region Pillars Layout
+
+    /// <summary>
+    /// Calculate Pillars layout: vertical columns arranged side-by-side.
+    /// Ported from Get-PillarsLayout in WindowLayoutEngine.ps1
+    /// </summary>
+    private List<CalculatedPosition> CalculatePillarsLayout(
+        int windowCount,
+        IReadOnlyList<MonitorInfo> monitors,
+        LayoutConfig config)
+    {
+        var gapSize = Math.Max(0, config.GapSize);
+        var maxPillars = config.MaxWindowsPerMonitor > 0 ? config.MaxWindowsPerMonitor : DefaultMaxPillars;
+
+        // Distribute windows across monitors
+        var distribution = DistributeWindows(windowCount, monitors.Count, maxPillars);
+
+        var positions = new List<CalculatedPosition>();
+        int windowIndex = 0;
+
+        for (int screenIdx = 0; screenIdx < monitors.Count; screenIdx++)
+        {
+            var monitor = monitors[screenIdx];
+            int windowsOnScreen = distribution[screenIdx];
+
+            if (windowsOnScreen == 0)
+                continue;
+
+            var workArea = monitor.WorkArea;
+
+            // Calculate grid dimensions
+            int columns = Math.Min(windowsOnScreen, maxPillars);
+            int rows = 1;
+
+            // Multi-row if more windows than fit in one row
+            if (windowsOnScreen > maxPillars)
+            {
+                columns = maxPillars;
+                rows = (int)Math.Ceiling((double)windowsOnScreen / columns);
+            }
+
+            // Auto-reduce columns if width would be below minimum
+            int originalColumns = columns;
+            int cellWidth, cellHeight;
+
+            do
+            {
+                int totalHGaps = (columns + 1) * gapSize;
+                int totalVGaps = (rows + 1) * gapSize;
+                cellWidth = (workArea.Width - totalHGaps) / columns;
+                cellHeight = (workArea.Height - totalVGaps) / rows;
+
+                if (cellWidth < MinWindowWidth && columns > 1)
+                {
+                    columns--;
+                    rows = (int)Math.Ceiling((double)windowsOnScreen / columns);
+                }
+                else
+                {
+                    break;
+                }
+            } while (columns >= 1);
+
+            // Recalculate after adjustment
+            int finalTotalHGaps = (columns + 1) * gapSize;
+            int finalTotalVGaps = (rows + 1) * gapSize;
+            cellWidth = (workArea.Width - finalTotalHGaps) / columns;
+            cellHeight = (workArea.Height - finalTotalVGaps) / rows;
+
+            // Place each window in grid (column-major order)
+            for (int i = 0; i < windowsOnScreen; i++)
+            {
+                int col = i % columns;
+                int row = i / columns;
+
+                // Calculate pixel position
+                // Formula: edge gap + (cell_index * (cell_size + gap))
+                int x = workArea.Left + gapSize + (col * (cellWidth + gapSize));
+                int y = workArea.Top + gapSize + (row * (cellHeight + gapSize));
+
+                positions.Add(new CalculatedPosition
+                {
+                    Rect = new WindowRect
+                    {
+                        Left = x,
+                        Top = y,
+                        Width = cellWidth,
+                        Height = cellHeight
+                    },
+                    Monitor = monitor,
+                    WindowIndex = windowIndex++
+                });
+            }
+        }
+
+        return positions;
+    }
+
+    #endregion
+
+    #region Quads Layout
+
+    /// <summary>
+    /// Calculate Quads layout: 2x2 grid with plus-shaped gap in center.
+    /// Ported from Get-QuadsLayout in WindowLayoutEngine.ps1
+    /// </summary>
+    private List<CalculatedPosition> CalculateQuadsLayout(
+        int windowCount,
+        IReadOnlyList<MonitorInfo> monitors,
+        LayoutConfig config)
+    {
+        var gapSize = Math.Max(0, config.GapSize);
+        const int windowsPerQuad = 4;
+
+        // Distribute windows across monitors
+        var distribution = DistributeWindows(windowCount, monitors.Count, windowsPerQuad);
+
+        // Check for overflow - if more windows than quad capacity, use extended grid
+        int totalCapacity = monitors.Count * windowsPerQuad;
+        if (windowCount > totalCapacity)
+        {
+            return CalculateExtendedGridLayout(windowCount, monitors, config, distribution);
+        }
+
+        var positions = new List<CalculatedPosition>();
+        int windowIndex = 0;
+
+        for (int screenIdx = 0; screenIdx < monitors.Count; screenIdx++)
+        {
+            var monitor = monitors[screenIdx];
+            int windowsOnScreen = distribution[screenIdx];
+
+            if (windowsOnScreen == 0)
+                continue;
+
+            var workArea = monitor.WorkArea;
+
+            // Plus-gap calculation:
+            // Each dimension has 3 gaps: edge + center + edge
+            // Two quadrants share the remaining space equally
+            // Formula: (total - 3*gap) / 2
+            int halfWidth = (workArea.Width - (3 * gapSize)) / 2;
+            int halfHeight = (workArea.Height - (3 * gapSize)) / 2;
+
+            // Define quad positions: TL, TR, BL, BR
+            var quadPositions = new[]
+            {
+                (X: workArea.Left + gapSize, Y: workArea.Top + gapSize),                                           // TL
+                (X: workArea.Left + (2 * gapSize) + halfWidth, Y: workArea.Top + gapSize),                        // TR
+                (X: workArea.Left + gapSize, Y: workArea.Top + (2 * gapSize) + halfHeight),                       // BL
+                (X: workArea.Left + (2 * gapSize) + halfWidth, Y: workArea.Top + (2 * gapSize) + halfHeight)      // BR
+            };
+
+            // Place windows in order: TL, TR, BL, BR
+            for (int posIdx = 0; posIdx < windowsOnScreen && posIdx < 4; posIdx++)
+            {
+                positions.Add(new CalculatedPosition
+                {
+                    Rect = new WindowRect
+                    {
+                        Left = quadPositions[posIdx].X,
+                        Top = quadPositions[posIdx].Y,
+                        Width = halfWidth,
+                        Height = halfHeight
+                    },
+                    Monitor = monitor,
+                    WindowIndex = windowIndex++
+                });
+            }
+        }
+
+        return positions;
+    }
+
+    /// <summary>
+    /// Extended grid for overflow (more than 4 windows per screen).
+    /// </summary>
+    private List<CalculatedPosition> CalculateExtendedGridLayout(
+        int windowCount,
+        IReadOnlyList<MonitorInfo> monitors,
+        LayoutConfig config,
+        int[] distribution)
+    {
+        var gapSize = Math.Max(0, config.GapSize);
+        var positions = new List<CalculatedPosition>();
+        int windowIndex = 0;
+
+        for (int screenIdx = 0; screenIdx < monitors.Count; screenIdx++)
+        {
+            int windowsOnThisScreen = distribution[screenIdx];
+            if (windowsOnThisScreen <= 0)
+                continue;
+
+            var monitor = monitors[screenIdx];
+            var workArea = monitor.WorkArea;
+
+            // Calculate grid dimensions to fit all windows
+            // Try to maintain roughly square cells
+            int cols = (int)Math.Ceiling(Math.Sqrt(windowsOnThisScreen * ((double)workArea.Width / workArea.Height)));
+            cols = Math.Max(cols, 2); // At least 2 columns for quad-like appearance
+            int rows = (int)Math.Ceiling((double)windowsOnThisScreen / cols);
+
+            // Calculate cell dimensions with gaps
+            int totalHGaps = (cols + 1) * gapSize;
+            int totalVGaps = (rows + 1) * gapSize;
+            int cellWidth = (workArea.Width - totalHGaps) / cols;
+            int cellHeight = (workArea.Height - totalVGaps) / rows;
+
+            // Place windows in grid
+            for (int i = 0; i < windowsOnThisScreen; i++)
+            {
+                int col = i % cols;
+                int row = i / cols;
+
+                int x = workArea.Left + gapSize + (col * (cellWidth + gapSize));
+                int y = workArea.Top + gapSize + (row * (cellHeight + gapSize));
+
+                positions.Add(new CalculatedPosition
+                {
+                    Rect = new WindowRect
+                    {
+                        Left = x,
+                        Top = y,
+                        Width = cellWidth,
+                        Height = cellHeight
+                    },
+                    Monitor = monitor,
+                    WindowIndex = windowIndex++
+                });
+            }
+        }
+
+        return positions;
+    }
+
+    #endregion
+
+    #region Overlap Layout
+
+    /// <summary>
+    /// Calculate Overlap layout: windows with slight overlap for 5+ windows.
+    /// </summary>
+    private List<CalculatedPosition> CalculateOverlapLayout(
+        int windowCount,
+        IReadOnlyList<MonitorInfo> monitors,
+        LayoutConfig config)
+    {
+        var gapSize = Math.Max(0, config.GapSize);
+        var overlapPercent = Math.Clamp(config.OverlapPercent, 0, 20);
+
+        var positions = new List<CalculatedPosition>();
+        int windowIndex = 0;
+
+        // Use primary monitor for overlap
+        var monitor = monitors.FirstOrDefault(m => m.IsPrimary) ?? monitors[0];
+        var workArea = monitor.WorkArea;
+
+        // Calculate overlap offset
+        int overlapOffset = (int)(workArea.Width * overlapPercent / 100.0);
+
+        // Calculate window size (each window slightly overlaps the next)
+        int windowWidth = (workArea.Width - gapSize * 2 + overlapOffset * (windowCount - 1)) / windowCount;
+        windowWidth = Math.Max(windowWidth, MinWindowWidth);
+        int windowHeight = workArea.Height - gapSize * 2;
+
+        // Calculate starting X to center the group
+        int totalWidth = windowWidth * windowCount - overlapOffset * (windowCount - 1);
+        int startX = workArea.Left + (workArea.Width - totalWidth) / 2;
+
+        for (int i = 0; i < windowCount; i++)
+        {
+            int x = startX + i * (windowWidth - overlapOffset);
+            int y = workArea.Top + gapSize;
+
+            positions.Add(new CalculatedPosition
+            {
+                Rect = new WindowRect
+                {
+                    Left = x,
+                    Top = y,
+                    Width = windowWidth,
+                    Height = windowHeight
+                },
+                Monitor = monitor,
+                WindowIndex = windowIndex++
+            });
+        }
+
+        return positions;
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    /// <summary>
+    /// Distribute windows across monitors.
+    /// Ported from Get-WindowDistributionWithPrimary in WindowLayoutEngine.ps1
+    /// </summary>
+    private int[] DistributeWindows(int windowCount, int screenCount, int maxPerScreen)
+    {
+        var distribution = new int[screenCount];
+
+        if (windowCount <= 0 || screenCount <= 0)
+            return distribution;
+
+        // Single screen - put everything there
+        if (screenCount == 1)
+        {
+            distribution[0] = windowCount;
+            return distribution;
+        }
+
+        // Multi-screen: balanced distribution
+        int baseCount = windowCount / screenCount;
+        int remainder = windowCount % screenCount;
+
+        for (int i = 0; i < screenCount; i++)
+        {
+            // Each screen gets base count, first screens get +1 for remainder
+            int count = baseCount + (i < remainder ? 1 : 0);
+            // Cap at maxPerScreen
+            distribution[i] = Math.Min(count, maxPerScreen);
+        }
+
+        return distribution;
+    }
+
+    /// <summary>
+    /// Parse layout mode from string.
+    /// </summary>
+    private static LayoutMode ParseLayoutMode(string? mode)
+    {
+        if (string.IsNullOrEmpty(mode))
+            return LayoutMode.Auto;
+
+        return mode.ToLowerInvariant() switch
+        {
+            "pillars" => LayoutMode.Pillars,
+            "quads" => LayoutMode.Quads,
+            "overlap" => LayoutMode.Overlap,
+            "auto" => LayoutMode.Auto,
+            _ => LayoutMode.Auto
+        };
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Internal structure for calculated positions before mapping to windows.
+    /// </summary>
+    private record struct CalculatedPosition
+    {
+        public WindowRect Rect { get; init; }
+        public MonitorInfo Monitor { get; init; }
+        public int WindowIndex { get; init; }
+    }
+}
