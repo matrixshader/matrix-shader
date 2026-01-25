@@ -1,0 +1,47 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio files
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider files
+.idea/
+
+# VS Code
+.vscode/
+
+# Build artifacts
+*.nupkg
+*.snupkg
+publish/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test results
+TestResults/
+coverage/
+*.coverage
+
+# NuGet
+packages/
+*.nuget.props
+*.nuget.targets
+
+# Publish output
+/publish/
+/artifacts/
+
+# Native AOT intermediate files
+*.ilc/
