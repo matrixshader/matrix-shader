@@ -13,7 +13,7 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Shader Service Foundation** - HLSL file manipulation with #define injection
-- [ ] **Phase 2: State Persistence** - JSON config and atomic file writes
+- [x] **Phase 2: State Persistence** - JSON config and atomic file writes
 - [ ] **Phase 3: Windows API Layer** - P/Invoke declarations and window enumeration
 - [ ] **Phase 4: Window Identity Service** - 4-layer identity resolution with confidence scoring
 - [ ] **Phase 5: Layout Service** - Pillars/Quads positioning with multi-monitor support
@@ -53,8 +53,8 @@ Plans:
 **Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 02-01-PLAN.md — Create MatrixJsonContext with source generators for AOT (Wave 1)
-- [ ] 02-02-PLAN.md — Update ConfigService to use source-generated context (Wave 2)
+- [x] 02-01-PLAN.md — Create MatrixJsonContext with source generators for AOT (Wave 1)
+- [x] 02-02-PLAN.md — Update ConfigService to use source-generated context (Wave 2)
 
 ### Phase 3: Windows API Layer
 **Goal**: All Windows API calls work correctly with proper marshalling
@@ -192,7 +192,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Shader Service Foundation | 3/3 | ✓ Complete | 2026-01-25 |
-| 2. State Persistence | 0/2 | Not started | - |
+| 2. State Persistence | 2/2 | ✓ Complete | 2026-01-26 |
 | 3. Windows API Layer | 0/3 | Not started | - |
 | 4. Window Identity Service | 0/3 | Not started | - |
 | 5. Layout Service | 0/3 | Not started | - |

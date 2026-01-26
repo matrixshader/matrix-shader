@@ -41,11 +41,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### State Persistence
 
-- [ ] **STATE-01**: Shader configuration persists to JSON
+- [x] **STATE-01**: Shader configuration persists to JSON
 - [ ] **STATE-02**: Window registry persists handle-to-shader mapping
 - [ ] **STATE-03**: Identity registry persists profile-to-window mapping
 - [ ] **STATE-04**: Layout preferences persist (mode, gap size, slots)
-- [ ] **STATE-05**: Atomic file writes prevent corruption
+- [x] **STATE-05**: Atomic file writes prevent corruption
 
 ### Terminal Integration
 
@@ -106,8 +106,8 @@ Deferred to future release.
 | SHDR-08 | Phase 1 | Complete |
 | SHDR-09 | Phase 1 | Complete |
 | SHDR-10 | Phase 1 | Complete |
-| STATE-01 | Phase 2 | Pending |
-| STATE-05 | Phase 2 | Pending |
+| STATE-01 | Phase 2 | Complete |
+| STATE-05 | Phase 2 | Complete |
 | WNDW-01 | Phase 3 | Pending |
 | WNDW-06 | Phase 3 | Pending |
 | WNDW-02 | Phase 4 | Pending |
@@ -145,4 +145,4 @@ Deferred to future release.
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-25 — Phase 1 complete (SHDR-01 through SHDR-10)*
+*Last updated: 2026-01-26 — Phase 2 complete (STATE-01, STATE-05)*
