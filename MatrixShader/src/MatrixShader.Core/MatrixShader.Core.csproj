@@ -8,6 +8,8 @@
     <RootNamespace>MatrixShader.Core</RootNamespace>
     <AssemblyName>MatrixShader.Core</AssemblyName>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Disable reflection-based JSON serialization for AOT safety -->
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
   </PropertyGroup>
 
   <ItemGroup>
