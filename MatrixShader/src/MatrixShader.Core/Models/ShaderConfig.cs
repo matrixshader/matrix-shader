@@ -15,19 +15,19 @@ public record ShaderConfig
     /// <summary>Blue color component (0.0 - 1.0)</summary>
     public float B { get; init; } = 0.3f;
 
-    /// <summary>Animation speed multiplier (0.1 - 2.0)</summary>
+    /// <summary>Animation speed multiplier (0.1 - 3.0)</summary>
     public float Speed { get; init; } = 0.8f;
 
-    /// <summary>Glow intensity (0.0 - 2.0)</summary>
+    /// <summary>Glow intensity (0.2 - 3.0)</summary>
     public float Glow { get; init; } = 0.8f;
 
-    /// <summary>Character column width in pixels (5 - 20)</summary>
+    /// <summary>Character column width in pixels (6 - 20)</summary>
     public float Width { get; init; } = 10f;
 
-    /// <summary>Trail length multiplier (1 - 20)</summary>
+    /// <summary>Trail length multiplier (4 - 15)</summary>
     public float Trail { get; init; } = 8f;
 
-    /// <summary>Character spawn density (0.1 - 1.0)</summary>
+    /// <summary>Character spawn density (0.2 - 1.0)</summary>
     public float Density { get; init; } = 0.4f;
 
     /// <summary>Far depth layer enabled</summary>
@@ -47,14 +47,15 @@ public record ShaderConfig
 
     /// <summary>
     /// Validates all parameters are within acceptable ranges.
+    /// Ranges match PowerShell matrix_control.ps1 Adj function.
     /// </summary>
     public bool IsValid() =>
         R >= 0f && R <= 1f &&
         G >= 0f && G <= 1f &&
         B >= 0f && B <= 1f &&
-        Speed >= 0.1f && Speed <= 2f &&
-        Glow >= 0f && Glow <= 2f &&
-        Width >= 5f && Width <= 20f &&
-        Trail >= 1f && Trail <= 20f &&
-        Density >= 0.1f && Density <= 1f;
+        Speed >= 0.1f && Speed <= 3f &&
+        Glow >= 0.2f && Glow <= 3f &&
+        Width >= 6f && Width <= 20f &&
+        Trail >= 4f && Trail <= 15f &&
+        Density >= 0.2f && Density <= 1f;
 }
