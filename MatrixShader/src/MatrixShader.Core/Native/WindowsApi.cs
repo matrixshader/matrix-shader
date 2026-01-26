@@ -193,6 +193,28 @@ public static partial class WindowsApi
 
     #endregion
 
+    #region DWM Functions
+
+    /// <summary>
+    /// Retrieves the current value of a specified Desktop Window Manager (DWM) attribute.
+    /// Used with DWMWA_EXTENDED_FRAME_BOUNDS to get visible window bounds
+    /// (excluding invisible resize borders on Windows 10/11).
+    /// </summary>
+    [LibraryImport("dwmapi.dll")]
+    public static partial int DwmGetWindowAttribute(
+        nint hwnd,
+        int dwAttribute,
+        out RECT pvAttribute,
+        int cbAttribute);
+
+    /// <summary>
+    /// DWM attribute for extended frame bounds (visible window area).
+    /// Returns the bounds of the window excluding invisible resize borders.
+    /// </summary>
+    public const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+
+    #endregion
+
     #region Structures
 
     [StructLayout(LayoutKind.Sequential)]
