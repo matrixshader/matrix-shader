@@ -40,6 +40,11 @@ public record ShaderConfig
     public bool Layer3 { get; init; } = true;
 
     /// <summary>
+    /// Default configuration matching Matrix-1.hlsl defaults.
+    /// </summary>
+    public static ShaderConfig Default => new();
+
+    /// <summary>
     /// Creates a copy with the specified color preset applied.
     /// </summary>
     public ShaderConfig WithColor(float r, float g, float b) =>
@@ -58,4 +63,21 @@ public record ShaderConfig
         Width >= 6f && Width <= 20f &&
         Trail >= 4f && Trail <= 15f &&
         Density >= 0.2f && Density <= 1f;
+
+    /// <summary>
+    /// Returns a new config with all values clamped to valid ranges.
+    /// Useful when reading potentially corrupted shader files.
+    /// </summary>
+    public ShaderConfig Clamp() => this with
+    {
+        R = Math.Clamp(R, 0f, 1f),
+        G = Math.Clamp(G, 0f, 1f),
+        B = Math.Clamp(B, 0f, 1f),
+        Speed = Math.Clamp(Speed, 0.1f, 3f),
+        Glow = Math.Clamp(Glow, 0.2f, 3f),
+        Width = Math.Clamp(Width, 6f, 20f),
+        Trail = Math.Clamp(Trail, 4f, 15f),
+        Density = Math.Clamp(Density, 0.2f, 1f)
+        // Layer bools don't need clamping
+    };
 }
