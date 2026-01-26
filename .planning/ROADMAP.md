@@ -35,12 +35,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can adjust speed/glow/width/trail/density and shader reflects changes
   4. User can toggle each parallax layer independently
   5. Shader file contains correct #define statements matching parameter values
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 01-01: Shader configuration models and color presets
-- [ ] 01-02: HLSL file parser and #define regex extraction
-- [ ] 01-03: Shader file writer with #define injection and hot-reload trigger
+- [ ] 01-01-PLAN.md — Fix ShaderConfig validation ranges to match PowerShell (Wave 1)
+- [ ] 01-02-PLAN.md — Fix ShaderService regex patterns for HLSL parsing (Wave 2)
+- [ ] 01-03-PLAN.md — Fix ShaderService writing and add CreateShader method (Wave 2)
 
 ### Phase 2: State Persistence
 **Goal**: Configuration persists across sessions with corruption-safe file operations
@@ -191,7 +191,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shader Service Foundation | 0/3 | Not started | - |
+| 1. Shader Service Foundation | 0/3 | Planned | - |
 | 2. State Persistence | 0/2 | Not started | - |
 | 3. Windows API Layer | 0/3 | Not started | - |
 | 4. Window Identity Service | 0/3 | Not started | - |
