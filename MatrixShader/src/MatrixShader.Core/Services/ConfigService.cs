@@ -1,6 +1,6 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MatrixShader.Core.Models;
+using MatrixShader.Core.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace MatrixShader.Core.Services;
@@ -12,12 +12,6 @@ public class ConfigService : IConfigService
 {
     private readonly ILogger<ConfigService> _logger;
     private readonly string _configPath;
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter() }
-    };
 
     public ConfigService(ILogger<ConfigService> logger, string? configPath = null)
     {
@@ -52,7 +46,7 @@ public class ConfigService : IConfigService
         try
         {
             var json = File.ReadAllText(StatePath);
-            var state = JsonSerializer.Deserialize<MatrixState>(json, JsonOptions);
+            var state = JsonSerializer.Deserialize(json, MatrixJsonContext.Default.MatrixState);
             _logger.LogDebug("Loaded state from {Path}", StatePath);
             return state ?? new MatrixState();
         }
@@ -70,6 +64,7 @@ public class ConfigService : IConfigService
 
     public void SaveState(MatrixState state)
     {
+        var tempPath = StatePath + ".tmp";
         try
         {
             // Ensure directory exists
@@ -82,17 +77,28 @@ public class ConfigService : IConfigService
             // Update timestamp
             state = state with { LastModified = DateTime.UtcNow };
 
-            // Atomic write
-            var tempPath = StatePath + ".tmp";
-            var json = JsonSerializer.Serialize(state, JsonOptions);
-            File.WriteAllText(tempPath, json);
+            // Atomic write: write to temp file, then move atomically
+            var json = JsonSerializer.Serialize(state, MatrixJsonContext.Default.MatrixState);
+            File.WriteAllText(tempPath, json, new System.Text.UTF8Encoding(false));
             File.Move(tempPath, StatePath, overwrite: true);
 
             _logger.LogDebug("Saved state to {Path}", StatePath);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save state");
+            _logger.LogError(ex, "Failed to save state to {Path}", StatePath);
+
+            // Clean up temp file on failure (enhancement to atomic write)
+            try
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+            catch
+            {
+                // Ignore cleanup failures
+            }
+
             throw;
         }
     }
