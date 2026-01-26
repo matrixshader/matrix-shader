@@ -43,6 +43,12 @@ public record WindowRect
     public int Right => Left + Width;
     public int Bottom => Top + Height;
 
+    /// <summary>
+    /// An empty rectangle with all values at zero.
+    /// Useful for error returns and default values.
+    /// </summary>
+    public static WindowRect Empty { get; } = new();
+
     public static WindowRect FromLTRB(int left, int top, int right, int bottom) =>
         new() { Left = left, Top = top, Width = right - left, Height = bottom - top };
 }
