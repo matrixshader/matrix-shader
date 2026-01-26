@@ -39,4 +39,11 @@ public interface IShaderService
     /// </summary>
     /// <param name="shaderIndex">Shader index (1-8)</param>
     void TouchShader(int shaderIndex);
+
+    /// <summary>
+    /// Creates a new shader file from template with the given configuration.
+    /// </summary>
+    /// <param name="shaderIndex">Shader index (1-8)</param>
+    /// <param name="config">Configuration for the new shader</param>
+    void CreateShader(int shaderIndex, ShaderConfig config);
 }
