@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace MatrixShader.Core.Models;
 
 /// <summary>
@@ -27,7 +25,6 @@ public record MatrixState
     public LayoutConfig Layout { get; init; } = new();
 
     /// <summary>Current render mode</summary>
-    [JsonConverter(typeof(JsonStringEnumConverter))]
     public RenderMode RenderMode { get; init; } = RenderMode.Full;
 
     /// <summary>Debug logging enabled</summary>
