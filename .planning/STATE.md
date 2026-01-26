@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 1 of 10 (Shader Service Foundation)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-26 — Completed 01-02-PLAN.md (ShaderService regex fix)
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-01-26 — Completed 01-03-PLAN.md (ShaderService WriteConfig + CreateShader)
 
-Progress: [██░░░░░░░░] 7% (2/30 plans)
+Progress: [███░░░░░░░] 10% (3/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 6.5 min
-- Total execution time: 0.22 hours
+- Total plans completed: 3
+- Average duration: 7 min
+- Total execution time: 0.35 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-shader-service-foundation | 2 | 13 min | 6.5 min |
+| 01-shader-service-foundation | 3 | 21 min | 7 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (8 min), 01-02 (5 min)
-- Trend: Improving
+- Last 5 plans: 01-01 (8 min), 01-02 (5 min), 01-03 (8 min)
+- Trend: Stable
 
 *Updated after each plan completion*
 
@@ -49,6 +49,9 @@ Recent decisions affecting current work:
 - [01-02]: HLSL file is source of truth for #define names (regex patterns must match exactly)
 - [01-02]: Layer toggles parsed as float > 0.5 (not int comparison)
 - [01-02]: InvariantCulture for float parsing (locale safety)
+- [01-03]: F1 format (one decimal place) for shader values, matching PowerShell
+- [01-03]: WriteConfig auto-creates missing files via CreateShader
+- [01-03]: UTF8Encoding(false) for HLSL files (no BOM)
 
 ### Pending Todos
 
@@ -62,7 +65,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-26
-Stopped at: Completed 01-02-PLAN.md
+Stopped at: Completed 01-03-PLAN.md (Phase 1 complete)
 Resume file: None
 
 ---
