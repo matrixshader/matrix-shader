@@ -64,12 +64,12 @@ Plans:
   1. Application can enumerate all visible windows with correct handles
   2. Application can detect all connected monitors with correct bounds
   3. Application can reposition windows to exact pixel coordinates
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 03-01: WindowsApi P/Invoke declarations (EnumWindows, SetWindowPos, GetMonitorInfo)
-- [ ] 03-02: Window enumeration and monitor detection implementation
-- [ ] 03-03: Window positioning with Windows 10/11 border compensation
+- [ ] 03-01-PLAN.md — Add DWM P/Invoke declarations and BorderMargins model (Wave 1)
+- [ ] 03-02-PLAN.md — Window enumeration helpers and monitor sorting (Wave 2)
+- [ ] 03-03-PLAN.md — Window positioning with border compensation (Wave 2)
 
 ### Phase 4: Window Identity Service
 **Goal**: System reliably identifies Matrix shader windows across sessions
