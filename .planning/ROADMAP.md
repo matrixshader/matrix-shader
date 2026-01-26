@@ -50,11 +50,11 @@ Plans:
   1. User can close and reopen application with all shader settings preserved
   2. Application crash during save does not corrupt configuration files
   3. Invalid JSON in config file results in graceful fallback to defaults
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 02-01: ConfigService with JSON serialization and source generators
-- [ ] 02-02: Atomic file write implementation (temp + move pattern)
+- [ ] 02-01-PLAN.md — Create MatrixJsonContext with source generators for AOT (Wave 1)
+- [ ] 02-02-PLAN.md — Update ConfigService to use source-generated context (Wave 2)
 
 ### Phase 3: Windows API Layer
 **Goal**: All Windows API calls work correctly with proper marshalling
