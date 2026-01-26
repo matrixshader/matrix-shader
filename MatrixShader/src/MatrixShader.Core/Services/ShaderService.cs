@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using MatrixShader.Core.Constants;
 using MatrixShader.Core.Models;
 using Microsoft.Extensions.Logging;
 
@@ -131,18 +133,20 @@ public partial class ShaderService : IShaderService
 
         if (!File.Exists(path))
         {
-            _logger.LogError("Cannot write to non-existent shader: {Path}", path);
-            throw new FileNotFoundException("Shader file not found", path);
+            // Create new shader from template
+            CreateShader(shaderIndex, config);
+            return;
         }
 
+        // Modify existing shader
         var content = File.ReadAllText(path);
         var newContent = ApplyConfig(content, config);
 
         // Atomic write: write to temp file, then move
-        var tempPath = path + ".tmp";
+        var tempPath = Path.GetTempFileName();
         try
         {
-            File.WriteAllText(tempPath, newContent, Encoding.UTF8);
+            File.WriteAllText(tempPath, newContent, new UTF8Encoding(false));
             File.Move(tempPath, path, overwrite: true);
             _logger.LogDebug("Wrote shader config to {Path}", path);
         }
@@ -157,31 +161,31 @@ public partial class ShaderService : IShaderService
 
     private static string ApplyConfig(string content, ShaderConfig config)
     {
-        content = ReplaceDefine(content, RainRRegex(), "RAIN_R", config.R);
-        content = ReplaceDefine(content, RainGRegex(), "RAIN_G", config.G);
-        content = ReplaceDefine(content, RainBRegex(), "RAIN_B", config.B);
-        content = ReplaceDefine(content, RainSpeedRegex(), "RAIN_SPEED", config.Speed);
-        content = ReplaceDefine(content, GlowStrengthRegex(), "GLOW_STRENGTH", config.Glow);
-        content = ReplaceDefine(content, CharWidthRegex(), "CHAR_WIDTH", config.Width);
-        content = ReplaceDefine(content, TrailPowerRegex(), "TRAIL_POWER", config.Trail);
-        content = ReplaceDefine(content, RainDensityRegex(), "RAIN_DENSITY", config.Density);
-        // Layer toggles: write as float (1.0/0.0) to match HLSL format
-        content = ReplaceDefine(content, ShowL1Regex(), "SHOW_L1", config.Layer1 ? 1.0f : 0.0f);
-        content = ReplaceDefine(content, ShowL2Regex(), "SHOW_L2", config.Layer2 ? 1.0f : 0.0f);
-        content = ReplaceDefine(content, ShowL3Regex(), "SHOW_L3", config.Layer3 ? 1.0f : 0.0f);
+        // Color values
+        content = ReplaceDefine(content, "RAIN_R", config.R);
+        content = ReplaceDefine(content, "RAIN_G", config.G);
+        content = ReplaceDefine(content, "RAIN_B", config.B);
+
+        // Animation parameters
+        content = ReplaceDefine(content, "RAIN_SPEED", config.Speed);
+        content = ReplaceDefine(content, "GLOW_STRENGTH", config.Glow);
+        content = ReplaceDefine(content, "CHAR_WIDTH", config.Width);
+        content = ReplaceDefine(content, "TRAIL_POWER", config.Trail);
+        content = ReplaceDefine(content, "RAIN_DENSITY", config.Density);
+
+        // Layer toggles as floats (1.0 or 0.0)
+        content = ReplaceDefine(content, "SHOW_L1", config.Layer1 ? 1.0f : 0.0f);
+        content = ReplaceDefine(content, "SHOW_L2", config.Layer2 ? 1.0f : 0.0f);
+        content = ReplaceDefine(content, "SHOW_L3", config.Layer3 ? 1.0f : 0.0f);
+
         return content;
     }
 
-    private static string ReplaceDefine(string content, Regex regex, string name, float value)
+    private static string ReplaceDefine(string content, string name, float value)
     {
-        var match = regex.Match(content);
-        if (match.Success)
-        {
-            return content[..match.Index] +
-                   $"#define {name} {value:F2}" +
-                   content[(match.Index + match.Length)..];
-        }
-        return content;
+        // Match #define NAME followed by whitespace and numeric value
+        var pattern = $@"(#define\s+{name}\s+)[\d.]+";
+        return Regex.Replace(content, pattern, $"$1{value.ToString("F1", CultureInfo.InvariantCulture)}");
     }
 
     public void TouchShader(int shaderIndex)
@@ -192,5 +196,55 @@ public partial class ShaderService : IShaderService
             File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
             _logger.LogDebug("Touched shader file: {Path}", path);
         }
+    }
+
+    /// <summary>
+    /// Creates a new shader file from template with the given configuration.
+    /// </summary>
+    /// <param name="shaderIndex">Shader index (1-8)</param>
+    /// <param name="config">Configuration for the new shader</param>
+    public void CreateShader(int shaderIndex, ShaderConfig config)
+    {
+        var path = GetShaderPath(shaderIndex);
+        var tempPath = Path.GetTempFileName();
+
+        try
+        {
+            var content = GenerateShaderContent(shaderIndex, config);
+            File.WriteAllText(tempPath, content, new UTF8Encoding(false));
+
+            // Ensure directory exists
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            File.Move(tempPath, path, overwrite: true);
+            _logger.LogDebug("Created shader: {Path}", path);
+        }
+        catch
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+            throw;
+        }
+    }
+
+    private static string GenerateShaderContent(int shaderIndex, ShaderConfig config)
+    {
+        return ShaderTemplate.Template
+            .Replace("{SLOT}", shaderIndex.ToString())
+            .Replace("{R}", config.R.ToString("F1", CultureInfo.InvariantCulture))
+            .Replace("{G}", config.G.ToString("F1", CultureInfo.InvariantCulture))
+            .Replace("{B}", config.B.ToString("F1", CultureInfo.InvariantCulture))
+            .Replace("{SPEED}", config.Speed.ToString("F1", CultureInfo.InvariantCulture))
+            .Replace("{GLOW}", config.Glow.ToString("F1", CultureInfo.InvariantCulture))
+            .Replace("{WIDTH}", config.Width.ToString("F1", CultureInfo.InvariantCulture))
+            .Replace("{TRAIL}", config.Trail.ToString("F1", CultureInfo.InvariantCulture))
+            .Replace("{DENS}", config.Density.ToString("F1", CultureInfo.InvariantCulture))
+            .Replace("{L1}", (config.Layer1 ? 1.0f : 0.0f).ToString("F1", CultureInfo.InvariantCulture))
+            .Replace("{L2}", (config.Layer2 ? 1.0f : 0.0f).ToString("F1", CultureInfo.InvariantCulture))
+            .Replace("{L3}", (config.Layer3 ? 1.0f : 0.0f).ToString("F1", CultureInfo.InvariantCulture));
     }
 }
