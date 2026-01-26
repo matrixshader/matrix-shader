@@ -13,39 +13,39 @@ public partial class ShaderService : IShaderService
     private readonly ILogger<ShaderService> _logger;
     private readonly string _shadersPath;
 
-    // Regex patterns for parsing #define statements
-    [GeneratedRegex(@"#define\s+COLOR_R\s+([\d.]+)")]
-    private static partial Regex ColorRRegex();
+    // Regex patterns for parsing #define statements (names match actual HLSL file)
+    [GeneratedRegex(@"#define\s+RAIN_R\s+([\d.]+)")]
+    private static partial Regex RainRRegex();
 
-    [GeneratedRegex(@"#define\s+COLOR_G\s+([\d.]+)")]
-    private static partial Regex ColorGRegex();
+    [GeneratedRegex(@"#define\s+RAIN_G\s+([\d.]+)")]
+    private static partial Regex RainGRegex();
 
-    [GeneratedRegex(@"#define\s+COLOR_B\s+([\d.]+)")]
-    private static partial Regex ColorBRegex();
+    [GeneratedRegex(@"#define\s+RAIN_B\s+([\d.]+)")]
+    private static partial Regex RainBRegex();
 
-    [GeneratedRegex(@"#define\s+SPEED\s+([\d.]+)")]
-    private static partial Regex SpeedRegex();
+    [GeneratedRegex(@"#define\s+RAIN_SPEED\s+([\d.]+)")]
+    private static partial Regex RainSpeedRegex();
 
-    [GeneratedRegex(@"#define\s+GLOW\s+([\d.]+)")]
-    private static partial Regex GlowRegex();
+    [GeneratedRegex(@"#define\s+GLOW_STRENGTH\s+([\d.]+)")]
+    private static partial Regex GlowStrengthRegex();
 
-    [GeneratedRegex(@"#define\s+WIDTH\s+([\d.]+)")]
-    private static partial Regex WidthRegex();
+    [GeneratedRegex(@"#define\s+CHAR_WIDTH\s+([\d.]+)")]
+    private static partial Regex CharWidthRegex();
 
-    [GeneratedRegex(@"#define\s+TRAIL\s+([\d.]+)")]
-    private static partial Regex TrailRegex();
+    [GeneratedRegex(@"#define\s+TRAIL_POWER\s+([\d.]+)")]
+    private static partial Regex TrailPowerRegex();
 
-    [GeneratedRegex(@"#define\s+DENSITY\s+([\d.]+)")]
-    private static partial Regex DensityRegex();
+    [GeneratedRegex(@"#define\s+RAIN_DENSITY\s+([\d.]+)")]
+    private static partial Regex RainDensityRegex();
 
-    [GeneratedRegex(@"#define\s+LAYER1\s+(\d)")]
-    private static partial Regex Layer1Regex();
+    [GeneratedRegex(@"#define\s+SHOW_L1\s+([\d.]+)")]
+    private static partial Regex ShowL1Regex();
 
-    [GeneratedRegex(@"#define\s+LAYER2\s+(\d)")]
-    private static partial Regex Layer2Regex();
+    [GeneratedRegex(@"#define\s+SHOW_L2\s+([\d.]+)")]
+    private static partial Regex ShowL2Regex();
 
-    [GeneratedRegex(@"#define\s+LAYER3\s+(\d)")]
-    private static partial Regex Layer3Regex();
+    [GeneratedRegex(@"#define\s+SHOW_L3\s+([\d.]+)")]
+    private static partial Regex ShowL3Regex();
 
     public ShaderService(ILogger<ShaderService> logger, string? shadersPath = null)
     {
@@ -95,30 +95,33 @@ public partial class ShaderService : IShaderService
         float ParseFloat(Regex regex, float defaultValue)
         {
             var match = regex.Match(content);
-            return match.Success && float.TryParse(match.Groups[1].Value, out var value)
-                ? value
-                : defaultValue;
-        }
-
-        bool ParseBool(Regex regex, bool defaultValue)
-        {
-            var match = regex.Match(content);
-            return match.Success ? match.Groups[1].Value == "1" : defaultValue;
+            if (match.Success)
+            {
+                var valueStr = match.Groups[1].Value;
+                // Validate: must be valid float format (digits, optional decimal point, more digits)
+                if (Regex.IsMatch(valueStr, @"^\d+\.?\d*$") &&
+                    float.TryParse(valueStr, System.Globalization.CultureInfo.InvariantCulture, out var value))
+                {
+                    return value;
+                }
+            }
+            return defaultValue;
         }
 
         return new ShaderConfig
         {
-            R = ParseFloat(ColorRRegex(), 0f),
-            G = ParseFloat(ColorGRegex(), 1f),
-            B = ParseFloat(ColorBRegex(), 0.3f),
-            Speed = ParseFloat(SpeedRegex(), 0.8f),
-            Glow = ParseFloat(GlowRegex(), 0.8f),
-            Width = ParseFloat(WidthRegex(), 10f),
-            Trail = ParseFloat(TrailRegex(), 8f),
-            Density = ParseFloat(DensityRegex(), 0.4f),
-            Layer1 = ParseBool(Layer1Regex(), true),
-            Layer2 = ParseBool(Layer2Regex(), true),
-            Layer3 = ParseBool(Layer3Regex(), true)
+            R = ParseFloat(RainRRegex(), 0f),
+            G = ParseFloat(RainGRegex(), 1f),
+            B = ParseFloat(RainBRegex(), 0.3f),
+            Speed = ParseFloat(RainSpeedRegex(), 0.8f),
+            Glow = ParseFloat(GlowStrengthRegex(), 0.8f),
+            Width = ParseFloat(CharWidthRegex(), 10f),
+            Trail = ParseFloat(TrailPowerRegex(), 8f),
+            Density = ParseFloat(RainDensityRegex(), 0.4f),
+            // Layer toggles: HLSL uses 1.0/0.0, parse as float and compare > 0.5
+            Layer1 = ParseFloat(ShowL1Regex(), 1f) > 0.5f,
+            Layer2 = ParseFloat(ShowL2Regex(), 1f) > 0.5f,
+            Layer3 = ParseFloat(ShowL3Regex(), 1f) > 0.5f
         };
     }
 
@@ -154,17 +157,18 @@ public partial class ShaderService : IShaderService
 
     private static string ApplyConfig(string content, ShaderConfig config)
     {
-        content = ReplaceDefine(content, ColorRRegex(), "COLOR_R", config.R);
-        content = ReplaceDefine(content, ColorGRegex(), "COLOR_G", config.G);
-        content = ReplaceDefine(content, ColorBRegex(), "COLOR_B", config.B);
-        content = ReplaceDefine(content, SpeedRegex(), "SPEED", config.Speed);
-        content = ReplaceDefine(content, GlowRegex(), "GLOW", config.Glow);
-        content = ReplaceDefine(content, WidthRegex(), "WIDTH", config.Width);
-        content = ReplaceDefine(content, TrailRegex(), "TRAIL", config.Trail);
-        content = ReplaceDefine(content, DensityRegex(), "DENSITY", config.Density);
-        content = ReplaceBoolDefine(content, Layer1Regex(), "LAYER1", config.Layer1);
-        content = ReplaceBoolDefine(content, Layer2Regex(), "LAYER2", config.Layer2);
-        content = ReplaceBoolDefine(content, Layer3Regex(), "LAYER3", config.Layer3);
+        content = ReplaceDefine(content, RainRRegex(), "RAIN_R", config.R);
+        content = ReplaceDefine(content, RainGRegex(), "RAIN_G", config.G);
+        content = ReplaceDefine(content, RainBRegex(), "RAIN_B", config.B);
+        content = ReplaceDefine(content, RainSpeedRegex(), "RAIN_SPEED", config.Speed);
+        content = ReplaceDefine(content, GlowStrengthRegex(), "GLOW_STRENGTH", config.Glow);
+        content = ReplaceDefine(content, CharWidthRegex(), "CHAR_WIDTH", config.Width);
+        content = ReplaceDefine(content, TrailPowerRegex(), "TRAIL_POWER", config.Trail);
+        content = ReplaceDefine(content, RainDensityRegex(), "RAIN_DENSITY", config.Density);
+        // Layer toggles: write as float (1.0/0.0) to match HLSL format
+        content = ReplaceDefine(content, ShowL1Regex(), "SHOW_L1", config.Layer1 ? 1.0f : 0.0f);
+        content = ReplaceDefine(content, ShowL2Regex(), "SHOW_L2", config.Layer2 ? 1.0f : 0.0f);
+        content = ReplaceDefine(content, ShowL3Regex(), "SHOW_L3", config.Layer3 ? 1.0f : 0.0f);
         return content;
     }
 
@@ -175,18 +179,6 @@ public partial class ShaderService : IShaderService
         {
             return content[..match.Index] +
                    $"#define {name} {value:F2}" +
-                   content[(match.Index + match.Length)..];
-        }
-        return content;
-    }
-
-    private static string ReplaceBoolDefine(string content, Regex regex, string name, bool value)
-    {
-        var match = regex.Match(content);
-        if (match.Success)
-        {
-            return content[..match.Index] +
-                   $"#define {name} {(value ? 1 : 0)}" +
                    content[(match.Index + match.Length)..];
         }
         return content;
