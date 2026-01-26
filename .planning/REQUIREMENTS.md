@@ -9,16 +9,16 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Shader Control
 
-- [ ] **SHDR-01**: User can adjust RGB color values (0.0-1.0 range)
-- [ ] **SHDR-02**: User can select from 6 color presets (Green, Cyan, Red, Purple, Gold, Teal)
-- [ ] **SHDR-03**: User can adjust animation speed
-- [ ] **SHDR-04**: User can adjust glow intensity
-- [ ] **SHDR-05**: User can adjust character width
-- [ ] **SHDR-06**: User can adjust trail length
-- [ ] **SHDR-07**: User can adjust character density
-- [ ] **SHDR-08**: User can toggle each of 3 parallax layers independently
-- [ ] **SHDR-09**: Shader file regenerates with #define injection on parameter change
-- [ ] **SHDR-10**: Windows Terminal hot-reloads shader within ~100ms of file change
+- [x] **SHDR-01**: User can adjust RGB color values (0.0-1.0 range)
+- [x] **SHDR-02**: User can select from 6 color presets (Green, Cyan, Red, Purple, Gold, Teal)
+- [x] **SHDR-03**: User can adjust animation speed
+- [x] **SHDR-04**: User can adjust glow intensity
+- [x] **SHDR-05**: User can adjust character width
+- [x] **SHDR-06**: User can adjust trail length
+- [x] **SHDR-07**: User can adjust character density
+- [x] **SHDR-08**: User can toggle each of 3 parallax layers independently
+- [x] **SHDR-09**: Shader file regenerates with #define injection on parameter change
+- [x] **SHDR-10**: Windows Terminal hot-reloads shader within ~100ms of file change
 
 ### Window Management
 
@@ -96,16 +96,16 @@ Deferred to future release.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SHDR-01 | Phase 1 | Pending |
-| SHDR-02 | Phase 1 | Pending |
-| SHDR-03 | Phase 1 | Pending |
-| SHDR-04 | Phase 1 | Pending |
-| SHDR-05 | Phase 1 | Pending |
-| SHDR-06 | Phase 1 | Pending |
-| SHDR-07 | Phase 1 | Pending |
-| SHDR-08 | Phase 1 | Pending |
-| SHDR-09 | Phase 1 | Pending |
-| SHDR-10 | Phase 1 | Pending |
+| SHDR-01 | Phase 1 | Complete |
+| SHDR-02 | Phase 1 | Complete |
+| SHDR-03 | Phase 1 | Complete |
+| SHDR-04 | Phase 1 | Complete |
+| SHDR-05 | Phase 1 | Complete |
+| SHDR-06 | Phase 1 | Complete |
+| SHDR-07 | Phase 1 | Complete |
+| SHDR-08 | Phase 1 | Complete |
+| SHDR-09 | Phase 1 | Complete |
+| SHDR-10 | Phase 1 | Complete |
 | STATE-01 | Phase 2 | Pending |
 | STATE-05 | Phase 2 | Pending |
 | WNDW-01 | Phase 3 | Pending |
@@ -145,4 +145,4 @@ Deferred to future release.
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-25 after roadmap creation (10-phase structure)*
+*Last updated: 2026-01-25 — Phase 1 complete (SHDR-01 through SHDR-10)*

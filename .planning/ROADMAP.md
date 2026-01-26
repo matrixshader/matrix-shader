@@ -12,7 +12,7 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Shader Service Foundation** - HLSL file manipulation with #define injection
+- [x] **Phase 1: Shader Service Foundation** - HLSL file manipulation with #define injection
 - [ ] **Phase 2: State Persistence** - JSON config and atomic file writes
 - [ ] **Phase 3: Windows API Layer** - P/Invoke declarations and window enumeration
 - [ ] **Phase 4: Window Identity Service** - 4-layer identity resolution with confidence scoring
@@ -38,9 +38,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 01-01-PLAN.md — Fix ShaderConfig validation ranges to match PowerShell (Wave 1)
-- [ ] 01-02-PLAN.md — Fix ShaderService regex patterns for HLSL parsing (Wave 2)
-- [ ] 01-03-PLAN.md — Fix ShaderService writing and add CreateShader method (Wave 2)
+- [x] 01-01-PLAN.md — Fix ShaderConfig validation ranges to match PowerShell (Wave 1)
+- [x] 01-02-PLAN.md — Fix ShaderService regex patterns for HLSL parsing (Wave 2)
+- [x] 01-03-PLAN.md — Fix ShaderService writing and add CreateShader method (Wave 2)
 
 ### Phase 2: State Persistence
 **Goal**: Configuration persists across sessions with corruption-safe file operations
@@ -191,7 +191,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shader Service Foundation | 0/3 | Planned | - |
+| 1. Shader Service Foundation | 3/3 | ✓ Complete | 2026-01-25 |
 | 2. State Persistence | 0/2 | Not started | - |
 | 3. Windows API Layer | 0/3 | Not started | - |
 | 4. Window Identity Service | 0/3 | Not started | - |
