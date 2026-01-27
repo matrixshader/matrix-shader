@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using System.Management;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Native;
+using MatrixShader.Core.Serialization;
 
 namespace MatrixShader.Core.Services;
 
@@ -20,8 +22,26 @@ namespace MatrixShader.Core.Services;
 /// </summary>
 public class IdentityService : IIdentityService
 {
+    /// <summary>
+    /// In-memory launch registry for Layer 1 identity resolution.
+    /// Keys are either window handle or process ID as string.
+    /// </summary>
     private readonly Dictionary<string, LaunchEntry> _launchRegistry = new();
+
+    /// <summary>
+    /// Tracks which registry entries were loaded from disk (vs registered this session).
+    /// Used to distinguish fresh (1.0 confidence) from recovered (0.95 confidence).
+    /// </summary>
+    private readonly HashSet<string> _recoveredKeys = new();
+
+    /// <summary>
+    /// Path to the persisted identity registry file.
+    /// </summary>
     private readonly string _registryPath;
+
+    /// <summary>
+    /// Lock for thread-safe registry access.
+    /// </summary>
     private readonly object _lock = new();
 
     // Regex to extract shader index from profile name or title
@@ -31,8 +51,11 @@ public class IdentityService : IIdentityService
 
     public IdentityService()
     {
-        var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        _registryPath = Path.Combine(documentsPath, "Matrix", "identity-registry.json");
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        _registryPath = Path.Combine(localAppData, "MatrixShader", "identity-registry.json");
+
+        // Load existing registry on construction
+        LoadRegistry();
     }
 
     /// <inheritdoc/>
@@ -145,8 +168,70 @@ public class IdentityService : IIdentityService
         lock (_lock)
         {
             _launchRegistry.Clear();
+            _recoveredKeys.Clear();
             SaveRegistry();
         }
+    }
+
+    /// <inheritdoc/>
+    public int CleanStaleEntries(TimeSpan? maxAge = null)
+    {
+        var age = maxAge ?? TimeSpan.FromHours(24);
+        var cutoff = DateTime.UtcNow - age;
+        var removed = 0;
+
+        lock (_lock)
+        {
+            var keysToRemove = new List<string>();
+
+            foreach (var (key, entry) in _launchRegistry)
+            {
+                var shouldRemove = false;
+
+                // Check if process still exists
+                if (entry.ProcessId > 0)
+                {
+                    try
+                    {
+                        using var process = Process.GetProcessById(entry.ProcessId);
+                        if (process.HasExited)
+                            shouldRemove = true;
+                    }
+                    catch
+                    {
+                        // Process doesn't exist - mark for removal
+                        shouldRemove = true;
+                    }
+                }
+
+                // Check age
+                if (!shouldRemove && entry.LaunchTime < cutoff)
+                    shouldRemove = true;
+
+                // Check handle validity (if stored)
+                if (!shouldRemove && entry.WindowHandle != nint.Zero)
+                {
+                    if (!WindowsApi.IsHandleValid(entry.WindowHandle))
+                        shouldRemove = true;
+                }
+
+                if (shouldRemove)
+                    keysToRemove.Add(key);
+            }
+
+            foreach (var key in keysToRemove)
+            {
+                _launchRegistry.Remove(key);
+                _recoveredKeys.Remove(key);
+                removed++;
+            }
+
+            // Save cleaned registry
+            if (removed > 0)
+                SaveRegistryAtomic();
+        }
+
+        return removed;
     }
 
     /// <inheritdoc/>
@@ -155,6 +240,7 @@ public class IdentityService : IIdentityService
         lock (_lock)
         {
             _launchRegistry.Clear();
+            _recoveredKeys.Clear();
 
             if (!File.Exists(_registryPath))
                 return;
@@ -162,19 +248,29 @@ public class IdentityService : IIdentityService
             try
             {
                 var json = File.ReadAllText(_registryPath);
-                var entries = JsonSerializer.Deserialize<Dictionary<string, LaunchEntry>>(json);
+                var registry = JsonSerializer.Deserialize(json, MatrixJsonContext.Default.IdentityRegistry);
 
-                if (entries != null)
+                if (registry?.Entries != null)
                 {
-                    foreach (var kvp in entries)
+                    foreach (var (key, entry) in registry.Entries)
                     {
-                        _launchRegistry[kvp.Key] = kvp.Value;
+                        _launchRegistry[key] = new LaunchEntry
+                        {
+                            ProfileName = entry.ProfileName,
+                            ShaderIndex = entry.ShaderIndex,
+                            ProcessId = entry.ProcessId,
+                            WindowHandle = nint.TryParse(entry.WindowHandle, out var hwnd) ? hwnd : nint.Zero,
+                            LaunchTime = entry.LaunchTime,
+                            CorrelationId = entry.CorrelationId
+                        };
+                        // Track that this entry was loaded from disk (recovered)
+                        _recoveredKeys.Add(key);
                     }
                 }
             }
-            catch (Exception)
+            catch
             {
-                // Silently fail - registry is optional
+                // Silently fail - registry is optional, will start fresh
             }
         }
     }
@@ -184,27 +280,57 @@ public class IdentityService : IIdentityService
     {
         lock (_lock)
         {
-            try
-            {
-                var directory = Path.GetDirectoryName(_registryPath);
-                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
+            SaveRegistryAtomic();
+        }
+    }
 
-                // Atomic write: temp file + move
-                var tempFile = Path.GetTempFileName();
-                var json = JsonSerializer.Serialize(_launchRegistry, new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                });
-                File.WriteAllText(tempFile, json);
-                File.Move(tempFile, _registryPath, overwrite: true);
-            }
-            catch (Exception)
+    /// <summary>
+    /// Atomic registry save: temp file + File.Move pattern.
+    /// Uses source-generated JSON for AOT compatibility.
+    /// </summary>
+    private void SaveRegistryAtomic()
+    {
+        string? tempPath = null;
+        try
+        {
+            var directory = Path.GetDirectoryName(_registryPath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
-                // Silently fail - registry is optional
+                Directory.CreateDirectory(directory);
             }
+
+            // Build IdentityRegistry from internal LaunchEntry dictionary
+            var registry = new IdentityRegistry
+            {
+                Version = "1.0",
+                SavedAt = DateTime.UtcNow,
+                Entries = _launchRegistry.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => new IdentityEntry
+                    {
+                        ProfileName = kvp.Value.ProfileName,
+                        ShaderIndex = kvp.Value.ShaderIndex,
+                        ProcessId = kvp.Value.ProcessId,
+                        WindowHandle = kvp.Value.WindowHandle.ToString(),
+                        LaunchTime = kvp.Value.LaunchTime,
+                        CorrelationId = kvp.Value.CorrelationId
+                    })
+            };
+
+            // Atomic write: temp file + move
+            tempPath = _registryPath + ".tmp";
+            var json = JsonSerializer.Serialize(registry, MatrixJsonContext.Default.IdentityRegistry);
+            File.WriteAllText(tempPath, json, new UTF8Encoding(false));
+            File.Move(tempPath, _registryPath, overwrite: true);
+        }
+        catch
+        {
+            // Clean up temp file on failure
+            if (tempPath != null)
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            }
+            // Silently fail - registry is optional
         }
     }
 
@@ -213,6 +339,8 @@ public class IdentityService : IIdentityService
     /// <summary>
     /// Layer 1: Look up identity from launch registry (instant).
     /// Checks both handle-based and PID-based entries.
+    /// Returns LaunchTracking (confidence 1.0) for fresh registrations,
+    /// LaunchTrackingRecovered (confidence 0.95) for entries loaded from disk.
     /// </summary>
     private WindowInfo? GetLaunchRegistryIdentity(nint hwnd, int processId)
     {
@@ -225,19 +353,25 @@ public class IdentityService : IIdentityService
                 // Validate window still exists
                 if (WindowsApi.IsWindowVisible(hwnd))
                 {
+                    // Distinguish fresh vs recovered for confidence scoring
+                    var source = _recoveredKeys.Contains(handleKey)
+                        ? IdentitySource.LaunchTrackingRecovered
+                        : IdentitySource.LaunchTracking;
+
                     return CreateWindowInfo(
                         hwnd,
                         WindowsApi.GetWindowTitle(hwnd),
                         processId,
                         handleEntry.ProfileName,
                         handleEntry.ShaderIndex,
-                        IdentitySource.LaunchTracking
+                        source
                     );
                 }
                 else
                 {
                     // Window gone - remove stale entry
                     _launchRegistry.Remove(handleKey);
+                    _recoveredKeys.Remove(handleKey);
                 }
             }
 
@@ -251,13 +385,18 @@ public class IdentityService : IIdentityService
                     using var process = Process.GetProcessById(processId);
                     if (process != null && !process.HasExited)
                     {
+                        // Distinguish fresh vs recovered for confidence scoring
+                        var source = _recoveredKeys.Contains(pidKey)
+                            ? IdentitySource.LaunchTrackingRecovered
+                            : IdentitySource.LaunchTracking;
+
                         return CreateWindowInfo(
                             hwnd,
                             WindowsApi.GetWindowTitle(hwnd),
                             processId,
                             pidEntry.ProfileName,
                             pidEntry.ShaderIndex,
-                            IdentitySource.LaunchTracking
+                            source
                         );
                     }
                 }
@@ -265,6 +404,7 @@ public class IdentityService : IIdentityService
                 {
                     // Process gone - remove stale entry
                     _launchRegistry.Remove(pidKey);
+                    _recoveredKeys.Remove(pidKey);
                 }
             }
         }
