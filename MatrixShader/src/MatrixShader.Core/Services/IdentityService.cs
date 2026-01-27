@@ -3,6 +3,7 @@ using System.Management;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Windows.Automation;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Native;
 using MatrixShader.Core.Serialization;
@@ -64,9 +65,16 @@ public class IdentityService : IIdentityService
         var results = new List<WindowInfo>();
         var terminalWindows = GetTerminalWindows();
 
+        if (terminalWindows.Count == 0)
+            return results;
+
+        // Batch query command lines for all PIDs (Layer 2 optimization - O(1) instead of O(n))
+        var pids = terminalWindows.Select(w => w.processId).Distinct();
+        var commandLineCache = BatchQueryCommandLines(pids);
+
         foreach (var (hwnd, title, processId) in terminalWindows)
         {
-            var identity = ResolveIdentity(hwnd);
+            var identity = ResolveIdentityWithCache(hwnd, title, processId, commandLineCache);
             if (identity != null)
             {
                 results.Add(identity);
@@ -80,7 +88,8 @@ public class IdentityService : IIdentityService
     /// <inheritdoc/>
     public WindowInfo? ResolveIdentity(nint hwnd)
     {
-        if (hwnd == nint.Zero)
+        // Validate handle first - BOTH IsWindow AND IsWindowVisible must pass
+        if (!WindowsApi.IsHandleValid(hwnd))
             return null;
 
         var title = WindowsApi.GetWindowTitle(hwnd);
@@ -97,7 +106,7 @@ public class IdentityService : IIdentityService
         if (launchIdentity != null)
             return launchIdentity;
 
-        // Layer 2: Command Line Analysis (WMI query, ~20ms)
+        // Layer 2: Command Line Analysis (single process - batch used in FindMatrixWindows)
         var cmdLineIdentity = GetCommandLineIdentity(hwnd, processId, title);
         if (cmdLineIdentity != null)
             return cmdLineIdentity;
@@ -107,8 +116,10 @@ public class IdentityService : IIdentityService
         if (titleIdentity != null)
             return titleIdentity;
 
-        // Layer 4: UI Automation (slow, 100-300ms) - Skip for now, title match is usually sufficient
-        // This would require Windows.UI.Automation references
+        // Layer 4: UI Automation (slow fallback, 100-300ms)
+        var uiaIdentity = GetUIAutomationIdentity(hwnd, processId, title);
+        if (uiaIdentity != null)
+            return uiaIdentity;
 
         return null;
     }
@@ -477,6 +488,41 @@ public class IdentityService : IIdentityService
         return null;
     }
 
+    /// <summary>
+    /// Batch query command lines for multiple processes in single WMI call.
+    /// O(1) instead of O(n) for multiple processes.
+    /// </summary>
+    private static Dictionary<int, string> BatchQueryCommandLines(IEnumerable<int> processIds)
+    {
+        var results = new Dictionary<int, string>();
+        var pidList = processIds.ToList();
+        if (pidList.Count == 0) return results;
+
+        try
+        {
+            // Build WMI query: SELECT ProcessId, CommandLine FROM Win32_Process WHERE ProcessId=1 OR ProcessId=2...
+            var pidFilter = string.Join(" OR ", pidList.Select(p => $"ProcessId={p}"));
+            var query = $"SELECT ProcessId, CommandLine FROM Win32_Process WHERE ({pidFilter})";
+
+            using var searcher = new ManagementObjectSearcher(query);
+            foreach (ManagementObject obj in searcher.Get())
+            {
+                var pid = Convert.ToInt32(obj["ProcessId"]);
+                var cmdLine = obj["CommandLine"]?.ToString();
+                if (!string.IsNullOrEmpty(cmdLine))
+                {
+                    results[pid] = cmdLine;
+                }
+            }
+        }
+        catch
+        {
+            // WMI query failed - return empty results
+        }
+
+        return results;
+    }
+
     #endregion
 
     #region Layer 3: Title Pattern Matching
@@ -502,15 +548,161 @@ public class IdentityService : IIdentityService
 
     #endregion
 
+    #region Layer 4: UI Automation
+
+    /// <summary>
+    /// Layer 4: UI Automation identity resolution (100-300ms).
+    /// Checks TermControl first (0.95), then TabItem (0.85), then Name (0.90).
+    /// </summary>
+    private WindowInfo? GetUIAutomationIdentity(nint hwnd, int processId, string title)
+    {
+        try
+        {
+            var element = AutomationElement.FromHandle(hwnd);
+            if (element == null) return null;
+
+            // Priority 1: TermControl has profile name in Name property (confidence 0.95)
+            var classCondition = new PropertyCondition(
+                AutomationElement.ClassNameProperty, "TermControl");
+            var termControls = element.FindAll(TreeScope.Descendants, classCondition);
+
+            foreach (AutomationElement tc in termControls)
+            {
+                var name = tc.Current.Name;
+                if (TryParseMatrixProfile(name, out var shaderIndex))
+                {
+                    return CreateWindowInfo(hwnd, title, processId,
+                        $"Matrix-{shaderIndex}", shaderIndex,
+                        IdentitySource.UIAutomationTermControl);
+                }
+            }
+
+            // Priority 2: TabItem fallback (confidence 0.85)
+            var tabCondition = new PropertyCondition(
+                AutomationElement.ControlTypeProperty, ControlType.TabItem);
+            var tabs = element.FindAll(TreeScope.Descendants, tabCondition);
+
+            foreach (AutomationElement tab in tabs)
+            {
+                var name = tab.Current.Name;
+                if (TryParseMatrixProfile(name, out var shaderIndex))
+                {
+                    return CreateWindowInfo(hwnd, title, processId,
+                        $"Matrix-{shaderIndex}", shaderIndex,
+                        IdentitySource.UIAutomationTab);
+                }
+            }
+
+            // Priority 3: Window Name fallback (confidence 0.90)
+            var windowName = element.Current.Name;
+            if (TryParseMatrixProfile(windowName, out var idx))
+            {
+                return CreateWindowInfo(hwnd, title, processId,
+                    $"Matrix-{idx}", idx,
+                    IdentitySource.UIAutomationName);
+            }
+        }
+        catch
+        {
+            // UI Automation failed - return null
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Try to parse Matrix-N pattern from text.
+    /// </summary>
+    private static bool TryParseMatrixProfile(string? text, out int shaderIndex)
+    {
+        shaderIndex = 0;
+        if (string.IsNullOrEmpty(text)) return false;
+
+        var match = MatrixProfileRegex.Match(text);
+        if (match.Success)
+        {
+            shaderIndex = int.Parse(match.Groups[1].Value);
+            return true;
+        }
+        return false;
+    }
+
+    #endregion
+
+    #region Batch Resolution
+
+    /// <summary>
+    /// Resolve identity with pre-cached command lines for batch performance.
+    /// </summary>
+    private WindowInfo? ResolveIdentityWithCache(nint hwnd, string title, int processId,
+        Dictionary<int, string> commandLineCache)
+    {
+        if (!WindowsApi.IsHandleValid(hwnd))
+            return null;
+
+        // Check if this is the control panel window
+        if (title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWindowInfo(hwnd, title, processId, "ControlPanel", 0, IdentitySource.Title);
+        }
+
+        // Layer 1: Launch Tracking
+        var launchIdentity = GetLaunchRegistryIdentity(hwnd, processId);
+        if (launchIdentity != null)
+            return launchIdentity;
+
+        // Layer 2: Command Line (from cache)
+        if (commandLineCache.TryGetValue(processId, out var cmdLine))
+        {
+            var cmdIdentity = ParseCommandLineIdentity(hwnd, processId, title, cmdLine);
+            if (cmdIdentity != null)
+                return cmdIdentity;
+        }
+
+        // Layer 3: Title Pattern Matching
+        var titleIdentity = GetTitleIdentity(hwnd, processId, title);
+        if (titleIdentity != null)
+            return titleIdentity;
+
+        // Layer 4: UI Automation (slow fallback)
+        var uiaIdentity = GetUIAutomationIdentity(hwnd, processId, title);
+        return uiaIdentity;
+    }
+
+    /// <summary>
+    /// Parse command line to extract identity (used with cache).
+    /// </summary>
+    private WindowInfo? ParseCommandLineIdentity(nint hwnd, int processId, string title, string commandLine)
+    {
+        var profileMatch = Regex.Match(commandLine, @"-p\s+[""']?([^""'\s]+)[""']?", RegexOptions.IgnoreCase);
+        if (!profileMatch.Success)
+        {
+            profileMatch = Regex.Match(commandLine, @"--profile\s+[""']?([^""'\s]+)[""']?", RegexOptions.IgnoreCase);
+        }
+
+        if (profileMatch.Success)
+        {
+            var profileArg = profileMatch.Groups[1].Value;
+            if (TryParseMatrixProfile(profileArg, out var shaderIndex))
+            {
+                return CreateWindowInfo(hwnd, title, processId, $"Matrix-{shaderIndex}", shaderIndex, IdentitySource.CommandLine);
+            }
+        }
+        return null;
+    }
+
+    #endregion
+
     #region Helper Methods
 
     /// <summary>
-    /// Gets all visible Windows Terminal windows.
+    /// Gets all Windows Terminal windows (includes minimized).
+    /// Context decision: Include minimized windows for Matrix window tracking.
     /// </summary>
     private List<(nint hwnd, string title, int processId)> GetTerminalWindows()
     {
         var results = new List<(nint, string, int)>();
-        var allWindows = WindowsApi.GetVisibleWindows();
+        var allWindows = WindowsApi.GetAllWindows();  // Includes minimized
 
         foreach (var hwnd in allWindows)
         {
@@ -522,10 +714,7 @@ public class IdentityService : IIdentityService
                 if (process.ProcessName.Equals(WindowsTerminalProcessName, StringComparison.OrdinalIgnoreCase))
                 {
                     var title = WindowsApi.GetWindowTitle(hwnd);
-                    if (!string.IsNullOrEmpty(title))
-                    {
-                        results.Add((hwnd, title, processId));
-                    }
+                    results.Add((hwnd, title, processId));
                 }
             }
             catch
@@ -539,6 +728,7 @@ public class IdentityService : IIdentityService
 
     /// <summary>
     /// Creates a WindowInfo record with all identity information.
+    /// Confidence is automatically set based on the identity source.
     /// </summary>
     private static WindowInfo CreateWindowInfo(
         nint hwnd,
@@ -560,6 +750,7 @@ public class IdentityService : IIdentityService
             ShaderIndex = shaderIndex,
             Position = position,
             Source = source,
+            Confidence = source.GetConfidence(),
             IsControlPanel = isControlPanel
         };
     }
