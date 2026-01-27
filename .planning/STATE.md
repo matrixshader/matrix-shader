@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** The C# version must work exactly like the PowerShell version does today
-**Current focus:** Phase 3 - Windows API Layer
+**Current focus:** Phase 4 - Window Identity Service
 
 ## Current Position
 
-Phase: 3 of 10 (Windows API Layer)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-01-26 - Completed 03-02-PLAN.md (fills gap from out-of-order execution)
+Phase: 4 of 10 (Window Identity Service)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-27 - Completed 04-01-PLAN.md (identity models)
 
-Progress: [████████░░] 27% (8/30 plans)
+Progress: [█████████░] 30% (9/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 6 min
-- Total execution time: 0.73 hours
+- Total plans completed: 9
+- Average duration: 5 min
+- Total execution time: 0.80 hours
 
 **By Phase:**
 
@@ -30,9 +30,10 @@ Progress: [████████░░] 27% (8/30 plans)
 | 01-shader-service-foundation | 3 | 21 min | 7 min |
 | 02-state-persistence | 2 | 11 min | 6 min |
 | 03-windows-api-layer | 3 | 12 min | 4 min |
+| 04-window-identity-service | 1 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (6 min), 02-02 (5 min), 03-01 (4 min), 03-02 (2 min), 03-03 (6 min)
+- Last 5 plans: 02-02 (5 min), 03-01 (4 min), 03-02 (2 min), 03-03 (6 min), 04-01 (4 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -67,6 +68,9 @@ Recent decisions affecting current work:
 - [03-02]: DWM-first pattern: Try DWM API, fall back to standard Windows API
 - [03-03]: Border expansion outward (window rect = visible + margins) for pixel-perfect positioning
 - [03-03]: SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW for z-order/focus preservation
+- [04-01]: IdentitySource enum values 0-7 with confidence mapping via extension method
+- [04-01]: WindowHandle stored as string in IdentityEntry (nint not JSON-friendly)
+- [04-01]: Dictionary<string, IdentityEntry> for registry entries (matches PowerShell format)
 
 ### Pending Todos
 
@@ -79,10 +83,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-26
-Stopped at: Completed Phase 3: Windows API Layer
+Last session: 2026-01-27
+Stopped at: Completed 04-01-PLAN.md (identity models)
 Resume file: None
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-26*
+*Last updated: 2026-01-27*
