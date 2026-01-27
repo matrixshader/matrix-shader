@@ -32,6 +32,9 @@ public record MatrixState
 
     /// <summary>Last save timestamp</summary>
     public DateTime LastModified { get; init; } = DateTime.UtcNow;
+
+    /// <summary>Window slot assignments for layout persistence</summary>
+    public Dictionary<string, WindowSlot> WindowSlots { get; init; } = new();
 }
 
 /// <summary>
