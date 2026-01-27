@@ -49,7 +49,7 @@ Before any viral moment, your repository needs to be complete and professional. 
 | File | Purpose | Priority | Status Template |
 |------|---------|----------|-----------------|
 | `README.md` | First impression, installation, usage | CRITICAL | See GitHub Optimization doc |
-| `LICENSE` | Legal protection, fork-ability | CRITICAL | MIT recommended |
+| `LICENSE` | Legal protection, fork-ability | CRITICAL | Current non-commercial terms |
 | `CONTRIBUTING.md` | Contributor guidelines | HIGH | See templates below |
 | `CODE_OF_CONDUCT.md` | Community standards | HIGH | Contributor Covenant |
 | `SECURITY.md` | Vulnerability reporting | HIGH | GitHub template |
@@ -1850,45 +1850,14 @@ Every release should be rollback-able.
 
 ## 8.1 License Selection
 
-### MIT License Recommendation
+### License Model (Current)
 
-For Matrix Terminal Shader, **MIT License** is recommended because:
+Matrix Terminal Shader uses a proprietary, non-commercial license:
+- Free for personal, non-commercial use
+- Commercial use, redistribution, and modification require written permission
+- The `LICENSE` file is the source of truth
 
-| Factor | MIT Advantage |
-|--------|---------------|
-| Adoption | Most permissive, encourages use |
-| Enterprise | No legal department friction |
-| Forks | Allows commercial forks |
-| Simplicity | Easy to understand |
-| Compatibility | Works with most other licenses |
-
-### MIT License Text
-
-```
-MIT License
-
-Copyright (c) [year] [your name]
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### When to Consider Other Licenses
+### If You Revisit Licensing
 
 | License | Use When |
 |---------|----------|
@@ -3071,7 +3040,7 @@ Add to README:
 ### Repository Essentials
 
 - [ ] README.md complete with hero image
-- [ ] LICENSE file (MIT recommended)
+- [ ] LICENSE file (current non-commercial terms)
 - [ ] CONTRIBUTING.md with clear guidelines
 - [ ] CODE_OF_CONDUCT.md (Contributor Covenant)
 - [ ] SECURITY.md with reporting instructions

@@ -2,12 +2,6 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-const script = path.join(__dirname, '..', 'matrix_control.ps1');
-const ps = spawn('powershell', ['-ExecutionPolicy', 'Bypass', '-File', script], {
-  stdio: 'inherit',
-  shell: true
-});
-
-ps.on('close', (code) => {
-  process.exit(code);
-});
+const exe = path.join(__dirname, 'native', 'redpill.exe');
+const child = spawn(exe, process.argv.slice(2), { stdio: 'inherit' });
+child.on('exit', (code) => process.exit(code || 0));

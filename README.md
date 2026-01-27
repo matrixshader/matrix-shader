@@ -47,7 +47,7 @@ Run `matrix-hotkeys` in the background for global shortcuts:
 
 ## License
 
-Copyright (c) 2024 matrixshader.com. All Rights Reserved.
+Copyright (c) 2026 matrixshader.com. All Rights Reserved.
 
 Free for personal, non-commercial use.
 Commercial use, redistribution, and modification require written permission.

@@ -103,6 +103,35 @@ $opacity = 100
 # Launch settings
 $launchCount = 0
 
+# UI cache - avoid expensive calls on every keypress
+$script:cachedWindowInfo = $null
+$script:cachedLayoutConfig = $null
+$script:cachedScreenTopology = $null
+$script:cachedShaderColors = @{}  # slot -> {R, G, B}
+$script:cacheInvalidated = $true  # Force refresh on first run
+
+function Invalidate-UICache {
+    $script:cacheInvalidated = $true
+}
+
+function Refresh-UICache {
+    if ($script:cacheInvalidated) {
+        $script:cachedWindowInfo = Get-MatrixWindowInfo
+        $script:cachedLayoutConfig = Get-MatrixLayoutConfig
+        $script:cachedScreenTopology = Get-ScreenTopology
+        # Cache shader colors for tab display
+        $script:cachedShaderColors = @{}
+        foreach ($win in $script:cachedWindowInfo) {
+            $slot = $win.Slot
+            if ($slot -lt 100) {
+                $cfg = Load-Shader $slot
+                $script:cachedShaderColors[$slot] = @{ R = $cfg.R; G = $cfg.G; B = $cfg.B }
+            }
+        }
+        $script:cacheInvalidated = $false
+    }
+}
+
 # Unified logging
 . "$PSScriptRoot\MatrixLogging.ps1"
 
@@ -157,6 +186,15 @@ function Save-Shader($slot, $cfg) {
     try {
         [System.IO.File]::WriteAllText($path, $content)
         Write-MatrixLog "Shader saved successfully: $path" -Source CONTROL
+
+        # Sync tab color to match new shader color
+        $profileName = "Matrix-$slot"
+        Sync-TabColorToShader -ProfileName $profileName -ShaderPath $path | Out-Null
+        Write-MatrixLog "Tab color synced for $profileName" -Source CONTROL
+
+        # Update cache with new color
+        $script:cachedShaderColors[$slot] = @{ R = $cfg.R; G = $cfg.G; B = $cfg.B }
+
         return $true
     }
     catch {
@@ -222,7 +260,12 @@ function Bar($val, $min, $max, $width) {
 }
 
 # --- WINDOW POSITIONING & TRANSPARENCY (P/Invoke) ---
-Add-Type -ErrorAction SilentlyContinue -TypeDefinition @"
+# Load pre-compiled DLL if available (instant), otherwise compile (slow)
+$matrixDllPath = "$PSScriptRoot\MatrixAPI.dll"
+if (Test-Path $matrixDllPath) {
+    Add-Type -Path $matrixDllPath -ErrorAction SilentlyContinue
+} elseif (-not ([System.Management.Automation.PSTypeName]'WindowAPI').Type) {
+Add-Type -TypeDefinition @"
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -326,6 +369,7 @@ public class WindowAPI {
     }
 }
 "@
+}
 
 Add-Type -AssemblyName System.Windows.Forms
 
@@ -694,7 +738,8 @@ function Launch-MatrixWindows([int]$count) {
 
 function UI {
     Clear-Host
-    $windowInfo = Get-MatrixWindowInfo  # Get ALL Windows Terminal windows except Redpill
+    Refresh-UICache  # Use cached values, only refresh when invalidated
+    $windowInfo = $script:cachedWindowInfo
     $dirtyMark = if ($dirty) { "*" } else { " " }
 
     Write-Host ""
@@ -709,12 +754,12 @@ function UI {
         foreach ($winInfo in $windowInfo) {
             $slot = $winInfo.Slot
             $title = $winInfo.Title
-            # For Matrix-N windows, load their shader config. For others, use defaults
-            if ($slot -lt 100) {
-                $cfg = Load-Shader $slot
+            # Use cached shader colors for tab display
+            if ($slot -lt 100 -and $script:cachedShaderColors.ContainsKey($slot)) {
+                $cfg = $script:cachedShaderColors[$slot]
                 $displayName = "$slot"
             } else {
-                $cfg = $defaults.Clone()
+                $cfg = @{ R = "0.0"; G = "1.0"; B = "0.3" }  # Default green
                 # Abbreviate long titles (first 8 chars)
                 if ($title.Length -gt 8) {
                     $displayName = $title.Substring(0, 8) + ".."
@@ -777,8 +822,8 @@ function UI {
     if ($transparency) {
         Write-Host " [K/l] Opacity:     $($opacity.ToString().PadLeft(3))% $(Bar $opacity 0 100 15)"
     }
-    # Layout mode display
-    $layoutConfig = Get-MatrixLayoutConfig
+    # Layout mode display (use cached config)
+    $layoutConfig = $script:cachedLayoutConfig
     $layoutMode = if ($layoutConfig.Mode) { $layoutConfig.Mode } else { 'Pillars' }
     $layoutColor = if ($layoutMode -eq 'Pillars') { "Yellow" } else { "Magenta" }
     Write-Host " [Shift+L] Layout:  " -NoNewline; Write-Host $layoutMode -ForegroundColor $layoutColor -NoNewline
@@ -791,8 +836,14 @@ function UI {
     Write-Host " [Shift+G] Glitch:  " -NoNewline; Write-Host $glitchStatus -ForegroundColor $glitchColor -NoNewline
     Write-Host "  (auto-snap windows to grid)" -ForegroundColor DarkGray
 
-    # Windows on Primary display
-    $screens = Get-ScreenTopology
+    # Monitor count display
+    $monitorCount = if ($layoutConfig.MonitorCount) { $layoutConfig.MonitorCount } else { 1 }
+    $monitorWord = if ($monitorCount -eq 1) { "monitor" } else { "monitors" }
+    Write-Host " [Shift+M] Monitors:" -NoNewline; Write-Host " $monitorCount $monitorWord" -ForegroundColor Cyan -NoNewline
+    Write-Host "  (for window distribution)" -ForegroundColor DarkGray
+
+    # Windows on Primary display (use cached screens)
+    $screens = $script:cachedScreenTopology
     if ($screens.Count -gt 1) {
         $windowsOnPrimary = $layoutConfig.WindowsOnPrimary
         if ($null -eq $windowsOnPrimary -or $windowsOnPrimary -lt 0) {
@@ -899,6 +950,7 @@ try {
                 Save-Shader $currentSlot $s
                 $dirty = $false
                 Launch-MatrixWindows $launchCount
+                Invalidate-UICache  # Refresh window list
             }
         }
         # Escape key (VK 27) to quit
@@ -925,6 +977,7 @@ try {
                 $config.Mode = $newMode
                 Set-MatrixLayoutConfig -Config $config
                 Position-MatrixWindows -PreserveMonitors
+                Invalidate-UICache  # Refresh layout config
                 Write-Host ""
                 Write-Host " Layout mode: $newMode" -ForegroundColor Cyan
                 Start-Sleep -Milliseconds 800
@@ -984,10 +1037,52 @@ try {
                 $newGlitch = -not ($config.GlitchEnabled -eq $true)
                 $config.GlitchEnabled = $newGlitch
                 Set-MatrixLayoutConfig -Config $config
+                Invalidate-UICache  # Refresh layout config
                 $status = if ($newGlitch) { "ON" } else { "OFF" }
                 $color = if ($newGlitch) { "Green" } else { "Yellow" }
                 Write-Host ""
                 Write-Host " Glitch: $status" -ForegroundColor $color
+                Start-Sleep -Milliseconds 800
+                continue
+            }
+
+            # Shift+M: Change monitor count
+            if ($k -ceq 'M') {
+                Add-Type -AssemblyName System.Windows.Forms
+                $detectedMonitors = [System.Windows.Forms.Screen]::AllScreens.Count
+                $config = Get-MatrixLayoutConfig
+                $currentCount = if ($config.MonitorCount) { $config.MonitorCount } else { 1 }
+
+                Write-Host ""
+                Write-Host " $detectedMonitors monitors detected. Currently using: $currentCount" -ForegroundColor White
+                Write-Host " Enter new count (1-$detectedMonitors): " -NoNewline -ForegroundColor Cyan
+
+                $inputStr = ""
+                while ($true) {
+                    $inputKey = [Console]::ReadKey($true)
+                    if ($inputKey.Key -eq 'Enter') { break }
+                    if ($inputKey.Key -eq 'Escape') { $inputStr = ""; break }
+                    if ($inputKey.KeyChar -match '\d') {
+                        $inputStr += $inputKey.KeyChar
+                        Write-Host $inputKey.KeyChar -NoNewline
+                    }
+                }
+                Write-Host ""
+
+                if ($inputStr -match '^\d+$') {
+                    $newCount = [int]$inputStr
+                    if ($newCount -ge 1 -and $newCount -le $detectedMonitors) {
+                        $config.MonitorCount = $newCount
+                        Set-MatrixLayoutConfig -Config $config
+                        Invalidate-UICache  # Refresh layout config
+                        $word = if ($newCount -eq 1) { "monitor" } else { "monitors" }
+                        Write-Host " Now using $newCount $word" -ForegroundColor Green
+                    } else {
+                        Write-Host " Invalid. Must be 1-$detectedMonitors" -ForegroundColor Red
+                    }
+                } else {
+                    Write-Host " Cancelled" -ForegroundColor Yellow
+                }
                 Start-Sleep -Milliseconds 800
                 continue
             }
@@ -1065,7 +1160,7 @@ try {
                 ',' {
                     # Decrease windows on primary
                     $config = Get-MatrixLayoutConfig
-                    $screens = Get-ScreenTopology
+                    $screens = $script:cachedScreenTopology
                     if ($screens.Count -gt 1) {
                         $current = $config.WindowsOnPrimary
                         if ($null -eq $current -or $current -lt 0) {
@@ -1077,6 +1172,7 @@ try {
                         }
                         Set-MatrixLayoutConfig -Config $config
                         Position-MatrixWindows
+                        Invalidate-UICache  # Refresh layout config
                         Write-Host ""
                         Write-Host " Primary: $($config.WindowsOnPrimary) windows" -ForegroundColor Cyan
                         Start-Sleep -Milliseconds 500
@@ -1085,7 +1181,7 @@ try {
                 '.' {
                     # Increase windows on primary
                     $config = Get-MatrixLayoutConfig
-                    $screens = Get-ScreenTopology
+                    $screens = $script:cachedScreenTopology
                     if ($screens.Count -gt 1) {
                         $current = $config.WindowsOnPrimary
                         $openCount = (Get-OpenMatrixSlots).Count
@@ -1095,6 +1191,7 @@ try {
                             $config.WindowsOnPrimary = $current + 1
                             Set-MatrixLayoutConfig -Config $config
                             Position-MatrixWindows
+                            Invalidate-UICache  # Refresh layout config
                             Write-Host ""
                             Write-Host " Primary: $($config.WindowsOnPrimary) windows" -ForegroundColor Cyan
                             Start-Sleep -Milliseconds 500
@@ -1104,11 +1201,12 @@ try {
                 ')' {
                     # Reset to Auto (Shift+0)
                     $config = Get-MatrixLayoutConfig
-                    $screens = Get-ScreenTopology
+                    $screens = $script:cachedScreenTopology
                     if ($screens.Count -gt 1) {
                         $config.WindowsOnPrimary = $null
                         Set-MatrixLayoutConfig -Config $config
                         Position-MatrixWindows
+                        Invalidate-UICache  # Refresh layout config
                         Write-Host ""
                         Write-Host " Primary: Auto (all windows)" -ForegroundColor Cyan
                         Start-Sleep -Milliseconds 500

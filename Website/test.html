@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Matrix Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+</head>
+<body style="margin: 0; background: black;">
+    <div id="matrix-bg" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;"></div>
+    
+    <script>
+        // EXACT Matrix-1.hlsl implementation in JavaScript
+        const sketch = (p) => {
+            // EXACT parameters from Matrix-1.hlsl
+            const RAIN_R = 0.0;
+            const RAIN_G = 1.0;
+            const RAIN_B = 0.3;
+            const RAIN_SPEED = 0.8;
+            const CHAR_WIDTH = 10.0;
+            const TRAIL_POWER = 8.0;
+            const RAIN_DENSITY = 0.4;
+            const FONT_SCALE = 1.0;
+            
+            // 16 Katakana glyphs matching the shader
+            const katakana = 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ';
+            const glyphSet = katakana.substring(0, 16);
+            
+            let columns = [];
+            
+            // Exact shader random function
+            function random(uv) {
+                return (Math.sin(uv.x * 12.9898 + uv.y * 78.233) * 43758.5453123) % 1;
+            }
+            
+            class MatrixColumn {
+                constructor(x) {
+                    this.x = x;
+                    this.colRnd = Math.random();
+                    this.finalSpeed = ((this.colRnd * 0.5 + 0.2) * 10.0 * RAIN_SPEED) / 1.2;
+                    this.active = this.colRnd > RAIN_DENSITY; // EXACT shader logic
+                }
+            }
+            
+            p.setup = () => {
+                const canvas = p.createCanvas(p.windowWidth, p.windowHeight);
+                canvas.parent('matrix-bg');
+                p.textFont('Courier New');
+                p.textAlign(p.LEFT, p.TOP);
+                p.textSize(12 * FONT_SCALE);
+                
+                const colCount = Math.floor(p.width / (CHAR_WIDTH * FONT_SCALE));
+                console.log('Matrix setup: cols =', colCount, 'CHAR_WIDTH =', CHAR_WIDTH);
+                
+                for (let i = 0; i < colCount; i++) {
+                    columns.push(new MatrixColumn(i * CHAR_WIDTH * FONT_SCALE));
+                }
+                
+                console.log('Matrix initialized with', columns.length, 'columns');
+            };
+            
+            p.draw = () => {
+                // EXACT shader: black background
+                p.background(0);
+                const time = p.millis() / 1000.0;
+                
+                // Draw each column exactly like the shader
+                for (let col of columns) {
+                    if (!col.active) continue;
+                    
+                    // Grid dimensions from shader
+                    const gridDims = {
+                        x: p.width / (CHAR_WIDTH * FONT_SCALE),
+                        y: p.height / (14.0 * FONT_SCALE)
+                    };
+                    
+                    // Draw characters in a grid like the shader
+                    for (let cellY = 0; cellY < Math.ceil(gridDims.y) + 10; cellY++) {
+                        const cellId = { x: col.x / (CHAR_WIDTH * FONT_SCALE), y: cellY };
+                        
+                        // Character seed calculation from shader
+                        const charSeed = random({ x: cellId.x, y: cellId.y });
+                        const glyphIdx = Math.floor(charSeed * 16) % 16;
+                        
+                        // Rain position calculation from shader: rain_pos = cell_id.y - (Time * final_speed)
+                        const rainPos = cellId.y - (time * col.finalSpeed) + (col.colRnd * 1000.0);
+                        const cycle = (rainPos / gridDims.y * 1.5) % 1;
+                        
+                        if (cycle < 0 || cycle > 1) continue;
+                        
+                        // Trail and head calculation from shader
+                        const trail = Math.pow(cycle, TRAIL_POWER);
+                        const isHead = cycle > 0.97;
+                        
+                        // Colors from shader
+                        const userColor = {
+                            r: Math.floor(RAIN_R * 255),
+                            g: Math.floor(RAIN_G * 255), 
+                            b: Math.floor(RAIN_B * 255)
+                        };
+                        const whiteHead = { r: 230, g: 255, b: 230 };
+                        
+                        const color = isHead ? whiteHead : userColor;
+                        const alpha = trail * 255;
+                        
+                        // Draw character
+                        const y = cellY * 14 * FONT_SCALE;
+                        p.fill(color.r, color.g, color.b, alpha);
+                        p.text(glyphSet[glyphIdx], col.x, y);
+                    }
+                }
+            };
+
+            p.windowResized = () => {
+                p.resizeCanvas(p.windowWidth, p.windowHeight);
+                const newColCount = Math.floor(p.width / (CHAR_WIDTH * FONT_SCALE));
+                
+                if (newColCount !== columns.length) {
+                    columns = [];
+                    for (let i = 0; i < newColCount; i++) {
+                        columns.push(new MatrixColumn(i * CHAR_WIDTH * FONT_SCALE));
+                    }
+                }
+            };
+        };
+
+        new p5(sketch);
+        console.log('Matrix rain test started - EXACT shader implementation');
+    </script>
+</body>
+</html>

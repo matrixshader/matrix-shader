@@ -37,7 +37,7 @@
 ### Afternoon Block (1.5 hours)
 - [ ] **[CRITICAL]** Write detailed installation instructions
 - [ ] **[CRITICAL]** Write usage guide with key bindings table
-- [ ] **[CRITICAL]** Add MIT LICENSE file
+- [ ] **[CRITICAL]** Add LICENSE file (current non-commercial terms)
 - [ ] **[HIGH]** Add Buy Me a Coffee button to README
 - [ ] **[HIGH]** Apply for GitHub Sponsors
 
