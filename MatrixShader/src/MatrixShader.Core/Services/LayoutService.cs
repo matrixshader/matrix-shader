@@ -12,6 +12,19 @@ public class LayoutService : ILayoutService
     private const int MinWindowWidth = 475; // Windows Terminal minimum width constraint
     private const int DefaultMaxPillars = 4;
     private const int DefaultGapSize = 30;
+    private const int MinGapSize = 0;
+    private const int MaxGapSize = 200;
+
+    private readonly IConfigService _configService;
+
+    /// <summary>
+    /// Creates a new layout service with ConfigService for persistence.
+    /// </summary>
+    /// <param name="configService">Service for state persistence</param>
+    public LayoutService(IConfigService configService)
+    {
+        _configService = configService;
+    }
 
     /// <inheritdoc/>
     public IReadOnlyList<MonitorInfo> GetMonitors()
@@ -72,12 +85,16 @@ public class LayoutService : ILayoutService
         return result;
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Applies calculated positions to windows using border-compensated positioning.
+    /// Uses PositionWindowExact to ensure visible window bounds match targets exactly.
+    /// </summary>
     public void ApplyLayout(IReadOnlyList<WindowPosition> positions)
     {
         foreach (var pos in positions)
         {
-            if (pos.Window.Handle == nint.Zero)
+            // Validate handle is still valid and visible
+            if (!WindowsApi.IsHandleValid(pos.Window.Handle))
                 continue;
 
             // Restore if minimized
@@ -87,8 +104,8 @@ public class LayoutService : ILayoutService
                 Thread.Sleep(100); // Brief delay for restore animation
             }
 
-            // Position the window
-            WindowsApi.PositionWindow(pos.Window.Handle, pos.Target);
+            // Position with border compensation for pixel-perfect visible bounds
+            WindowsApi.PositionWindowExact(pos.Window.Handle, pos.Target);
         }
     }
 
@@ -103,6 +120,30 @@ public class LayoutService : ILayoutService
             LayoutMode.Auto => LayoutMode.Pillars,
             _ => LayoutMode.Pillars
         };
+    }
+
+    /// <inheritdoc/>
+    public LayoutConfig CycleMode(LayoutConfig current)
+    {
+        var nextMode = CycleMode(ParseLayoutMode(current.Mode));
+        return current with { Mode = nextMode.ToString().ToLowerInvariant() };
+    }
+
+    /// <inheritdoc/>
+    public LayoutConfig AdjustGap(LayoutConfig current, int delta)
+    {
+        // Clamp gap size to valid range 0-200
+        var newGap = Math.Clamp(current.GapSize + delta, 0, 200);
+        return current with { GapSize = newGap };
+    }
+
+    /// <inheritdoc/>
+    public void UpdateConfig(LayoutConfig config)
+    {
+        // Load current state, update layout, save immediately
+        var state = _configService.LoadState();
+        state = state with { Layout = config };
+        _configService.SaveState(state);
     }
 
     #region Pillars Layout
