@@ -317,7 +317,7 @@ public static partial class WindowsApi
     }
 
     /// <summary>
-    /// Enumerates all visible top-level windows.
+    /// Enumerates all visible top-level windows (excludes minimized).
     /// </summary>
     public static List<nint> GetVisibleWindows()
     {
@@ -325,6 +325,25 @@ public static partial class WindowsApi
         EnumWindows((hWnd, _) =>
         {
             if (IsWindowVisible(hWnd) && !IsIconic(hWnd))
+            {
+                windows.Add(hWnd);
+            }
+            return true;
+        }, nint.Zero);
+        return windows;
+    }
+
+    /// <summary>
+    /// Enumerates ALL visible top-level windows including minimized.
+    /// Context decision: Include minimized windows for Matrix window tracking.
+    /// </summary>
+    public static List<nint> GetAllWindows()
+    {
+        var windows = new List<nint>();
+        EnumWindows((hWnd, _) =>
+        {
+            // IsWindowVisible returns true for minimized windows
+            if (IsWindowVisible(hWnd))
             {
                 windows.Add(hWnd);
             }
