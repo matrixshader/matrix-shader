@@ -43,4 +43,21 @@ public interface IIdentityService
     /// Saves the identity registry to disk.
     /// </summary>
     void SaveRegistry();
+
+    /// <summary>
+    /// Cleans stale entries from the registry.
+    /// Should be called on application startup.
+    /// </summary>
+    /// <param name="maxAge">Maximum age for entries (default: 24 hours)</param>
+    /// <returns>Number of entries removed</returns>
+    int CleanStaleEntries(TimeSpan? maxAge = null);
+
+    /// <summary>
+    /// Registers a window by its handle for tracking.
+    /// More reliable than PID for wt.exe launches.
+    /// </summary>
+    /// <param name="hwnd">Window handle</param>
+    /// <param name="profileName">Terminal profile name</param>
+    /// <param name="shaderIndex">Associated shader index</param>
+    void RegisterWindowHandle(nint hwnd, string profileName, int shaderIndex);
 }
