@@ -80,12 +80,12 @@ Plans:
   2. Application tracks window identity through minimize/restore/move operations
   3. Application assigns confidence scores to identity matches (high/medium/low)
   4. Window-to-shader mappings persist and restore correctly after restart
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 04-01: 4-layer identity resolution (launch tracking, command line, title, UI Automation)
-- [ ] 04-02: Confidence scoring system with fallback hierarchy
-- [ ] 04-03: Identity registry persistence and restoration
+- [ ] 04-01-PLAN.md — Identity models and confidence scoring (Wave 1)
+- [ ] 04-02-PLAN.md — Core 4-layer identity resolution with batch WMI and UI Automation (Wave 2)
+- [ ] 04-03-PLAN.md — Registry persistence with LocalAppData path and 24-hour cleanup (Wave 2)
 
 ### Phase 5: Layout Service
 **Goal**: Windows position automatically in organized layouts across monitors
