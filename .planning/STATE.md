@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 4 of 10 (Window Identity Service)
-Plan: 1 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-27 - Completed 04-01-PLAN.md (identity models)
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-01-27 - Completed 04-03-PLAN.md (registry persistence)
 
-Progress: [█████████░] 30% (9/30 plans)
+Progress: [███████████░] 37% (11/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 5 min
-- Total execution time: 0.80 hours
+- Total plans completed: 11
+- Average duration: 6 min
+- Total execution time: 1.08 hours
 
 **By Phase:**
 
@@ -30,10 +30,10 @@ Progress: [█████████░] 30% (9/30 plans)
 | 01-shader-service-foundation | 3 | 21 min | 7 min |
 | 02-state-persistence | 2 | 11 min | 6 min |
 | 03-windows-api-layer | 3 | 12 min | 4 min |
-| 04-window-identity-service | 1 | 4 min | 4 min |
+| 04-window-identity-service | 3 | 21 min | 7 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (5 min), 03-01 (4 min), 03-02 (2 min), 03-03 (6 min), 04-01 (4 min)
+- Last 5 plans: 03-02 (2 min), 03-03 (6 min), 04-01 (4 min), 04-02 (est), 04-03 (16 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -71,6 +71,10 @@ Recent decisions affecting current work:
 - [04-01]: IdentitySource enum values 0-7 with confidence mapping via extension method
 - [04-01]: WindowHandle stored as string in IdentityEntry (nint not JSON-friendly)
 - [04-01]: Dictionary<string, IdentityEntry> for registry entries (matches PowerShell format)
+- [04-03]: Registry path uses LocalApplicationData (AppData\Local\MatrixShader)
+- [04-03]: Atomic writes: temp file in same directory (.tmp) + File.Move
+- [04-03]: CleanStaleEntries checks process existence, handle validity, and 24h age
+- [04-03]: _recoveredKeys HashSet distinguishes fresh (1.0) from recovered (0.95) confidence
 
 ### Pending Todos
 
@@ -84,7 +88,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 04-01-PLAN.md (identity models)
+Stopped at: Completed 04-03-PLAN.md (registry persistence)
 Resume file: None
 
 ---
