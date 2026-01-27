@@ -96,12 +96,12 @@ Plans:
   2. Windows distribute evenly across all connected monitors
   3. Gap size between windows is configurable and persists
   4. Layout preferences persist across application restarts
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 05-01: Pillars layout algorithm (side-by-side columns)
-- [ ] 05-02: Quads layout algorithm (2x2 grid per monitor)
-- [ ] 05-03: Multi-monitor distribution with gap configuration
+- [ ] 05-01-PLAN.md — Gap adjustment and mode cycling with immediate persistence (Wave 1)
+- [ ] 05-02-PLAN.md — ApplyLayout with border compensation via PositionWindowExact (Wave 1)
+- [ ] 05-03-PLAN.md — Window slot persistence for layout restoration (Wave 2)
 
 ### Phase 6: Control Panel TUI
 **Goal**: Interactive control panel matching PowerShell functionality
