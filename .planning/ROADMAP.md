@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: State Persistence** - JSON config and atomic file writes
 - [x] **Phase 3: Windows API Layer** - P/Invoke declarations and window enumeration
 - [x] **Phase 4: Window Identity Service** - 4-layer identity resolution with confidence scoring
-- [ ] **Phase 5: Layout Service** - Pillars/Quads positioning with multi-monitor support
+- [x] **Phase 5: Layout Service** - Pillars/Quads positioning with multi-monitor support
 - [ ] **Phase 6: Control Panel TUI** - Redpill interactive control panel with Spectre.Console
 - [ ] **Phase 7: Terminal Integration** - settings.json manipulation and profile management
 - [ ] **Phase 8: CLI Applications** - bluepill launcher and wakeupneo wizard
@@ -99,9 +99,9 @@ Plans:
 **Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 05-01-PLAN.md — Gap adjustment and mode cycling with immediate persistence (Wave 1)
-- [ ] 05-02-PLAN.md — ApplyLayout with border compensation via PositionWindowExact (Wave 1)
-- [ ] 05-03-PLAN.md — Window slot persistence for layout restoration (Wave 2)
+- [x] 05-01-PLAN.md — Gap adjustment and mode cycling with immediate persistence (Wave 1)
+- [x] 05-02-PLAN.md — ApplyLayout with border compensation via PositionWindowExact (Wave 1)
+- [x] 05-03-PLAN.md — Window slot persistence for layout restoration (Wave 2)
 
 ### Phase 6: Control Panel TUI
 **Goal**: Interactive control panel matching PowerShell functionality
@@ -195,7 +195,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 2. State Persistence | 2/2 | ✓ Complete | 2026-01-26 |
 | 3. Windows API Layer | 3/3 | ✓ Complete | 2026-01-26 |
 | 4. Window Identity Service | 3/3 | ✓ Complete | 2026-01-27 |
-| 5. Layout Service | 0/3 | Not started | - |
+| 5. Layout Service | 3/3 | ✓ Complete | 2026-01-27 |
 | 6. Control Panel TUI | 0/4 | Not started | - |
 | 7. Terminal Integration | 0/3 | Not started | - |
 | 8. CLI Applications | 0/3 | Not started | - |

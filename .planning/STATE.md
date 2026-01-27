@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** The C# version must work exactly like the PowerShell version does today
-**Current focus:** Phase 5 - Layout Service
+**Current focus:** Phase 6 - Control Panel TUI
 
 ## Current Position
 
 Phase: 5 of 10 (Layout Service)
 Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-01-27 - Completed 05-03-PLAN.md (window slot persistence)
+Status: Phase complete ✓ VERIFIED
+Last activity: 2026-01-27 - Phase 5 complete and verified (10/10 must-haves passed)
 
 Progress: [██████████████░] 47% (14/30 plans)
 
