@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 3 of 10 (Windows API Layer)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-01-27 - Completed 03-03-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-01-26 - Completed 03-02-PLAN.md (fills gap from out-of-order execution)
 
 Progress: [████████░░] 27% (8/30 plans)
 
@@ -62,6 +62,9 @@ Recent decisions affecting current work:
 - [02-02]: Temp file cleanup on save failure for robustness
 - [03-01]: LibraryImport over DllImport for all new P/Invoke (AOT compatibility)
 - [03-01]: Reuse existing RECT struct for DwmGetWindowAttribute out parameter
+- [03-02]: GetAllWindows includes minimized windows for Matrix window tracking
+- [03-02]: GetMonitors sorts primary first, then left-to-right to match PowerShell
+- [03-02]: DWM-first pattern: Try DWM API, fall back to standard Windows API
 - [03-03]: Border expansion outward (window rect = visible + margins) for pixel-perfect positioning
 - [03-03]: SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW for z-order/focus preservation
 
@@ -76,10 +79,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-27
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-01-26
+Stopped at: Completed 03-02-PLAN.md (phase 03 complete)
 Resume file: None
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-27*
+*Last updated: 2026-01-26*
