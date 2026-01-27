@@ -71,6 +71,10 @@ Recent decisions affecting current work:
 - [04-01]: IdentitySource enum values 0-7 with confidence mapping via extension method
 - [04-01]: WindowHandle stored as string in IdentityEntry (nint not JSON-friendly)
 - [04-01]: Dictionary<string, IdentityEntry> for registry entries (matches PowerShell format)
+- [04-02]: net8.0-windows TFM required for Windows Desktop framework reference (UI Automation)
+- [04-02]: Batch WMI with OR joins for O(1) command line queries
+- [04-02]: UI Automation Layer 4 order: TermControl (0.95) -> TabItem (0.85) -> Name (0.90)
+- [04-02]: IsHandleValid = IsWindow AND IsWindowVisible (both required)
 - [04-03]: Registry path uses LocalApplicationData (AppData\Local\MatrixShader)
 - [04-03]: Atomic writes: temp file in same directory (.tmp) + File.Move
 - [04-03]: CleanStaleEntries checks process existence, handle validity, and 24h age
