@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 3 of 10 (Windows API Layer)
-Plan: 1 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-26 — Completed 03-01-PLAN.md
+Last activity: 2026-01-27 - Completed 03-03-PLAN.md
 
-Progress: [██████░░░░] 20% (6/30 plans)
+Progress: [████████░░] 27% (8/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 8
 - Average duration: 6 min
-- Total execution time: 0.57 hours
+- Total execution time: 0.73 hours
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: [██████░░░░] 20% (6/30 plans)
 |-------|-------|-------|----------|
 | 01-shader-service-foundation | 3 | 21 min | 7 min |
 | 02-state-persistence | 2 | 11 min | 6 min |
-| 03-windows-api-layer | 1 | 4 min | 4 min |
+| 03-windows-api-layer | 3 | 12 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 (8 min), 02-01 (6 min), 02-02 (5 min), 03-01 (4 min)
+- Last 5 plans: 02-01 (6 min), 02-02 (5 min), 03-01 (4 min), 03-02 (2 min), 03-03 (6 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -62,6 +62,8 @@ Recent decisions affecting current work:
 - [02-02]: Temp file cleanup on save failure for robustness
 - [03-01]: LibraryImport over DllImport for all new P/Invoke (AOT compatibility)
 - [03-01]: Reuse existing RECT struct for DwmGetWindowAttribute out parameter
+- [03-03]: Border expansion outward (window rect = visible + margins) for pixel-perfect positioning
+- [03-03]: SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW for z-order/focus preservation
 
 ### Pending Todos
 
@@ -74,10 +76,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-26
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-01-27
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-26*
+*Last updated: 2026-01-27*
