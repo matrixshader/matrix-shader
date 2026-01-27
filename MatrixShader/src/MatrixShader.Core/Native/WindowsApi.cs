@@ -353,6 +353,81 @@ public static partial class WindowsApi
     }
 
     /// <summary>
+    /// Gets the visible bounds of a window, excluding invisible borders.
+    /// Falls back to GetWindowRect if DWM is unavailable.
+    /// </summary>
+    public static WindowRect GetVisibleWindowBounds(nint hWnd)
+    {
+        if (DwmGetWindowAttribute(
+            hWnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            out RECT visibleBounds,
+            Marshal.SizeOf<RECT>()) == 0)  // S_OK
+        {
+            return visibleBounds.ToWindowRect();
+        }
+
+        // Fallback for DWM-disabled scenarios (rare on Windows 10+)
+        if (GetWindowRect(hWnd, out RECT rect))
+        {
+            return rect.ToWindowRect();
+        }
+
+        return WindowRect.Empty;
+    }
+
+    /// <summary>
+    /// Calculates the invisible border margins for a window.
+    /// Returns BorderMargins.Zero if window rect cannot be retrieved or DWM unavailable.
+    /// </summary>
+    public static BorderMargins GetBorderMargins(nint hWnd)
+    {
+        if (!GetWindowRect(hWnd, out RECT windowRect))
+            return BorderMargins.Zero;
+
+        if (DwmGetWindowAttribute(hWnd, DWMWA_EXTENDED_FRAME_BOUNDS,
+            out RECT extendedRect, Marshal.SizeOf<RECT>()) != 0)
+            return BorderMargins.Zero;
+
+        return new BorderMargins
+        {
+            Left = extendedRect.Left - windowRect.Left,
+            Top = extendedRect.Top - windowRect.Top,
+            Right = windowRect.Right - extendedRect.Right,
+            Bottom = windowRect.Bottom - extendedRect.Bottom
+        };
+    }
+
+    /// <summary>
+    /// Positions a window to exact visible pixel coordinates, compensating for invisible borders.
+    /// Preserves z-order (doesn't bring to top) and doesn't activate the window.
+    /// </summary>
+    /// <param name="hWnd">Window handle</param>
+    /// <param name="targetVisible">Target visible bounds (what user sees)</param>
+    /// <returns>True if positioning succeeded</returns>
+    public static bool PositionWindowExact(nint hWnd, WindowRect targetVisible)
+    {
+        // Get current invisible border margins
+        var margins = GetBorderMargins(hWnd);
+
+        // Expand target rect to account for invisible borders
+        // The window rect needs to be larger than visible rect by the border amounts
+        int windowLeft = targetVisible.Left - margins.Left;
+        int windowTop = targetVisible.Top - margins.Top;
+        int windowWidth = targetVisible.Width + margins.Left + margins.Right;
+        int windowHeight = targetVisible.Height + margins.Top + margins.Bottom;
+
+        return SetWindowPos(
+            hWnd,
+            nint.Zero,           // Don't change z-order
+            windowLeft,
+            windowTop,
+            windowWidth,
+            windowHeight,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    }
+
+    /// <summary>
     /// Gets information about all connected monitors.
     /// </summary>
     public static List<MonitorInfo> GetMonitors()
