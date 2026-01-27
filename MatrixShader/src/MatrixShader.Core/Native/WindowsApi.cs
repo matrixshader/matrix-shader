@@ -290,7 +290,9 @@ public static partial class WindowsApi
     }
 
     /// <summary>
-    /// Positions a window to the specified rectangle.
+    /// Positions a window to the specified rectangle (window rect, not visible rect).
+    /// Note: Does NOT compensate for invisible borders. Use PositionWindowExact() for
+    /// pixel-perfect visible positioning that accounts for Windows 10/11 invisible borders.
     /// </summary>
     public static bool PositionWindow(nint hWnd, WindowRect rect)
     {
