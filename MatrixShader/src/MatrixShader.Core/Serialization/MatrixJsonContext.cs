@@ -19,6 +19,8 @@ namespace MatrixShader.Core.Serialization;
 [JsonSerializable(typeof(IdentityRegistry))]
 [JsonSerializable(typeof(IdentityEntry))]
 [JsonSerializable(typeof(Dictionary<string, IdentityEntry>))]
+[JsonSerializable(typeof(WindowSlot))]
+[JsonSerializable(typeof(Dictionary<string, WindowSlot>))]
 internal partial class MatrixJsonContext : JsonSerializerContext
 {
 }
