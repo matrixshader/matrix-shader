@@ -408,6 +408,10 @@ if ($choice -eq '2') {
     foreach ($cfg in $tabConfigs) {
         $slot = $cfg.Slot
         $pname = "Matrix-$slot"
+
+        # Sync tab color to match shader color BEFORE launching
+        Sync-TabColorToShader -ProfileName $pname | Out-Null
+
         Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
         Write-MatrixLog "Launching window: $pname" -Source SETUP
 
@@ -458,6 +462,10 @@ Write-Host " Opening windows..." -ForegroundColor Cyan
 foreach ($cfg in $tabConfigs) {
     $slot = $cfg.Slot
     $pname = "Matrix-$slot"
+
+    # Sync tab color to match shader color BEFORE launching
+    Sync-TabColorToShader -ProfileName $pname | Out-Null
+
     Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
     Write-MatrixLog "Launching window: $pname" -Source SETUP
 

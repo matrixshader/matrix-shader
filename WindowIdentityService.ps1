@@ -13,8 +13,12 @@ $script:LaunchRegistry = @{}           # Runtime registry: @{ PID = @{ ProfileNa
 $script:IdentityRegistryPath = "$env:USERPROFILE\Documents\Matrix\identity-registry.json"
 
 # --- UNIFIED P/INVOKE API CLASS ---
-# Consolidates all Windows API calls needed for identity resolution
-Add-Type -ErrorAction SilentlyContinue -TypeDefinition @"
+# Load pre-compiled DLL if available (instant), otherwise compile (slow)
+$matrixDllPath = "$PSScriptRoot\MatrixAPI.dll"
+if (Test-Path $matrixDllPath) {
+    Add-Type -Path $matrixDllPath -ErrorAction SilentlyContinue
+} elseif (-not ([System.Management.Automation.PSTypeName]'MatrixWindowAPI').Type) {
+Add-Type -TypeDefinition @"
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -157,6 +161,7 @@ public class MatrixWindowAPI {
     }
 }
 "@
+}
 
 # --- UNIFIED LOGGING ---
 # Import unified logging module (respects $env:MATRIX_DEBUG)
@@ -970,7 +975,7 @@ function Resolve-WindowIdentity {
         return $identity
     }
 
-    Write-MatrixLog "  -> No identity resolved for Handle=$WindowHandle" -Source IDENTITY -Level WARN
+    Write-MatrixLog "  -> No identity resolved for Handle=$WindowHandle" -Source IDENTITY -Level DEBUG
     return $null
 }
 

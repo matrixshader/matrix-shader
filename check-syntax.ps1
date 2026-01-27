@@ -1,19 +1,34 @@
-$errors = $null
-Write-Host "Checking matrix_control.ps1..."
-$ast = [System.Management.Automation.Language.Parser]::ParseFile("$PSScriptRoot\matrix_control.ps1", [ref]$null, [ref]$errors)
-if ($errors) {
-    Write-Host "Syntax errors found:" -ForegroundColor Red
-    $errors | ForEach-Object { Write-Host $_.ToString() }
-} else {
-    Write-Host "matrix_control.ps1: OK" -ForegroundColor Green
+# Check syntax of core PowerShell files
+$files = @(
+    "matrix_control.ps1",
+    "matrix_setup.ps1",
+    "matrix_hotkeys.ps1",
+    "WindowLayoutEngine.ps1",
+    "WindowIdentityService.ps1"
+)
+
+Write-Host "=== Syntax Check ===" -ForegroundColor Cyan
+$allOk = $true
+foreach ($file in $files) {
+    $path = Join-Path $PSScriptRoot $file
+    if (-not (Test-Path $path)) {
+        Write-Host "$file : NOT FOUND" -ForegroundColor Red
+        continue
+    }
+
+    $errors = $null
+    $null = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)
+
+    if ($errors.Count -eq 0) {
+        Write-Host "$file : OK" -ForegroundColor Green
+    } else {
+        Write-Host "$file : $($errors.Count) ERRORS" -ForegroundColor Red
+        $errors | ForEach-Object { Write-Host "  - $($_.Message)" -ForegroundColor Yellow }
+        $allOk = $false
+    }
 }
 
-$errors = $null
-Write-Host "Checking WindowLayoutEngine.ps1..."
-$ast = [System.Management.Automation.Language.Parser]::ParseFile("$PSScriptRoot\WindowLayoutEngine.ps1", [ref]$null, [ref]$errors)
-if ($errors) {
-    Write-Host "Syntax errors found:" -ForegroundColor Red
-    $errors | ForEach-Object { Write-Host $_.ToString() }
-} else {
-    Write-Host "WindowLayoutEngine.ps1: OK" -ForegroundColor Green
+if ($allOk) {
+    Write-Host ""
+    Write-Host "All files passed syntax check!" -ForegroundColor Cyan
 }
