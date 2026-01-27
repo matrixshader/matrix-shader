@@ -23,13 +23,13 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Window Management
 
 - [x] **WNDW-01**: System can detect all Windows Terminal windows
-- [ ] **WNDW-02**: System can identify Matrix shader windows via 4-layer resolution
+- [x] **WNDW-02**: System can identify Matrix shader windows via 4-layer resolution
 - [ ] **WNDW-03**: User can manage up to 8 shader windows via tabbed interface
 - [ ] **WNDW-04**: User can cycle through Pillars/Quads/Auto layout modes
 - [ ] **WNDW-05**: System positions windows with configurable gap size
 - [x] **WNDW-06**: System handles multi-monitor configurations
 - [ ] **WNDW-07**: Window-to-shader mapping persists across sessions
-- [ ] **WNDW-08**: System tracks window identity with confidence scoring
+- [x] **WNDW-08**: System tracks window identity with confidence scoring
 
 ### CLI Applications
 
@@ -42,8 +42,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### State Persistence
 
 - [x] **STATE-01**: Shader configuration persists to JSON
-- [ ] **STATE-02**: Window registry persists handle-to-shader mapping
-- [ ] **STATE-03**: Identity registry persists profile-to-window mapping
+- [x] **STATE-02**: Window registry persists handle-to-shader mapping
+- [x] **STATE-03**: Identity registry persists profile-to-window mapping
 - [ ] **STATE-04**: Layout preferences persist (mode, gap size, slots)
 - [x] **STATE-05**: Atomic file writes prevent corruption
 
@@ -110,10 +110,10 @@ Deferred to future release.
 | STATE-05 | Phase 2 | Complete |
 | WNDW-01 | Phase 3 | Complete |
 | WNDW-06 | Phase 3 | Complete |
-| WNDW-02 | Phase 4 | Pending |
-| WNDW-08 | Phase 4 | Pending |
-| STATE-02 | Phase 4 | Pending |
-| STATE-03 | Phase 4 | Pending |
+| WNDW-02 | Phase 4 | Complete |
+| WNDW-08 | Phase 4 | Complete |
+| STATE-02 | Phase 4 | Complete |
+| STATE-03 | Phase 4 | Complete |
 | WNDW-03 | Phase 5 | Pending |
 | WNDW-04 | Phase 5 | Pending |
 | WNDW-05 | Phase 5 | Pending |
@@ -145,4 +145,4 @@ Deferred to future release.
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-26 — Phase 3 complete (WNDW-01, WNDW-06)*
+*Last updated: 2026-01-27 — Phase 4 complete (WNDW-02, WNDW-08, STATE-02, STATE-03)*

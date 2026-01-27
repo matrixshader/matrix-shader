@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Shader Service Foundation** - HLSL file manipulation with #define injection
 - [x] **Phase 2: State Persistence** - JSON config and atomic file writes
 - [x] **Phase 3: Windows API Layer** - P/Invoke declarations and window enumeration
-- [ ] **Phase 4: Window Identity Service** - 4-layer identity resolution with confidence scoring
+- [x] **Phase 4: Window Identity Service** - 4-layer identity resolution with confidence scoring
 - [ ] **Phase 5: Layout Service** - Pillars/Quads positioning with multi-monitor support
 - [ ] **Phase 6: Control Panel TUI** - Redpill interactive control panel with Spectre.Console
 - [ ] **Phase 7: Terminal Integration** - settings.json manipulation and profile management
@@ -83,9 +83,9 @@ Plans:
 **Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 04-01-PLAN.md — Identity models and confidence scoring (Wave 1)
-- [ ] 04-02-PLAN.md — Core 4-layer identity resolution with batch WMI and UI Automation (Wave 2)
-- [ ] 04-03-PLAN.md — Registry persistence with LocalAppData path and 24-hour cleanup (Wave 2)
+- [x] 04-01-PLAN.md — Identity models and confidence scoring (Wave 1)
+- [x] 04-02-PLAN.md — Core 4-layer identity resolution with batch WMI and UI Automation (Wave 2)
+- [x] 04-03-PLAN.md — Registry persistence with LocalAppData path and 24-hour cleanup (Wave 2)
 
 ### Phase 5: Layout Service
 **Goal**: Windows position automatically in organized layouts across monitors
@@ -194,7 +194,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 1. Shader Service Foundation | 3/3 | ✓ Complete | 2026-01-25 |
 | 2. State Persistence | 2/2 | ✓ Complete | 2026-01-26 |
 | 3. Windows API Layer | 3/3 | ✓ Complete | 2026-01-26 |
-| 4. Window Identity Service | 0/3 | Not started | - |
+| 4. Window Identity Service | 3/3 | ✓ Complete | 2026-01-27 |
 | 5. Layout Service | 0/3 | Not started | - |
 | 6. Control Panel TUI | 0/4 | Not started | - |
 | 7. Terminal Integration | 0/3 | Not started | - |
