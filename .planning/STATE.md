@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 5 of 10 (Layout Service)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-27 - Completed 05-02-PLAN.md (border-compensated positioning)
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-01-27 - Completed 05-03-PLAN.md (window slot persistence)
 
-Progress: [█████████████░] 43% (13/30 plans)
+Progress: [██████████████░] 47% (14/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
+- Total plans completed: 14
 - Average duration: 6 min
-- Total execution time: 1.75 hours
+- Total execution time: 2.05 hours
 
 **By Phase:**
 
@@ -31,10 +31,10 @@ Progress: [█████████████░] 43% (13/30 plans)
 | 02-state-persistence | 2 | 11 min | 6 min |
 | 03-windows-api-layer | 3 | 12 min | 4 min |
 | 04-window-identity-service | 3 | 21 min | 7 min |
-| 05-layout-service | 2 | 40 min | 20 min |
+| 05-layout-service | 3 | 58 min | 19 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01 (4 min), 04-02 (est), 04-03 (16 min), 05-01 (34 min), 05-02 (6 min)
+- Last 5 plans: 04-02 (est), 04-03 (16 min), 05-01 (34 min), 05-02 (6 min), 05-03 (18 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -85,6 +85,9 @@ Recent decisions affecting current work:
 - [05-01]: CycleMode is pure function - caller must call UpdateConfig to persist
 - [05-02]: ApplyLayout uses PositionWindowExact for pixel-perfect visible positioning
 - [05-02]: Handle validation uses IsHandleValid (IsWindow AND IsWindowVisible)
+- [05-03]: Dictionary keyed by "Matrix-N" format matches PowerShell naming convention
+- [05-03]: Two-pass slot assignment: saved slots first, then fill remaining positions
+- [05-03]: Immediate persistence via ConfigService.SaveState on any slot change
 
 ### Pending Todos
 
@@ -98,7 +101,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 05-02-PLAN.md
+Stopped at: Completed 05-03-PLAN.md (Phase 5 complete)
 Resume file: None
 
 ---
