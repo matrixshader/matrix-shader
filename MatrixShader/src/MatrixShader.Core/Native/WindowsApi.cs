@@ -63,6 +63,13 @@ public static partial class WindowsApi
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool IsIconic(nint hWnd);
 
+    /// <summary>
+    /// Determines whether the specified window handle identifies an existing window.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsWindow(nint hWnd);
+
     #endregion
 
     #region Window Positioning
@@ -469,6 +476,17 @@ public static partial class WindowsApi
         }
 
         return sorted;
+    }
+
+    /// <summary>
+    /// Validates that a window handle is valid AND visible.
+    /// Context decision: Both IsWindow AND IsWindowVisible must pass for handle validation.
+    /// </summary>
+    public static bool IsHandleValid(nint hWnd)
+    {
+        if (hWnd == nint.Zero)
+            return false;
+        return IsWindow(hWnd) && IsWindowVisible(hWnd);
     }
 
     #endregion
