@@ -55,6 +55,26 @@ public interface ILayoutService
     /// </summary>
     /// <param name="config">Configuration to persist</param>
     void UpdateConfig(LayoutConfig config);
+
+    /// <summary>
+    /// Saves current window slot assignments for persistence.
+    /// </summary>
+    /// <param name="positions">Current window positions to persist as slots</param>
+    void SaveWindowSlots(IReadOnlyList<WindowPosition> positions);
+
+    /// <summary>
+    /// Loads saved slot assignments and returns windows mapped to slots.
+    /// </summary>
+    /// <param name="windows">Windows to map to saved slots</param>
+    /// <returns>Windows positioned according to saved slot assignments</returns>
+    IReadOnlyList<WindowPosition> LoadWindowSlots(IReadOnlyList<WindowInfo> windows);
+
+    /// <summary>
+    /// Assigns a new window to the next available slot.
+    /// </summary>
+    /// <param name="window">Window to assign</param>
+    /// <returns>Assigned slot position (0-based)</returns>
+    int AssignSlot(WindowInfo window);
 }
 
 /// <summary>
