@@ -26,6 +26,9 @@ public record WindowInfo
     /// <summary>Identity resolution source</summary>
     public IdentitySource Source { get; init; } = IdentitySource.Unknown;
 
+    /// <summary>Confidence level of identity resolution (0.0 to 1.0)</summary>
+    public double Confidence { get; init; }
+
     /// <summary>Is this the control panel window</summary>
     public bool IsControlPanel { get; init; }
 }
@@ -55,20 +58,53 @@ public record WindowRect
 
 /// <summary>
 /// Source of window identity resolution.
+/// Each source has an associated confidence level.
 /// </summary>
 public enum IdentitySource
 {
+    /// <summary>Unknown source (confidence 0.0)</summary>
     Unknown = 0,
 
-    /// <summary>Tracked from process launch</summary>
+    /// <summary>Tracked from process launch - fresh (confidence 1.0)</summary>
     LaunchTracking = 1,
 
-    /// <summary>Parsed from command line arguments</summary>
-    CommandLine = 2,
+    /// <summary>Recovered from disk after restart (confidence 0.95)</summary>
+    LaunchTrackingRecovered = 2,
 
-    /// <summary>Matched from window title</summary>
-    Title = 3,
+    /// <summary>Parsed from command line arguments (confidence 0.95)</summary>
+    CommandLine = 3,
 
-    /// <summary>Resolved via UI Automation (slow)</summary>
-    UIAutomation = 4
+    /// <summary>Matched from window title (confidence 0.70)</summary>
+    Title = 4,
+
+    /// <summary>Resolved via UI Automation TermControl (confidence 0.95)</summary>
+    UIAutomationTermControl = 5,
+
+    /// <summary>Resolved via UI Automation Tab (confidence 0.85)</summary>
+    UIAutomationTab = 6,
+
+    /// <summary>Resolved via UI Automation Name (confidence 0.90)</summary>
+    UIAutomationName = 7
+}
+
+/// <summary>
+/// Extension methods for IdentitySource enum.
+/// </summary>
+public static class IdentitySourceExtensions
+{
+    /// <summary>
+    /// Gets the confidence score for the identity source.
+    /// Matches PowerShell WindowIdentityService.ps1 confidence values exactly.
+    /// </summary>
+    public static double GetConfidence(this IdentitySource source) => source switch
+    {
+        IdentitySource.LaunchTracking => 1.0,
+        IdentitySource.LaunchTrackingRecovered => 0.95,
+        IdentitySource.CommandLine => 0.95,
+        IdentitySource.UIAutomationTermControl => 0.95,
+        IdentitySource.UIAutomationName => 0.90,
+        IdentitySource.UIAutomationTab => 0.85,
+        IdentitySource.Title => 0.70,
+        _ => 0.0
+    };
 }
