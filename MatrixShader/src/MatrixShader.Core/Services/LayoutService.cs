@@ -146,6 +146,98 @@ public class LayoutService : ILayoutService
         _configService.SaveState(state);
     }
 
+    /// <inheritdoc/>
+    public void SaveWindowSlots(IReadOnlyList<WindowPosition> positions)
+    {
+        var state = _configService.LoadState();
+        var slots = new Dictionary<string, WindowSlot>();
+
+        for (int i = 0; i < positions.Count; i++)
+        {
+            var pos = positions[i];
+            var key = $"Matrix-{pos.Window.ShaderIndex}";
+            slots[key] = new WindowSlot
+            {
+                ShaderIndex = pos.Window.ShaderIndex,
+                SlotPosition = i,
+                MonitorIndex = pos.Monitor.Index,
+                LastPosition = pos.Target
+            };
+        }
+
+        state = state with { WindowSlots = slots };
+        _configService.SaveState(state);
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<WindowPosition> LoadWindowSlots(IReadOnlyList<WindowInfo> windows)
+    {
+        var state = _configService.LoadState();
+        var savedSlots = state.WindowSlots;
+
+        // Calculate base positions for current layout
+        var basePositions = CalculateLayout(windows, state.Layout);
+
+        // If no saved slots, return calculated positions
+        if (savedSlots.Count == 0)
+            return basePositions;
+
+        // Map windows to their saved slot positions
+        var result = new List<WindowPosition>();
+        var usedPositions = new HashSet<int>();
+        var assignedWindows = new HashSet<int>(); // Track windows by ShaderIndex
+
+        // First pass: assign windows with valid saved slots
+        foreach (var window in windows.OrderBy(w => w.ShaderIndex))
+        {
+            var key = $"Matrix-{window.ShaderIndex}";
+            if (savedSlots.TryGetValue(key, out var slot) && slot.SlotPosition < basePositions.Count)
+            {
+                // Use saved slot position
+                result.Add(basePositions[slot.SlotPosition] with { Window = window });
+                usedPositions.Add(slot.SlotPosition);
+                assignedWindows.Add(window.ShaderIndex);
+            }
+        }
+
+        // Second pass: assign windows without saved slots to remaining positions
+        foreach (var window in windows.OrderBy(w => w.ShaderIndex))
+        {
+            if (assignedWindows.Contains(window.ShaderIndex))
+                continue; // Already assigned in first pass
+
+            // Find first unused position
+            for (int i = 0; i < basePositions.Count; i++)
+            {
+                if (!usedPositions.Contains(i))
+                {
+                    result.Add(basePositions[i] with { Window = window });
+                    usedPositions.Add(i);
+                    assignedWindows.Add(window.ShaderIndex);
+                    break;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public int AssignSlot(WindowInfo window)
+    {
+        var state = _configService.LoadState();
+        var usedSlots = state.WindowSlots.Values.Select(s => s.SlotPosition).ToHashSet();
+
+        // Find first unused slot (0-7)
+        for (int i = 0; i < 8; i++)
+        {
+            if (!usedSlots.Contains(i))
+                return i;
+        }
+
+        return state.WindowSlots.Count; // Overflow to next position
+    }
+
     #region Pillars Layout
 
     /// <summary>
