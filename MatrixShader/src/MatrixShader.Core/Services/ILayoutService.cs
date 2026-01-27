@@ -34,6 +34,27 @@ public interface ILayoutService
     /// <param name="currentMode">Current layout mode</param>
     /// <returns>Next mode in cycle</returns>
     LayoutMode CycleMode(LayoutMode currentMode);
+
+    /// <summary>
+    /// Cycles to the next layout mode and returns updated config.
+    /// </summary>
+    /// <param name="current">Current layout configuration</param>
+    /// <returns>New config with next mode</returns>
+    LayoutConfig CycleMode(LayoutConfig current);
+
+    /// <summary>
+    /// Adjusts gap size by delta, clamping to valid range 0-200.
+    /// </summary>
+    /// <param name="current">Current layout configuration</param>
+    /// <param name="delta">Amount to adjust (+/- 5 typical)</param>
+    /// <returns>New config with adjusted gap size</returns>
+    LayoutConfig AdjustGap(LayoutConfig current, int delta);
+
+    /// <summary>
+    /// Saves the layout configuration immediately to persistent state.
+    /// </summary>
+    /// <param name="config">Configuration to persist</param>
+    void UpdateConfig(LayoutConfig config);
 }
 
 /// <summary>
