@@ -19,9 +19,9 @@ Progress: [█████████████░] 43% (13/30 plans)
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
+- Total plans completed: 13
 - Average duration: 6 min
-- Total execution time: 1.65 hours
+- Total execution time: 1.75 hours
 
 **By Phase:**
 
@@ -31,10 +31,10 @@ Progress: [█████████████░] 43% (13/30 plans)
 | 02-state-persistence | 2 | 11 min | 6 min |
 | 03-windows-api-layer | 3 | 12 min | 4 min |
 | 04-window-identity-service | 3 | 21 min | 7 min |
-| 05-layout-service | 1 | 34 min | 34 min |
+| 05-layout-service | 2 | 40 min | 20 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-03 (6 min), 04-01 (4 min), 04-02 (est), 04-03 (16 min), 05-01 (34 min)
+- Last 5 plans: 04-01 (4 min), 04-02 (est), 04-03 (16 min), 05-01 (34 min), 05-02 (6 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -83,6 +83,8 @@ Recent decisions affecting current work:
 - [05-01]: UpdateConfig calls LoadState/SaveState immediately for real-time persistence
 - [05-01]: AdjustGap clamps to 0-200 range matching PowerShell behavior
 - [05-01]: CycleMode is pure function - caller must call UpdateConfig to persist
+- [05-02]: ApplyLayout uses PositionWindowExact for pixel-perfect visible positioning
+- [05-02]: Handle validation uses IsHandleValid (IsWindow AND IsWindowVisible)
 
 ### Pending Todos
 
@@ -96,7 +98,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed 05-01-PLAN.md
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None
 
 ---
