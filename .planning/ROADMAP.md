@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Shader Service Foundation** - HLSL file manipulation with #define injection
 - [x] **Phase 2: State Persistence** - JSON config and atomic file writes
-- [ ] **Phase 3: Windows API Layer** - P/Invoke declarations and window enumeration
+- [x] **Phase 3: Windows API Layer** - P/Invoke declarations and window enumeration
 - [ ] **Phase 4: Window Identity Service** - 4-layer identity resolution with confidence scoring
 - [ ] **Phase 5: Layout Service** - Pillars/Quads positioning with multi-monitor support
 - [ ] **Phase 6: Control Panel TUI** - Redpill interactive control panel with Spectre.Console
@@ -67,9 +67,9 @@ Plans:
 **Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 03-01-PLAN.md — Add DWM P/Invoke declarations and BorderMargins model (Wave 1)
-- [ ] 03-02-PLAN.md — Window enumeration helpers and monitor sorting (Wave 2)
-- [ ] 03-03-PLAN.md — Window positioning with border compensation (Wave 2)
+- [x] 03-01-PLAN.md — Add DWM P/Invoke declarations and BorderMargins model (Wave 1)
+- [x] 03-02-PLAN.md — Window enumeration helpers and monitor sorting (Wave 2)
+- [x] 03-03-PLAN.md — Window positioning with border compensation (Wave 2)
 
 ### Phase 4: Window Identity Service
 **Goal**: System reliably identifies Matrix shader windows across sessions
@@ -193,7 +193,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 |-------|----------------|--------|-----------|
 | 1. Shader Service Foundation | 3/3 | ✓ Complete | 2026-01-25 |
 | 2. State Persistence | 2/2 | ✓ Complete | 2026-01-26 |
-| 3. Windows API Layer | 0/3 | Not started | - |
+| 3. Windows API Layer | 3/3 | ✓ Complete | 2026-01-26 |
 | 4. Window Identity Service | 0/3 | Not started | - |
 | 5. Layout Service | 0/3 | Not started | - |
 | 6. Control Panel TUI | 0/4 | Not started | - |

@@ -22,12 +22,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Window Management
 
-- [ ] **WNDW-01**: System can detect all Windows Terminal windows
+- [x] **WNDW-01**: System can detect all Windows Terminal windows
 - [ ] **WNDW-02**: System can identify Matrix shader windows via 4-layer resolution
 - [ ] **WNDW-03**: User can manage up to 8 shader windows via tabbed interface
 - [ ] **WNDW-04**: User can cycle through Pillars/Quads/Auto layout modes
 - [ ] **WNDW-05**: System positions windows with configurable gap size
-- [ ] **WNDW-06**: System handles multi-monitor configurations
+- [x] **WNDW-06**: System handles multi-monitor configurations
 - [ ] **WNDW-07**: Window-to-shader mapping persists across sessions
 - [ ] **WNDW-08**: System tracks window identity with confidence scoring
 
@@ -108,8 +108,8 @@ Deferred to future release.
 | SHDR-10 | Phase 1 | Complete |
 | STATE-01 | Phase 2 | Complete |
 | STATE-05 | Phase 2 | Complete |
-| WNDW-01 | Phase 3 | Pending |
-| WNDW-06 | Phase 3 | Pending |
+| WNDW-01 | Phase 3 | Complete |
+| WNDW-06 | Phase 3 | Complete |
 | WNDW-02 | Phase 4 | Pending |
 | WNDW-08 | Phase 4 | Pending |
 | STATE-02 | Phase 4 | Pending |
@@ -145,4 +145,4 @@ Deferred to future release.
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-26 — Phase 2 complete (STATE-01, STATE-05)*
+*Last updated: 2026-01-26 — Phase 3 complete (WNDW-01, WNDW-06)*
