@@ -429,11 +429,12 @@ public static partial class WindowsApi
 
     /// <summary>
     /// Gets information about all connected monitors.
+    /// Sorted: primary first, then left-to-right by working area position.
+    /// Matches PowerShell Get-ScreenTopology behavior.
     /// </summary>
     public static List<MonitorInfo> GetMonitors()
     {
         var monitors = new List<MonitorInfo>();
-        int index = 0;
 
         EnumDisplayMonitors(nint.Zero, nint.Zero, (nint hMonitor, nint hdcMonitor, ref RECT lprcMonitor, nint dwData) =>
         {
@@ -443,7 +444,7 @@ public static partial class WindowsApi
                 monitors.Add(new MonitorInfo
                 {
                     Handle = hMonitor,
-                    Index = index++,
+                    Index = 0,  // Will be re-indexed after sorting
                     Bounds = mi.rcMonitor.ToWindowRect(),
                     WorkArea = mi.rcWork.ToWindowRect(),
                     IsPrimary = (mi.dwFlags & MONITORINFOF_PRIMARY) != 0,
@@ -453,7 +454,19 @@ public static partial class WindowsApi
             return true;
         }, nint.Zero);
 
-        return monitors;
+        // Sort: Primary first, then left-to-right (matches PowerShell)
+        var sorted = monitors
+            .OrderByDescending(m => m.IsPrimary)
+            .ThenBy(m => m.WorkArea.Left)
+            .ToList();
+
+        // Re-index after sorting
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            sorted[i] = sorted[i] with { Index = i };
+        }
+
+        return sorted;
     }
 
     #endregion
