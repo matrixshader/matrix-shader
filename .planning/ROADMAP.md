@@ -113,13 +113,13 @@ Plans:
   3. User sees dirty state indicator when changes are unsaved
   4. Changes auto-save when switching tabs (no lost work)
   5. Color swatches display for visual feedback on parameter changes
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 06-01: Spectre.Console rendering layer (tables, colors, swatches)
-- [ ] 06-02: Keyboard input handling with Console.ReadKey loop
-- [ ] 06-03: Tab management and dirty state tracking
-- [ ] 06-04: Main control loop integrating all services
+- [ ] 06-01-PLAN.md — TuiRenderer with pixel-perfect ANSI output (Wave 1)
+- [ ] 06-02-PLAN.md — KeyHandler with shift-key detection (Wave 1)
+- [ ] 06-03-PLAN.md — TabManager with auto-save and dirty tracking (Wave 2)
+- [ ] 06-04-PLAN.md — ControlPanel main loop integrating all services (Wave 3)
 
 ### Phase 7: Terminal Integration
 **Goal**: Application manages Windows Terminal configuration
