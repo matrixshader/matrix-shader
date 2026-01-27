@@ -219,6 +219,9 @@ foreach ($slot in $slots) {
         continue
     }
 
+    # Sync tab color to match shader color BEFORE launching
+    Sync-TabColorToShader -ProfileName $pname | Out-Null
+
     Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
 
     # LAYER 1 INTEGRATION: Capture existing handles BEFORE launch

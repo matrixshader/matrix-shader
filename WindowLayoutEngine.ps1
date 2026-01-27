@@ -3,8 +3,12 @@
 # Implements Pillars and Quads layout strategies with multi-monitor support
 
 # --- WINDOWS API P/INVOKE DECLARATIONS ---
-# Note: These may already be loaded by matrix_control.ps1, but re-declaring is safe (ErrorAction SilentlyContinue)
-Add-Type -ErrorAction SilentlyContinue -TypeDefinition @"
+# Load pre-compiled DLL if available (instant), otherwise compile (slow)
+$matrixDllPath = "$PSScriptRoot\MatrixAPI.dll"
+if (Test-Path $matrixDllPath) {
+    Add-Type -Path $matrixDllPath -ErrorAction SilentlyContinue
+} elseif (-not ([System.Management.Automation.PSTypeName]'WindowLayoutAPI').Type) {
+Add-Type -TypeDefinition @"
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -62,8 +66,9 @@ public class WindowLayoutAPI {
     public const uint LWA_ALPHA = 0x2;
 }
 "@
+}
 
-# Load System.Windows.Forms for screen detection
+# Load System.Windows.Forms for screen detection (fast - just loads existing assembly)
 Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
 
 # --- UNIFIED LOGGING ---
@@ -748,10 +753,12 @@ function Get-MatrixLayoutConfig {
     $defaultConfig = @{
         Mode = 'Pillars'
         MaxPillarsPerScreen = 4
-        GapSize = 60
+        GapSize = 30
         PreferredScreen = 0
-        WindowsOnPrimary = $null  # null = Auto (all windows on primary for single-screen behavior)
+        WindowsOnPrimary = $null  # null = Auto (evenly distribute, remainders to primary)
         GlitchEnabled = $true     # Glitch = auto-snap windows to layout grid (default ON)
+        MonitorCount = 1          # User-configured monitor count (set by installer)
+        OverlapPercent = 5        # Overlap percentage for 5-8 window layouts
     }
 
     # Try to load existing state (US-002 pattern: JSON error handling)
@@ -769,6 +776,8 @@ function Get-MatrixLayoutConfig {
                     PreferredScreen = if ($state.layout.preferredScreen -ne $null) { $state.layout.preferredScreen } else { $defaultConfig.PreferredScreen }
                     WindowsOnPrimary = if ($null -ne $state.layout.windowsOnPrimary) { $state.layout.windowsOnPrimary } else { $defaultConfig.WindowsOnPrimary }
                     GlitchEnabled = if ($null -ne $state.layout.glitchEnabled) { $state.layout.glitchEnabled } else { $defaultConfig.GlitchEnabled }
+                    MonitorCount = if ($state.layout.monitorCount) { $state.layout.monitorCount } else { $defaultConfig.MonitorCount }
+                    OverlapPercent = if ($state.layout.overlapPercent) { $state.layout.overlapPercent } else { $defaultConfig.OverlapPercent }
                 }
                 return $config
             }
@@ -841,10 +850,12 @@ function Set-MatrixLayoutConfig {
         $state.layout = @{
             mode = if ($Config.Mode) { $Config.Mode } else { 'Pillars' }
             maxPillarsPerScreen = if ($Config.MaxPillarsPerScreen) { $Config.MaxPillarsPerScreen } else { 4 }
-            gapSize = if ($Config.GapSize) { $Config.GapSize } else { 60 }
+            gapSize = if ($Config.GapSize) { $Config.GapSize } else { 30 }
             preferredScreen = if ($Config.PreferredScreen -ne $null) { $Config.PreferredScreen } else { 0 }
-            windowsOnPrimary = $Config.WindowsOnPrimary  # null = Auto (all on primary)
-            glitchEnabled = if ($null -ne $Config.GlitchEnabled) { $Config.GlitchEnabled } else { $true }  # Glitch = auto-snap (default ON)
+            windowsOnPrimary = $Config.WindowsOnPrimary  # null = Auto (evenly distribute)
+            glitchEnabled = if ($null -ne $Config.GlitchEnabled) { $Config.GlitchEnabled } else { $true }
+            monitorCount = if ($Config.MonitorCount) { $Config.MonitorCount } else { 1 }
+            overlapPercent = if ($Config.OverlapPercent) { $Config.OverlapPercent } else { 5 }
         }
 
         # Convert to JSON
@@ -3311,23 +3322,66 @@ function Recalculate-AffectedLayouts {
 
         switch ($mode) {
             'Pillars' {
-                $maxPillars = if ($config.MaxPillarsPerScreen) { $config.MaxPillarsPerScreen } else { 4 }
-                $columns = [Math]::Min($windowCount, $maxPillars)
-                $rows = [Math]::Ceiling($windowCount / $columns)
+                $overlapPercent = if ($config.OverlapPercent) { $config.OverlapPercent } else { 5 }
 
-                $totalHGaps = ($columns + 1) * $gapSize
-                $totalVGaps = ($rows + 1) * $gapSize
-                $cellWidth = [int](($screen.Width - $totalHGaps) / $columns)
-                $cellHeight = [int](($screen.Height - $totalVGaps) / $rows)
+                if ($windowCount -le 4) {
+                    # 1-4 windows: Full height pillars side by side
+                    $columns = $windowCount
+                    $totalHGaps = ($columns + 1) * $gapSize
+                    $cellWidth = [int](($screen.Width - $totalHGaps) / $columns)
+                    $cellHeight = $screen.Height - (2 * $gapSize)
 
-                for ($i = 0; $i -lt $windowCount; $i++) {
-                    $col = $i % $columns
-                    $row = [Math]::Floor($i / $columns)
-                    $positions += @{
-                        X = $screen.Left + $gapSize + ($col * ($cellWidth + $gapSize))
-                        Y = $screen.Top + $gapSize + ($row * ($cellHeight + $gapSize))
-                        Width = $cellWidth
-                        Height = $cellHeight
+                    for ($i = 0; $i -lt $windowCount; $i++) {
+                        $positions += @{
+                            X = $screen.Left + $gapSize + ($i * ($cellWidth + $gapSize))
+                            Y = $screen.Top + $gapSize
+                            Width = $cellWidth
+                            Height = $cellHeight
+                        }
+                    }
+                }
+                else {
+                    # 5-8 windows: Grid layout with overlap between rows
+                    # 5: 3+2, 6: 3+3, 7: 4+3, 8: 4+4
+                    $topCount = [Math]::Ceiling($windowCount / 2)
+                    $bottomCount = $windowCount - $topCount
+
+                    # Calculate cell sizes
+                    $topCols = $topCount
+                    $bottomCols = $bottomCount
+
+                    $totalHGapsTop = ($topCols + 1) * $gapSize
+                    $totalHGapsBottom = ($bottomCols + 1) * $gapSize
+
+                    $topCellWidth = [int](($screen.Width - $totalHGapsTop) / $topCols)
+                    $bottomCellWidth = [int](($screen.Width - $totalHGapsBottom) / $bottomCols)
+
+                    # Height calculation with overlap
+                    $availableHeight = $screen.Height - (2 * $gapSize)
+                    $cellHeight = [int]($availableHeight * 0.55)  # Slightly more than half for overlap
+                    $overlapAmount = [int]($cellHeight * ($overlapPercent / 100))
+
+                    $topY = $screen.Top + $gapSize
+                    $bottomY = $screen.Top + $gapSize + $cellHeight - $overlapAmount
+
+                    # Top row windows
+                    for ($i = 0; $i -lt $topCount; $i++) {
+                        $positions += @{
+                            X = $screen.Left + $gapSize + ($i * ($topCellWidth + $gapSize))
+                            Y = $topY
+                            Width = $topCellWidth
+                            Height = $cellHeight
+                        }
+                    }
+
+                    # Bottom row windows
+                    for ($i = 0; $i -lt $bottomCount; $i++) {
+                        $positions += @{
+                            X = $screen.Left + $gapSize + ($i * ($bottomCellWidth + $gapSize))
+                            Y = $bottomY
+                            Width = $bottomCellWidth
+                            Height = $cellHeight
+                        }
                     }
                 }
             }
@@ -3335,6 +3389,7 @@ function Recalculate-AffectedLayouts {
                 # Quads: 2x2 grid with plus-shaped gap
                 $halfWidth = [int](($screen.Width - (3 * $gapSize)) / 2)
                 $halfHeight = [int](($screen.Height - (3 * $gapSize)) / 2)
+                $cascadeOffset = 40  # Offset for cascaded windows 5-8
 
                 $quadPositions = @(
                     @{ X = $screen.Left + $gapSize; Y = $screen.Top + $gapSize },
@@ -3343,6 +3398,7 @@ function Recalculate-AffectedLayouts {
                     @{ X = $screen.Left + (2 * $gapSize) + $halfWidth; Y = $screen.Top + (2 * $gapSize) + $halfHeight }
                 )
 
+                # Windows 1-4: Base quad positions
                 for ($i = 0; $i -lt [Math]::Min($windowCount, 4); $i++) {
                     $positions += @{
                         X = $quadPositions[$i].X
@@ -3352,26 +3408,15 @@ function Recalculate-AffectedLayouts {
                     }
                 }
 
-                # If more than 4 windows, expand to grid
+                # Windows 5-8: Cascade on top of 1-4 respectively
                 if ($windowCount -gt 4) {
-                    $cols = [Math]::Ceiling([Math]::Sqrt($windowCount * ($screen.Width / $screen.Height)))
-                    $cols = [Math]::Max($cols, 2)
-                    $rows = [Math]::Ceiling($windowCount / $cols)
-
-                    $totalHGaps = ($cols + 1) * $gapSize
-                    $totalVGaps = ($rows + 1) * $gapSize
-                    $cellWidth = [int](($screen.Width - $totalHGaps) / $cols)
-                    $cellHeight = [int](($screen.Height - $totalVGaps) / $rows)
-
-                    $positions = @()  # Reset positions
-                    for ($i = 0; $i -lt $windowCount; $i++) {
-                        $col = $i % $cols
-                        $row = [Math]::Floor($i / $cols)
+                    for ($i = 4; $i -lt $windowCount; $i++) {
+                        $baseIdx = $i - 4  # 5->0, 6->1, 7->2, 8->3
                         $positions += @{
-                            X = $screen.Left + $gapSize + ($col * ($cellWidth + $gapSize))
-                            Y = $screen.Top + $gapSize + ($row * ($cellHeight + $gapSize))
-                            Width = $cellWidth
-                            Height = $cellHeight
+                            X = $quadPositions[$baseIdx].X + $cascadeOffset
+                            Y = $quadPositions[$baseIdx].Y + $cascadeOffset
+                            Width = $halfWidth
+                            Height = $halfHeight
                         }
                     }
                 }
@@ -3850,5 +3895,5 @@ function Initialize-AccommodationSystem {
     Initialize-PositionTracking -WindowHandles $handles
 
     Write-MatrixLog "Accommodation system initialized with $($WindowHandles.Count) windows" -Source LAYOUT
-    Write-LayoutLog (Get-AccommodationStateSummary) -Source LAYOUT -Level DEBUG
+    Write-MatrixLog (Get-AccommodationStateSummary) -Source LAYOUT -Level DEBUG
 }

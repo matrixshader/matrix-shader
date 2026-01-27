@@ -1,7 +1,7 @@
 {
   "name": "matrix-shader",
-  "version": "1.0.0",
-  "description": "Real-time Matrix rain shader for Windows Terminal with multi-window control",
+  "version": "2.0.0",
+  "description": "Real-time Matrix rain shader for Windows Terminal - instant startup, native performance",
   "keywords": [
     "matrix",
     "shader",
@@ -29,27 +29,11 @@
   "bin": {
     "wakeupneo": "./bin/wakeupneo.js",
     "redpill": "./bin/redpill.js",
-    "bluepill": "./bin/bluepill.js",
-    "matrix-hotkeys": "./bin/matrix-hotkeys.js"
-  },
-  "scripts": {
-    "postinstall": "node ./bin/postinstall.js",
-    "test": "powershell -ExecutionPolicy Bypass -File ./test-psv-verification.ps1"
+    "bluepill": "./bin/bluepill.js"
   },
   "files": [
     "bin/",
-    "shaders/Matrix-*.hlsl",
-    "shaders/Redpill-Neo.hlsl",
-    "install.ps1",
-    "bluepill.ps1",
-    "matrix_setup.ps1",
-    "matrix_control.ps1",
-    "matrix_hotkeys.ps1",
-    "matrix_monitor.ps1",
-    "MatrixUtils.ps1",
-    "MatrixLogging.ps1",
-    "WindowLayoutEngine.ps1",
-    "WindowIdentityService.ps1",
+    "shaders/",
     "README.md",
     "LICENSE"
   ]
