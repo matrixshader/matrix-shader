@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 6 of 10 (Control Panel TUI)
-Plan: 3 of 5 in current phase
-Status: In progress
-Last activity: 2026-01-28 - Completed 06-03-PLAN.md (TabManager)
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-01-28 - Completed 06-04-PLAN.md (ControlPanel Integration)
 
-Progress: [████████████████░] 53% (16/30 plans)
+Progress: [█████████████████░] 57% (17/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
+- Total plans completed: 17
 - Average duration: 6 min
-- Total execution time: 2.20 hours
+- Total execution time: 2.29 hours
 
 **By Phase:**
 
@@ -32,10 +32,10 @@ Progress: [████████████████░] 53% (16/30 plans
 | 03-windows-api-layer | 3 | 12 min | 4 min |
 | 04-window-identity-service | 3 | 21 min | 7 min |
 | 05-layout-service | 3 | 58 min | 19 min |
-| 06-control-panel-tui | 2 | 9 min | 5 min |
+| 06-control-panel-tui | 3 | 14 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 05-01 (34 min), 05-02 (6 min), 05-03 (18 min), 06-02 (7 min), 06-03 (2 min)
+- Last 5 plans: 05-02 (6 min), 05-03 (18 min), 06-02 (7 min), 06-03 (2 min), 06-04 (5 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -94,6 +94,9 @@ Recent decisions affecting current work:
 - [06-02]: net8.0-windows TFM for all CLI projects (Core compatibility)
 - [06-03]: First open window takes priority over saved ActiveTab for initialization
 - [06-03]: UpdateConfig writes to shader immediately (hot-reload), dirty flag for state persistence
+- [06-04]: Remove Spectre.Console from Program.cs for pixel-perfect TUI matching
+- [06-04]: Blocking Console.ReadKey (not polling with KeyAvailable) matches PowerShell behavior
+- [06-04]: LayoutConfig.Mode is string (not enum) for JSON serialization
 
 ### Pending Todos
 
@@ -107,7 +110,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-28
-Stopped at: Completed 06-03-PLAN.md (TabManager)
+Stopped at: Completed 06-04-PLAN.md (ControlPanel Integration) - Phase 6 Complete
 Resume file: None
 
 ---
