@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 
 ## Current Position
 
-Phase: 5 of 10 (Layout Service)
-Plan: 3 of 3 in current phase
-Status: Phase complete ✓ VERIFIED
-Last activity: 2026-01-27 - Phase 5 complete and verified (10/10 must-haves passed)
+Phase: 6 of 10 (Control Panel TUI)
+Plan: 2 of 5 in current phase
+Status: In progress
+Last activity: 2026-01-28 - Completed 06-02-PLAN.md (KeyHandler)
 
-Progress: [██████████████░] 47% (14/30 plans)
+Progress: [███████████████░] 50% (15/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
+- Total plans completed: 15
 - Average duration: 6 min
-- Total execution time: 2.05 hours
+- Total execution time: 2.17 hours
 
 **By Phase:**
 
@@ -32,9 +32,10 @@ Progress: [██████████████░] 47% (14/30 plans)
 | 03-windows-api-layer | 3 | 12 min | 4 min |
 | 04-window-identity-service | 3 | 21 min | 7 min |
 | 05-layout-service | 3 | 58 min | 19 min |
+| 06-control-panel-tui | 1 | 7 min | 7 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-02 (est), 04-03 (16 min), 05-01 (34 min), 05-02 (6 min), 05-03 (18 min)
+- Last 5 plans: 04-03 (16 min), 05-01 (34 min), 05-02 (6 min), 05-03 (18 min), 06-02 (7 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -88,6 +89,9 @@ Recent decisions affecting current work:
 - [05-03]: Dictionary keyed by "Matrix-N" format matches PowerShell naming convention
 - [05-03]: Two-pass slot assignment: saved slots first, then fill remaining positions
 - [05-03]: Immediate persistence via ConfigService.SaveState on any slot change
+- [06-01]: Raw Console.Write with ANSI escape codes for pixel-perfect PowerShell matching
+- [06-02]: Check uppercase KeyChar before ToLower for shift detection (matches PowerShell)
+- [06-02]: net8.0-windows TFM for all CLI projects (Core compatibility)
 
 ### Pending Todos
 
@@ -100,10 +104,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-27
-Stopped at: Completed 05-03-PLAN.md (Phase 5 complete)
+Last session: 2026-01-28
+Stopped at: Completed 06-02-PLAN.md (KeyHandler)
 Resume file: None
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-27*
+*Last updated: 2026-01-28*
