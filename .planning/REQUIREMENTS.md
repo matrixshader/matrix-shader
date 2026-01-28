@@ -33,7 +33,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### CLI Applications
 
-- [ ] **CLI-01**: redpill.exe provides interactive control panel TUI
+- [x] **CLI-01**: redpill.exe provides interactive control panel TUI
 - [ ] **CLI-02**: bluepill.exe provides quick session restore
 - [ ] **CLI-03**: wakeupneo.exe provides setup wizard with Blue/Red Pill paths
 - [ ] **CLI-04**: All CLIs compile to Native AOT single-file executables
@@ -56,11 +56,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### User Experience
 
-- [ ] **UX-01**: TUI displays color swatches for visual feedback
+- [x] **UX-01**: TUI displays color swatches for visual feedback
 - [ ] **UX-02**: Setup wizard offers Blue Pill (simple) and Red Pill (advanced) paths
-- [ ] **UX-03**: Keyboard shortcuts match PowerShell version
-- [ ] **UX-04**: Dirty state indicator shows unsaved changes
-- [ ] **UX-05**: Auto-save on tab switch prevents lost changes
+- [x] **UX-03**: Keyboard shortcuts match PowerShell version
+- [x] **UX-04**: Dirty state indicator shows unsaved changes
+- [x] **UX-05**: Auto-save on tab switch prevents lost changes
 
 ### MatrixLite Fallback
 
@@ -119,11 +119,11 @@ Deferred to future release.
 | WNDW-05 | Phase 5 | Complete |
 | WNDW-07 | Phase 5 | Complete |
 | STATE-04 | Phase 5 | Complete |
-| CLI-01 | Phase 6 | Pending |
-| UX-01 | Phase 6 | Pending |
-| UX-03 | Phase 6 | Pending |
-| UX-04 | Phase 6 | Pending |
-| UX-05 | Phase 6 | Pending |
+| CLI-01 | Phase 6 | Complete |
+| UX-01 | Phase 6 | Complete |
+| UX-03 | Phase 6 | Complete |
+| UX-04 | Phase 6 | Complete |
+| UX-05 | Phase 6 | Complete |
 | TERM-01 | Phase 7 | Pending |
 | TERM-02 | Phase 7 | Pending |
 | TERM-03 | Phase 7 | Pending |
@@ -145,4 +145,4 @@ Deferred to future release.
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-27 — Phase 5 complete (WNDW-03, WNDW-04, WNDW-05, WNDW-07, STATE-04)*
+*Last updated: 2026-01-28 — Phase 6 complete (CLI-01, UX-01, UX-03, UX-04, UX-05)*

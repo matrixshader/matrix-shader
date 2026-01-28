@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Windows API Layer** - P/Invoke declarations and window enumeration
 - [x] **Phase 4: Window Identity Service** - 4-layer identity resolution with confidence scoring
 - [x] **Phase 5: Layout Service** - Pillars/Quads positioning with multi-monitor support
-- [ ] **Phase 6: Control Panel TUI** - Redpill interactive control panel with Spectre.Console
+- [x] **Phase 6: Control Panel TUI** - Redpill interactive control panel with ANSI rendering
 - [ ] **Phase 7: Terminal Integration** - settings.json manipulation and profile management
 - [ ] **Phase 8: CLI Applications** - bluepill launcher and wakeupneo wizard
 - [ ] **Phase 9: Native AOT & Polish** - Single-file compilation and <500ms startup
@@ -116,10 +116,10 @@ Plans:
 **Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 06-01-PLAN.md — TuiRenderer with pixel-perfect ANSI output (Wave 1)
-- [ ] 06-02-PLAN.md — KeyHandler with shift-key detection (Wave 1)
-- [ ] 06-03-PLAN.md — TabManager with auto-save and dirty tracking (Wave 2)
-- [ ] 06-04-PLAN.md — ControlPanel main loop integrating all services (Wave 3)
+- [x] 06-01-PLAN.md — TuiRenderer with pixel-perfect ANSI output (Wave 1)
+- [x] 06-02-PLAN.md — KeyHandler with shift-key detection (Wave 1)
+- [x] 06-03-PLAN.md — TabManager with auto-save and dirty tracking (Wave 2)
+- [x] 06-04-PLAN.md — ControlPanel main loop integrating all services (Wave 3)
 
 ### Phase 7: Terminal Integration
 **Goal**: Application manages Windows Terminal configuration
@@ -196,7 +196,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 3. Windows API Layer | 3/3 | ✓ Complete | 2026-01-26 |
 | 4. Window Identity Service | 3/3 | ✓ Complete | 2026-01-27 |
 | 5. Layout Service | 3/3 | ✓ Complete | 2026-01-27 |
-| 6. Control Panel TUI | 0/4 | Not started | - |
+| 6. Control Panel TUI | 4/4 | ✓ Complete | 2026-01-28 |
 | 7. Terminal Integration | 0/3 | Not started | - |
 | 8. CLI Applications | 0/3 | Not started | - |
 | 9. Native AOT & Polish | 0/3 | Not started | - |
