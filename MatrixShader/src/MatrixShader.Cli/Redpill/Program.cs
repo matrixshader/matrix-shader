@@ -1,10 +1,8 @@
-using MatrixShader.Core.Constants;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Services;
 using MatrixShader.Lite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Spectre.Console;
 
 namespace MatrixShader.Cli.Redpill;
 
@@ -44,7 +42,7 @@ public static class Program
             }
             else
             {
-                AnsiConsole.MarkupLine("[red]No display available. Use --help for options.[/]");
+                Console.WriteLine("\x1b[31mNo display available. Use --help for options.\x1b[0m");
                 return 1;
             }
 
@@ -53,7 +51,7 @@ public static class Program
         catch (Exception ex)
         {
             logger.LogError(ex, "Unhandled exception");
-            AnsiConsole.WriteException(ex);
+            Console.WriteLine($"\x1b[31mError: {ex.Message}\x1b[0m");
             return 1;
         }
     }
@@ -70,301 +68,316 @@ public static class Program
             });
         });
 
+        // Core services
         services.AddSingleton<EnvironmentService>();
         services.AddSingleton<IShaderService, ShaderService>();
         services.AddSingleton<IConfigService, ConfigService>();
+        services.AddSingleton<IIdentityService, IdentityService>();
+        services.AddSingleton<ILayoutService, LayoutService>();
+
+        // TUI components
+        services.AddSingleton<TabManager>();
         services.AddSingleton<ControlPanel>();
     }
 }
 
 /// <summary>
 /// Full-featured control panel for shader mode.
+/// Uses blocking input and pixel-perfect rendering matching PowerShell.
 /// </summary>
 public class ControlPanel
 {
     private readonly IShaderService _shaderService;
     private readonly IConfigService _configService;
+    private readonly IIdentityService _identityService;
+    private readonly ILayoutService _layoutService;
     private readonly ILogger<ControlPanel> _logger;
-    private MatrixState _state;
-    private bool _dirty;
+    private readonly TabManager _tabManager;
+
     private bool _running = true;
+    private int _launchCount = 0;
+    private bool _transparency = false;
+    private int _opacity = 100;
 
     public ControlPanel(
         IShaderService shaderService,
         IConfigService configService,
+        IIdentityService identityService,
+        ILayoutService layoutService,
+        TabManager tabManager,
         ILogger<ControlPanel> logger)
     {
         _shaderService = shaderService;
         _configService = configService;
+        _identityService = identityService;
+        _layoutService = layoutService;
+        _tabManager = tabManager;
         _logger = logger;
-        _state = _configService.LoadState();
+
+        // Clean stale registry entries on startup
+        _identityService.CleanStaleEntries();
+        _identityService.LoadRegistry();
     }
 
-    public async Task RunAsync()
+    public Task RunAsync()
     {
         Console.CursorVisible = false;
         Console.Clear();
 
-        while (_running)
+        try
         {
-            Render();
-
-            if (Console.KeyAvailable)
+            while (_running)
             {
-                var key = Console.ReadKey(intercept: true);
+                Render();
+                var key = Console.ReadKey(intercept: true); // Blocking input
                 HandleKey(key);
             }
-
-            await Task.Delay(50);
         }
-
-        // Save on exit
-        if (_dirty)
+        finally
         {
-            _configService.SaveState(_state);
+            // Save state on exit
+            _tabManager.SaveState();
+            _identityService.SaveRegistry();
+
+            Console.CursorVisible = true;
+            Console.Clear();
         }
 
-        Console.CursorVisible = true;
-        Console.Clear();
+        return Task.CompletedTask;
     }
 
     private void Render()
     {
         Console.SetCursorPosition(0, 0);
 
-        var config = GetCurrentConfig();
+        var config = _tabManager.CurrentConfig;
 
-        // Header
-        AnsiConsole.Write(new Rule("[green]MATRIX SHADER CONTROL PANEL[/]").RuleStyle("green"));
+        // Header with dirty indicator
+        Console.WriteLine();
+        TuiRenderer.WriteHeader(_tabManager.CurrentSlot, _tabManager.IsDirty);
 
         // Tab bar
-        var tabs = new Table().Border(TableBorder.None).HideHeaders();
-        tabs.AddColumn("");
-        var tabRow = new List<string>();
-        for (int i = 1; i <= 8; i++)
+        var tabs = _tabManager.GetTabsForRendering();
+        TuiRenderer.WriteTabBar(tabs, _tabManager.CurrentSlot);
+        Console.WriteLine(" [TAB] next tab");
+        Console.WriteLine();
+
+        // Color presets
+        TuiRenderer.WriteSectionHeader("COLOR PRESETS");
+        TuiRenderer.WriteColorPresets();
+        Console.WriteLine();
+
+        // Current color with swatch
+        Console.Write($" CURRENT {TuiRenderer.ColorSwatch(config.R, config.G, config.B, 3)}");
+        Console.WriteLine();
+        TuiRenderer.WriteParameterRow("Q/W", "Red", config.R.ToString("F1"), config.R, 0, 1);
+        TuiRenderer.WriteParameterRow("A/S", "Green", config.G.ToString("F1"), config.G, 0, 1);
+        TuiRenderer.WriteParameterRow("Z/X", "Blue", config.B.ToString("F1"), config.B, 0, 1);
+        Console.WriteLine();
+
+        // Rain effects
+        TuiRenderer.WriteSectionHeader("RAIN EFFECTS");
+        TuiRenderer.WriteParameterRow("E/R", "Speed", config.Speed.ToString("F1"), config.Speed, 0.1f, 3f);
+        TuiRenderer.WriteParameterRow("D/F", "Glow", config.Glow.ToString("F1"), config.Glow, 0.2f, 3f);
+        TuiRenderer.WriteParameterRow("C/V", "Width", config.Width.ToString("F0"), config.Width, 6f, 20f);
+        TuiRenderer.WriteParameterRow("T/Y", "Trail", config.Trail.ToString("F0"), config.Trail, 4f, 15f);
+        TuiRenderer.WriteParameterRow("G/H", "Density", config.Density.ToString("F1"), config.Density, 0.2f, 1f);
+        Console.WriteLine();
+
+        // Layers
+        TuiRenderer.WriteSectionHeader("LAYERS");
+        Console.Write(" ");
+        TuiRenderer.WriteLayerStatus("7", "Far", config.Layer1);
+        Console.Write("  ");
+        TuiRenderer.WriteLayerStatus("8", "Mid", config.Layer2);
+        Console.Write("  ");
+        TuiRenderer.WriteLayerStatus("9", "Near", config.Layer3);
+        Console.WriteLine();
+        Console.WriteLine();
+
+        // Window effects
+        Console.WriteLine($" \x1b[36mWINDOW EFFECTS\x1b[0m");
+        var transStatus = _transparency ? "ON " : "off";
+        var transColor = _transparency ? "\x1b[36m" : "\x1b[90m";
+        Console.WriteLine($" [B] Transparency:  {transColor}{transStatus}\x1b[0m  \x1b[90m(toggles & applies)\x1b[0m");
+        if (_transparency)
         {
-            if (i == _state.ActiveTab)
-                tabRow.Add($"[black on green] {i} [/]");
-            else if (_shaderService.ShaderExists(i))
-                tabRow.Add($"[green] {i} [/]");
-            else
-                tabRow.Add($"[dim] {i} [/]");
+            Console.WriteLine($" [K/L] Opacity:     {_opacity,3}% {TuiRenderer.ProgressBar(_opacity, 0, 100)}");
         }
-        tabs.AddRow(string.Join(" ", tabRow));
-        AnsiConsole.Write(tabs);
 
+        // Layout mode
+        var state = _configService.LoadState();
+        var layoutMode = state.Layout.Mode;
+        var layoutColor = layoutMode.Equals("pillars", StringComparison.OrdinalIgnoreCase) ? "\x1b[33m" : "\x1b[35m";
+        Console.WriteLine($" [Shift+L] Layout:  {layoutColor}{layoutMode}\x1b[0m  \x1b[90m(Pillars=columns, Quads=2x2)\x1b[0m");
         Console.WriteLine();
 
-        // Color preview
-        var colorTable = new Table().Border(TableBorder.Rounded);
-        colorTable.AddColumn(new TableColumn("[green]COLOR PRESETS[/]").Centered());
-        colorTable.AddRow("[green]1[/] Green  [cyan]2[/] Cyan  [red]3[/] Red");
-        colorTable.AddRow("[magenta]4[/] Purple [yellow]5[/] Gold  [teal]6[/] Teal");
-        AnsiConsole.Write(colorTable);
+        // Launch section
+        Console.WriteLine($" \x1b[35mLAUNCH\x1b[0m");
+        var openWindows = _identityService.FindMatrixWindows();
+        var openStr = openWindows.Count > 0
+            ? string.Join(",", openWindows.Select(w => w.ShaderIndex))
+            : "none";
+        Console.WriteLine($" \x1b[90mOpen:\x1b[0m \x1b[32m{openStr}\x1b[0m");
 
+        var launchStatus = _launchCount > 0 ? $"{_launchCount} window(s)" : "disabled";
+        var launchColor = _launchCount > 0 ? "\x1b[35m" : "\x1b[90m";
+        Console.WriteLine($" [-/+] Count: {launchColor}{launchStatus}\x1b[0m");
         Console.WriteLine();
 
-        // Current values
-        var valueTable = new Table().Border(TableBorder.Rounded);
-        valueTable.AddColumn("Parameter");
-        valueTable.AddColumn("Value");
-        valueTable.AddColumn("Keys");
-
-        valueTable.AddRow("Speed", $"{config.Speed:F1}", "[E] - / [R] +");
-        valueTable.AddRow("Glow", $"{config.Glow:F1}", "[G] - / [H] +");
-        valueTable.AddRow("Width", $"{config.Width:F0}", "[W] - / [T] +");
-        valueTable.AddRow("Trail", $"{config.Trail:F0}", "[Y] - / [U] +");
-        valueTable.AddRow("Density", $"{config.Density:F1}", "[D] - / [F] +");
-        valueTable.AddRow("Layer 1", config.Layer1 ? "[green]ON[/]" : "[dim]OFF[/]", "[7]");
-        valueTable.AddRow("Layer 2", config.Layer2 ? "[green]ON[/]" : "[dim]OFF[/]", "[8]");
-        valueTable.AddRow("Layer 3", config.Layer3 ? "[green]ON[/]" : "[dim]OFF[/]", "[9]");
-
-        AnsiConsole.Write(valueTable);
-
-        Console.WriteLine();
-
-        // Controls
-        AnsiConsole.MarkupLine("[dim]Tab: 1-8 | Save: S | Layout: L | Quit: Q[/]");
-
-        if (_dirty)
-        {
-            AnsiConsole.MarkupLine("[yellow]* Unsaved changes[/]");
-        }
+        // Footer
+        TuiRenderer.WriteFooter(_launchCount, _launchCount > 0);
     }
 
     private void HandleKey(ConsoleKeyInfo key)
     {
-        var config = GetCurrentConfig();
+        var action = KeyHandler.ProcessKey(key);
+        var config = _tabManager.CurrentConfig;
 
-        switch (key.Key)
+        switch (action)
         {
-            // Tab switching (1-8)
-            case ConsoleKey.D1 or ConsoleKey.NumPad1:
-                if (key.Modifiers == 0) SwitchTab(1);
-                else SetColor(ColorPresets.Green);
-                break;
-            case ConsoleKey.D2 or ConsoleKey.NumPad2:
-                if (key.Modifiers == 0) SwitchTab(2);
-                else SetColor(ColorPresets.Cyan);
-                break;
-            case ConsoleKey.D3 or ConsoleKey.NumPad3:
-                if (key.Modifiers == 0) SwitchTab(3);
-                else SetColor(ColorPresets.Red);
-                break;
-            case ConsoleKey.D4 or ConsoleKey.NumPad4:
-                if (key.Modifiers == 0) SwitchTab(4);
-                else SetColor(ColorPresets.Purple);
-                break;
-            case ConsoleKey.D5 or ConsoleKey.NumPad5:
-                if (key.Modifiers == 0) SwitchTab(5);
-                else SetColor(ColorPresets.Gold);
-                break;
-            case ConsoleKey.D6 or ConsoleKey.NumPad6:
-                if (key.Modifiers == 0) SwitchTab(6);
-                else SetColor(ColorPresets.Teal);
-                break;
-            case ConsoleKey.D7 or ConsoleKey.NumPad7:
-                if (key.Modifiers == 0) SwitchTab(7);
-                else ToggleLayer(1);
-                break;
-            case ConsoleKey.D8 or ConsoleKey.NumPad8:
-                if (key.Modifiers == 0) SwitchTab(8);
-                else ToggleLayer(2);
-                break;
-            case ConsoleKey.D9 or ConsoleKey.NumPad9:
-                ToggleLayer(3);
+            case KeyAction.Tab:
+                _tabManager.SwitchToNextTab();
                 break;
 
-            // Speed
-            case ConsoleKey.E:
-                UpdateConfig(config with { Speed = Math.Max(0.1f, config.Speed - 0.1f) });
-                break;
-            case ConsoleKey.R:
-                UpdateConfig(config with { Speed = Math.Min(2.0f, config.Speed + 0.1f) });
-                break;
-
-            // Glow
-            case ConsoleKey.G:
-                UpdateConfig(config with { Glow = Math.Max(0f, config.Glow - 0.1f) });
-                break;
-            case ConsoleKey.H:
-                UpdateConfig(config with { Glow = Math.Min(2.0f, config.Glow + 0.1f) });
-                break;
-
-            // Width
-            case ConsoleKey.W:
-                UpdateConfig(config with { Width = Math.Max(5f, config.Width - 1f) });
-                break;
-            case ConsoleKey.T:
-                UpdateConfig(config with { Width = Math.Min(20f, config.Width + 1f) });
-                break;
-
-            // Trail
-            case ConsoleKey.Y:
-                UpdateConfig(config with { Trail = Math.Max(1f, config.Trail - 1f) });
-                break;
-            case ConsoleKey.U:
-                UpdateConfig(config with { Trail = Math.Min(20f, config.Trail + 1f) });
-                break;
-
-            // Density
-            case ConsoleKey.D:
-                UpdateConfig(config with { Density = Math.Max(0.1f, config.Density - 0.1f) });
-                break;
-            case ConsoleKey.F:
-                UpdateConfig(config with { Density = Math.Min(1.0f, config.Density + 0.1f) });
-                break;
-
-            // Save
-            case ConsoleKey.S:
-                SaveAll();
-                break;
-
-            // Quit
-            case ConsoleKey.Q:
-            case ConsoleKey.Escape:
+            case KeyAction.Quit:
                 _running = false;
                 break;
+
+            // Color presets
+            case KeyAction.PresetGreen:
+                _tabManager.UpdateConfig(config.WithColor(0f, 1f, 0.3f));
+                break;
+            case KeyAction.PresetCyan:
+                _tabManager.UpdateConfig(config.WithColor(0f, 0.6f, 1f));
+                break;
+            case KeyAction.PresetRed:
+                _tabManager.UpdateConfig(config.WithColor(1f, 0.1f, 0.1f));
+                break;
+            case KeyAction.PresetPurple:
+                _tabManager.UpdateConfig(config.WithColor(0.7f, 0f, 1f));
+                break;
+            case KeyAction.PresetGold:
+                _tabManager.UpdateConfig(config.WithColor(1f, 0.7f, 0f));
+                break;
+            case KeyAction.PresetTeal:
+                _tabManager.UpdateConfig(config.WithColor(0f, 0.9f, 0.9f));
+                break;
+
+            // RGB adjustments
+            case KeyAction.RedDecrease:
+                _tabManager.UpdateConfig(config with { R = config.R - 0.05f });
+                break;
+            case KeyAction.RedIncrease:
+                _tabManager.UpdateConfig(config with { R = config.R + 0.05f });
+                break;
+            case KeyAction.GreenDecrease:
+                _tabManager.UpdateConfig(config with { G = config.G - 0.05f });
+                break;
+            case KeyAction.GreenIncrease:
+                _tabManager.UpdateConfig(config with { G = config.G + 0.05f });
+                break;
+            case KeyAction.BlueDecrease:
+                _tabManager.UpdateConfig(config with { B = config.B - 0.05f });
+                break;
+            case KeyAction.BlueIncrease:
+                _tabManager.UpdateConfig(config with { B = config.B + 0.05f });
+                break;
+
+            // Effects
+            case KeyAction.SpeedDecrease:
+                _tabManager.UpdateConfig(config with { Speed = config.Speed - 0.1f });
+                break;
+            case KeyAction.SpeedIncrease:
+                _tabManager.UpdateConfig(config with { Speed = config.Speed + 0.1f });
+                break;
+            case KeyAction.GlowDecrease:
+                _tabManager.UpdateConfig(config with { Glow = config.Glow - 0.1f });
+                break;
+            case KeyAction.GlowIncrease:
+                _tabManager.UpdateConfig(config with { Glow = config.Glow + 0.1f });
+                break;
+            case KeyAction.WidthDecrease:
+                _tabManager.UpdateConfig(config with { Width = config.Width - 1f });
+                break;
+            case KeyAction.WidthIncrease:
+                _tabManager.UpdateConfig(config with { Width = config.Width + 1f });
+                break;
+            case KeyAction.TrailDecrease:
+                _tabManager.UpdateConfig(config with { Trail = config.Trail - 0.5f });
+                break;
+            case KeyAction.TrailIncrease:
+                _tabManager.UpdateConfig(config with { Trail = config.Trail + 0.5f });
+                break;
+            case KeyAction.DensityDecrease:
+                _tabManager.UpdateConfig(config with { Density = config.Density - 0.1f });
+                break;
+            case KeyAction.DensityIncrease:
+                _tabManager.UpdateConfig(config with { Density = config.Density + 0.1f });
+                break;
+
+            // Layers
+            case KeyAction.Layer1Toggle:
+                _tabManager.UpdateConfig(config with { Layer1 = !config.Layer1 });
+                break;
+            case KeyAction.Layer2Toggle:
+                _tabManager.UpdateConfig(config with { Layer2 = !config.Layer2 });
+                break;
+            case KeyAction.Layer3Toggle:
+                _tabManager.UpdateConfig(config with { Layer3 = !config.Layer3 });
+                break;
+
+            // Transparency
+            case KeyAction.TransparencyToggle:
+                _transparency = !_transparency;
+                break;
+            case KeyAction.OpacityDecrease:
+                if (_transparency && _opacity > 0) _opacity -= 5;
+                break;
+            case KeyAction.OpacityIncrease:
+                if (_transparency && _opacity < 100) _opacity += 5;
+                break;
+
+            // Launch
+            case KeyAction.LaunchDecrease:
+                if (_launchCount > 0) _launchCount--;
+                break;
+            case KeyAction.LaunchIncrease:
+                _launchCount++;
+                break;
+            case KeyAction.Launch:
+                // TODO: Launch implementation (Phase 7/8)
+                break;
+
+            // Save/Reset
+            case KeyAction.Save:
+                _tabManager.SaveCurrentShader();
+                break;
+            case KeyAction.Reset:
+                _tabManager.UpdateConfig(new ShaderConfig());
+                break;
+
+            // Layout
+            case KeyAction.LayoutCycle:
+                var currentState = _configService.LoadState();
+                var newConfig = _layoutService.CycleMode(currentState.Layout);
+                _layoutService.UpdateConfig(newConfig);
+                var windows = _identityService.FindMatrixWindows();
+                var positions = _layoutService.CalculateLayout(windows, newConfig);
+                _layoutService.ApplyLayout(positions);
+                break;
+
+            // Deferred to Phase 7/8
+            case KeyAction.SnapbackSave:
+            case KeyAction.SnapbackRestore:
+            case KeyAction.PriorityToggle:
+            case KeyAction.GlitchToggle:
+            case KeyAction.MonitorChange:
+            case KeyAction.PrimaryDecrease:
+            case KeyAction.PrimaryIncrease:
+            case KeyAction.PrimaryReset:
+                // TODO: Implement in Phase 7/8
+                break;
         }
-    }
-
-    private ShaderConfig GetCurrentConfig()
-    {
-        return _state.ShaderConfigs.TryGetValue(_state.ActiveTab, out var config)
-            ? config
-            : new ShaderConfig();
-    }
-
-    private void SwitchTab(int tab)
-    {
-        if (tab == _state.ActiveTab) return;
-
-        // Auto-save before switching
-        if (_dirty)
-        {
-            SaveCurrentShader();
-        }
-
-        _state = _state with { ActiveTab = tab };
-        _logger.LogDebug("Switched to tab {Tab}", tab);
-    }
-
-    private void SetColor(MatrixColor color)
-    {
-        var config = GetCurrentConfig();
-        UpdateConfig(config.WithColor(color.R, color.G, color.B));
-    }
-
-    private void ToggleLayer(int layer)
-    {
-        var config = GetCurrentConfig();
-        config = layer switch
-        {
-            1 => config with { Layer1 = !config.Layer1 },
-            2 => config with { Layer2 = !config.Layer2 },
-            3 => config with { Layer3 = !config.Layer3 },
-            _ => config
-        };
-        UpdateConfig(config);
-    }
-
-    private void UpdateConfig(ShaderConfig config)
-    {
-        var configs = new Dictionary<int, ShaderConfig>(_state.ShaderConfigs)
-        {
-            [_state.ActiveTab] = config
-        };
-        _state = _state with { ShaderConfigs = configs };
-        _dirty = true;
-
-        // Write to shader file immediately for hot-reload
-        if (_shaderService.ShaderExists(_state.ActiveTab))
-        {
-            try
-            {
-                _shaderService.WriteConfig(_state.ActiveTab, config);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to write shader {Index}", _state.ActiveTab);
-            }
-        }
-    }
-
-    private void SaveCurrentShader()
-    {
-        var config = GetCurrentConfig();
-        if (_shaderService.ShaderExists(_state.ActiveTab))
-        {
-            _shaderService.WriteConfig(_state.ActiveTab, config);
-        }
-    }
-
-    private void SaveAll()
-    {
-        SaveCurrentShader();
-        _configService.SaveState(_state);
-        _dirty = false;
-        _logger.LogInformation("Saved state");
     }
 }
