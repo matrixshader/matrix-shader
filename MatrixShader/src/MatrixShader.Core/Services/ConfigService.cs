@@ -48,16 +48,19 @@ public class ConfigService : IConfigService
             var json = File.ReadAllText(StatePath);
             var state = JsonSerializer.Deserialize(json, MatrixJsonContext.Default.MatrixState);
             _logger.LogDebug("Loaded state from {Path}", StatePath);
+            DiagnosticLogger.Debug("CONFIG", $"Loaded state from {StatePath}");
             return state ?? new MatrixState();
         }
         catch (JsonException ex)
         {
             _logger.LogError(ex, "Failed to parse state file, using defaults");
+            DiagnosticLogger.Warn("CONFIG", $"Failed to parse state file: {ex.Message}");
             return new MatrixState();
         }
         catch (IOException ex)
         {
             _logger.LogError(ex, "Failed to read state file, using defaults");
+            DiagnosticLogger.Warn("CONFIG", $"Failed to read state file: {ex.Message}");
             return new MatrixState();
         }
     }
@@ -83,10 +86,12 @@ public class ConfigService : IConfigService
             File.Move(tempPath, StatePath, overwrite: true);
 
             _logger.LogDebug("Saved state to {Path}", StatePath);
+            DiagnosticLogger.Debug("CONFIG", $"Saved state to {StatePath}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save state to {Path}", StatePath);
+            DiagnosticLogger.Error("CONFIG", $"Failed to save state: {ex.Message}");
 
             // Clean up temp file on failure (enhancement to atomic write)
             try
@@ -108,6 +113,7 @@ public class ConfigService : IConfigService
         var state = new MatrixState();
         SaveState(state);
         _logger.LogInformation("Reset state to defaults");
+        DiagnosticLogger.Info("CONFIG", "Reset state to defaults");
         return state;
     }
 }
