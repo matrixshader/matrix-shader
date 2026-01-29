@@ -25,6 +25,13 @@ namespace MatrixShader.Core.Serialization;
 [JsonSerializable(typeof(TerminalProfile))]
 [JsonSerializable(typeof(ProfilesContainer))]
 [JsonSerializable(typeof(List<TerminalProfile>))]
+// Additional types for AOT completeness (GAP-I06)
+[JsonSerializable(typeof(RenderMode))]
+[JsonSerializable(typeof(LayoutMode))]
+[JsonSerializable(typeof(BorderMargins))]
+[JsonSerializable(typeof(MonitorInfo))]
+[JsonSerializable(typeof(WindowRect))]
+[JsonSerializable(typeof(IdentitySource))]
 internal partial class MatrixJsonContext : JsonSerializerContext
 {
 }
