@@ -57,15 +57,20 @@ public partial class ShaderService : IShaderService
 
     private static string GetDefaultShadersPath()
     {
-        // Try common locations
+        // Try common locations (no hardcoded dev paths)
         var candidates = new[]
         {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Matrix", "shaders"),
             Path.Combine(AppContext.BaseDirectory, "shaders"),
-            @"C:\Users\ehome\Documents\Matrix\shaders"
+            Path.Combine(Directory.GetParent(AppContext.BaseDirectory)?.FullName ?? AppContext.BaseDirectory, "shaders")
         };
 
-        return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
+        var found = candidates.FirstOrDefault(Directory.Exists);
+        if (found != null)
+            return found;
+
+        // Default to MyDocuments location (will be created on first use)
+        return candidates[0];
     }
 
     public string GetShaderPath(int shaderIndex)
