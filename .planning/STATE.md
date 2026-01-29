@@ -129,6 +129,7 @@ Recent decisions affecting current work:
 - [08.1-02]: PrimaryWindowCount 0 = auto (follows PowerShell convention)
 - [08.1-04]: Keep DllImport for GetMonitorInfo (MONITORINFOEX struct with fixed char array unsupported by LibraryImport)
 - [08.1-04]: Use unsafe fixed char buffer in MONITORINFOEX with GetDeviceName() helper
+- [08.1-01]: Remove Spectre.Console globally - all TUI uses native Console.Write with ANSI codes
 
 ### Pending Todos
 
@@ -142,9 +143,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 08.1-04-PLAN.md (AOT P/Invoke and JSON Context)
+Stopped at: Completed 08.1-01-PLAN.md (CliBootstrap Integration)
 Resume file: None
-Next action: Execute 08.1-05-PLAN.md (REQUIREMENTS.md Update)
+Next action: Execute remaining 08.1 plans (08.1-03, 08.1-05)
 
 ---
 *State initialized: 2026-01-25*
