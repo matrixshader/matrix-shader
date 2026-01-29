@@ -12,6 +12,7 @@ public class TabManager
     private readonly IShaderService _shaderService;
     private readonly IIdentityService _identityService;
     private readonly IConfigService _configService;
+    private readonly ITerminalSettingsService _terminalSettingsService;
 
     private int _currentSlot;
     private ShaderConfig _currentConfig;
@@ -20,11 +21,13 @@ public class TabManager
     public TabManager(
         IShaderService shaderService,
         IIdentityService identityService,
-        IConfigService configService)
+        IConfigService configService,
+        ITerminalSettingsService terminalSettingsService)
     {
         _shaderService = shaderService;
         _identityService = identityService;
         _configService = configService;
+        _terminalSettingsService = terminalSettingsService;
 
         // Initialize from state or first open window
         var state = _configService.LoadState();
@@ -150,7 +153,7 @@ public class TabManager
     }
 
     /// <summary>
-    /// Saves current shader to file.
+    /// Saves current shader to file and syncs tab color.
     /// </summary>
     public void SaveCurrentShader()
     {
@@ -158,7 +161,43 @@ public class TabManager
         {
             _shaderService.WriteConfig(_currentSlot, _currentConfig);
         }
+
+        // Sync tab color to shader RGB
+        SyncTabColorToShader(_currentSlot, _currentConfig);
+
         _dirty = false;
+    }
+
+    /// <summary>
+    /// Syncs Windows Terminal tab color to match shader RGB values.
+    /// </summary>
+    private void SyncTabColorToShader(int slot, ShaderConfig config)
+    {
+        try
+        {
+            // Convert float RGB (0-1) to hex color (#RRGGBB)
+            var r = (int)(config.R * 255);
+            var g = (int)(config.G * 255);
+            var b = (int)(config.B * 255);
+            var hexColor = $"#{r:X2}{g:X2}{b:X2}";
+
+            var settings = _terminalSettingsService.LoadSettings();
+            var profileName = $"Matrix-{slot}";
+            var profile = _terminalSettingsService.GetProfile(settings, profileName);
+
+            if (profile != null)
+            {
+                var updatedProfile = profile with { TabColor = hexColor };
+                _terminalSettingsService.UpsertProfile(settings, updatedProfile);
+                _terminalSettingsService.SaveSettings(settings);
+                DiagnosticLogger.Info("TABMANAGER", $"Synced tab color to {hexColor} for {profileName}");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Silent failure - tab color is nice-to-have
+            DiagnosticLogger.Warn("TABMANAGER", $"Failed to sync tab color: {ex.Message}");
+        }
     }
 
     /// <summary>
