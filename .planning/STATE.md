@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 8 of 10 (CLI Applications)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-29 - Completed 08-02-PLAN.md (Bluepill Session Restore)
+Plan: 3 of 3 in current phase (PHASE COMPLETE)
+Status: Phase complete
+Last activity: 2026-01-29 - Completed 08-03-PLAN.md (WakeupNeo Setup Wizard)
 
-Progress: [████████████████████████░░░░░░] 80% (24/30 plans)
+Progress: [##########################----] 83% (25/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24
+- Total plans completed: 25
 - Average duration: 6 min
-- Total execution time: 2.9 hours
+- Total execution time: 3.1 hours
 
 **By Phase:**
 
@@ -34,10 +34,10 @@ Progress: [███████████████████████
 | 05-layout-service | 3 | 58 min | 19 min |
 | 06-control-panel-tui | 4 | 16 min | 4 min |
 | 07-terminal-integration | 4 | 22 min | 6 min |
-| 08-cli-applications | 2 | 10 min | 5 min |
+| 08-cli-applications | 3 | 22 min | 7 min |
 
 **Recent Trend:**
-- Last 5 plans: 07-02 (7 min), 07-03 (9 min), 07-04 (3 min), 08-01 (5 min), 08-02 (5 min)
+- Last 5 plans: 07-03 (9 min), 07-04 (3 min), 08-01 (5 min), 08-02 (5 min), 08-03 (12 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -121,6 +121,9 @@ Recent decisions affecting current work:
 - [08-02]: RegisterWindowHandle signature matches interface (nint, string, int)
 - [08-02]: MatrixState.Layout property (not LayoutConfig) per model definition
 - [08-02]: ShaderService.CreateShader requires ShaderConfig parameter
+- [08-03]: Remove Spectre.Console per CONTEXT.md (no third-party TUI libraries)
+- [08-03]: ANSI 24-bit color swatches for color preview in wizard
+- [08-03]: GetActiveSlots filters to non-default configs for restore detection
 
 ### Pending Todos
 
@@ -134,9 +137,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 08-02-PLAN.md (Bluepill Session Restore)
+Stopped at: Completed 08-03-PLAN.md (WakeupNeo Setup Wizard)
 Resume file: None
-Next action: Execute 08-03-PLAN.md (wakeupneo and redpill CLIs)
+Next action: Phase 8 complete. Execute Phase 9 (Packaging/Installation)
 
 ---
 *State initialized: 2026-01-25*
