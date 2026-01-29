@@ -559,10 +559,9 @@ public class SetupWizard
         if (state.ShaderConfigs == null || state.ShaderConfigs.Count == 0)
             return new List<int>();
 
-        // Return slots that have non-default configs (have been actually configured)
-        return state.ShaderConfigs
-            .Where(kv => kv.Value.R != 0 || kv.Value.G != 1.0f || kv.Value.B != 0.3f)
-            .Select(kv => kv.Key)
+        // Return slots that have shader files created (matches Bluepill behavior)
+        return state.ShaderConfigs.Keys
+            .Where(k => _shaderService.ShaderExists(k))
             .OrderBy(k => k)
             .ToList();
     }
