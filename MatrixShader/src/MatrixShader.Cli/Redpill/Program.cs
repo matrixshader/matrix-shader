@@ -414,16 +414,88 @@ public class ControlPanel
                 _layoutService.ApplyLayout(positions);
                 break;
 
-            // Deferred to Phase 7/8
             case KeyAction.SnapbackSave:
+                // Save current window positions to layout service
+                {
+                    var snapWindows = _identityService.FindMatrixWindows();
+                    var snapState = _configService.LoadState();
+                    var snapPositions = _layoutService.CalculateLayout(snapWindows, snapState.Layout);
+                    _layoutService.SaveWindowSlots(snapPositions);
+                    DiagnosticLogger.Info("REDPILL", $"Saved {snapPositions.Count} window positions");
+                }
+                break;
+
             case KeyAction.SnapbackRestore:
+                // Restore saved window positions
+                {
+                    var restoreWindows = _identityService.FindMatrixWindows();
+                    var loadedSlots = _layoutService.LoadWindowSlots(restoreWindows);
+                    _layoutService.ApplyLayout(loadedSlots);
+                    DiagnosticLogger.Info("REDPILL", "Restored window positions");
+                }
+                break;
+
             case KeyAction.PriorityToggle:
+                // Toggle priority lock (keeps specific windows on primary monitor)
+                {
+                    var priorityState = _configService.LoadState();
+                    var newPriorityLayout = priorityState.Layout with { PriorityLock = !priorityState.Layout.PriorityLock };
+                    _layoutService.UpdateConfig(newPriorityLayout);
+                    DiagnosticLogger.Info("REDPILL", $"Priority lock: {newPriorityLayout.PriorityLock}");
+                }
+                break;
+
             case KeyAction.GlitchToggle:
+                // Toggle glitch auto-snap mode
+                {
+                    var glitchState = _configService.LoadState();
+                    var newGlitchLayout = glitchState.Layout with { GlitchEnabled = !glitchState.Layout.GlitchEnabled };
+                    _layoutService.UpdateConfig(newGlitchLayout);
+                    DiagnosticLogger.Info("REDPILL", $"Glitch mode: {newGlitchLayout.GlitchEnabled}");
+                }
+                break;
+
             case KeyAction.MonitorChange:
+                // Cycle through available monitor counts (simplified - just refreshes layout)
+                {
+                    var monitorWindows = _identityService.FindMatrixWindows();
+                    var monitorState = _configService.LoadState();
+                    var monitorPositions = _layoutService.CalculateLayout(monitorWindows, monitorState.Layout);
+                    _layoutService.ApplyLayout(monitorPositions);
+                    DiagnosticLogger.Info("REDPILL", "Refreshed layout across monitors");
+                }
+                break;
+
             case KeyAction.PrimaryDecrease:
+                // Decrease windows on primary monitor
+                {
+                    var decState = _configService.LoadState();
+                    var newDecCount = Math.Max(0, decState.Layout.PrimaryWindowCount - 1);
+                    var newDecLayout = decState.Layout with { PrimaryWindowCount = newDecCount };
+                    _layoutService.UpdateConfig(newDecLayout);
+                    DiagnosticLogger.Info("REDPILL", $"Primary window count: {newDecCount}");
+                }
+                break;
+
             case KeyAction.PrimaryIncrease:
+                // Increase windows on primary monitor
+                {
+                    var incState = _configService.LoadState();
+                    var newIncCount = Math.Min(8, incState.Layout.PrimaryWindowCount + 1);
+                    var newIncLayout = incState.Layout with { PrimaryWindowCount = newIncCount };
+                    _layoutService.UpdateConfig(newIncLayout);
+                    DiagnosticLogger.Info("REDPILL", $"Primary window count: {newIncCount}");
+                }
+                break;
+
             case KeyAction.PrimaryReset:
-                // TODO: Implement in Phase 7/8
+                // Reset to auto distribution
+                {
+                    var resetState = _configService.LoadState();
+                    var newResetLayout = resetState.Layout with { PrimaryWindowCount = 0 }; // 0 = auto
+                    _layoutService.UpdateConfig(newResetLayout);
+                    DiagnosticLogger.Info("REDPILL", "Primary window count reset to auto");
+                }
                 break;
         }
     }
