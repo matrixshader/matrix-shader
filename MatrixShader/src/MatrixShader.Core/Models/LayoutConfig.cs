@@ -17,6 +17,12 @@ public record LayoutConfig
     /// <summary>Enable glitch effect positioning</summary>
     public bool GlitchEnabled { get; init; } = true;
 
+    /// <summary>When true, specific windows are locked to primary monitor</summary>
+    public bool PriorityLock { get; init; } = false;
+
+    /// <summary>Override for windows on primary monitor. 0 = auto distribution</summary>
+    public int PrimaryWindowCount { get; init; } = 0;
+
     /// <summary>Overlap percentage for Overlap mode (0-20)</summary>
     public int OverlapPercent { get; init; } = 5;
 
