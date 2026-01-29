@@ -64,6 +64,9 @@ public static class Program
                 return 1;
             }
 
+            // Start background monitor for drag-snap functionality
+            StartMonitorProcess();
+
             // Theatrical ending: "There is no spoon..."
             Console.WriteLine();
             await CliBootstrap.TypewriterAsync(" There is no spoon...", charDelayMs: 150);
@@ -109,6 +112,40 @@ public static class Program
         await CliBootstrap.TypewriterAsync(" But you feel it.", 80);
         await Task.Delay(500);
         Console.WriteLine();
+    }
+
+    private static void StartMonitorProcess()
+    {
+        var monitorPath = Path.Combine(AppContext.BaseDirectory, "MatrixShader.Monitor.exe");
+
+        // Also check for monitor.exe in case of different naming
+        if (!File.Exists(monitorPath))
+        {
+            monitorPath = Path.Combine(AppContext.BaseDirectory, "monitor.exe");
+        }
+
+        if (File.Exists(monitorPath))
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = monitorPath,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+                DiagnosticLogger.Info("BLUEPILL", "Started background monitor");
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("BLUEPILL", $"Failed to start monitor: {ex.Message}");
+            }
+        }
+        else
+        {
+            DiagnosticLogger.Info("BLUEPILL", "Monitor executable not found, skipping");
+        }
     }
 
     private static void ConfigureServices(IServiceCollection services)
