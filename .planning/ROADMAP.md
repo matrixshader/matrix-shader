@@ -185,12 +185,14 @@ Plans:
   2. Startup time is under 500ms (verified in Windows Sandbox)
   3. No runtime installation required on target machine
   4. Executables work in fresh Windows Sandbox environment
-**Plans**: TBD
+**Plans**: 5 plans in 3 waves
 
 Plans:
-- [ ] 09-01: Native AOT configuration and trim warnings resolution
-- [ ] 09-02: Clean environment testing in Windows Sandbox
-- [ ] 09-03: Performance profiling and startup optimization
+- [ ] 09-01-PLAN.md — AOT csproj configuration with PublishSingleFile (Wave 1)
+- [ ] 09-02-PLAN.md — Matrix splash animation and error handler in Core (Wave 1)
+- [ ] 09-03-PLAN.md — Integrate splash into all CLI entry points (Wave 2)
+- [ ] 09-04-PLAN.md — Inno Setup installer with PATH integration (Wave 2)
+- [ ] 09-05-PLAN.md — Windows Sandbox clean-room validation (Wave 3)
 
 ### Phase 10: MatrixLite Fallback
 **Goal**: Text-based Matrix rain for non-Windows-Terminal environments
@@ -215,16 +217,16 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shader Service Foundation | 3/3 | ✓ Complete | 2026-01-25 |
-| 2. State Persistence | 2/2 | ✓ Complete | 2026-01-26 |
-| 3. Windows API Layer | 3/3 | ✓ Complete | 2026-01-26 |
-| 4. Window Identity Service | 3/3 | ✓ Complete | 2026-01-27 |
-| 5. Layout Service | 3/3 | ✓ Complete | 2026-01-27 |
-| 6. Control Panel TUI | 4/4 | ✓ Complete | 2026-01-28 |
-| 7. Terminal Integration | 4/4 | ✓ Complete | 2026-01-29 |
-| 8. CLI Applications | 3/3 | ✓ Complete | 2026-01-29 |
-| 8.1 Gap Closure (INSERTED) | 5/5 | ✓ Complete | 2026-01-29 |
-| 9. Native AOT & Polish | 0/3 | Not started | - |
+| 1. Shader Service Foundation | 3/3 | Complete | 2026-01-25 |
+| 2. State Persistence | 2/2 | Complete | 2026-01-26 |
+| 3. Windows API Layer | 3/3 | Complete | 2026-01-26 |
+| 4. Window Identity Service | 3/3 | Complete | 2026-01-27 |
+| 5. Layout Service | 3/3 | Complete | 2026-01-27 |
+| 6. Control Panel TUI | 4/4 | Complete | 2026-01-28 |
+| 7. Terminal Integration | 4/4 | Complete | 2026-01-29 |
+| 8. CLI Applications | 3/3 | Complete | 2026-01-29 |
+| 8.1 Gap Closure (INSERTED) | 5/5 | Complete | 2026-01-29 |
+| 9. Native AOT & Polish | 0/5 | Not started | - |
 | 10. MatrixLite Fallback | 0/3 | Not started | - |
 
 ---
