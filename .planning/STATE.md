@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 7 of 10 (Terminal Integration)
-Plan: 1 of 3 in current phase
+Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-29 - Completed 07-01-PLAN.md
+Last activity: 2026-01-29 - Completed 07-02-PLAN.md
 
-Progress: [███████████████████░░░░░░░░░░░] 63% (19/30 plans)
+Progress: [████████████████████░░░░░░░░░░] 67% (20/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19
+- Total plans completed: 20
 - Average duration: 6 min
-- Total execution time: 2.38 hours
+- Total execution time: 2.50 hours
 
 **By Phase:**
 
@@ -33,10 +33,10 @@ Progress: [███████████████████░░░░
 | 04-window-identity-service | 3 | 21 min | 7 min |
 | 05-layout-service | 3 | 58 min | 19 min |
 | 06-control-panel-tui | 4 | 16 min | 4 min |
-| 07-terminal-integration | 1 | 3 min | 3 min |
+| 07-terminal-integration | 2 | 10 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 05-03 (18 min), 06-02 (7 min), 06-03 (2 min), 06-04 (5 min), 07-01 (3 min)
+- Last 5 plans: 06-02 (7 min), 06-03 (2 min), 06-04 (5 min), 07-01 (3 min), 07-02 (7 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -102,6 +102,9 @@ Recent decisions affecting current work:
 - [07-01]: Class type for TerminalSettings/ProfilesContainer (mutated during updates)
 - [07-01]: JsonExtensionData preserves unknown settings.json properties during round-trip
 - [07-01]: JsonPropertyName handles dotted 'experimental.pixelShaderPath' property
+- [07-02]: Regex-based profile extraction for malformed JSON recovery
+- [07-02]: UpsertProfile inserts at beginning so Matrix profiles appear at top
+- [07-02]: Backup path uses .matrix-backup suffix for easy identification
 
 ### Pending Todos
 
@@ -115,7 +118,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 07-01-PLAN.md (Terminal Settings Models)
+Stopped at: Completed 07-02-PLAN.md (Terminal Settings Service)
 Resume file: None
 
 ---
