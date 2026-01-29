@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Text;
 using MatrixShader.Core.Models;
 
 namespace MatrixShader.Core.Native;
@@ -26,9 +25,10 @@ public static partial class WindowsApi
 
     /// <summary>
     /// Retrieves the text of the specified window's title bar.
+    /// Internal implementation for AOT compatibility using char array.
     /// </summary>
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    public static extern int GetWindowText(nint hWnd, StringBuilder lpString, int nMaxCount);
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial int GetWindowTextInternal(nint hWnd, [Out] char[] lpString, int nMaxCount);
 
     /// <summary>
     /// Retrieves the length of the specified window's title bar text.
@@ -38,9 +38,10 @@ public static partial class WindowsApi
 
     /// <summary>
     /// Retrieves the name of the class to which the specified window belongs.
+    /// Internal implementation for AOT compatibility using char array.
     /// </summary>
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    public static extern int GetClassName(nint hWnd, StringBuilder lpClassName, int nMaxCount);
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial int GetClassNameInternal(nint hWnd, [Out] char[] lpClassName, int nMaxCount);
 
     /// <summary>
     /// Retrieves the identifier of the thread that created the specified window
@@ -167,8 +168,10 @@ public static partial class WindowsApi
 
     /// <summary>
     /// Retrieves information about a display monitor.
+    /// Uses DllImport because MONITORINFOEX contains fixed char array unsupported by LibraryImport.
     /// </summary>
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetMonitorInfo(nint hMonitor, ref MONITORINFOEX lpmi);
 
     /// <summary>
@@ -240,21 +243,28 @@ public static partial class WindowsApi
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    public struct MONITORINFOEX
+    public unsafe struct MONITORINFOEX
     {
         public int cbSize;
         public RECT rcMonitor;
         public RECT rcWork;
         public uint dwFlags;
 
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-        public string szDevice;
+        public fixed char szDevice[32];
 
         public static MONITORINFOEX Create()
         {
             var mi = new MONITORINFOEX();
-            mi.cbSize = Marshal.SizeOf<MONITORINFOEX>();
+            mi.cbSize = sizeof(MONITORINFOEX);
             return mi;
+        }
+
+        public readonly unsafe string GetDeviceName()
+        {
+            fixed (char* p = szDevice)
+            {
+                return new string(p);
+            }
         }
     }
 
@@ -272,9 +282,9 @@ public static partial class WindowsApi
         int length = GetWindowTextLength(hWnd);
         if (length == 0) return string.Empty;
 
-        var sb = new StringBuilder(length + 1);
-        GetWindowText(hWnd, sb, sb.Capacity);
-        return sb.ToString();
+        var buffer = new char[length + 1];
+        GetWindowTextInternal(hWnd, buffer, buffer.Length);
+        return new string(buffer, 0, length);
     }
 
     /// <summary>
@@ -282,9 +292,10 @@ public static partial class WindowsApi
     /// </summary>
     public static string GetWindowClassName(nint hWnd)
     {
-        var sb = new StringBuilder(256);
-        GetClassName(hWnd, sb, sb.Capacity);
-        return sb.ToString();
+        var buffer = new char[256];
+        int length = GetClassNameInternal(hWnd, buffer, buffer.Length);
+        if (length == 0) return string.Empty;
+        return new string(buffer, 0, length);
     }
 
     /// <summary>
@@ -457,7 +468,7 @@ public static partial class WindowsApi
                     Bounds = mi.rcMonitor.ToWindowRect(),
                     WorkArea = mi.rcWork.ToWindowRect(),
                     IsPrimary = (mi.dwFlags & MONITORINFOF_PRIMARY) != 0,
-                    DeviceName = mi.szDevice
+                    DeviceName = mi.GetDeviceName()
                 });
             }
             return true;
