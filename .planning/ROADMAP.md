@@ -167,13 +167,14 @@ Plans:
   6. Tab colors sync to shader RGB values
   7. All P/Invoke uses LibraryImport (AOT ready)
   8. All serialized types registered in MatrixJsonContext
-**Plans**: TBD
+**Plans**: 5 plans in 2 waves
 
 Plans:
-- [ ] 08.1-01: Critical gaps (CliBootstrap, TODO features, package cleanup, docs)
-- [ ] 08.1-02: Terminal integration (transparency, tab color sync, model updates)
-- [ ] 08.1-03: AOT preparation (LibraryImport conversion, JSON context types)
-- [ ] 08.1-04: Consistency fixes (GetActiveSlots, dev paths, Monitor service)
+- [ ] 08.1-01-PLAN.md — Critical gaps: CliBootstrap integration, Spectre.Console removal, REQUIREMENTS.md update (Wave 1)
+- [ ] 08.1-02-PLAN.md — TODO features: Launch, Snapback, Glitch, Monitor, Primary actions (Wave 1)
+- [ ] 08.1-03-PLAN.md — Terminal integration: Transparency/opacity to settings.json, tab color sync (Wave 2)
+- [ ] 08.1-04-PLAN.md — AOT preparation: LibraryImport conversion, JSON context types (Wave 1)
+- [ ] 08.1-05-PLAN.md — Consistency fixes: GetActiveSlots, dev paths, Monitor service (Wave 2)
 
 ### Phase 9: Native AOT & Polish
 **Goal**: Single-file executables with instant startup
@@ -222,7 +223,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 6. Control Panel TUI | 4/4 | ✓ Complete | 2026-01-28 |
 | 7. Terminal Integration | 4/4 | ✓ Complete | 2026-01-29 |
 | 8. CLI Applications | 3/3 | ✓ Complete | 2026-01-29 |
-| 8.1 Gap Closure (INSERTED) | 0/4 | Not started | - |
+| 8.1 Gap Closure (INSERTED) | 0/5 | Not started | - |
 | 9. Native AOT & Polish | 0/3 | Not started | - |
 | 10. MatrixLite Fallback | 0/3 | Not started | - |
 
