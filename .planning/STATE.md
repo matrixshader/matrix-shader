@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 8 of 10 (CLI Applications)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-29 - Completed 08-01-PLAN.md (CLI Bootstrap Infrastructure)
+Last activity: 2026-01-29 - Completed 08-02-PLAN.md (Bluepill Session Restore)
 
-Progress: [███████████████████████░░░░░░░] 77% (23/30 plans)
+Progress: [████████████████████████░░░░░░] 80% (24/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23
+- Total plans completed: 24
 - Average duration: 6 min
-- Total execution time: 2.8 hours
+- Total execution time: 2.9 hours
 
 **By Phase:**
 
@@ -34,10 +34,10 @@ Progress: [███████████████████████
 | 05-layout-service | 3 | 58 min | 19 min |
 | 06-control-panel-tui | 4 | 16 min | 4 min |
 | 07-terminal-integration | 4 | 22 min | 6 min |
-| 08-cli-applications | 1 | 5 min | 5 min |
+| 08-cli-applications | 2 | 10 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 07-01 (3 min), 07-02 (7 min), 07-03 (9 min), 07-04 (3 min), 08-01 (5 min)
+- Last 5 plans: 07-02 (7 min), 07-03 (9 min), 07-04 (3 min), 08-01 (5 min), 08-02 (5 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -117,6 +117,10 @@ Recent decisions affecting current work:
 - [08-01]: DiagnosticLogger.Initialize() over non-existent Enable() (API correction)
 - [08-01]: LibraryImport for P/Invoke declarations (AOT compatibility)
 - [08-01]: Static class for CliBootstrap (no DI, matches DiagnosticLogger pattern)
+- [08-02]: Use nint instead of IntPtr for window handles (consistent with Core library)
+- [08-02]: RegisterWindowHandle signature matches interface (nint, string, int)
+- [08-02]: MatrixState.Layout property (not LayoutConfig) per model definition
+- [08-02]: ShaderService.CreateShader requires ShaderConfig parameter
 
 ### Pending Todos
 
@@ -130,9 +134,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 08-01-PLAN.md (CLI Bootstrap Infrastructure)
+Stopped at: Completed 08-02-PLAN.md (Bluepill Session Restore)
 Resume file: None
-Next action: Execute 08-02-PLAN.md (bluepill + wakeupneo CLIs)
+Next action: Execute 08-03-PLAN.md (wakeupneo and redpill CLIs)
 
 ---
 *State initialized: 2026-01-25*
