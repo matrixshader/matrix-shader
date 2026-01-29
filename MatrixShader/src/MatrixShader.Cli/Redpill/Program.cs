@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using MatrixShader.Core.Constants;
+using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Services;
 using MatrixShader.Lite;
@@ -13,6 +16,20 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        // Parse arguments
+        var options = CliBootstrap.ParseArgs(args);
+
+        if (options.ShowHelp)
+        {
+            ShowHelp();
+            return 0;
+        }
+
+        if (options.Debug)
+        {
+            DiagnosticLogger.Initialize(true);
+        }
+
         // Setup DI
         var services = new ServiceCollection();
         ConfigureServices(services);
@@ -21,10 +38,22 @@ public static class Program
         var logger = provider.GetRequiredService<ILogger<ControlPanel>>();
         var envService = provider.GetRequiredService<EnvironmentService>();
 
+        // Bootstrap initialization
+        var bootstrap = await CliBootstrap.InitializeAsync(verbose: options.Debug);
+        if (!bootstrap.Success)
+        {
+            ConsoleHelper.WriteLineMatrixGreen($"Error: {bootstrap.ErrorMessage}");
+            return 1;
+        }
+
         // Detect render mode
         var mode = envService.DetectRenderMode();
 
         logger.LogInformation("Starting Matrix Shader in {Mode} mode", mode);
+
+        // Show random quote
+        CliBootstrap.ShowRandomQuote();
+        Console.WriteLine();
 
         try
         {
@@ -78,6 +107,21 @@ public static class Program
         // TUI components
         services.AddSingleton<TabManager>();
         services.AddSingleton<ControlPanel>();
+    }
+
+    private static void ShowHelp()
+    {
+        Console.WriteLine();
+        ConsoleHelper.WriteLineMatrixGreen(" REDPILL - Matrix Shader Control Panel");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" Usage: redpill [options]");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" Options:");
+        ConsoleHelper.WriteLineDim("   --help       Show this help message");
+        ConsoleHelper.WriteLineDim("   --debug      Enable diagnostic logging");
+        ConsoleHelper.WriteLineDim("   --morpheus   Philosophical explanations");
+        ConsoleHelper.WriteLineDim("   --agent-smith  Chaos mode");
+        Console.WriteLine();
     }
 }
 
@@ -346,7 +390,10 @@ public class ControlPanel
                 _launchCount++;
                 break;
             case KeyAction.Launch:
-                // TODO: Launch implementation (Phase 7/8)
+                if (_launchCount > 0)
+                {
+                    Task.Run(async () => await LaunchWindowsAsync(_launchCount)).Wait();
+                }
                 break;
 
             // Save/Reset
@@ -379,5 +426,83 @@ public class ControlPanel
                 // TODO: Implement in Phase 7/8
                 break;
         }
+    }
+
+    private async Task LaunchWindowsAsync(int count)
+    {
+        var existingHandles = GetExistingWindowHandles();
+
+        for (int i = 0; i < count; i++)
+        {
+            var nextSlot = FindNextAvailableSlot();
+            if (nextSlot == -1) break;
+
+            var profileName = $"Matrix-{nextSlot}";
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "wt.exe",
+                    Arguments = $"-p \"{profileName}\"",
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+
+                var newHandle = await WaitForNewWindowAsync(existingHandles);
+                if (newHandle != nint.Zero)
+                {
+                    _identityService.RegisterWindowHandle(newHandle, profileName, nextSlot);
+                    existingHandles.Add(newHandle);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to launch {Profile}", profileName);
+            }
+        }
+
+        // Apply layout after all windows launched
+        var windows = _identityService.FindMatrixWindows();
+        var state = _configService.LoadState();
+        var positions = _layoutService.CalculateLayout(windows, state.Layout);
+        _layoutService.ApplyLayout(positions);
+
+        // Reset launch count
+        _launchCount = 0;
+    }
+
+    private int FindNextAvailableSlot()
+    {
+        var usedSlots = new HashSet<int>(_identityService.FindMatrixWindows().Select(w => w.ShaderIndex));
+        for (int i = 1; i <= 8; i++)
+        {
+            if (!usedSlots.Contains(i)) return i;
+        }
+        return -1;
+    }
+
+    private HashSet<nint> GetExistingWindowHandles()
+    {
+        return new HashSet<nint>(_identityService.FindMatrixWindows().Select(w => w.Handle));
+    }
+
+    private async Task<nint> WaitForNewWindowAsync(HashSet<nint> existingHandles)
+    {
+        const int maxAttempts = 50;
+        const int pollIntervalMs = 100;
+
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            await Task.Delay(pollIntervalMs);
+            var currentWindows = _identityService.FindMatrixWindows();
+            foreach (var window in currentWindows)
+            {
+                if (!existingHandles.Contains(window.Handle))
+                {
+                    return window.Handle;
+                }
+            }
+        }
+        return nint.Zero;
     }
 }
