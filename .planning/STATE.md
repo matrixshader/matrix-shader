@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** The C# version must work exactly like the PowerShell version does today
-**Current focus:** Phase 8.1 Gap Closure - In Progress
+**Current focus:** Phase 8.1 Gap Closure - COMPLETE
 
 ## Current Position
 
 Phase: 8.1 of 10 (Gap Closure)
-Plan: 4 of 5 in current phase
-Status: In progress
-Last activity: 2026-01-29 - Completed 08.1-04-PLAN.md (AOT P/Invoke and JSON Context)
+Plan: 5 of 5 in current phase (PHASE COMPLETE)
+Status: Phase complete
+Last activity: 2026-01-29 - Completed 08.1-05-PLAN.md (CLI Consistency Fixes)
 
-Progress: [############################--] 90% (29/31 plans)
+Progress: [#############################-] 97% (30/31 plans)
 
 ## Performance Metrics
 
@@ -130,6 +130,11 @@ Recent decisions affecting current work:
 - [08.1-04]: Keep DllImport for GetMonitorInfo (MONITORINFOEX struct with fixed char array unsupported by LibraryImport)
 - [08.1-04]: Use unsafe fixed char buffer in MONITORINFOEX with GetDeviceName() helper
 - [08.1-01]: Remove Spectre.Console globally - all TUI uses native Console.Write with ANSI codes
+- [08.1-03]: ApplyOpacityToProfile applies opacity to Windows Terminal settings.json on B/K/L keys
+- [08.1-03]: SyncTabColorToShader converts float RGB (0-1) to hex #RRGGBB on save
+- [08.1-05]: GetActiveSlots uses ShaderExists not color comparison (matches Bluepill)
+- [08.1-05]: No hardcoded user-specific paths in ShaderService
+- [08.1-05]: Monitor starts silently from Bluepill (optional enhancement)
 
 ### Pending Todos
 
@@ -143,9 +148,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 08.1-01-PLAN.md (CliBootstrap Integration)
+Stopped at: Completed 08.1-05-PLAN.md (CLI Consistency Fixes)
 Resume file: None
-Next action: Execute remaining 08.1 plans (08.1-03, 08.1-05)
+Next action: Phase 9 (Windows Sandbox Testing) or Phase 10 (Documentation)
 
 ---
 *State initialized: 2026-01-25*
