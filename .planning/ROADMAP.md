@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Window Identity Service** - 4-layer identity resolution with confidence scoring
 - [x] **Phase 5: Layout Service** - Pillars/Quads positioning with multi-monitor support
 - [x] **Phase 6: Control Panel TUI** - Redpill interactive control panel with ANSI rendering
-- [ ] **Phase 7: Terminal Integration** - settings.json manipulation and profile management
+- [x] **Phase 7: Terminal Integration** - settings.json manipulation and profile management
 - [ ] **Phase 8: CLI Applications** - bluepill launcher and wakeupneo wizard
 - [ ] **Phase 9: Native AOT & Polish** - Single-file compilation and <500ms startup
 - [ ] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
@@ -133,10 +133,10 @@ Plans:
 **Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 07-01-PLAN.md — Terminal models (TerminalProfile, TerminalSettings) with AOT serialization (Wave 1)
-- [ ] 07-02-PLAN.md — TerminalSettingsService with three-layer error recovery (Wave 2)
-- [ ] 07-03-PLAN.md — DiagnosticLogger for MATRIX_DEBUG=1 and --debug flag (Wave 2)
-- [ ] 07-04-PLAN.md — Profile creation and shader path auto-update (Wave 3)
+- [x] 07-01-PLAN.md — Terminal models (TerminalProfile, TerminalSettings) with AOT serialization (Wave 1)
+- [x] 07-02-PLAN.md — TerminalSettingsService with three-layer error recovery (Wave 2)
+- [x] 07-03-PLAN.md — DiagnosticLogger for MATRIX_DEBUG=1 and --debug flag (Wave 2)
+- [x] 07-04-PLAN.md — Profile creation and shader path auto-update (Wave 3)
 
 ### Phase 8: CLI Applications
 **Goal**: All three executables work as standalone tools
@@ -198,7 +198,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 4. Window Identity Service | 3/3 | ✓ Complete | 2026-01-27 |
 | 5. Layout Service | 3/3 | ✓ Complete | 2026-01-27 |
 | 6. Control Panel TUI | 4/4 | ✓ Complete | 2026-01-28 |
-| 7. Terminal Integration | 0/3 | Not started | - |
+| 7. Terminal Integration | 4/4 | ✓ Complete | 2026-01-29 |
 | 8. CLI Applications | 0/3 | Not started | - |
 | 9. Native AOT & Polish | 0/3 | Not started | - |
 | 10. MatrixLite Fallback | 0/3 | Not started | - |

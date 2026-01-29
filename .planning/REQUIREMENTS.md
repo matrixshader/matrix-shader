@@ -49,10 +49,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Terminal Integration
 
-- [ ] **TERM-01**: System can read/modify Windows Terminal settings.json
-- [ ] **TERM-02**: System can create Matrix-1 through Matrix-8 profiles
-- [ ] **TERM-03**: System sets pixel shader paths in profiles
-- [ ] **TERM-04**: Diagnostic logging available via MATRIX_DEBUG=1
+- [x] **TERM-01**: System can read/modify Windows Terminal settings.json
+- [x] **TERM-02**: System can create Matrix-1 through Matrix-8 profiles
+- [x] **TERM-03**: System sets pixel shader paths in profiles
+- [x] **TERM-04**: Diagnostic logging available via MATRIX_DEBUG=1
 
 ### User Experience
 
@@ -124,10 +124,10 @@ Deferred to future release.
 | UX-03 | Phase 6 | Complete |
 | UX-04 | Phase 6 | Complete |
 | UX-05 | Phase 6 | Complete |
-| TERM-01 | Phase 7 | Pending |
-| TERM-02 | Phase 7 | Pending |
-| TERM-03 | Phase 7 | Pending |
-| TERM-04 | Phase 7 | Pending |
+| TERM-01 | Phase 7 | Complete |
+| TERM-02 | Phase 7 | Complete |
+| TERM-03 | Phase 7 | Complete |
+| TERM-04 | Phase 7 | Complete |
 | CLI-02 | Phase 8 | Pending |
 | CLI-03 | Phase 8 | Pending |
 | UX-02 | Phase 8 | Pending |
@@ -145,4 +145,4 @@ Deferred to future release.
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-28 — Phase 6 complete (CLI-01, UX-01, UX-03, UX-04, UX-05)*
+*Last updated: 2026-01-29 — Phase 7 complete (TERM-01, TERM-02, TERM-03, TERM-04)*
