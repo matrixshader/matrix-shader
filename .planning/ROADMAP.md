@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Control Panel TUI** - Redpill interactive control panel with ANSI rendering
 - [x] **Phase 7: Terminal Integration** - settings.json manipulation and profile management
 - [x] **Phase 8: CLI Applications** - bluepill launcher and wakeupneo wizard
-- [ ] **Phase 8.1: Gap Closure** - INSERTED: Fix implementation gaps before AOT (20 gaps: 4 critical, 10 important, 6 minor)
+- [x] **Phase 8.1: Gap Closure** - INSERTED: Fix implementation gaps before AOT (20 gaps: 4 critical, 10 important, 6 minor)
 - [ ] **Phase 9: Native AOT & Polish** - Single-file compilation and <500ms startup
 - [ ] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
 
@@ -170,11 +170,11 @@ Plans:
 **Plans**: 5 plans in 2 waves
 
 Plans:
-- [ ] 08.1-01-PLAN.md — Critical gaps: CliBootstrap integration, Spectre.Console removal, REQUIREMENTS.md update (Wave 1)
-- [ ] 08.1-02-PLAN.md — TODO features: Launch, Snapback, Glitch, Monitor, Primary actions (Wave 1)
-- [ ] 08.1-03-PLAN.md — Terminal integration: Transparency/opacity to settings.json, tab color sync (Wave 2)
-- [ ] 08.1-04-PLAN.md — AOT preparation: LibraryImport conversion, JSON context types (Wave 1)
-- [ ] 08.1-05-PLAN.md — Consistency fixes: GetActiveSlots, dev paths, Monitor service (Wave 2)
+- [x] 08.1-01-PLAN.md — Critical gaps: CliBootstrap integration, Spectre.Console removal, REQUIREMENTS.md update (Wave 1)
+- [x] 08.1-02-PLAN.md — TODO features: Launch, Snapback, Glitch, Monitor, Primary actions (Wave 1)
+- [x] 08.1-03-PLAN.md — Terminal integration: Transparency/opacity to settings.json, tab color sync (Wave 2)
+- [x] 08.1-04-PLAN.md — AOT preparation: LibraryImport conversion, JSON context types (Wave 1)
+- [x] 08.1-05-PLAN.md — Consistency fixes: GetActiveSlots, dev paths, Monitor service (Wave 2)
 
 ### Phase 9: Native AOT & Polish
 **Goal**: Single-file executables with instant startup
@@ -223,7 +223,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 6. Control Panel TUI | 4/4 | ✓ Complete | 2026-01-28 |
 | 7. Terminal Integration | 4/4 | ✓ Complete | 2026-01-29 |
 | 8. CLI Applications | 3/3 | ✓ Complete | 2026-01-29 |
-| 8.1 Gap Closure (INSERTED) | 0/5 | Not started | - |
+| 8.1 Gap Closure (INSERTED) | 5/5 | ✓ Complete | 2026-01-29 |
 | 9. Native AOT & Polish | 0/3 | Not started | - |
 | 10. MatrixLite Fallback | 0/3 | Not started | - |
 
