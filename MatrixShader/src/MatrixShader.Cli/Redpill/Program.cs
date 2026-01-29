@@ -103,6 +103,7 @@ public static class Program
         services.AddSingleton<IConfigService, ConfigService>();
         services.AddSingleton<IIdentityService, IdentityService>();
         services.AddSingleton<ILayoutService, LayoutService>();
+        services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
 
         // TUI components
         services.AddSingleton<TabManager>();
@@ -135,6 +136,7 @@ public class ControlPanel
     private readonly IConfigService _configService;
     private readonly IIdentityService _identityService;
     private readonly ILayoutService _layoutService;
+    private readonly ITerminalSettingsService _terminalSettingsService;
     private readonly ILogger<ControlPanel> _logger;
     private readonly TabManager _tabManager;
 
@@ -148,6 +150,7 @@ public class ControlPanel
         IConfigService configService,
         IIdentityService identityService,
         ILayoutService layoutService,
+        ITerminalSettingsService terminalSettingsService,
         TabManager tabManager,
         ILogger<ControlPanel> logger)
     {
@@ -155,6 +158,7 @@ public class ControlPanel
         _configService = configService;
         _identityService = identityService;
         _layoutService = layoutService;
+        _terminalSettingsService = terminalSettingsService;
         _tabManager = tabManager;
         _logger = logger;
 
@@ -374,12 +378,21 @@ public class ControlPanel
             // Transparency
             case KeyAction.TransparencyToggle:
                 _transparency = !_transparency;
+                ApplyOpacityToProfile(_transparency ? _opacity : 100);
                 break;
             case KeyAction.OpacityDecrease:
-                if (_transparency && _opacity > 0) _opacity -= 5;
+                if (_transparency && _opacity > 0)
+                {
+                    _opacity -= 5;
+                    ApplyOpacityToProfile(_opacity);
+                }
                 break;
             case KeyAction.OpacityIncrease:
-                if (_transparency && _opacity < 100) _opacity += 5;
+                if (_transparency && _opacity < 100)
+                {
+                    _opacity += 5;
+                    ApplyOpacityToProfile(_opacity);
+                }
                 break;
 
             // Launch
@@ -576,5 +589,27 @@ public class ControlPanel
             }
         }
         return nint.Zero;
+    }
+
+    private void ApplyOpacityToProfile(int opacity)
+    {
+        try
+        {
+            var settings = _terminalSettingsService.LoadSettings();
+            var profileName = $"Matrix-{_tabManager.CurrentSlot}";
+            var profile = _terminalSettingsService.GetProfile(settings, profileName);
+
+            if (profile != null)
+            {
+                var updatedProfile = profile with { Opacity = opacity };
+                _terminalSettingsService.UpsertProfile(settings, updatedProfile);
+                _terminalSettingsService.SaveSettings(settings);
+                DiagnosticLogger.Info("REDPILL", $"Applied opacity {opacity}% to {profileName}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to apply opacity to profile");
+        }
     }
 }
