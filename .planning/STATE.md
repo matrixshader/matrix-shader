@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 7 of 10 (Terminal Integration)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-01-29 - Completed 07-03-PLAN.md
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-01-29 - Completed 07-04-PLAN.md
 
-Progress: [█████████████████████░░░░░░░░░] 70% (21/30 plans)
+Progress: [██████████████████████░░░░░░░░] 73% (22/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
+- Total plans completed: 22
 - Average duration: 6 min
-- Total execution time: 2.65 hours
+- Total execution time: 2.7 hours
 
 **By Phase:**
 
@@ -33,10 +33,10 @@ Progress: [█████████████████████░░
 | 04-window-identity-service | 3 | 21 min | 7 min |
 | 05-layout-service | 3 | 58 min | 19 min |
 | 06-control-panel-tui | 4 | 16 min | 4 min |
-| 07-terminal-integration | 3 | 19 min | 6 min |
+| 07-terminal-integration | 4 | 22 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 06-03 (2 min), 06-04 (5 min), 07-01 (3 min), 07-02 (7 min), 07-03 (9 min)
+- Last 5 plans: 06-04 (5 min), 07-01 (3 min), 07-02 (7 min), 07-03 (9 min), 07-04 (3 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -109,6 +109,10 @@ Recent decisions affecting current work:
 - [07-03]: Parallel channel to ILogger (DiagnosticLogger for MATRIX_DEBUG=1 user output)
 - [07-03]: Thread-safe file writes with lock object
 - [07-03]: Silent error handling matches PowerShell -ErrorAction SilentlyContinue
+- [07-04]: Profile GUID format with braces matching PowerShell: {guid}
+- [07-04]: hidden=true, opacity=95 for profile defaults matching install.ps1
+- [07-04]: Regex pattern ^Matrix-\d+$ for Matrix-N profile detection
+- [07-04]: CreateMatrixProfiles skips existing profiles (idempotent operation)
 
 ### Pending Todos
 
@@ -122,7 +126,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 07-03-PLAN.md (Diagnostic Logger)
+Stopped at: Completed 07-04-PLAN.md (Profile Creation)
 Resume file: None
 
 ---
