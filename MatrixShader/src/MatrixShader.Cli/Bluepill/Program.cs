@@ -1,78 +1,114 @@
+using System.Diagnostics;
+using MatrixShader.Core.Constants;
+using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Services;
-using MatrixShader.Lite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Spectre.Console;
 
 namespace MatrixShader.Cli.Bluepill;
 
 /// <summary>
-/// Quick launcher - starts Matrix rain with saved settings.
-/// No UI, just immediate visual effect.
+/// Bluepill - Quick session restore for Matrix Shader.
+/// "Straight into the Matrix Shader, Coppertop!"
 /// </summary>
 public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        // Parse arguments
+        var options = CliBootstrap.ParseArgs(args);
+
+        if (options.ShowHelp)
+        {
+            ShowHelp();
+            return 0;
+        }
+
+        // Bootstrap
+        var bootstrap = await CliBootstrap.InitializeAsync(verbose: options.Debug);
+        if (!bootstrap.Success)
+        {
+            ConsoleHelper.WriteLineMatrixGreen($"Error: {bootstrap.ErrorMessage}");
+            return 1;
+        }
+
+        // Set up DI
         var services = new ServiceCollection();
         ConfigureServices(services);
         var provider = services.BuildServiceProvider();
 
-        var logger = provider.GetRequiredService<ILogger<QuickLauncher>>();
-        var envService = provider.GetRequiredService<EnvironmentService>();
-        var configService = provider.GetRequiredService<IConfigService>();
-
-        var mode = envService.DetectRenderMode();
-        logger.LogInformation("Bluepill starting in {Mode} mode", mode);
+        var restorer = provider.GetRequiredService<SessionRestorer>();
 
         try
         {
-            if (mode == RenderMode.Full)
+            // Show header and random quote
+            Console.WriteLine();
+            ConsoleHelper.WriteLineMatrixGreen(" BLUEPILL - Enter the Matrix");
+            ConsoleHelper.WriteLineDim(" ----------------------------");
+            Console.WriteLine();
+            CliBootstrap.ShowRandomQuote();
+
+            // Morpheus mode: philosophical intro
+            if (options.Morpheus)
             {
-                // Full mode - launch shader windows
-                var launcher = provider.GetRequiredService<QuickLauncher>();
-                await launcher.LaunchAsync();
+                await ShowMorpheusIntro();
             }
-            else if (mode == RenderMode.Lite)
+
+            // Run session restore
+            var result = await restorer.RestoreSessionAsync();
+
+            if (!result.Success)
             {
-                // Lite mode - run text animation directly
-                var state = configService.LoadState();
-                var config = state.ShaderConfigs.GetValueOrDefault(1, new ShaderConfig());
-
-                using var renderer = new TextMatrixRenderer();
-                renderer.SetColor(new Core.Constants.MatrixColor(
-                    config.R, config.G, config.B, "Custom", ""));
-                renderer.SetSpeed(config.Speed);
-                renderer.SetDensity(config.Density);
-
-                using var cts = new CancellationTokenSource();
-
-                // Handle Ctrl+C
-                Console.CancelKeyPress += (_, e) =>
-                {
-                    e.Cancel = true;
-                    cts.Cancel();
-                };
-
-                AnsiConsole.MarkupLine("[dim]Press Ctrl+C to exit[/]");
-                await Task.Delay(1000);
-
-                await renderer.RunAsync(cts.Token);
-            }
-            else
-            {
-                AnsiConsole.MarkupLine("[red]No display available.[/]");
+                ConsoleHelper.WriteLineMatrixGreen($" Error: {result.ErrorMessage}");
                 return 1;
             }
+
+            // Theatrical ending: "There is no spoon..."
+            Console.WriteLine();
+            await CliBootstrap.TypewriterAsync(" There is no spoon...", charDelayMs: 150);
+            Console.WriteLine();
+
+            // Wait for any key
+            ConsoleHelper.WriteLineDim(" Press any key to exit...");
+            Console.ReadKey(intercept: true);
 
             return 0;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unhandled exception");
+            DiagnosticLogger.Error("BLUEPILL", $"Unhandled exception: {ex.Message}");
+            ConsoleHelper.WriteLineMatrixGreen($" Error: {ex.Message}");
             return 1;
         }
+    }
+
+    private static void ShowHelp()
+    {
+        Console.WriteLine();
+        ConsoleHelper.WriteLineMatrixGreen(" BLUEPILL - Straight into the Matrix Shader, Coppertop!");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" Usage: bluepill [options]");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" Options:");
+        ConsoleHelper.WriteLineDim("   --help       Show this help message");
+        ConsoleHelper.WriteLineDim("   --debug      Enable diagnostic logging");
+        ConsoleHelper.WriteLineDim("   --morpheus   Philosophical explanations");
+        ConsoleHelper.WriteLineDim("   --agent-smith  Chaos mode");
+        Console.WriteLine();
+    }
+
+    private static async Task ShowMorpheusIntro()
+    {
+        await CliBootstrap.TypewriterAsync(" Let me tell you why you're here...", 100);
+        await Task.Delay(500);
+        await CliBootstrap.TypewriterAsync(" You're here because you know something.", 80);
+        await Task.Delay(300);
+        await CliBootstrap.TypewriterAsync(" What you know, you can't explain.", 80);
+        await Task.Delay(300);
+        await CliBootstrap.TypewriterAsync(" But you feel it.", 80);
+        await Task.Delay(500);
+        Console.WriteLine();
     }
 
     private static void ConfigureServices(IServiceCollection services)
@@ -82,43 +118,260 @@ public static class Program
             builder.SetMinimumLevel(LogLevel.Warning);
         });
 
+        // Core services
         services.AddSingleton<EnvironmentService>();
+        services.AddSingleton<IShaderService, ShaderService>();
         services.AddSingleton<IConfigService, ConfigService>();
-        services.AddSingleton<QuickLauncher>();
+        services.AddSingleton<IIdentityService, IdentityService>();
+        services.AddSingleton<ILayoutService, LayoutService>();
+        services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
+
+        // Bluepill-specific
+        services.AddSingleton<SessionRestorer>();
     }
 }
 
 /// <summary>
-/// Launches Matrix shader windows quickly.
+/// Result of session restore operation.
 /// </summary>
-public class QuickLauncher
+public record RestoreResult(
+    bool Success,
+    string? ErrorMessage = null,
+    int WindowsLaunched = 0,
+    int WindowsAlreadyOpen = 0);
+
+/// <summary>
+/// Restores previous Matrix session.
+/// </summary>
+public class SessionRestorer
 {
     private readonly IConfigService _configService;
-    private readonly ILogger<QuickLauncher> _logger;
+    private readonly IShaderService _shaderService;
+    private readonly IIdentityService _identityService;
+    private readonly ILayoutService _layoutService;
+    private readonly ILogger<SessionRestorer> _logger;
 
-    public QuickLauncher(IConfigService configService, ILogger<QuickLauncher> logger)
+    public SessionRestorer(
+        IConfigService configService,
+        IShaderService shaderService,
+        IIdentityService identityService,
+        ILayoutService layoutService,
+        ILogger<SessionRestorer> logger)
     {
         _configService = configService;
+        _shaderService = shaderService;
+        _identityService = identityService;
+        _layoutService = layoutService;
         _logger = logger;
     }
 
-    public async Task LaunchAsync()
+    public async Task<RestoreResult> RestoreSessionAsync()
     {
+        DiagnosticLogger.Info("BLUEPILL", "Starting session restore");
+
+        // Load saved state
         var state = _configService.LoadState();
+        var slots = GetActiveSlots(state);
 
-        AnsiConsole.Status()
-            .Spinner(Spinner.Known.Dots)
-            .Start("Launching Matrix...", ctx =>
+        if (slots.Count == 0)
+        {
+            // First run: launch single green window
+            DiagnosticLogger.Info("BLUEPILL", "First run - launching single green window");
+            ConsoleHelper.WriteLineMatrixGreen(" First time? Creating your Matrix...");
+            slots = new List<int> { 1 };
+
+            // Ensure default green shader exists
+            if (!_shaderService.ShaderExists(1))
             {
-                // In full mode, we would launch Windows Terminal windows here
-                // For now, just display a message
-                ctx.Status("Matrix activated");
-            });
+                _shaderService.CreateShader(1, new ShaderConfig());
+                ConsoleHelper.WriteLineDim("   Created Matrix-1 shader (classic green)");
+            }
+        }
 
-        AnsiConsole.MarkupLine("[green]Matrix is running.[/]");
-        AnsiConsole.MarkupLine("[dim]Press any key to exit...[/]");
+        ConsoleHelper.WriteLineDim($" Restoring slots [{string.Join(", ", slots)}]");
+        Console.WriteLine();
 
-        Console.ReadKey(intercept: true);
-        await Task.CompletedTask;
+        // Check for existing windows
+        ConsoleHelper.WriteMatrixGreen(" Checking for existing windows...");
+        Console.WriteLine();
+
+        _identityService.CleanStaleEntries();
+        _identityService.LoadRegistry();
+
+        var existingWindows = _identityService.FindMatrixWindows();
+        var openSlots = new HashSet<int>(existingWindows.Select(w => w.ShaderIndex));
+
+        foreach (var slot in openSlots.Intersect(slots))
+        {
+            ConsoleHelper.WriteLineDim($"   Slot {slot} already open");
+        }
+
+        // Launch missing windows
+        ConsoleHelper.WriteMatrixGreen(" Launching windows...");
+        Console.WriteLine();
+
+        int launched = 0;
+        int alreadyOpen = openSlots.Count;
+
+        foreach (var slot in slots)
+        {
+            if (openSlots.Contains(slot))
+            {
+                ConsoleHelper.WriteLineDim($"   Matrix-{slot} - already open, skipping");
+                continue;
+            }
+
+            var profileName = $"Matrix-{slot}";
+            Console.Write($"   Waiting for {profileName}...");
+
+            // Capture existing handles before launch
+            var existingHandles = GetExistingWindowHandles();
+
+            // Launch via wt.exe
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "wt.exe",
+                    Arguments = $"-p \"{profileName}\"",
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                ConsoleHelper.WriteLineDim($" FAILED ({ex.Message})");
+                DiagnosticLogger.Error("BLUEPILL", $"Failed to launch {profileName}: {ex.Message}");
+                continue;
+            }
+
+            // Wait for new window to appear
+            var newHandle = await WaitForNewWindowAsync(profileName, existingHandles);
+
+            if (newHandle != IntPtr.Zero)
+            {
+                // Register the new window
+                _identityService.RegisterWindowHandle(newHandle, profileName, slot);
+                ConsoleHelper.WriteLineMatrixGreen(" OK");
+                launched++;
+            }
+            else
+            {
+                ConsoleHelper.WriteLineDim(" TIMEOUT");
+            }
+        }
+
+        if (launched == 0 && alreadyOpen > 0)
+        {
+            ConsoleHelper.WriteLineDim("   All windows already open");
+        }
+
+        // Position windows
+        Console.WriteLine();
+        ConsoleHelper.WriteMatrixGreen(" Positioning windows...");
+        Console.WriteLine();
+
+        await Task.Delay(500); // Let windows initialize
+
+        // Refresh window list
+        var allWindows = _identityService.FindMatrixWindows();
+
+        if (allWindows.Count > 0)
+        {
+            // Try to restore saved positions first
+            if (TryRestoreSavedPositions(allWindows, state))
+            {
+                ConsoleHelper.WriteLineDim($"   Restored {allWindows.Count} windows to saved positions");
+            }
+            else
+            {
+                // Fall back to layout engine
+                var layoutConfig = state.Layout;
+                var positions = _layoutService.CalculateLayout(allWindows, layoutConfig);
+                _layoutService.ApplyLayout(positions);
+                ConsoleHelper.WriteLineDim($"   Positioned {allWindows.Count} windows using layout engine");
+            }
+        }
+        else
+        {
+            ConsoleHelper.WriteLineDim("   No Matrix windows detected");
+        }
+
+        // Save registry
+        _identityService.SaveRegistry();
+
+        Console.WriteLine();
+        ConsoleHelper.WriteLineMatrixGreen(" THE MATRIX HAS YOU.");
+        ConsoleHelper.WriteLineDim(" Type 'redpill' to customize.");
+
+        DiagnosticLogger.Info("BLUEPILL", $"Session restore complete: {launched} launched, {alreadyOpen} already open");
+
+        return new RestoreResult(true, WindowsLaunched: launched, WindowsAlreadyOpen: alreadyOpen);
+    }
+
+    private List<int> GetActiveSlots(MatrixState state)
+    {
+        // Get slots that have shader configs
+        if (state.ShaderConfigs == null || state.ShaderConfigs.Count == 0)
+            return new List<int>();
+
+        // Return only slots where shader files actually exist
+        return state.ShaderConfigs.Keys
+            .Where(k => _shaderService.ShaderExists(k))
+            .OrderBy(k => k)
+            .ToList();
+    }
+
+    private HashSet<nint> GetExistingWindowHandles()
+    {
+        var handles = new HashSet<nint>();
+        var windows = _identityService.FindMatrixWindows();
+        foreach (var w in windows)
+        {
+            handles.Add(w.Handle);
+        }
+        return handles;
+    }
+
+    private async Task<nint> WaitForNewWindowAsync(string profileName, HashSet<nint> existingHandles)
+    {
+        // Poll for new window (100ms intervals, 5s timeout)
+        const int maxAttempts = 50;
+        const int pollIntervalMs = 100;
+
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            await Task.Delay(pollIntervalMs);
+
+            var currentWindows = _identityService.FindMatrixWindows();
+            foreach (var window in currentWindows)
+            {
+                if (!existingHandles.Contains(window.Handle))
+                {
+                    DiagnosticLogger.Debug("BLUEPILL", $"New window detected: {window.Handle}");
+                    return window.Handle;
+                }
+            }
+        }
+
+        DiagnosticLogger.Warn("BLUEPILL", $"Timeout waiting for {profileName}");
+        return IntPtr.Zero;
+    }
+
+    private bool TryRestoreSavedPositions(IReadOnlyList<WindowInfo> windows, MatrixState state)
+    {
+        // Check if we have saved window slots/positions
+        if (state.WindowSlots == null || state.WindowSlots.Count == 0)
+            return false;
+
+        // Try to use the layout service's slot-based positioning
+        var positions = _layoutService.LoadWindowSlots(windows);
+        if (positions.Count > 0)
+        {
+            _layoutService.ApplyLayout(positions);
+            return true;
+        }
+
+        return false;
     }
 }
