@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Layout Service** - Pillars/Quads positioning with multi-monitor support
 - [x] **Phase 6: Control Panel TUI** - Redpill interactive control panel with ANSI rendering
 - [x] **Phase 7: Terminal Integration** - settings.json manipulation and profile management
-- [ ] **Phase 8: CLI Applications** - bluepill launcher and wakeupneo wizard
+- [x] **Phase 8: CLI Applications** - bluepill launcher and wakeupneo wizard
 - [ ] **Phase 9: Native AOT & Polish** - Single-file compilation and <500ms startup
 - [ ] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
 
@@ -146,12 +146,12 @@ Plans:
   1. bluepill.exe restores previous session state and exits
   2. wakeupneo.exe provides Blue Pill (simple) and Red Pill (advanced) setup paths
   3. All executables can be invoked from any directory
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 08-01: bluepill.exe quick session restore
-- [ ] 08-02: wakeupneo.exe setup wizard with Blue/Red Pill paths
-- [ ] 08-03: Entry point consolidation and shared bootstrap
+- [x] 08-01-PLAN.md — Shared CLI bootstrap infrastructure (CliBootstrap, MatrixQuotes, ConsoleHelper) (Wave 1)
+- [x] 08-02-PLAN.md — bluepill.exe session restore with typewriter effect (Wave 2)
+- [x] 08-03-PLAN.md — wakeupneo.exe setup wizard with Blue/Red Pill paths (Wave 2)
 
 ### Phase 9: Native AOT & Polish
 **Goal**: Single-file executables with instant startup
@@ -199,7 +199,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 5. Layout Service | 3/3 | ✓ Complete | 2026-01-27 |
 | 6. Control Panel TUI | 4/4 | ✓ Complete | 2026-01-28 |
 | 7. Terminal Integration | 4/4 | ✓ Complete | 2026-01-29 |
-| 8. CLI Applications | 0/3 | Not started | - |
+| 8. CLI Applications | 3/3 | ✓ Complete | 2026-01-29 |
 | 9. Native AOT & Polish | 0/3 | Not started | - |
 | 10. MatrixLite Fallback | 0/3 | Not started | - |
 

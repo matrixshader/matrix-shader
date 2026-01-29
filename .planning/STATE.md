@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** The C# version must work exactly like the PowerShell version does today
-**Current focus:** Phase 8 - CLI Applications
+**Current focus:** Phase 8 Complete — Ready for Phase 9
 
 ## Current Position
 
@@ -139,7 +139,7 @@ None yet.
 Last session: 2026-01-29
 Stopped at: Completed 08-03-PLAN.md (WakeupNeo Setup Wizard)
 Resume file: None
-Next action: Phase 8 complete. Execute Phase 9 (Packaging/Installation)
+Next action: Plan Phase 9 via /gsd:plan-phase 9
 
 ---
 *State initialized: 2026-01-25*
