@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 8.1 of 10 (Gap Closure)
-Plan: 2 of 5 in current phase
+Plan: 4 of 5 in current phase
 Status: In progress
-Last activity: 2026-01-29 - Completed 08.1-02-PLAN.md (Redpill TODO Features)
+Last activity: 2026-01-29 - Completed 08.1-04-PLAN.md (AOT P/Invoke and JSON Context)
 
-Progress: [###########################---] 87% (27/31 plans)
+Progress: [############################--] 90% (29/31 plans)
 
 ## Performance Metrics
 
@@ -127,6 +127,8 @@ Recent decisions affecting current work:
 - [08.1-02]: async Task.Run().Wait() for Launch matches blocking TUI while allowing async detection
 - [08.1-02]: SnapbackSave uses CalculateLayout first for position consistency
 - [08.1-02]: PrimaryWindowCount 0 = auto (follows PowerShell convention)
+- [08.1-04]: Keep DllImport for GetMonitorInfo (MONITORINFOEX struct with fixed char array unsupported by LibraryImport)
+- [08.1-04]: Use unsafe fixed char buffer in MONITORINFOEX with GetDeviceName() helper
 
 ### Pending Todos
 
@@ -140,9 +142,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 08.1-02-PLAN.md (Redpill TODO Features)
+Stopped at: Completed 08.1-04-PLAN.md (AOT P/Invoke and JSON Context)
 Resume file: None
-Next action: Execute 08.1-03-PLAN.md (Package Cleanup)
+Next action: Execute 08.1-05-PLAN.md (REQUIREMENTS.md Update)
 
 ---
 *State initialized: 2026-01-25*
