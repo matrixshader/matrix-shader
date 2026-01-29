@@ -177,6 +177,134 @@ public class TerminalSettingsService : ITerminalSettingsService
         }
     }
 
+    public int CreateMatrixProfiles(TerminalSettings settings, int count, string shadersDirectory)
+    {
+        if (count < 1 || count > 8)
+            throw new ArgumentOutOfRangeException(nameof(count), "Count must be between 1 and 8");
+
+        var created = 0;
+        for (int i = 1; i <= count; i++)
+        {
+            var profileName = $"Matrix-{i}";
+
+            // Skip if profile already exists
+            if (GetProfile(settings, profileName) != null)
+            {
+                _logger.LogDebug("Profile {Name} already exists, skipping", profileName);
+                continue;
+            }
+
+            var profile = new TerminalProfile
+            {
+                Name = profileName,
+                Guid = $"{{{Guid.NewGuid()}}}",
+                Commandline = $"powershell.exe -NoExit -Command \"Write-Host ' Matrix Terminal {i}' -ForegroundColor Green\"",
+                Hidden = true,
+                Opacity = 95,
+                PixelShaderPath = Path.Combine(shadersDirectory, $"Matrix-{i}.hlsl")
+            };
+
+            UpsertProfile(settings, profile);
+            created++;
+            _logger.LogDebug("Created profile {Name}", profileName);
+        }
+
+        DiagnosticLogger.Info("TERMINAL", $"Created {created} Matrix profiles");
+        return created;
+    }
+
+    public void CreateRedpillProfile(TerminalSettings settings, string shadersDirectory, string controlPanelPath)
+    {
+        const string profileName = "Redpill";
+
+        // Check if already exists
+        if (GetProfile(settings, profileName) != null)
+        {
+            _logger.LogDebug("Redpill profile already exists");
+            return;
+        }
+
+        var profile = new TerminalProfile
+        {
+            Name = profileName,
+            Guid = $"{{{Guid.NewGuid()}}}",
+            Commandline = $"\"{controlPanelPath}\"",
+            Hidden = true,
+            Opacity = 95,
+            PixelShaderPath = Path.Combine(shadersDirectory, "Redpill-Neo.hlsl")
+        };
+
+        UpsertProfile(settings, profile);
+        DiagnosticLogger.Info("TERMINAL", "Created Redpill control panel profile");
+    }
+
+    public int UpdateShaderPaths(TerminalSettings settings, string currentShadersDirectory)
+    {
+        if (settings.Profiles?.List == null)
+            return 0;
+
+        var updated = 0;
+        for (int i = 0; i < settings.Profiles.List.Count; i++)
+        {
+            var profile = settings.Profiles.List[i];
+
+            // Check if this is a Matrix or Redpill profile
+            if (!IsMatrixProfile(profile.Name))
+                continue;
+
+            var shaderPath = profile.PixelShaderPath;
+            if (string.IsNullOrEmpty(shaderPath))
+                continue;
+
+            // Check if path needs updating
+            var shaderDir = Path.GetDirectoryName(shaderPath);
+            if (string.Equals(shaderDir, currentShadersDirectory, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Update path
+            var filename = Path.GetFileName(shaderPath);
+            var newPath = Path.Combine(currentShadersDirectory, filename);
+
+            // Create new profile with updated path
+            settings.Profiles.List[i] = profile with { PixelShaderPath = newPath };
+            updated++;
+
+            DiagnosticLogger.Debug("TERMINAL", $"Updated shader path for {profile.Name}: {newPath}");
+        }
+
+        if (updated > 0)
+        {
+            DiagnosticLogger.Info("TERMINAL", $"Updated {updated} shader paths to {currentShadersDirectory}");
+        }
+
+        return updated;
+    }
+
+    public int GetMatrixProfileCount(TerminalSettings settings)
+    {
+        if (settings.Profiles?.List == null)
+            return 0;
+
+        return settings.Profiles.List.Count(p => IsMatrixProfile(p.Name));
+    }
+
+    public bool HasMatrixProfiles(TerminalSettings settings)
+    {
+        return GetMatrixProfileCount(settings) > 0;
+    }
+
+    /// <summary>
+    /// Checks if a profile name is a Matrix-related profile (Matrix-N or Redpill).
+    /// </summary>
+    private static bool IsMatrixProfile(string? profileName)
+    {
+        if (string.IsNullOrEmpty(profileName))
+            return false;
+
+        return Regex.IsMatch(profileName, @"^Matrix-\d+$")
+            || string.Equals(profileName, "Redpill", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// Creates default settings with minimal structure.
     /// </summary>

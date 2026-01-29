@@ -56,4 +56,43 @@ public interface ITerminalSettingsService
     /// <param name="settings">Settings to modify</param>
     /// <param name="profile">Profile to upsert</param>
     void UpsertProfile(TerminalSettings settings, TerminalProfile profile);
+
+    /// <summary>
+    /// Creates Matrix-1 through Matrix-N profiles.
+    /// </summary>
+    /// <param name="settings">Settings to modify</param>
+    /// <param name="count">Number of profiles to create (1-8)</param>
+    /// <param name="shadersDirectory">Path to shaders directory</param>
+    /// <returns>Number of profiles created</returns>
+    int CreateMatrixProfiles(TerminalSettings settings, int count, string shadersDirectory);
+
+    /// <summary>
+    /// Creates the Redpill control panel profile.
+    /// </summary>
+    /// <param name="settings">Settings to modify</param>
+    /// <param name="shadersDirectory">Path to shaders directory</param>
+    /// <param name="controlPanelPath">Path to control panel executable</param>
+    void CreateRedpillProfile(TerminalSettings settings, string shadersDirectory, string controlPanelPath);
+
+    /// <summary>
+    /// Checks and updates shader paths if Matrix folder has moved.
+    /// </summary>
+    /// <param name="settings">Settings to check</param>
+    /// <param name="currentShadersDirectory">Current shaders directory path</param>
+    /// <returns>Number of paths updated</returns>
+    int UpdateShaderPaths(TerminalSettings settings, string currentShadersDirectory);
+
+    /// <summary>
+    /// Gets the count of existing Matrix profiles in settings.
+    /// </summary>
+    /// <param name="settings">Settings to check</param>
+    /// <returns>Number of Matrix-N profiles found</returns>
+    int GetMatrixProfileCount(TerminalSettings settings);
+
+    /// <summary>
+    /// Checks if Matrix profiles exist in settings.
+    /// </summary>
+    /// <param name="settings">Settings to check</param>
+    /// <returns>True if at least one Matrix profile exists</returns>
+    bool HasMatrixProfiles(TerminalSettings settings);
 }
