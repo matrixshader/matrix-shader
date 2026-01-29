@@ -20,6 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Control Panel TUI** - Redpill interactive control panel with ANSI rendering
 - [x] **Phase 7: Terminal Integration** - settings.json manipulation and profile management
 - [x] **Phase 8: CLI Applications** - bluepill launcher and wakeupneo wizard
+- [ ] **Phase 8.1: Gap Closure** - INSERTED: Fix implementation gaps before AOT (20 gaps: 4 critical, 10 important, 6 minor)
 - [ ] **Phase 9: Native AOT & Polish** - Single-file compilation and <500ms startup
 - [ ] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
 
@@ -153,9 +154,30 @@ Plans:
 - [x] 08-02-PLAN.md — bluepill.exe session restore with typewriter effect (Wave 2)
 - [x] 08-03-PLAN.md — wakeupneo.exe setup wizard with Blue/Red Pill paths (Wave 2)
 
+### Phase 8.1: Gap Closure (INSERTED)
+**Goal**: Fix implementation gaps identified between C# port and PowerShell reference
+**Depends on**: Phase 8 (all CLIs complete)
+**Requirements**: Derived from GAP-ANALYSIS.md (20 gaps total)
+**Success Criteria** (what must be TRUE):
+  1. Redpill has full CliBootstrap integration (--help, --debug, quotes)
+  2. All TODO features implemented (Launch, Snapback, Glitch, Monitor, Primary)
+  3. No unused packages in any csproj (Spectre.Console removed)
+  4. REQUIREMENTS.md accurately reflects implementation status
+  5. Transparency/opacity applies to Windows Terminal settings.json
+  6. Tab colors sync to shader RGB values
+  7. All P/Invoke uses LibraryImport (AOT ready)
+  8. All serialized types registered in MatrixJsonContext
+**Plans**: TBD
+
+Plans:
+- [ ] 08.1-01: Critical gaps (CliBootstrap, TODO features, package cleanup, docs)
+- [ ] 08.1-02: Terminal integration (transparency, tab color sync, model updates)
+- [ ] 08.1-03: AOT preparation (LibraryImport conversion, JSON context types)
+- [ ] 08.1-04: Consistency fixes (GetActiveSlots, dev paths, Monitor service)
+
 ### Phase 9: Native AOT & Polish
 **Goal**: Single-file executables with instant startup
-**Depends on**: Phase 8 (all CLIs complete)
+**Depends on**: Phase 8.1 (gap closure complete)
 **Requirements**: CLI-04, CLI-05
 **Success Criteria** (what must be TRUE):
   1. All three executables compile to single-file Native AOT binaries
@@ -200,6 +222,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 6. Control Panel TUI | 4/4 | ✓ Complete | 2026-01-28 |
 | 7. Terminal Integration | 4/4 | ✓ Complete | 2026-01-29 |
 | 8. CLI Applications | 3/3 | ✓ Complete | 2026-01-29 |
+| 8.1 Gap Closure (INSERTED) | 0/4 | Not started | - |
 | 9. Native AOT & Polish | 0/3 | Not started | - |
 | 10. MatrixLite Fallback | 0/3 | Not started | - |
 
