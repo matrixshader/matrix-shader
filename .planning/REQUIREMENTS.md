@@ -34,8 +34,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### CLI Applications
 
 - [x] **CLI-01**: redpill.exe provides interactive control panel TUI
-- [ ] **CLI-02**: bluepill.exe provides quick session restore
-- [ ] **CLI-03**: wakeupneo.exe provides setup wizard with Blue/Red Pill paths
+- [x] **CLI-02**: bluepill.exe provides quick session restore
+- [x] **CLI-03**: wakeupneo.exe provides setup wizard with Blue/Red Pill paths
 - [ ] **CLI-04**: All CLIs compile to Native AOT single-file executables
 - [ ] **CLI-05**: Startup time under 500ms (vs 60+ seconds PowerShell)
 
@@ -57,7 +57,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### User Experience
 
 - [x] **UX-01**: TUI displays color swatches for visual feedback
-- [ ] **UX-02**: Setup wizard offers Blue Pill (simple) and Red Pill (advanced) paths
+- [x] **UX-02**: Setup wizard offers Blue Pill (simple) and Red Pill (advanced) paths
 - [x] **UX-03**: Keyboard shortcuts match PowerShell version
 - [x] **UX-04**: Dirty state indicator shows unsaved changes
 - [x] **UX-05**: Auto-save on tab switch prevents lost changes
@@ -128,9 +128,9 @@ Deferred to future release.
 | TERM-02 | Phase 7 | Complete |
 | TERM-03 | Phase 7 | Complete |
 | TERM-04 | Phase 7 | Complete |
-| CLI-02 | Phase 8 | Pending |
-| CLI-03 | Phase 8 | Pending |
-| UX-02 | Phase 8 | Pending |
+| CLI-02 | Phase 8 | Complete |
+| CLI-03 | Phase 8 | Complete |
+| UX-02 | Phase 8 | Complete |
 | CLI-04 | Phase 9 | Pending |
 | CLI-05 | Phase 9 | Pending |
 | LITE-01 | Phase 10 | Pending |
@@ -145,4 +145,4 @@ Deferred to future release.
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-29 — Phase 7 complete (TERM-01, TERM-02, TERM-03, TERM-04)*
+*Last updated: 2026-01-29 — Phase 8 complete (CLI-02, CLI-03, UX-02), Phase 8.1 gap closure*
