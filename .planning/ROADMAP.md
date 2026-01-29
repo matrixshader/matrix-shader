@@ -130,12 +130,13 @@ Plans:
   2. Application can create Matrix-1 through Matrix-8 profiles
   3. Pixel shader paths are set correctly in profile configuration
   4. Diagnostic logging activates with MATRIX_DEBUG=1 environment variable
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 07-01: TerminalSettingsService for settings.json read/write
-- [ ] 07-02: Profile creation and shader path configuration
-- [ ] 07-03: Diagnostic logging infrastructure
+- [ ] 07-01-PLAN.md — Terminal models (TerminalProfile, TerminalSettings) with AOT serialization (Wave 1)
+- [ ] 07-02-PLAN.md — TerminalSettingsService with three-layer error recovery (Wave 2)
+- [ ] 07-03-PLAN.md — DiagnosticLogger for MATRIX_DEBUG=1 and --debug flag (Wave 2)
+- [ ] 07-04-PLAN.md — Profile creation and shader path auto-update (Wave 3)
 
 ### Phase 8: CLI Applications
 **Goal**: All three executables work as standalone tools
