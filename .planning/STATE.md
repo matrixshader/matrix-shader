@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** The C# version must work exactly like the PowerShell version does today
-**Current focus:** Phase 7 - Terminal Integration
+**Current focus:** Phase 8 - CLI Applications
 
 ## Current Position
 
-Phase: 7 of 10 (Terminal Integration)
-Plan: 4 of 4 in current phase
-Status: Phase complete ✓ VERIFIED
-Last activity: 2026-01-29 - Phase 7 verified (4/4 must-haves passed)
+Phase: 8 of 10 (CLI Applications)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-29 - Completed 08-01-PLAN.md (CLI Bootstrap Infrastructure)
 
-Progress: [██████████████████████░░░░░░░░] 73% (22/30 plans)
+Progress: [███████████████████████░░░░░░░] 77% (23/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
+- Total plans completed: 23
 - Average duration: 6 min
-- Total execution time: 2.7 hours
+- Total execution time: 2.8 hours
 
 **By Phase:**
 
@@ -34,9 +34,10 @@ Progress: [██████████████████████░
 | 05-layout-service | 3 | 58 min | 19 min |
 | 06-control-panel-tui | 4 | 16 min | 4 min |
 | 07-terminal-integration | 4 | 22 min | 6 min |
+| 08-cli-applications | 1 | 5 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 06-04 (5 min), 07-01 (3 min), 07-02 (7 min), 07-03 (9 min), 07-04 (3 min)
+- Last 5 plans: 07-01 (3 min), 07-02 (7 min), 07-03 (9 min), 07-04 (3 min), 08-01 (5 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -113,6 +114,9 @@ Recent decisions affecting current work:
 - [07-04]: hidden=true, opacity=95 for profile defaults matching install.ps1
 - [07-04]: Regex pattern ^Matrix-\d+$ for Matrix-N profile detection
 - [07-04]: CreateMatrixProfiles skips existing profiles (idempotent operation)
+- [08-01]: DiagnosticLogger.Initialize() over non-existent Enable() (API correction)
+- [08-01]: LibraryImport for P/Invoke declarations (AOT compatibility)
+- [08-01]: Static class for CliBootstrap (no DI, matches DiagnosticLogger pattern)
 
 ### Pending Todos
 
@@ -126,8 +130,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Phase 7 complete and verified, ready for Phase 8
+Stopped at: Completed 08-01-PLAN.md (CLI Bootstrap Infrastructure)
 Resume file: None
+Next action: Execute 08-02-PLAN.md (bluepill + wakeupneo CLIs)
 
 ---
 *State initialized: 2026-01-25*
