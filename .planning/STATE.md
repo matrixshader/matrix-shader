@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** The C# version must work exactly like the PowerShell version does today
-**Current focus:** Phase 8 Complete — Ready for Phase 9
+**Current focus:** Phase 8.1 Gap Closure - In Progress
 
 ## Current Position
 
-Phase: 8 of 10 (CLI Applications)
-Plan: 3 of 3 in current phase (PHASE COMPLETE)
-Status: Phase complete
-Last activity: 2026-01-29 - Completed 08-03-PLAN.md (WakeupNeo Setup Wizard)
+Phase: 8.1 of 10 (Gap Closure)
+Plan: 2 of 5 in current phase
+Status: In progress
+Last activity: 2026-01-29 - Completed 08.1-02-PLAN.md (Redpill TODO Features)
 
-Progress: [##########################----] 83% (25/30 plans)
+Progress: [###########################---] 87% (27/31 plans)
 
 ## Performance Metrics
 
@@ -124,6 +124,9 @@ Recent decisions affecting current work:
 - [08-03]: Remove Spectre.Console per CONTEXT.md (no third-party TUI libraries)
 - [08-03]: ANSI 24-bit color swatches for color preview in wizard
 - [08-03]: GetActiveSlots filters to non-default configs for restore detection
+- [08.1-02]: async Task.Run().Wait() for Launch matches blocking TUI while allowing async detection
+- [08.1-02]: SnapbackSave uses CalculateLayout first for position consistency
+- [08.1-02]: PrimaryWindowCount 0 = auto (follows PowerShell convention)
 
 ### Pending Todos
 
@@ -137,9 +140,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 08-03-PLAN.md (WakeupNeo Setup Wizard)
+Stopped at: Completed 08.1-02-PLAN.md (Redpill TODO Features)
 Resume file: None
-Next action: Plan Phase 9 via /gsd:plan-phase 9
+Next action: Execute 08.1-03-PLAN.md (Package Cleanup)
 
 ---
 *State initialized: 2026-01-25*
