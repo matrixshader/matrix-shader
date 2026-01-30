@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Terminal Integration** - settings.json manipulation and profile management
 - [x] **Phase 8: CLI Applications** - bluepill launcher and wakeupneo wizard
 - [x] **Phase 8.1: Gap Closure** - INSERTED: Fix implementation gaps before AOT (20 gaps: 4 critical, 10 important, 6 minor)
-- [ ] **Phase 9: Native AOT & Polish** - Single-file compilation and <500ms startup
+- [x] **Phase 9: Native AOT & Polish** - Single-file compilation and Native AOT deployment
 - [ ] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
 
 ## Phase Details
@@ -188,11 +188,11 @@ Plans:
 **Plans**: 5 plans in 3 waves
 
 Plans:
-- [ ] 09-01-PLAN.md — AOT csproj configuration with PublishSingleFile (Wave 1)
-- [ ] 09-02-PLAN.md — Matrix splash animation and error handler in Core (Wave 1)
-- [ ] 09-03-PLAN.md — Integrate splash into all CLI entry points (Wave 2)
-- [ ] 09-04-PLAN.md — Inno Setup installer with PATH integration (Wave 2)
-- [ ] 09-05-PLAN.md — Windows Sandbox clean-room validation (Wave 3)
+- [x] 09-01-PLAN.md — AOT csproj configuration with PublishAot (Wave 1)
+- [x] 09-02-PLAN.md — Matrix splash animation and error handler in Core (Wave 1)
+- [x] 09-03-PLAN.md — Integrate splash into all CLI entry points (Wave 2)
+- [x] 09-04-PLAN.md — Inno Setup installer with PATH integration (Wave 2)
+- [x] 09-05-PLAN.md — Windows Sandbox clean-room validation (Wave 3)
 
 ### Phase 10: MatrixLite Fallback
 **Goal**: Text-based Matrix rain for non-Windows-Terminal environments
@@ -226,7 +226,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 7. Terminal Integration | 4/4 | Complete | 2026-01-29 |
 | 8. CLI Applications | 3/3 | Complete | 2026-01-29 |
 | 8.1 Gap Closure (INSERTED) | 5/5 | Complete | 2026-01-29 |
-| 9. Native AOT & Polish | 0/5 | Not started | - |
+| 9. Native AOT & Polish | 5/5 | Complete | 2026-01-30 |
 | 10. MatrixLite Fallback | 0/3 | Not started | - |
 
 ---
