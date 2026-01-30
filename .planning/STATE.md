@@ -148,6 +148,10 @@ Recent decisions affecting current work:
 - [09-01]: WPF apps require native DLLs (D3DCompiler, PenImc, etc.) - cannot be truly single-file
 - [09-01]: WinForms apps (WakeupNeo, Monitor) achieve true single-file output
 - [09-01]: IsAotCompatible on library projects enables analyzer during development
+- [10-01]: Render mode detection after ShowRandomQuote() but before session restore
+- [10-01]: Lite mode returns 0 (success) after FallbackMenu completes
+- [10-01]: Headless mode returns 1 (error) with red ANSI message
+- [10-01]: MatrixShader.Lite ProjectReference was already present in csproj
 - [10-02]: Render mode detection after DI setup, before main logic
 - [10-02]: 2-second delay for Lite mode explanation reading
 - [10-02]: Return code 0 for Lite mode (graceful fallback, not error)
