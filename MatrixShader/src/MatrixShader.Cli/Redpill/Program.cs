@@ -3,6 +3,7 @@ using MatrixShader.Core.Constants;
 using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Services;
+using MatrixShader.Core.Startup;
 using MatrixShader.Lite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -16,47 +17,53 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        // Parse arguments
-        var options = CliBootstrap.ParseArgs(args);
-
-        if (options.ShowHelp)
+        // Skip splash for help
+        if (!args.Contains("--help"))
         {
-            ShowHelp();
-            return 0;
+            await MatrixSplash.ShowAsync();
         }
-
-        if (options.Debug)
-        {
-            DiagnosticLogger.Initialize(true);
-        }
-
-        // Setup DI
-        var services = new ServiceCollection();
-        ConfigureServices(services);
-        var provider = services.BuildServiceProvider();
-
-        var logger = provider.GetRequiredService<ILogger<ControlPanel>>();
-        var envService = provider.GetRequiredService<EnvironmentService>();
-
-        // Bootstrap initialization
-        var bootstrap = await CliBootstrap.InitializeAsync(verbose: options.Debug);
-        if (!bootstrap.Success)
-        {
-            ConsoleHelper.WriteLineMatrixGreen($"Error: {bootstrap.ErrorMessage}");
-            return 1;
-        }
-
-        // Detect render mode
-        var mode = envService.DetectRenderMode();
-
-        logger.LogInformation("Starting Matrix Shader in {Mode} mode", mode);
-
-        // Show random quote
-        CliBootstrap.ShowRandomQuote();
-        Console.WriteLine();
 
         try
         {
+            // Parse arguments
+            var options = CliBootstrap.ParseArgs(args);
+
+            if (options.ShowHelp)
+            {
+                ShowHelp();
+                return 0;
+            }
+
+            if (options.Debug)
+            {
+                DiagnosticLogger.Initialize(true);
+            }
+
+            // Setup DI
+            var services = new ServiceCollection();
+            ConfigureServices(services);
+            var provider = services.BuildServiceProvider();
+
+            var logger = provider.GetRequiredService<ILogger<ControlPanel>>();
+            var envService = provider.GetRequiredService<EnvironmentService>();
+
+            // Bootstrap initialization
+            var bootstrap = await CliBootstrap.InitializeAsync(verbose: options.Debug);
+            if (!bootstrap.Success)
+            {
+                ConsoleHelper.WriteLineMatrixGreen($"Error: {bootstrap.ErrorMessage}");
+                return 1;
+            }
+
+            // Detect render mode
+            var mode = envService.DetectRenderMode();
+
+            logger.LogInformation("Starting Matrix Shader in {Mode} mode", mode);
+
+            // Show random quote
+            CliBootstrap.ShowRandomQuote();
+            Console.WriteLine();
+
             if (mode == RenderMode.Full)
             {
                 // Full mode with shader control
@@ -79,8 +86,13 @@ public static class Program
         }
         catch (Exception ex)
         {
+            var logger = new ServiceCollection()
+                .AddLogging(builder => builder.SetMinimumLevel(LogLevel.Information))
+                .BuildServiceProvider()
+                .GetRequiredService<ILogger<ControlPanel>>();
+
             logger.LogError(ex, "Unhandled exception");
-            Console.WriteLine($"\x1b[31mError: {ex.Message}\x1b[0m");
+            MatrixErrorHandler.ShowError(ex.Message);
             return 1;
         }
     }
