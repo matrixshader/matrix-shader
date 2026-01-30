@@ -11,64 +11,61 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 Milestone: v1.0 INCOMPLETE (gaps found)
 Phase: 11 - Installer & E2E Validation
-Status: Discussion pending
-Last activity: 2026-01-30 — Gap analysis complete, Phase 11 created
+Status: PLANNED - 5 plans in 3 waves
+Last activity: 2026-01-30 — Phase plans created
 
-Progress: [##############################] 39 plans complete, Phase 11 unplanned
+Progress: [##############################] 39 plans complete, 5 plans queued
 
-## Phase 11 Context
+## Phase 11 Plan Summary
 
-**Why we're here:** v1.0 was prematurely declared complete. Critical gaps discovered:
-- Installer script exists but was NEVER BUILT
-- matrixlite.exe not in installer script
-- Shader paths point to wrong location after install
-- No clean-system validation ever performed
+**5 plans in 3 waves:**
 
-**Gap Analysis:** `.planning/phases/11-installer-e2e-validation/GAP-ANALYSIS.md`
+| Wave | Plan | Objective | Gaps Addressed |
+|------|------|-----------|----------------|
+| 1 | 11-01 | Path resolution architecture | GAP-E03, E04, E12 (Critical) |
+| 1 | 11-02 | Installer completeness | GAP-E01, E02, E14 (Critical) |
+| 2 | 11-03 | Installer polish | GAP-E05, E10, E11 (Minor) |
+| 2 | 11-04 | Runtime safety | GAP-E07, E13 (Important) |
+| 3 | 11-05 | Documentation & validation | GAP-E08, E09 (Critical) |
 
-**14 gaps identified:**
-- 3 Critical: GAP-E01, GAP-E09, GAP-E12
-- 8 Important: GAP-E02 through GAP-E08, GAP-E13
-- 3 Minor: GAP-E05, GAP-E10, GAP-E11, GAP-E14
+**Key Files Modified:**
+- CliBootstrap.cs, ConfigService.cs, ShaderService.cs (path resolution)
+- build-installer.ps1, MatrixShaderSetup.iss (installer)
+- Bluepill/Program.cs (monitor name fix)
+- TerminalSettingsService.cs, WakeupNeo/Program.cs (profile verification)
+- README.md, installer/TESTING.md (documentation)
 
 ## Milestone Summary
 
 **v1.0 C# Rebuild (INCOMPLETE)**
-- 11 phases, 39 plans (10 complete, 1 pending)
-- 38 requirements implemented (not validated on clean system)
-- 17 new E2E requirements for Phase 11
+- 11 phases, 44 plans total (39 complete, 5 queued)
+- 14 gaps to close in Phase 11
 - 9,047 lines of C#
-- 6 days from start
-
-## Performance Metrics
-
-**Velocity (Phases 1-10):**
-- Total plans completed: 39
-- Average duration: ~10 min
-- Total execution time: ~6.5 hours
+- 7 days from start
 
 ## Accumulated Context
 
-### Decisions
+### Decisions (Phase 11)
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Un-archive milestone | Gaps found in installer/E2E validation | Pending |
-| Add Phase 11 | Close gaps before actual ship | Planning |
+| Decision | Rationale | Source |
+|----------|-----------|--------|
+| LocalAppData for user data | Standard Windows pattern, avoids Documents folder issues | CONTEXT.md |
+| Inno Setup installer | Keep existing approach, mature tooling | CONTEXT.md |
+| winget for WT install | Microsoft's official package manager | RESEARCH.md |
+| Manual testing in Sandbox | Adequate for v1.0, automated testing deferred | CONTEXT.md |
 
 ### Blockers/Concerns
 
-1. **Inno Setup not installed** — Need to install or use alternative
-2. **Path mismatch architectural** — Profiles point to Documents, installer puts in Program Files
-3. **matrixlite.exe missing from installer script** — Quick fix but needs testing
+1. **Inno Setup installation** — Required to build installer; winget can install it
+2. **Windows Sandbox testing** — Requires Windows Pro/Enterprise; manual process
 
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Phase 11 gap analysis complete, ready for discussion
+Stopped at: Phase 11 plans created
 Resume file: None
-Next action: /gsd:plan-phase 11 (or /gsd:discuss-phase 11 for context gathering)
+Next action: `/gsd:execute-phase 11` (starts with Wave 1: plans 11-01 and 11-02)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-30 — v1.0 gaps found, Phase 11 created*
+*Last updated: 2026-01-30 — Phase 11 planned with 5 plans*

@@ -31,25 +31,39 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 
 **Goal**: User can download installer, run it, and have working Matrix shader system on fresh Windows
 **Depends on**: Phase 10 (all executables exist)
-**Requirements**: E2E-01 through E2E-07 (see REQUIREMENTS.md)
+**Requirements**: E2E-01 through E2E-07, PATH-01 through PATH-04, FRX-01 through FRX-03, BUILD-01 through BUILD-03
 
 **Gaps to Close** (from GAP-ANALYSIS.md):
 
-| Gap | Severity | Issue |
-|-----|----------|-------|
-| GAP-E01 | Critical | matrixlite.exe not in installer |
-| GAP-E02 | Important | Monitor exe name mismatch |
-| GAP-E03 | Important | Shader path priority issues |
-| GAP-E04 | Important | Hardcoded dev path in ConfigService |
-| GAP-E06 | Important | No WT version/shader support check |
-| GAP-E07 | Important | No profile creation verification |
-| GAP-E08 | Important | README has wrong install instructions |
-| GAP-E09 | Critical | No clean-system installer validation |
-| GAP-E10 | Minor | PATH change requires restart notification |
-| GAP-E11 | Minor | No uninstall cleanup for user data |
-| GAP-E12 | Critical | Profiles point to wrong shader location |
-| GAP-E13 | Important | Redpill profile command path issue |
-| GAP-E14 | Minor | Confusing self-contained flag in build |
+| Gap | Severity | Issue | Plan |
+|-----|----------|-------|------|
+| GAP-E01 | Critical | matrixlite.exe not in installer | 11-02 |
+| GAP-E02 | Important | Monitor exe name mismatch | 11-02 |
+| GAP-E03 | Important | Shader path priority issues | 11-01 |
+| GAP-E04 | Important | Hardcoded dev path in ConfigService | 11-01 |
+| GAP-E05 | Minor | Identity registry cleanup | 11-03 |
+| GAP-E07 | Important | No profile creation verification | 11-04 |
+| GAP-E08 | Important | README has wrong install instructions | 11-05 |
+| GAP-E09 | Critical | No clean-system installer validation | 11-05 |
+| GAP-E10 | Minor | PATH change requires restart notification | 11-03 |
+| GAP-E11 | Minor | No uninstall cleanup for user data | 11-03 |
+| GAP-E12 | Critical | Profiles point to wrong shader location | 11-01 |
+| GAP-E13 | Important | Redpill profile command path issue | 11-04 |
+| GAP-E14 | Minor | Confusing self-contained flag in build | 11-02 |
+
+**Plans:** 5 plans in 3 waves
+
+Plans:
+- [ ] 11-01-PLAN.md — Path resolution architecture (GAP-E03, E04, E12)
+- [ ] 11-02-PLAN.md — Installer completeness (GAP-E01, E02, E14)
+- [ ] 11-03-PLAN.md — Installer polish (GAP-E05, E10, E11)
+- [ ] 11-04-PLAN.md — Runtime safety (GAP-E07, E13)
+- [ ] 11-05-PLAN.md — Documentation & validation (GAP-E08, E09)
+
+**Wave Structure:**
+- Wave 1: 11-01, 11-02 (parallel - independent fixes)
+- Wave 2: 11-03, 11-04 (depends on 11-01/11-02)
+- Wave 3: 11-05 (depends on all prior - validation requires working installer)
 
 **Success Criteria** (what must be TRUE):
 1. Installer builds successfully with all 5 executables (including matrixlite.exe)
@@ -59,8 +73,6 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 5. bluepill.exe finds and starts matrix-monitor correctly
 6. matrixlite.exe works standalone in non-WT terminal
 7. User documentation is accurate and helpful
-
-**Plans**: TBD after discussion
 
 ## Progress
 
@@ -77,8 +89,8 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 | 8.1 Gap Closure (INSERTED) | 5/5 | Complete | 2026-01-29 |
 | 9. Native AOT & Polish | 5/5 | INCOMPLETE | — |
 | 10. MatrixLite Fallback | 4/4 | Complete | 2026-01-30 |
-| 11. Installer & E2E Validation | 0/? | Discussion | — |
+| 11. Installer & E2E Validation | 0/5 | Planned | — |
 
 ---
 *Roadmap created: 2026-01-25*
-*Updated: 2026-01-30 — Phase 11 added after discovering installer/E2E gaps*
+*Updated: 2026-01-30 — Phase 11 planned with 5 plans in 3 waves*
