@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 9 of 10 (Native AOT & Polish)
-Plan: 2 of 4 in current phase
-Status: In progress
-Last activity: 2026-01-29 - Completed 09-02-PLAN.md (Startup Splash & Error Handler)
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-01-29 - Completed 09-04-PLAN.md (Installer Script & Build Automation)
 
 Progress: [##############################] 100% (32/32 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 25
+- Total plans completed: 26
 - Average duration: 6 min
-- Total execution time: 3.1 hours
+- Total execution time: 3.2 hours
 
 **By Phase:**
 
@@ -35,9 +35,10 @@ Progress: [##############################] 100% (32/32 plans)
 | 06-control-panel-tui | 4 | 16 min | 4 min |
 | 07-terminal-integration | 4 | 22 min | 6 min |
 | 08-cli-applications | 3 | 22 min | 7 min |
+| 09-native-aot-polish | 4 | 16 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 07-03 (9 min), 07-04 (3 min), 08-01 (5 min), 08-02 (5 min), 08-03 (12 min)
+- Last 5 plans: 07-04 (3 min), 08-01 (5 min), 08-02 (5 min), 08-03 (12 min), 09-04 (4 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -138,6 +139,10 @@ Recent decisions affecting current work:
 - [09-02]: Use Stopwatch.GetTimestamp/GetElapsedTime for timing (monotonic, high-resolution)
 - [09-02]: Avoid ref in async methods (C# 12 limitation)
 - [09-02]: ASCII art sized for standard terminal width (~60 chars)
+- [09-04]: NeedsAddPath function prevents duplicate PATH entries (case-insensitive check)
+- [09-04]: PrivilegesRequired=admin for system PATH modification
+- [09-04]: ChangesEnvironment=yes enables immediate command availability without reboot
+- [09-04]: matrix-monitor.exe included for Bluepill drag-snap functionality
 
 ### Pending Todos
 
@@ -151,9 +156,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-29
-Stopped at: Completed 09-02-PLAN.md (Startup Splash & Error Handler)
+Stopped at: Completed 09-04-PLAN.md (Installer Script & Build Automation)
 Resume file: None
-Next action: Execute 09-03-PLAN.md (CLI Integration)
+Next action: Phase 9 complete - ready for Phase 10 (MatrixLite)
 
 ---
 *State initialized: 2026-01-25*
