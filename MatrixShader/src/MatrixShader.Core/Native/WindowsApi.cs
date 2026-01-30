@@ -33,7 +33,7 @@ public static partial class WindowsApi
     /// <summary>
     /// Retrieves the length of the specified window's title bar text.
     /// </summary>
-    [LibraryImport("user32.dll")]
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextLengthW")]
     public static partial int GetWindowTextLength(nint hWnd);
 
     /// <summary>
