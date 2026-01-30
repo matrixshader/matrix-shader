@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <LangVersion>12</LangVersion>
     <RootNamespace>MatrixShader.Lite</RootNamespace>
+    <!-- Enable AOT compatibility analyzer -->
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>
