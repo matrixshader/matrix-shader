@@ -8,9 +8,11 @@ A native C#/.NET implementation of Matrix Terminal Shader - a real-time controll
 
 **Instant startup with full PowerShell feature parity.** GPU shaders in Windows Terminal, multi-window management, real-time parameter control - all launching in under 2 seconds (vs 60+ seconds for PowerShell).
 
-## Current State (v1.0 Shipped)
+## Current State (v1.0 INCOMPLETE)
 
-**Shipped:** 2026-01-30
+**Status:** GAPS FOUND — installer never built, path mismatches, no clean-system validation
+**Original ship date:** 2026-01-30
+**Current focus:** Phase 11 - Installer & E2E Validation
 
 **Tech stack:** C# 12 / .NET 8 / Native AOT
 **Codebase:** 9,047 lines of C#
@@ -24,7 +26,12 @@ A native C#/.NET implementation of Matrix Terminal Shader - a real-time controll
 - Control panel TUI matching PowerShell (40+ keyboard shortcuts)
 - CLI applications: redpill, bluepill, wakeupneo, matrixlite
 - MatrixLite text-based fallback for non-WT terminals
-- Installer with PATH integration
+- Installer script (NOT BUILT/TESTED)
+
+**Critical Gaps:**
+- GAP-E01: matrixlite.exe not included in installer script
+- GAP-E09: Installer never actually built or tested
+- GAP-E12: Profile creation points to wrong shader location
 
 ## Requirements
 
@@ -79,9 +86,32 @@ A native C#/.NET implementation of Matrix Terminal Shader - a real-time controll
 - ✓ 6 color presets via ANSI codes — v1.0
 - ✓ Graceful degradation — v1.0
 
-### Active
+### Active (Phase 11)
 
-(No active requirements - v1.0 complete, awaiting next milestone planning)
+**End-to-End Installation:**
+- [ ] E2E-01: Installer includes all 5 executables
+- [ ] E2E-02: Installer includes all shader files
+- [ ] E2E-03: Executables can find shader files
+- [ ] E2E-04: Executables can find each other
+- [ ] E2E-05: Fresh Windows Sandbox install works
+- [ ] E2E-06: PATH or Start Menu shortcuts work
+- [ ] E2E-07: User documentation is accurate
+
+**Path Resolution:**
+- [ ] PATH-01: ShaderService finds installed shaders
+- [ ] PATH-02: Profiles point to correct shader paths
+- [ ] PATH-03: Bluepill finds matrix-monitor correctly
+- [ ] PATH-04: No hardcoded developer paths
+
+**First-Run Experience:**
+- [ ] FRX-01: Works on fresh Windows Terminal
+- [ ] FRX-02: Profile creation is verified
+- [ ] FRX-03: Graceful errors when WT not installed
+
+**Build & Distribution:**
+- [ ] BUILD-01: Installer can be built without proprietary tools
+- [ ] BUILD-02: Build script is documented
+- [ ] BUILD-03: Alternative distribution method available
 
 ### Out of Scope
 
