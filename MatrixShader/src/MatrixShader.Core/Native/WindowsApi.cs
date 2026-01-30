@@ -27,7 +27,7 @@ public static partial class WindowsApi
     /// Retrieves the text of the specified window's title bar.
     /// Internal implementation for AOT compatibility using char array.
     /// </summary>
-    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW", StringMarshalling = StringMarshalling.Utf16)]
     private static partial int GetWindowTextInternal(nint hWnd, [Out] char[] lpString, int nMaxCount);
 
     /// <summary>
@@ -40,7 +40,7 @@ public static partial class WindowsApi
     /// Retrieves the name of the class to which the specified window belongs.
     /// Internal implementation for AOT compatibility using char array.
     /// </summary>
-    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    [LibraryImport("user32.dll", EntryPoint = "GetClassNameW", StringMarshalling = StringMarshalling.Utf16)]
     private static partial int GetClassNameInternal(nint hWnd, [Out] char[] lpClassName, int nMaxCount);
 
     /// <summary>
