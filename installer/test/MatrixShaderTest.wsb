@@ -1,0 +1,22 @@
+<Configuration>
+  <VGpu>Enable</VGpu>
+  <Networking>Disable</Networking>
+  <MemoryInMB>4096</MemoryInMB>
+
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\Users\ehome\documents\matrix\installer\publish</HostFolder>
+      <SandboxFolder>C:\MatrixShader</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+    <MappedFolder>
+      <HostFolder>C:\Users\ehome\documents\matrix\installer\test</HostFolder>
+      <SandboxFolder>C:\Test</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+
+  <LogonCommand>
+    <Command>powershell.exe -ExecutionPolicy Bypass -File C:\Test\validate.ps1</Command>
+  </LogonCommand>
+</Configuration>
