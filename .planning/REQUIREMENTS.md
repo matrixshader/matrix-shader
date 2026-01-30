@@ -64,10 +64,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### MatrixLite Fallback
 
-- [ ] **LITE-01**: Text-based Matrix rain renders in non-WT terminals
-- [ ] **LITE-02**: Uses movie-accurate Katakana character set
-- [ ] **LITE-03**: Supports same 6 color presets via ANSI codes
-- [ ] **LITE-04**: Graceful degradation when GPU shaders unavailable
+- [x] **LITE-01**: Text-based Matrix rain renders in non-WT terminals
+- [x] **LITE-02**: Uses movie-accurate Katakana character set
+- [x] **LITE-03**: Supports same 6 color presets via ANSI codes
+- [x] **LITE-04**: Graceful degradation when GPU shaders unavailable
 
 ## v2 Requirements
 
@@ -131,12 +131,12 @@ Deferred to future release.
 | CLI-02 | Phase 8 | Complete |
 | CLI-03 | Phase 8 | Complete |
 | UX-02 | Phase 8 | Complete |
-| CLI-04 | Phase 9 | Pending |
-| CLI-05 | Phase 9 | Pending |
-| LITE-01 | Phase 10 | Pending |
-| LITE-02 | Phase 10 | Pending |
-| LITE-03 | Phase 10 | Pending |
-| LITE-04 | Phase 10 | Pending |
+| CLI-04 | Phase 9 | Complete |
+| CLI-05 | Phase 9 | Complete |
+| LITE-01 | Phase 10 | Complete |
+| LITE-02 | Phase 10 | Complete |
+| LITE-03 | Phase 10 | Complete |
+| LITE-04 | Phase 10 | Complete |
 
 **Coverage:**
 - v1 requirements: 38 total

@@ -22,7 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: CLI Applications** - bluepill launcher and wakeupneo wizard
 - [x] **Phase 8.1: Gap Closure** - INSERTED: Fix implementation gaps before AOT (20 gaps: 4 critical, 10 important, 6 minor)
 - [x] **Phase 9: Native AOT & Polish** - Single-file compilation and Native AOT deployment
-- [ ] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
+- [x] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
 
 ## Phase Details
 
@@ -203,12 +203,13 @@ Plans:
   2. Katakana character set matches movie-accurate appearance
   3. All 6 color presets work via ANSI color codes
   4. Application gracefully falls back to MatrixLite when GPU shaders unavailable
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 10-01: Text-based Matrix rain renderer
-- [ ] 10-02: Katakana character set and ANSI color support
-- [ ] 10-03: Environment detection and graceful degradation
+- [x] 10-01-PLAN.md — Bluepill graceful degradation to FallbackMenu (Wave 1)
+- [x] 10-02-PLAN.md — WakeupNeo graceful degradation to FallbackMenu (Wave 1)
+- [x] 10-03-PLAN.md — TextMatrixRenderer terminal resize handling (Wave 2)
+- [x] 10-04-PLAN.md — Standalone matrixlite.exe CLI with Native AOT (Wave 2)
 
 ## Progress
 
@@ -227,7 +228,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. CLI Applications | 3/3 | Complete | 2026-01-29 |
 | 8.1 Gap Closure (INSERTED) | 5/5 | Complete | 2026-01-29 |
 | 9. Native AOT & Polish | 5/5 | Complete | 2026-01-30 |
-| 10. MatrixLite Fallback | 0/3 | Not started | - |
+| 10. MatrixLite Fallback | 4/4 | Complete | 2026-01-30 |
 
 ---
 *Roadmap created: 2026-01-25*
