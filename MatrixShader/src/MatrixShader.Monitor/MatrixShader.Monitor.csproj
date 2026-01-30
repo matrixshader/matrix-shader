@@ -11,7 +11,6 @@
 
     <!-- Native AOT Configuration -->
     <PublishAot>true</PublishAot>
-    <PublishSingleFile>true</PublishSingleFile>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <InvariantGlobalization>true</InvariantGlobalization>
