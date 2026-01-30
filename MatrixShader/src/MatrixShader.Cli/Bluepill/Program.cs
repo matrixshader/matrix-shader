@@ -4,6 +4,7 @@ using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Services;
 using MatrixShader.Core.Startup;
+using MatrixShader.Lite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -55,6 +56,30 @@ public static class Program
             ConsoleHelper.WriteLineDim(" ----------------------------");
             Console.WriteLine();
             CliBootstrap.ShowRandomQuote();
+
+            // Detect render mode
+            var envService = provider.GetRequiredService<EnvironmentService>();
+            var mode = envService.DetectRenderMode();
+
+            if (mode == RenderMode.Lite)
+            {
+                // Lite mode - use text-based Matrix rain
+                Console.WriteLine();
+                ConsoleHelper.WriteLineMatrixGreen(" LITE MODE - No Windows Terminal detected");
+                ConsoleHelper.WriteLineDim(" Running text-based Matrix rain...");
+                Console.WriteLine();
+
+                var menu = new FallbackMenu();
+                await menu.RunAsync(CancellationToken.None);
+                return 0;
+            }
+            else if (mode == RenderMode.Headless)
+            {
+                Console.WriteLine("\x1b[31mNo display available. Use --help for options.\x1b[0m");
+                return 1;
+            }
+
+            // Full mode continues with session restore...
 
             // Morpheus mode: philosophical intro
             if (options.Morpheus)
