@@ -3,6 +3,7 @@ using MatrixShader.Core.Constants;
 using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Services;
+using MatrixShader.Core.Startup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -16,32 +17,38 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        // Parse arguments
-        var options = CliBootstrap.ParseArgs(args);
-
-        if (options.ShowHelp)
+        // Skip splash for help
+        if (!args.Contains("--help"))
         {
-            ShowHelp();
-            return 0;
+            await MatrixSplash.ShowAsync();
         }
-
-        // Bootstrap
-        var bootstrap = await CliBootstrap.InitializeAsync(verbose: options.Debug);
-        if (!bootstrap.Success)
-        {
-            ConsoleHelper.WriteLineMatrixGreen($"Error: {bootstrap.ErrorMessage}");
-            return 1;
-        }
-
-        // Set up DI
-        var services = new ServiceCollection();
-        ConfigureServices(services);
-        var provider = services.BuildServiceProvider();
-
-        var restorer = provider.GetRequiredService<SessionRestorer>();
 
         try
         {
+            // Parse arguments
+            var options = CliBootstrap.ParseArgs(args);
+
+            if (options.ShowHelp)
+            {
+                ShowHelp();
+                return 0;
+            }
+
+            // Bootstrap
+            var bootstrap = await CliBootstrap.InitializeAsync(verbose: options.Debug);
+            if (!bootstrap.Success)
+            {
+                ConsoleHelper.WriteLineMatrixGreen($"Error: {bootstrap.ErrorMessage}");
+                return 1;
+            }
+
+            // Set up DI
+            var services = new ServiceCollection();
+            ConfigureServices(services);
+            var provider = services.BuildServiceProvider();
+
+            var restorer = provider.GetRequiredService<SessionRestorer>();
+
             // Show header and random quote
             Console.WriteLine();
             ConsoleHelper.WriteLineMatrixGreen(" BLUEPILL - Enter the Matrix");
@@ -81,7 +88,7 @@ public static class Program
         catch (Exception ex)
         {
             DiagnosticLogger.Error("BLUEPILL", $"Unhandled exception: {ex.Message}");
-            ConsoleHelper.WriteLineMatrixGreen($" Error: {ex.Message}");
+            MatrixErrorHandler.ShowError(ex.Message);
             return 1;
         }
     }
