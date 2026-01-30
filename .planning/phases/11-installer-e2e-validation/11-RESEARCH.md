@@ -1,253 +1,258 @@
 # Phase 11: Installer & E2E Validation - Research
 
 **Researched:** 2026-01-30
-**Domain:** Windows Installer (Inno Setup), Path Resolution, Windows Terminal Integration
+**Domain:** Windows Installer (Inno Setup), Path Resolution, E2E Validation
 **Confidence:** HIGH
 
 ## Summary
 
-This phase requires fixing the gap between what the installer packages and what the code expects at runtime. The research identified three key technical domains: (1) Inno Setup installer configuration for proper file placement, (2) C# code path resolution patterns to find installed files, and (3) Windows Terminal profile creation pointing to correct paths.
+Phase 11 addresses 14 identified gaps in the installer and deployment system that prevent v1.0 from shipping. The existing Inno Setup installer framework is functional but incomplete - missing executables, incorrect path resolution, and no clean-system validation.
 
-The critical insight is that admin-mode installers cannot safely write to per-user paths like `%LOCALAPPDATA%`. The recommended pattern is: install to Program Files, let the application copy user-specific files (shaders, config) to LocalAppData on first run.
+The research confirms Inno Setup as the correct tool (per user decision), identifies the standard patterns for handling user data in LocalAppData, and documents the winget + Store fallback pattern for Windows Terminal installation. Windows Sandbox provides an adequate manual testing environment for clean-system validation.
 
-**Primary recommendation:** Install EXEs and template shaders to `{app}` (Program Files), then have the application detect first-run and copy shaders to `%LOCALAPPDATA%\MatrixShader\shaders\` where profiles will point.
+**Primary recommendation:** Fix path resolution architecture to use `%LOCALAPPDATA%\MatrixShader\` as the canonical user data location, update installer to copy shaders there at install time, and validate the complete flow in Windows Sandbox before release.
 
 ## Standard Stack
+
+The established tools/libraries for this domain:
 
 ### Core
 | Tool | Version | Purpose | Why Standard |
 |------|---------|---------|--------------|
-| Inno Setup | 6.7.0 | Windows installer framework | Free, well-documented, actively maintained, handles PATH and registry |
-| .NET 8 Native AOT | 8.0 | Self-contained executables | No runtime dependency, fast cold-start |
-| Windows Sandbox | Windows 11 | Clean-system testing | Isolated testing without VM overhead |
+| Inno Setup | 6.x | Windows installer creation | User decision; mature, widely-used, supports Pascal scripting for custom logic |
+| Windows Sandbox | Built-in | Clean system testing | Zero-setup disposable environment, .wsb config files for automation |
+| winget | CLI | WT installation at install time | Microsoft's official package manager, supports silent mode |
 
 ### Supporting
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
-| winget | Windows Terminal installation | Install-time WT provisioning |
-| PathMgr.dll | PATH environment updates | Alternative to custom registry code |
-| SendMessageTimeout | WM_SETTINGCHANGE broadcast | Notify running apps of PATH change |
+| dotnet publish | Build self-contained executables | During installer build process |
+| ISCC.exe | Inno Setup Compiler CLI | Automated/CI builds |
+| WM_SETTINGCHANGE | Broadcast env var changes | After PATH modification without restart |
 
 ### Alternatives Considered
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
-| Inno Setup | MSIX | Better isolation, but more complex, requires signing, Store distribution |
-| Inno Setup | WiX | More powerful, but steeper learning curve |
-| Windows Sandbox | Hyper-V VM | More realistic, but slower setup |
+| Inno Setup | MSIX/WinGet | Modern distribution but more complex, deferred to v2 |
+| Windows Sandbox | Hyper-V VM | More control but heavier setup, overkill for manual testing |
+| winget | Chocolatey | Alternative package manager but winget is now standard |
 
 **Installation:**
-```bash
-# Inno Setup 6.7 - download from https://jrsoftware.org/isdl.php
-# No package manager installation available
+```powershell
+# Inno Setup (if not already installed)
+winget install JRSoftware.InnoSetup --silent --accept-source-agreements --accept-package-agreements
 ```
 
 ## Architecture Patterns
 
-### Recommended Installation Architecture
+### Recommended File Layout (Post-Install)
 
 ```
-Install-time (Admin):
-C:\Program Files\MatrixShader\
-├── wakeupneo.exe
-├── bluepill.exe
-├── redpill.exe
-├── matrixlite.exe         # GAP-E01: MUST ADD
-├── matrix-monitor.exe
-└── shaders\               # Template shaders (read-only)
-    ├── Matrix-1.hlsl
-    ├── Matrix-2.hlsl
-    └── ...
+C:\Program Files\MatrixShader\           # {app} - Executables
+    wakeupneo.exe
+    bluepill.exe
+    redpill.exe
+    matrixlite.exe                       # MISSING - GAP-E01
+    matrix-monitor.exe
 
-First-run (User):
-%LOCALAPPDATA%\MatrixShader\
-├── shaders\               # Copied from install dir on first run
-│   ├── Matrix-1.hlsl
-│   └── ...
-├── config\
-│   └── matrix_state.json
-└── identity-registry.json
-
-Windows Terminal profiles point to:
-%LOCALAPPDATA%\MatrixShader\shaders\Matrix-1.hlsl
+%LOCALAPPDATA%\MatrixShader\             # User data (created at first run OR install)
+    shaders\
+        Matrix-1.hlsl through Matrix-8.hlsl
+        Redpill-Neo.hlsl
+    matrix_state.json
+    identity-registry.json
+    debug.log (if enabled)
 ```
 
-### Pattern 1: First-Run Shader Copy
+### Pattern 1: Dual-Location Architecture
+**What:** Executables in Program Files, user data in LocalAppData
+**When to use:** Always for Windows desktop apps that need user-writable config
+**Rationale:** Per [Inno Setup best practices](https://jrsoftware.org/ishelp/topic_consts.htm), installer should NOT write to user paths during admin install. App creates user data on first run.
 
-**What:** Application detects missing user shaders on startup and copies from install location.
+**Current Problem:** Code expects shaders in `Documents\Matrix\shaders\`, but installer puts them in `{app}\shaders`. CONTEXT.md decision says installer should copy to LocalAppData during install.
 
-**When to use:** Every CLI entry point (wakeupneo, bluepill, redpill) on first run.
+### Pattern 2: Install-time WT Detection + winget
+**What:** Check if Windows Terminal exists, install via winget if not
+**When to use:** During installer execution, not at runtime
+**Implementation:**
+```pascal
+// In Inno Setup [Code] section
+function WindowsTerminalExists(): Boolean;
+var
+  SettingsPath: String;
+begin
+  SettingsPath := ExpandConstant('{localappdata}\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json');
+  Result := FileExists(SettingsPath);
+end;
 
-**Example (from CliBootstrap.cs pattern):**
-```csharp
-// Search order: LocalAppData first (user), then install dir (fallback)
-private static string GetShadersDirectory()
-{
-    var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-    var userShadersDir = Path.Combine(localAppData, "MatrixShader", "shaders");
+procedure InstallWindowsTerminal();
+var
+  ResultCode: Integer;
+begin
+  // Try winget first
+  Exec('winget', 'install Microsoft.WindowsTerminal --silent --accept-source-agreements --accept-package-agreements',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-    // If user shaders exist, use them
-    if (Directory.Exists(userShadersDir) && Directory.GetFiles(userShadersDir, "*.hlsl").Length > 0)
-        return userShadersDir;
-
-    // Otherwise, use install location as source
-    var installShadersDir = Path.Combine(AppContext.BaseDirectory, "shaders");
-    if (Directory.Exists(installShadersDir))
-    {
-        // First-run: copy to user location
-        EnsureShadersInUserDirectory(installShadersDir, userShadersDir);
-        return userShadersDir;
-    }
-
-    // Fallback to install location if copy fails
-    return installShadersDir;
-}
+  if not WindowsTerminalExists() then
+  begin
+    // Fallback: open Store page
+    ShellExec('open', 'ms-windows-store://pdp/?ProductId=9N0DX20HK701', '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
+  end;
+end;
 ```
 
-### Pattern 2: Monitor Executable Discovery
-
-**What:** Bluepill finds matrix-monitor.exe in same directory as itself.
-
-**When to use:** When launching background processes.
-
-**Example:**
-```csharp
-// GAP-E02: Use actual output name from csproj
-private static string GetMonitorPath()
-{
-    // Check for matrix-monitor.exe (actual assembly name from csproj)
-    var candidates = new[]
-    {
-        Path.Combine(AppContext.BaseDirectory, "matrix-monitor.exe"),
-        Path.Combine(AppContext.BaseDirectory, "MatrixShader.Monitor.exe"),
-        Path.Combine(AppContext.BaseDirectory, "monitor.exe")
-    };
-
-    return candidates.FirstOrDefault(File.Exists);
-}
+### Pattern 3: PATH Environment Variable with Broadcast
+**What:** Add install directory to PATH and broadcast change
+**When to use:** To enable CLI commands from any terminal immediately
+**Implementation:**
+```pascal
+// In Inno Setup [Code] section - called after install
+procedure BroadcastEnvironmentChange();
+var
+  Dummy: Integer;
+begin
+  // Tell Windows to refresh environment (avoids restart requirement)
+  SendBroadcastMessage(WM_SETTINGCHANGE, 0, 'Environment');
+end;
 ```
 
-### Pattern 3: Windows Terminal Profile Creation
-
-**What:** Create profiles pointing to user's LocalAppData shader path.
-
-**When to use:** During wakeupneo setup wizard.
-
-**Example:**
-```csharp
-// GAP-E12: Always use LocalAppData path for profiles
-public int CreateMatrixProfiles(TerminalSettings settings, int count)
-{
-    var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-    var shadersDir = Path.Combine(localAppData, "MatrixShader", "shaders");
-
-    for (int i = 1; i <= count; i++)
-    {
-        var profile = new TerminalProfile
-        {
-            Name = $"Matrix-{i}",
-            PixelShaderPath = Path.Combine(shadersDir, $"Matrix-{i}.hlsl"),
-            // ...
-        };
-        UpsertProfile(settings, profile);
-    }
-}
-```
+Note: Inno Setup's `ChangesEnvironment=yes` directive already handles broadcasting, but users should be informed that a new terminal window is needed.
 
 ### Anti-Patterns to Avoid
-
-- **Hardcoded developer paths:** Never use absolute paths like `C:\Users\ehome\Documents\Matrix` (GAP-E04)
-- **Installing to user directories as admin:** When installer runs as admin, `{localappdata}` resolves to admin's profile, not current user
-- **PATH without notification:** Adding to PATH requires restart or WM_SETTINGCHANGE broadcast
-- **Mixed install locations:** Don't split between Program Files AND LocalAppData at install time
+- **Hardcoded development paths:** ConfigService.cs has `C:\Users\ehome\Documents\Matrix` - must remove
+- **Installing to user paths from admin installer:** Inno Setup warns against `{localappdata}` in `[Files]` during admin install
+- **Assuming PATH works immediately:** New PATH only visible in new terminal sessions
+- **Writing profiles with Documents path:** TerminalSettingsService creates profiles pointing to Documents, but shaders are in Program Files
 
 ## Don't Hand-Roll
 
+Problems that look simple but have existing solutions:
+
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| PATH environment updates | Custom registry + broadcast | Inno Setup built-in + `ChangesEnvironment=yes` | Handles edge cases, uninstall cleanup |
-| Windows Terminal detection | Parse version strings | Check for `settings.json` existence | Shader support added in 1.12, but checking file is reliable enough |
-| First-run detection | Custom registry flag | Check if user shaders directory exists | Self-describing, no state to manage |
-| Installer builds | Manual ISCC invocation | PowerShell build script | Documented, repeatable |
+| Silent WT install | Custom download script | `winget install --silent` | Handles updates, dependencies, Store integration |
+| PATH modification | Manual registry edits | Inno Setup `[Registry]` section + `ChangesEnvironment=yes` | Proper escaping, uninstall cleanup, WM_SETTINGCHANGE |
+| Clean system testing | Custom VM setup | Windows Sandbox `.wsb` file | Zero-setup, ephemeral, maps host folders |
+| Uninstall cleanup | Manual file deletion | Inno Setup `[UninstallDelete]` section | Proper order, error handling |
 
-**Key insight:** Inno Setup has 25+ years of edge case handling. The `[Registry]` section with `ChangesEnvironment=yes` properly notifies the system via `WM_SETTINGCHANGE` on modern Inno Setup versions.
+**Key insight:** Inno Setup provides all the building blocks needed. The gaps are about using them correctly, not building alternatives.
 
 ## Common Pitfalls
 
-### Pitfall 1: Admin Install to User Paths
+### Pitfall 1: Admin Install vs User Data
+**What goes wrong:** Admin installer tries to write to `{localappdata}` or `{userappdata}`, but these resolve to the admin user's profile, not the actual user
+**Why it happens:** `{localappdata}` in Inno Setup refers to the user running setup (often elevated admin)
+**How to avoid:**
+1. Install executables and "template" data to `{app}`
+2. Have the application copy user data on first run
+3. Or use `{localappdata}` with `Flags: onlyifdoesntexist` and create at first run anyway
+**Warning signs:** Works for developer (same user), fails for other users
 
-**What goes wrong:** Installer runs as admin, writes to `{localappdata}`, files end up in admin's profile.
+### Pitfall 2: Profile Creation Points to Wrong Path
+**What goes wrong:** Windows Terminal profiles have `pixelShaderPath` pointing to non-existent location
+**Why it happens:** CliBootstrap.GetShadersDirectory() returns Documents path, but installer puts shaders elsewhere
+**How to avoid:**
+1. Make all code use `%LOCALAPPDATA%\MatrixShader\shaders` as canonical path
+2. Or fix installer to actually copy shaders there
+**Warning signs:** "Shader not found" errors, blank terminal screens
 
-**Why it happens:** Inno Setup resolves `{localappdata}` in the context of the running process (admin), not the logged-in user.
+### Pitfall 3: Monitor Executable Name Mismatch (GAP-E02)
+**What goes wrong:** Bluepill looks for `MatrixShader.Monitor.exe` or `monitor.exe`, but installer provides `matrix-monitor.exe`
+**Why it happens:** Disconnect between csproj `<AssemblyName>` and code assumptions
+**How to avoid:** Verify executable names in code match csproj AssemblyName
+**Warning signs:** Debug log shows "Monitor executable not found"
 
-**How to avoid:** Install only to machine-wide paths (`{app}`, `{commonappdata}`). Let application handle user-specific file creation at runtime.
+### Pitfall 4: PATH Not Effective Until New Terminal
+**What goes wrong:** User runs `wakeupneo` immediately after install, gets "command not found"
+**Why it happens:** PATH changes require new process to see them
+**How to avoid:**
+1. Display post-install message: "Open a new terminal to use commands"
+2. Or create Start Menu shortcuts that don't rely on PATH
+3. `ChangesEnvironment=yes` broadcasts change, but existing terminals don't update
+**Warning signs:** "wakeupneo is not recognized" immediately after install
 
-**Warning signs:** Works on dev machine, fails on clean install where user != admin.
-
-### Pitfall 2: Monitor Executable Name Mismatch
-
-**What goes wrong:** Bluepill looks for `MatrixShader.Monitor.exe` but installer packages `matrix-monitor.exe`.
-
-**Why it happens:** .csproj has `<AssemblyName>matrix-monitor</AssemblyName>` but code uses different name.
-
-**How to avoid:** Check .csproj for actual `<AssemblyName>`, update code to match, or rename output.
-
-**Warning signs:** "Monitor executable not found, skipping" in debug logs.
-
-### Pitfall 3: Profile Shader Path Mismatch
-
-**What goes wrong:** Windows Terminal profiles point to `Documents\Matrix\shaders\` but shaders are in `Program Files\MatrixShader\shaders\`.
-
-**Why it happens:** CliBootstrap.GetShadersDirectory() returns Documents path, profile creation uses that.
-
-**How to avoid:** Profile creation must use LocalAppData path. Application must ensure shaders are copied there before profile creation.
-
-**Warning signs:** Blank terminal with no Matrix effect, shader file not found errors.
-
-### Pitfall 4: PATH Changes Require Restart
-
-**What goes wrong:** User installs, opens new terminal, types `wakeupneo`, command not found.
-
-**Why it happens:** PATH changes via registry don't take effect in already-running processes.
-
-**How to avoid:** Either broadcast `WM_SETTINGCHANGE` or show post-install message about opening new terminal. Also provide Start Menu shortcuts.
-
-**Warning signs:** Works in admin PowerShell during install, fails in user's terminal after.
-
-### Pitfall 5: Missing matrixlite.exe
-
-**What goes wrong:** User without Windows Terminal cannot use standalone Lite mode.
-
-**Why it happens:** MatrixLite project not in build script's `$projects` array.
-
-**How to avoid:** Add `"MatrixShader.Cli\MatrixLite"` to build script, `matrixlite.exe` to installer.
-
-**Warning signs:** 4 executables in publish folder instead of 5.
+### Pitfall 5: matrixlite.exe Missing (GAP-E01)
+**What goes wrong:** Non-WT fallback mode unavailable
+**Why it happens:** MatrixLite project exists but not included in build-installer.ps1 or .iss
+**How to avoid:** Audit all CLI projects in solution, verify each is published and packaged
+**Warning signs:** User without Windows Terminal has no fallback option
 
 ## Code Examples
 
-### Inno Setup: Files Section with LocalAppData Template Shaders
+Verified patterns for this phase:
 
-```pascal
-; Source: verified pattern from jrsoftware.org documentation
-[Files]
-; Install executables to Program Files
-Source: "publish\wakeupneo.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "publish\bluepill.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "publish\redpill.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "publish\matrixlite.exe"; DestDir: "{app}"; Flags: ignoreversion  ; GAP-E01
-Source: "publish\matrix-monitor.exe"; DestDir: "{app}"; Flags: ignoreversion
-
-; Install template shaders (app copies to LocalAppData on first run)
-Source: "..\shaders\*.hlsl"; DestDir: "{app}\shaders"; Flags: ignoreversion
+### Inno Setup: Copy Shaders to LocalAppData
+```ini
+; Source: [Code] section at [Run] time
+[Run]
+Filename: "{cmd}"; Parameters: "/c xcopy ""{app}\shaders"" ""{localappdata}\MatrixShader\shaders"" /E /I /Y"; \
+    Flags: runhidden waituntilterminated; StatusMsg: "Copying shaders..."
 ```
 
-### Inno Setup: PATH Registration with Broadcast
-
+Alternative using Pascal Script for more control:
 ```pascal
-; Source: verified pattern from jrsoftware.org/isfaq.php
-[Setup]
-ChangesEnvironment=yes  ; This enables WM_SETTINGCHANGE broadcast
+[Code]
+procedure CopyShadersToLocalAppData();
+var
+  SourceDir, DestDir: String;
+begin
+  SourceDir := ExpandConstant('{app}\shaders');
+  DestDir := ExpandConstant('{localappdata}\MatrixShader\shaders');
 
+  if not DirExists(DestDir) then
+    ForceDirectories(DestDir);
+
+  // DirectoryCopy is available in Inno Setup 6
+  DirectoryCopy(SourceDir, DestDir);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    CopyShadersToLocalAppData();
+end;
+```
+
+### winget Silent Install Command
+```powershell
+# Full command for Windows Terminal installation
+winget install --id Microsoft.WindowsTerminal --exact --silent --accept-source-agreements --accept-package-agreements
+```
+Source: [Microsoft winget install documentation](https://learn.microsoft.com/en-us/windows/package-manager/winget/install)
+
+### Windows Sandbox Configuration (.wsb)
+```xml
+<Configuration>
+  <VGpu>Enable</VGpu>
+  <Networking>Enable</Networking>  <!-- Enable for winget to work -->
+  <MemoryInMB>4096</MemoryInMB>
+
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\path\to\installer\output</HostFolder>
+      <SandboxFolder>C:\Installer</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+
+  <LogonCommand>
+    <Command>powershell.exe -ExecutionPolicy Bypass -Command "Start-Process 'C:\Installer\MatrixShaderSetup.exe' -Wait; C:\Test\validate.ps1"</Command>
+  </LogonCommand>
+</Configuration>
+```
+Source: [Microsoft Windows Sandbox documentation](https://learn.microsoft.com/en-us/windows/security/application-security/application-isolation/windows-sandbox/)
+
+### Uninstall Cleanup Section
+```ini
+[UninstallDelete]
+; Clean up LocalAppData files
+Type: filesandordirs; Name: "{localappdata}\MatrixShader"
+
+; Note: Documents\Matrix is user-created data, leave it (or prompt)
+```
+
+### PATH Addition with Check
+```ini
 [Registry]
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
     ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; \
@@ -265,165 +270,92 @@ begin
     Result := True;
     exit;
   end;
+  // Case-insensitive check for path
   Result := Pos(';' + UpperCase(Param) + ';', ';' + UpperCase(OrigPath) + ';') = 0;
 end;
 ```
-
-### C#: Unified Path Resolution
-
-```csharp
-// Source: derived from existing codebase patterns, aligned with Inno Setup decisions
-public static class PathResolver
-{
-    private static readonly string LocalAppDataRoot = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "MatrixShader");
-
-    private static readonly string InstallDir = AppContext.BaseDirectory;
-
-    /// <summary>
-    /// Gets the shaders directory, copying from install if needed.
-    /// </summary>
-    public static string GetShadersDirectory()
-    {
-        var userShaders = Path.Combine(LocalAppDataRoot, "shaders");
-        var installShaders = Path.Combine(InstallDir, "shaders");
-
-        // User shaders exist? Use them.
-        if (Directory.Exists(userShaders) && Directory.EnumerateFiles(userShaders, "*.hlsl").Any())
-            return userShaders;
-
-        // First run: copy from install location
-        if (Directory.Exists(installShaders))
-        {
-            Directory.CreateDirectory(userShaders);
-            foreach (var hlsl in Directory.GetFiles(installShaders, "*.hlsl"))
-            {
-                var destPath = Path.Combine(userShaders, Path.GetFileName(hlsl));
-                if (!File.Exists(destPath))
-                    File.Copy(hlsl, destPath);
-            }
-            return userShaders;
-        }
-
-        // Fallback (dev scenario): use Documents path
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            "Matrix", "shaders");
-    }
-
-    /// <summary>
-    /// Gets the config directory.
-    /// </summary>
-    public static string GetConfigDirectory()
-    {
-        var configDir = Path.Combine(LocalAppDataRoot, "config");
-        Directory.CreateDirectory(configDir);
-        return configDir;
-    }
-}
-```
-
-### winget: Silent Windows Terminal Install
-
-```csharp
-// Source: Microsoft Learn documentation
-private static async Task<bool> TryInstallWindowsTerminalAsync()
-{
-    try
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "winget",
-            Arguments = "install --id Microsoft.WindowsTerminal --exact --silent " +
-                        "--accept-source-agreements --accept-package-agreements",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        using var process = Process.Start(psi);
-        if (process == null) return false;
-
-        await process.WaitForExitAsync();
-
-        // Give WT time to create settings.json
-        await Task.Delay(2000);
-
-        return File.Exists(GetSettingsPath());
-    }
-    catch
-    {
-        return false;
-    }
-}
-
-// Fallback: Open Store page
-private static void OpenWindowsTerminalStore()
-{
-    Process.Start(new ProcessStartInfo
-    {
-        FileName = "ms-windows-store://pdp/?ProductId=9N0DX20HK701",
-        UseShellExecute = true
-    });
-}
-```
+Source: Existing MatrixShaderSetup.iss (verified correct pattern)
 
 ## State of the Art
 
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
-| `PrivilegesRequired=admin` always | Use `PrivilegesRequired=lowest` for user-only apps | Inno Setup 5.5+ | Avoids UAC prompt, installs to user folder |
-| `{localappdata}` in admin install | `{app}` + app-level first-run copy | Best practice (not new) | Correct multi-user support |
-| Custom PATH broadcast | `ChangesEnvironment=yes` | Inno Setup 5.6+ | Built-in WM_SETTINGCHANGE |
-| Framework-dependent | Native AOT self-contained | .NET 7+ | No runtime needed |
+| Documents folder for user data | LocalAppData | Windows best practice | Proper isolation, roaming support |
+| Manual WT download | winget install | winget stable (2021+) | Automated, silent, updatable |
+| Restart after PATH change | WM_SETTINGCHANGE broadcast | Always available | New terminals see PATH immediately |
+| Manual VM testing | Windows Sandbox | Windows 10 1903+ | Ephemeral, fast, .wsb automation |
 
 **Deprecated/outdated:**
-- `--no-self-contained:false` syntax: Confusing double negative, use `--self-contained` instead
-- Hardcoded `Documents\Matrix\` paths: Replace with `%LOCALAPPDATA%\MatrixShader\`
+- `npm install` mentioned in README - this is a .NET project, not Node.js
+- `matrix-hotkeys` command - does not exist, remove from docs
 
 ## Open Questions
 
-1. **Windows Terminal Version Check**
-   - What we know: Shaders require WT 1.12+. Code checks `WT_PROFILE_ID` env var.
-   - What's unclear: Is `WT_PROFILE_ID` a reliable proxy for shader support? Official docs don't specify.
-   - Recommendation: Keep current check. If it works, don't complicate. Add version detection later if users report issues.
+Things that couldn't be fully resolved:
 
-2. **Uninstall Cleanup**
-   - What we know: User data persists after uninstall (LocalAppData).
-   - What's unclear: Should we prompt to clean? Risk of data loss vs. stale files on reinstall.
-   - Recommendation: Document that user data is preserved. Add optional cleanup prompt if users request.
+1. **Windows Terminal minimum version for shaders**
+   - What we know: Pixel shaders work in recent WT versions (1.12+), experimental.pixelShaderPath setting
+   - What's unclear: Exact minimum version, how to detect version programmatically
+   - Recommendation: Check for settings.json existence (current approach) + add fallback message if shader doesn't load
 
-3. **Start Menu Shortcuts**
-   - What we know: PATH requires new terminal. Shortcuts don't require PATH.
-   - What's unclear: Should we add shortcuts? What about Desktop?
-   - Recommendation: Add Start Menu shortcuts (no Desktop). Low cost, high value for users who don't use terminal directly.
+2. **Self-contained vs Framework-dependent publish**
+   - What we know: Current build uses confusing `--no-self-contained:false` syntax
+   - What's unclear: Whether .NET 8 runtime is available on target machines
+   - Recommendation: Use `--self-contained true` explicitly for widest compatibility
+
+3. **Profile creation timing**
+   - What we know: Profiles need correct shader paths
+   - What's unclear: Should installer create profiles (risky, modifies user settings) or should app do it on first run?
+   - Recommendation: App creates profiles on first run (safer, can handle updates)
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Inno Setup Constants Documentation](https://jrsoftware.org/ishelp/topic_consts.htm) - Directory constants, auto constants
-- [Inno Setup FAQ](https://jrsoftware.org/isfaq.php) - WM_SETTINGCHANGE broadcast, PATH handling
-- [winget install Documentation](https://learn.microsoft.com/en-us/windows/package-manager/winget/install) - Silent install flags
-- Codebase analysis: `MatrixShader.Monitor.csproj` (line 10: `<AssemblyName>matrix-monitor</AssemblyName>`)
-- Codebase analysis: `MatrixShader.Cli.MatrixLite.csproj` (line 10: `<AssemblyName>matrixlite</AssemblyName>`)
+- [Inno Setup Constants Documentation](https://jrsoftware.org/ishelp/topic_consts.htm) - `{localappdata}`, `{app}` behavior
+- [Inno Setup ChangesEnvironment](https://jrsoftware.org/ishelp/topic_setup_changesenvironment.htm) - PATH broadcast
+- [Inno Setup UninstallDelete](https://jrsoftware.org/ishelp/topic_uninstalldeletesection.htm) - Cleanup patterns
+- [winget install command](https://learn.microsoft.com/en-us/windows/package-manager/winget/install) - Silent install flags
+- [Windows Sandbox Documentation](https://learn.microsoft.com/en-us/windows/security/application-security/application-isolation/windows-sandbox/) - .wsb configuration
 
 ### Secondary (MEDIUM confidence)
-- [Stack Overflow/Tek-Tips consensus](https://www.tek-tips.com/threads/registry-path-change-update-without-restart.686382/) - WM_SETTINGCHANGE broadcast patterns
-- [Microsoft Q&A](https://learn.microsoft.com/en-us/answers/questions/794169/installer-access-to-appdata) - Admin install to user paths issues
+- [Windows Terminal Pixel Shaders README](https://github.com/microsoft/terminal/blob/main/samples/PixelShaders/README.md) - Shader configuration
+- [Advanced Installer Testing in Sandbox](https://www.advancedinstaller.com/test-msi-msix-exe-installers-in-windows-sandbox.html) - Testing methodology
+- Existing project files: MatrixShaderSetup.iss, build-installer.ps1, validate.ps1
 
 ### Tertiary (LOW confidence)
-- Windows Terminal shader version requirement (1.12) - Not officially documented, inferred from feature release notes
-- Code signing impact - Mentioned but not tested
+- Various forum posts about Inno Setup best practices (general guidance only)
 
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH - Inno Setup is mature, well-documented
-- Architecture: HIGH - First-run copy pattern is established best practice
-- Pitfalls: HIGH - All derived from actual GAP-ANALYSIS.md findings and verified against codebase
-- Windows Terminal: MEDIUM - Version requirements not officially documented
+- Standard stack: HIGH - Inno Setup documented, winget official docs, Sandbox well-documented
+- Architecture: MEDIUM - Patterns verified against existing code and official docs, but path resolution needs testing
+- Pitfalls: HIGH - All derived from actual GAP-ANALYSIS.md findings with code evidence
 
 **Research date:** 2026-01-30
-**Valid until:** 2026-03-30 (60 days - stable domain, Inno Setup 6.x unlikely to change significantly)
+**Valid until:** 60 days (Inno Setup stable, patterns established)
+
+---
+
+## Gap-Specific Technical Notes
+
+### GAP-E01: matrixlite.exe Missing
+- **Fix location:** `installer/build-installer.ps1` line 26-31, `installer/MatrixShaderSetup.iss` line 23-27
+- **Verified:** MatrixLite.csproj exists with `<AssemblyName>matrixlite</AssemblyName>`
+
+### GAP-E02: Monitor Name Mismatch
+- **Current:** Bluepill looks for `MatrixShader.Monitor.exe` or `monitor.exe`
+- **Actual:** csproj has `<AssemblyName>matrix-monitor</AssemblyName>`
+- **Fix:** Update Bluepill code to use `matrix-monitor.exe`
+
+### GAP-E04: Hardcoded Dev Path
+- **Location:** `ConfigService.cs` line 28
+- **Fix:** Remove the line `@"C:\Users\ehome\Documents\Matrix"`
+
+### GAP-E12: Wrong Shader Path in Profiles
+- **Root cause:** `CliBootstrap.GetShadersDirectory()` returns Documents path
+- **Fix:** Update to return `%LOCALAPPDATA%\MatrixShader\shaders` and ensure installer copies shaders there
+
+### GAP-E08: README Incorrect
+- **Issues:** npm install (wrong), matrix-hotkeys (doesn't exist), Node.js requirement (wrong)
+- **Fix:** Rewrite README for actual install method
