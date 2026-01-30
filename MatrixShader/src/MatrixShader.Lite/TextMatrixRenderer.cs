@@ -9,11 +9,11 @@ namespace MatrixShader.Lite;
 /// </summary>
 public class TextMatrixRenderer : IDisposable
 {
-    private readonly Column[] _columns;
+    private Column[] _columns;
     private readonly Random _random;
     private readonly StringBuilder _buffer;
-    private readonly int _width;
-    private readonly int _height;
+    private int _width;
+    private int _height;
     private MatrixColor _color;
     private float _speed;
     private float _density;
@@ -89,6 +89,8 @@ public class TextMatrixRenderer : IDisposable
     /// </summary>
     public void RenderFrame()
     {
+        CheckAndHandleResize();
+
         _buffer.Clear();
         _buffer.Append(Home);
 
@@ -221,5 +223,58 @@ public class TextMatrixRenderer : IDisposable
             _disposed = true;
         }
         GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Checks if the terminal has been resized and reinitializes if needed.
+    /// </summary>
+    /// <returns>True if resize occurred and reinitialization was needed</returns>
+    private bool CheckAndHandleResize()
+    {
+        try
+        {
+            int newWidth = Console.WindowWidth;
+            int newHeight = Console.WindowHeight;
+
+            if (newWidth != _width || newHeight != _height)
+            {
+                // Terminal was resized - reinitialize
+                Reinitialize(newWidth, newHeight);
+                return true;
+            }
+        }
+        catch
+        {
+            // Console access may fail during resize - ignore
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Reinitializes the renderer for new dimensions.
+    /// </summary>
+    private void Reinitialize(int newWidth, int newHeight)
+    {
+        _width = newWidth;
+        _height = newHeight;
+
+        // Recreate columns array for new width
+        _columns = new Column[_width];
+        for (int x = 0; x < _width; x++)
+        {
+            _columns[x] = new Column(x, _height, _random);
+            if (_random.NextDouble() > _density)
+            {
+                _columns[x].Reset();
+            }
+        }
+
+        // Reallocate buffer for new size
+        _buffer.Clear();
+        _buffer.EnsureCapacity(_width * _height * 30);
+
+        // Clear screen for clean redraw
+        Console.Write(ClearScreen);
+        Console.Write(Home);
     }
 }
