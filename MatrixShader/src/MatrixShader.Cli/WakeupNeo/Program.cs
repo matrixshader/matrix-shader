@@ -4,6 +4,7 @@ using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Services;
 using MatrixShader.Core.Startup;
+using MatrixShader.Lite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -52,6 +53,34 @@ public static class Program
             ConfigureServices(services);
             var provider = services.BuildServiceProvider();
 
+            // Detect render mode
+            var envService = provider.GetRequiredService<EnvironmentService>();
+            var mode = envService.DetectRenderMode();
+
+            if (mode == RenderMode.Lite)
+            {
+                // Lite mode - wizard requires WT, fall back to text rain
+                Console.Clear();
+                Console.WriteLine();
+                ConsoleHelper.WriteLineMatrixGreen(" LITE MODE - Windows Terminal not detected");
+                Console.WriteLine();
+                ConsoleHelper.WriteLineDim(" The setup wizard requires Windows Terminal for shader profiles.");
+                ConsoleHelper.WriteLineDim(" Running text-based Matrix rain instead...");
+                Console.WriteLine();
+
+                await Task.Delay(2000); // Let user read the message
+
+                var menu = new FallbackMenu();
+                await menu.RunAsync(CancellationToken.None);
+                return 0;
+            }
+            else if (mode == RenderMode.Headless)
+            {
+                Console.WriteLine("\x1b[31mNo display available. Use --help for options.\x1b[0m");
+                return 1;
+            }
+
+            // Full mode continues with setup wizard
             var wizard = provider.GetRequiredService<SetupWizard>();
 
             var exitCode = await wizard.RunAsync(options.Morpheus, options.AgentSmith);
