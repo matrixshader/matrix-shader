@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 9 of 10 (Native AOT & Polish)
-Plan: 3 of 5 in current phase
+Plan: 1 of 5 in current phase - COMPLETE
 Status: In progress
-Last activity: 2026-01-30 - Completed 09-03-PLAN.md (CLI Integration)
+Last activity: 2026-01-29 - Completed 09-01-PLAN.md (Native AOT Publishing Configuration)
 
-Progress: [##############################] 100% (32/32 plans)
+Progress: [########################      ] 75% (28/37 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 27
-- Average duration: 6 min
-- Total execution time: 3.3 hours
+- Total plans completed: 28
+- Average duration: 11 min
+- Total execution time: 5.4 hours
 
 **By Phase:**
 
@@ -35,11 +35,11 @@ Progress: [##############################] 100% (32/32 plans)
 | 06-control-panel-tui | 4 | 16 min | 4 min |
 | 07-terminal-integration | 4 | 22 min | 6 min |
 | 08-cli-applications | 3 | 22 min | 7 min |
-| 09-native-aot-polish | 3 | 23 min | 8 min |
+| 09-native-aot-polish | 1 | 128 min | 128 min |
 
 **Recent Trend:**
-- Last 5 plans: 08-01 (5 min), 08-02 (5 min), 08-03 (12 min), 09-02 (9 min), 09-03 (7 min)
-- Trend: Stable
+- Last 5 plans: 08-02 (5 min), 08-03 (12 min), 09-02 (9 min), 09-03 (7 min), 09-01 (128 min)
+- Trend: Spike on 09-01 (AOT publishing configuration and testing)
 
 *Updated after each plan completion*
 
@@ -143,6 +143,10 @@ Recent decisions affecting current work:
 - [09-04]: PrivilegesRequired=admin for system PATH modification
 - [09-04]: ChangesEnvironment=yes enables immediate command availability without reboot
 - [09-04]: matrix-monitor.exe included for Bluepill drag-snap functionality
+- [09-01]: PublishAot alone handles single-file publishing; PublishSingleFile is incompatible
+- [09-01]: WPF apps require native DLLs (D3DCompiler, PenImc, etc.) - cannot be truly single-file
+- [09-01]: WinForms apps (WakeupNeo, Monitor) achieve true single-file output
+- [09-01]: IsAotCompatible on library projects enables analyzer during development
 
 ### Pending Todos
 
@@ -155,11 +159,11 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-30
-Stopped at: Completed 09-03-PLAN.md (CLI Integration)
+Last session: 2026-01-29
+Stopped at: Completed 09-01-PLAN.md (Native AOT Publishing Configuration)
 Resume file: None
-Next action: Continue Phase 9 remaining plans (09-01, 09-04, 09-05 as needed)
+Next action: Continue Phase 9 remaining plans (09-02, 09-03, 09-04, 09-05 as needed)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-30*
+*Last updated: 2026-01-29*
