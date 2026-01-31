@@ -24,10 +24,14 @@ public record BootstrapResult(
 public static class CliBootstrap
 {
     private static readonly string MatrixDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-        "Matrix");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "MatrixShader");
 
     private static readonly string ShadersDir = Path.Combine(MatrixDir, "shaders");
+
+    private static readonly string InstalledShadersDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+        "MatrixShader", "shaders");
 
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -183,6 +187,26 @@ public static class CliBootstrap
             DiagnosticLogger.Debug("BOOTSTRAP", $"Created directory: {ShadersDir}");
         }
 
+        // Check shader availability and log path being used
+        var localShadersExist = Directory.Exists(ShadersDir) &&
+            Directory.GetFiles(ShadersDir, "*.hlsl").Length > 0;
+        var installedShadersExist = Directory.Exists(InstalledShadersDir) &&
+            Directory.GetFiles(InstalledShadersDir, "*.hlsl").Length > 0;
+
+        if (localShadersExist)
+        {
+            DiagnosticLogger.Debug("BOOTSTRAP", $"Using shaders from LocalAppData: {ShadersDir}");
+        }
+        else if (installedShadersExist)
+        {
+            DiagnosticLogger.Debug("BOOTSTRAP", $"Installed shaders found at: {InstalledShadersDir}");
+            DiagnosticLogger.Info("BOOTSTRAP", "Run 'wakeupneo' to copy shaders to user directory");
+        }
+        else
+        {
+            DiagnosticLogger.Warn("BOOTSTRAP", "No shaders found - run 'wakeupneo' to set up");
+        }
+
         return wasFirstRun;
     }
 
@@ -284,9 +308,15 @@ public static class CliBootstrap
     public static string GetMatrixDirectory() => MatrixDir;
 
     /// <summary>
-    /// Gets the shaders directory path.
+    /// Gets the shaders directory path (user's LocalAppData).
     /// </summary>
     public static string GetShadersDirectory() => ShadersDir;
+
+    /// <summary>
+    /// Gets the installed shaders directory path (Program Files).
+    /// This is where the installer places shaders.
+    /// </summary>
+    public static string GetInstalledShadersDirectory() => InstalledShadersDir;
 
     /// <summary>
     /// Gets the Windows Terminal settings.json path.
