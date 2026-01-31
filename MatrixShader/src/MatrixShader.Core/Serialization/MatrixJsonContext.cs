@@ -32,6 +32,11 @@ namespace MatrixShader.Core.Serialization;
 [JsonSerializable(typeof(MonitorInfo))]
 [JsonSerializable(typeof(WindowRect))]
 [JsonSerializable(typeof(IdentitySource))]
+// Hotkey configuration types (Phase 10.5)
+[JsonSerializable(typeof(HotkeyConfig))]
+[JsonSerializable(typeof(HotkeyBinding))]
+[JsonSerializable(typeof(HotkeyAction))]
+[JsonSerializable(typeof(Dictionary<HotkeyAction, HotkeyBinding>))]
 internal partial class MatrixJsonContext : JsonSerializerContext
 {
 }
