@@ -263,4 +263,101 @@ public partial class ShaderService : IShaderService
             .Replace("{L2}", (config.Layer2 ? 1.0f : 0.0f).ToString("F1", CultureInfo.InvariantCulture))
             .Replace("{L3}", (config.Layer3 ? 1.0f : 0.0f).ToString("F1", CultureInfo.InvariantCulture));
     }
+
+    /// <summary>
+    /// Checks if the system can use Windows Terminal shaders.
+    /// Returns false if WT is not installed or version doesn't support shaders.
+    /// </summary>
+    /// <returns>Tuple of (canUse, reason) where reason explains the result</returns>
+    public static (bool CanUse, string Reason) CanUseShaders()
+    {
+        // Check if Windows Terminal settings exist (Store version)
+        var wtSettingsPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Packages",
+            "Microsoft.WindowsTerminal_8wekyb3d8bbwe",
+            "LocalState",
+            "settings.json");
+
+        if (!File.Exists(wtSettingsPath))
+        {
+            // Check for unpackaged WT (winget/scoop installed)
+            var unpackagedPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Microsoft",
+                "Windows Terminal",
+                "settings.json");
+
+            if (!File.Exists(unpackagedPath))
+            {
+                DiagnosticLogger.Warn("SHADER", "Windows Terminal settings.json not found");
+                return (false, "Windows Terminal is not installed. Use 'matrixlite' for text-mode fallback.");
+            }
+            else
+            {
+                DiagnosticLogger.Debug("SHADER", $"Found unpackaged WT settings: {unpackagedPath}");
+            }
+        }
+        else
+        {
+            DiagnosticLogger.Debug("SHADER", $"Found Store WT settings: {wtSettingsPath}");
+        }
+
+        // Check Windows version (shaders require Windows 10 1903+ / build 18362+)
+        var osVersion = Environment.OSVersion.Version;
+        if (osVersion.Major < 10 || (osVersion.Major == 10 && osVersion.Build < 18362))
+        {
+            DiagnosticLogger.Warn("SHADER", $"Windows version {osVersion} does not support shaders (requires 10.0.18362+)");
+            return (false, "Windows 10 version 1903 or later required for shaders. Use 'matrixlite' for text-mode fallback.");
+        }
+
+        DiagnosticLogger.Info("SHADER", "Shader support available");
+        return (true, "Shader support available");
+    }
+
+    /// <summary>
+    /// Attempts to detect Windows Terminal version for diagnostics.
+    /// </summary>
+    /// <returns>Version string if detected, null otherwise</returns>
+    public static string? GetWindowsTerminalVersion()
+    {
+        try
+        {
+            // Check Store package version via WindowsApps folder
+            var packagePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                "WindowsApps");
+
+            // Look for Microsoft.WindowsTerminal_* folder
+            if (Directory.Exists(packagePath))
+            {
+                try
+                {
+                    var wtFolders = Directory.GetDirectories(packagePath, "Microsoft.WindowsTerminal_*");
+                    if (wtFolders.Length > 0)
+                    {
+                        // Extract version from folder name (e.g., Microsoft.WindowsTerminal_1.19.10821.0_x64__8wekyb3d8bbwe)
+                        var folderName = Path.GetFileName(wtFolders[0]);
+                        var parts = folderName.Split('_');
+                        if (parts.Length >= 2)
+                        {
+                            DiagnosticLogger.Debug("SHADER", $"Detected WT version: {parts[1]}");
+                            return parts[1];
+                        }
+                    }
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // WindowsApps folder is restricted - this is expected
+                    DiagnosticLogger.Debug("SHADER", "Cannot access WindowsApps folder for version detection");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Debug("SHADER", $"WT version detection failed: {ex.Message}");
+        }
+
+        return null;
+    }
 }
