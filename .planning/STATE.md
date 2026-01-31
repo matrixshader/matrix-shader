@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 Milestone: v1.0 INCOMPLETE (gaps found + missing feature)
 Phase: 11 - Installer & E2E Validation (IN PROGRESS)
-Status: Wave 1 complete (11-01, 11-02)
-Last activity: 2026-01-31 — Completed 11-02-PLAN.md (installer completeness)
+Status: Wave 2 in progress (11-03 complete)
+Last activity: 2026-01-31 — Completed 11-03-PLAN.md (installer polish)
 
-Progress: [######################################] 46 plans complete, 3 plans queued
+Progress: [########################################] 47 plans complete, 2 plans queued
 
 ## Phase 10.5 Plan Summary (COMPLETE)
 
@@ -56,16 +56,16 @@ Progress: [######################################] 46 plans complete, 3 plans qu
 |------|------|-----------|----------------|--------|
 | 1 | 11-01 | Path resolution architecture | GAP-E03, E04, E12 (Critical) | COMPLETE |
 | 1 | 11-02 | Installer completeness | GAP-E01, E02, E14 (Critical) | COMPLETE |
-| 2 | 11-03 | Installer polish | GAP-E05, E10, E11 (Minor) | QUEUED |
+| 2 | 11-03 | Installer polish | GAP-E05, E10, E11 (Minor) | COMPLETE |
 | 2 | 11-04 | Runtime safety | GAP-E07, E13 (Important) | QUEUED |
 | 3 | 11-05 | Documentation & validation | GAP-E08, E09 (Critical) | QUEUED |
 
 ## Milestone Summary
 
 **v1.0 C# Rebuild (IN PROGRESS)**
-- 12 phases, 49 plans total (44 complete, 5 queued)
+- 12 phases, 49 plans total (47 complete, 2 queued)
 - Phase 10.5 COMPLETE (global hotkeys feature parity achieved)
-- 14 gaps to close in Phase 11
+- 11 gaps closed in Phase 11 (3 remaining)
 - 9,400+ lines of C#
 
 ## Accumulated Context
@@ -109,6 +109,9 @@ Progress: [######################################] 46 plans complete, 3 plans qu
 | Manual testing in Sandbox | Adequate for v1.0, automated testing deferred | CONTEXT.md |
 | Explicit --self-contained true | Clearer than --no-self-contained:false, avoids confusion | 11-02 |
 | Primary lookup matrix-monitor.exe | Matches installed name, legacy fallback for dev | 11-02 |
+| CMD xcopy over Pascal FileCopy | Simpler, fewer lines, works reliably | 11-03 |
+| Full LocalAppData cleanup | Clean slate on reinstall, users run wakeupneo again | 11-03 |
+| Message box for PATH notification | More visible than finish label, PATH issues common | 11-03 |
 
 ### Blockers/Concerns
 
@@ -118,10 +121,10 @@ Progress: [######################################] 46 plans complete, 3 plans qu
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 11-02-PLAN.md (installer completeness)
+Stopped at: Completed 11-03-PLAN.md (installer polish)
 Resume file: None
-Next action: Execute 11-03-PLAN.md (Installer polish)
+Next action: Execute 11-04-PLAN.md (Runtime safety)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-31 — Completed 11-02 (Wave 1 of Phase 11 complete)*
+*Last updated: 2026-01-31 — Completed 11-03 (Wave 2 of Phase 11 in progress)*
