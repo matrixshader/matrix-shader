@@ -1,0 +1,228 @@
+# Matrix Shader One-Liner Install Script
+# Usage: irm https://matrixshader.com/install.ps1 | iex
+#
+# Works with PowerShell 5.1 and 7+
+# Installs to Program Files (admin) or LocalAppData (non-admin)
+
+$ErrorActionPreference = 'Stop'
+
+# Configuration
+$RepoOwner = 'matrixshader'
+$RepoName = 'matrix-shader'
+$AppName = 'MatrixShader'
+$Version = 'latest'
+
+# Detect admin privileges
+$IsAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+# Set install paths
+if ($IsAdmin) {
+    $InstallDir = "$env:ProgramFiles\$AppName"
+    $PathScope = 'Machine'
+} else {
+    $InstallDir = "$env:LOCALAPPDATA\Programs\$AppName"
+    $PathScope = 'User'
+}
+$DataDir = "$env:LOCALAPPDATA\$AppName"
+$ShadersDir = "$DataDir\shaders"
+
+Write-Host ""
+Write-Host "  Matrix Shader Installer" -ForegroundColor Green
+Write-Host "  =======================" -ForegroundColor Green
+Write-Host ""
+Write-Host "  Install location: $InstallDir"
+Write-Host "  Data location:    $DataDir"
+Write-Host "  Admin mode:       $IsAdmin"
+Write-Host ""
+
+# Create directories
+Write-Host "[1/5] Creating directories..." -ForegroundColor Cyan
+if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
+if (-not (Test-Path $ShadersDir)) { New-Item -ItemType Directory -Path $ShadersDir -Force | Out-Null }
+
+# Get latest release URL from GitHub API
+Write-Host "[2/5] Finding latest release..." -ForegroundColor Cyan
+try {
+    $ApiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases/latest"
+    $Headers = @{ 'User-Agent' = 'MatrixShader-Installer' }
+
+    # Use different methods for PS 5.1 vs 7+
+    if ($PSVersionTable.PSVersion.Major -ge 6) {
+        $Release = Invoke-RestMethod -Uri $ApiUrl -Headers $Headers
+    } else {
+        # PowerShell 5.1 - disable certificate validation warning
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $Release = Invoke-RestMethod -Uri $ApiUrl -Headers $Headers
+    }
+
+    # Find the zip asset
+    $ZipAsset = $Release.assets | Where-Object { $_.name -like '*.zip' } | Select-Object -First 1
+    if (-not $ZipAsset) {
+        throw "No zip file found in latest release"
+    }
+    $DownloadUrl = $ZipAsset.browser_download_url
+    $ZipName = $ZipAsset.name
+    $TagName = $Release.tag_name
+    Write-Host "  Found version: $TagName" -ForegroundColor Gray
+}
+catch {
+    Write-Host "  GitHub API error: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "  Falling back to direct download URL..." -ForegroundColor Yellow
+    # Fallback URL for when API is unavailable
+    $DownloadUrl = "https://github.com/$RepoOwner/$RepoName/releases/latest/download/MatrixShader.zip"
+    $ZipName = "MatrixShader.zip"
+    $TagName = "latest"
+}
+
+# Download release zip
+Write-Host "[3/5] Downloading $ZipName..." -ForegroundColor Cyan
+$TempDir = [System.IO.Path]::GetTempPath()
+$ZipPath = Join-Path $TempDir $ZipName
+
+try {
+    # Progress indicator for download
+    $ProgressPreference = 'Continue'
+
+    if ($PSVersionTable.PSVersion.Major -ge 6) {
+        # PowerShell 7+ - better progress
+        Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -UseBasicParsing
+    } else {
+        # PowerShell 5.1
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $WebClient = New-Object System.Net.WebClient
+        $WebClient.DownloadFile($DownloadUrl, $ZipPath)
+    }
+    Write-Host "  Downloaded to: $ZipPath" -ForegroundColor Gray
+}
+catch {
+    Write-Host "ERROR: Failed to download release" -ForegroundColor Red
+    Write-Host "  $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Manual install: https://github.com/$RepoOwner/$RepoName/releases" -ForegroundColor Yellow
+    exit 1
+}
+
+# Extract to install directory
+Write-Host "[4/5] Extracting files..." -ForegroundColor Cyan
+try {
+    $ExtractPath = Join-Path $TempDir "MatrixShader_extract"
+    if (Test-Path $ExtractPath) { Remove-Item $ExtractPath -Recurse -Force }
+
+    # Extract zip
+    if ($PSVersionTable.PSVersion.Major -ge 5) {
+        Expand-Archive -Path $ZipPath -DestinationPath $ExtractPath -Force
+    } else {
+        # Fallback for older PowerShell
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipPath, $ExtractPath)
+    }
+
+    # Find the root of extracted content (may have nested folder)
+    $ExtractedContent = Get-ChildItem $ExtractPath
+    if ($ExtractedContent.Count -eq 1 -and $ExtractedContent[0].PSIsContainer) {
+        $SourceDir = $ExtractedContent[0].FullName
+    } else {
+        $SourceDir = $ExtractPath
+    }
+
+    # Copy executables and DLLs to install directory
+    Write-Host "  Copying executables to $InstallDir..." -ForegroundColor Gray
+    $ExeFiles = @('wakeupneo.exe', 'bluepill.exe', 'redpill.exe', 'matrixlite.exe', 'matrix-hotkeys.exe', 'matrix-monitor.exe')
+
+    # Copy all files (runtime, DLLs, etc.)
+    Get-ChildItem -Path $SourceDir -Recurse | ForEach-Object {
+        $RelativePath = $_.FullName.Substring($SourceDir.Length + 1)
+        $DestPath = Join-Path $InstallDir $RelativePath
+
+        if ($_.PSIsContainer) {
+            # Skip shaders directory - handled separately
+            if ($RelativePath -notlike 'shaders*') {
+                if (-not (Test-Path $DestPath)) { New-Item -ItemType Directory -Path $DestPath -Force | Out-Null }
+            }
+        } else {
+            # Copy file (skip shaders for now)
+            if ($RelativePath -notlike 'shaders\*') {
+                $ParentDir = Split-Path $DestPath -Parent
+                if (-not (Test-Path $ParentDir)) { New-Item -ItemType Directory -Path $ParentDir -Force | Out-Null }
+                Copy-Item $_.FullName $DestPath -Force
+            }
+        }
+    }
+
+    # Copy shaders to LocalAppData
+    $SourceShaders = Join-Path $SourceDir "shaders"
+    if (Test-Path $SourceShaders) {
+        Write-Host "  Copying shaders to $ShadersDir..." -ForegroundColor Gray
+        Get-ChildItem -Path $SourceShaders -Filter "*.hlsl" | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $ShadersDir $_.Name) -Force
+        }
+    }
+
+    # Verify key executables
+    $MissingExe = $ExeFiles | Where-Object { -not (Test-Path (Join-Path $InstallDir $_)) }
+    if ($MissingExe) {
+        Write-Host "WARNING: Some executables not found: $($MissingExe -join ', ')" -ForegroundColor Yellow
+    }
+
+    # Clean up temp files
+    Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
+    Remove-Item $ExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+}
+catch {
+    Write-Host "ERROR: Failed to extract files" -ForegroundColor Red
+    Write-Host "  $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+
+# Add to PATH
+Write-Host "[5/5] Updating PATH..." -ForegroundColor Cyan
+try {
+    if ($PathScope -eq 'Machine') {
+        $CurrentPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    } else {
+        $CurrentPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    }
+
+    # Check if already in PATH (case-insensitive)
+    $PathEntries = $CurrentPath -split ';' | ForEach-Object { $_.Trim().ToLower() }
+    if ($PathEntries -notcontains $InstallDir.ToLower()) {
+        $NewPath = $CurrentPath.TrimEnd(';') + ";$InstallDir"
+        [Environment]::SetEnvironmentVariable('Path', $NewPath, $PathScope)
+        Write-Host "  Added to $PathScope PATH" -ForegroundColor Gray
+
+        # Update current session
+        $env:Path = $env:Path + ";$InstallDir"
+    } else {
+        Write-Host "  Already in PATH" -ForegroundColor Gray
+    }
+}
+catch {
+    Write-Host "WARNING: Could not update PATH automatically" -ForegroundColor Yellow
+    Write-Host "  Add this directory manually: $InstallDir" -ForegroundColor Yellow
+}
+
+# Success!
+Write-Host ""
+Write-Host "  Installation complete!" -ForegroundColor Green
+Write-Host ""
+Write-Host "  IMPORTANT: Open a NEW terminal window for commands to work." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "  Commands available:" -ForegroundColor Cyan
+Write-Host "    wakeupneo  - Setup wizard (start here!)"
+Write-Host "    bluepill   - Quick launch Matrix"
+Write-Host "    redpill    - Control panel"
+Write-Host "    matrixlite - Text-only fallback"
+Write-Host ""
+Write-Host "  To uninstall:" -ForegroundColor Cyan
+Write-Host "    irm https://matrixshader.com/uninstall.ps1 | iex"
+Write-Host ""
+
+# Optional: Run wakeupneo immediately if in same session
+$RunNow = Read-Host "Run 'wakeupneo' now to get started? (Y/n)"
+if ($RunNow -ne 'n' -and $RunNow -ne 'N') {
+    $WakeupNeo = Join-Path $InstallDir "wakeupneo.exe"
+    if (Test-Path $WakeupNeo) {
+        Write-Host ""
+        & $WakeupNeo
+    }
+}
