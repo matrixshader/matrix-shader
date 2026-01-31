@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 ## Current Position
 
 Milestone: v1.0 INCOMPLETE (gaps found + missing feature)
-Phase: 10.5 - Global Hotkeys (Plan 02 complete, 3 remaining)
+Phase: 10.5 - Global Hotkeys (Plan 03 complete, 2 remaining)
 Status: In Progress
-Last activity: 2026-01-31 — Completed 10.5-02-PLAN.md (hotkey project infrastructure)
+Last activity: 2026-01-31 — Completed 10.5-03-PLAN.md (hotkey actions and toast notifications)
 
-Progress: [##############################..] 41 plans complete, 8 plans queued
+Progress: [################################.] 42 plans complete, 7 plans queued
 
 ## Phase 10.5 Plan Summary
 
@@ -24,8 +24,8 @@ Progress: [##############################..] 41 plans complete, 8 plans queued
 |------|------|-----------|--------|
 | 1 | 10.5-01 | Hotkey infrastructure (P/Invoke, models, config) | COMPLETE |
 | 1 | 10.5-02 | Registration service with message pump | COMPLETE |
-| 2 | 10.5-03 | Redpill integration | Queued |
-| 2 | 10.5-04 | Bluepill integration | Queued |
+| 2 | 10.5-03 | Hotkey actions and toast notifications | COMPLETE |
+| 2 | 10.5-04 | Redpill integration | Queued |
 | 3 | 10.5-05 | Testing and polish | Queued |
 
 **Key Files Created (10.5-01):**
@@ -39,6 +39,11 @@ Progress: [##############################..] 41 plans complete, 8 plans queued
 - HotkeyWindow.cs (message-only window for WM_HOTKEY)
 - HotkeyManager.cs (registration lifecycle with conflict tracking)
 - SingleInstance.cs (Global\\ mutex enforcement)
+
+**Key Files Created (10.5-03):**
+- HotkeyActions.cs (12 action handlers with service integration)
+- ToastNotifications.cs (conflict warnings via Windows toast)
+- TerminalProfile.cs (added UseAcrylic property)
 
 ## Phase 11 Plan Summary
 
@@ -91,13 +96,21 @@ Progress: [##############################..] 41 plans complete, 8 plans queued
 1. **Inno Setup installation** — Required to build installer; winget can install it
 2. **Windows Sandbox testing** — Requires Windows Pro/Enterprise; manual process
 
+### Decisions (Phase 10.5-03)
+
+| Decision | Rationale | Source |
+|----------|-----------|--------|
+| Silent failure for all actions | Per CONTEXT.md - if action can't complete, do nothing | plan |
+| Service injection for actions | Testability and separation of concerns | implementation |
+| Toast limit 5 hotkeys | Avoid toast overflow, keep UI clean | implementation |
+
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 10.5-02-PLAN.md
+Stopped at: Completed 10.5-03-PLAN.md
 Resume file: None
-Next action: Execute 10.5-03-PLAN.md (config loading and action dispatch)
+Next action: Execute 10.5-04-PLAN.md (Redpill integration)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-31 — Plan 10.5-02 complete (hotkey project infrastructure)*
+*Last updated: 2026-01-31 — Plan 10.5-03 complete (hotkey actions and toast notifications)*
