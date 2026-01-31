@@ -110,6 +110,8 @@ public enum KeyAction
     GlitchToggle,
     /// <summary>Shift+M - change monitor count.</summary>
     MonitorChange,
+    /// <summary>Shift+H - open hotkey configuration screen.</summary>
+    HotkeyConfig,
 
     // Primary monitor controls
     /// <summary>Comma key - decrease windows on primary monitor.</summary>
@@ -177,6 +179,7 @@ public static class KeyHandler
             case 'P': return KeyAction.PriorityToggle;   // Shift+P
             case 'G': return KeyAction.GlitchToggle;     // Shift+G
             case 'M': return KeyAction.MonitorChange;    // Shift+M
+            case 'H': return KeyAction.HotkeyConfig;     // Shift+H
         }
 
         // Now normalize to lowercase for case-insensitive handling
