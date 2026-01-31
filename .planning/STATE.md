@@ -5,30 +5,20 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Instant startup with full PowerShell feature parity
-**Current focus:** Phase 11 - Installer & E2E Validation (CRITICAL FIX: added 11-06 build plan)
+**Current focus:** Phase 11 - Installer & E2E Validation (7 plans in 5 waves)
 
 ## Current Position
 
 Milestone: v1.0 INCOMPLETE (installer never built)
 Phase: 11 - Installer & E2E Validation (IN PROGRESS)
-Status: Wave 3 in progress (11-05), Wave 4 queued (11-06)
-Last activity: 2026-01-31 — Added 11-06-PLAN.md to fix critical planning gap
+Status: Wave 3 in progress (11-05), Wave 4 queued (11-06), Wave 5 queued (11-07)
+Last activity: 2026-01-31 — Added 11-07-PLAN.md for one-liner install script
 
-Progress: [##########################################] 48 plans complete, 2 plans queued
-
-## CRITICAL PLANNING FIX
-
-**Problem identified:** Phase 11 plans (11-01 through 11-05) updated CODE and SCRIPTS but never BUILT the installer. The publish directory has stale executables from Jan 29-30 missing matrixlite.exe and matrix-hotkeys.exe entirely.
-
-**Fix:** Added 11-06-PLAN.md which:
-1. Runs `dotnet publish` for all 6 projects
-2. Runs `iscc.exe` to compile MatrixShaderSetup.exe
-3. Verifies installer contents
-4. Has checkpoint for Windows Sandbox testing
+Progress: [##########################################] 48 plans complete, 3 plans queued
 
 ## Phase 11 Plan Summary (UPDATED)
 
-**6 plans in 4 waves:**
+**7 plans in 5 waves:**
 
 | Wave | Plan | Objective | Status |
 |------|------|-----------|--------|
@@ -38,8 +28,9 @@ Progress: [##########################################] 48 plans complete, 2 plan
 | 2 | 11-04 | Runtime safety | COMPLETE |
 | 3 | 11-05 | Documentation & validation | IN PROGRESS |
 | 4 | 11-06 | BUILD installer and E2E test | QUEUED |
+| 5 | 11-07 | One-liner install script | QUEUED |
 
-**Key insight:** Plans 11-01 through 11-04 are CODE changes. Plan 11-06 is the BUILD step. Without 11-06, there is no installer artifact.
+**Key insight:** Plans 11-01 through 11-04 are CODE changes. Plan 11-06 BUILDS the installer. Plan 11-07 provides an alternative one-liner install method that downloads from GitHub Releases.
 
 ## Accumulated Context
 
@@ -48,6 +39,7 @@ Progress: [##########################################] 48 plans complete, 2 plan
 - Phase 8.1 inserted after Phase 8: Gap closure before AOT (URGENT)
 - Phase 10.5 inserted after Phase 10: Global Hotkeys — COMPLETE
 - Phase 11 plan 06 added: Installer BUILD step was missing
+- Phase 11 plan 07 added: One-liner install script for command-line users
 
 ### Decisions (Phase 11)
 
@@ -66,19 +58,22 @@ Progress: [##########################################] 48 plans complete, 2 plan
 | Tuple return for CanUseShaders | Provides both result and reason in single call | 11-04 |
 | Verify after SaveSettings | Catches issues early, before confusing runtime errors | 11-04 |
 | Separate build plan (11-06) | Code changes and build step were incorrectly conflated | planning fix |
+| One-liner as primary install | Developer-friendly, faster than GUI installer | 11-07 |
+| Admin vs non-admin paths | Program Files for admin, LocalAppData for non-admin | 11-07 |
 
 ### Blockers/Concerns
 
 1. **Inno Setup installation** — Required to build installer; winget can install it
 2. **Windows Sandbox testing** — Requires Windows Pro/Enterprise; manual process
+3. **GitHub Releases** — One-liner install requires artifacts uploaded to Releases
 
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Fixed critical planning gap - added 11-06-PLAN.md
+Stopped at: Added 11-07-PLAN.md for one-liner install script
 Resume file: None
-Next action: Complete 11-05 (docs), then execute 11-06 (build + test)
+Next action: Complete 11-05 (docs), then execute 11-06 (build + test), then 11-07 (one-liner)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-31 — Added 11-06-PLAN.md to fix critical planning gap (installer was never built)*
+*Last updated: 2026-01-31 — Added 11-07-PLAN.md for one-liner install script*

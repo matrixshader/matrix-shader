@@ -101,7 +101,7 @@ Plans:
 | GAP-E13 | Important | Redpill profile command path issue | 11-04 |
 | GAP-E14 | Minor | Confusing self-contained flag in build | 11-02 |
 
-**Plans:** 6 plans in 4 waves
+**Plans:** 7 plans in 5 waves
 
 Plans:
 - [x] 11-01-PLAN.md — Path resolution architecture (GAP-E03, E04, E12)
@@ -110,14 +110,16 @@ Plans:
 - [x] 11-04-PLAN.md — Runtime safety (GAP-E07, E13)
 - [ ] 11-05-PLAN.md — Documentation & validation (GAP-E08, E09)
 - [ ] 11-06-PLAN.md — BUILD installer and E2E test (GAP-E09 closure)
+- [ ] 11-07-PLAN.md — One-liner install script (alternative to GUI installer)
 
 **Wave Structure:**
 - Wave 1: 11-01, 11-02 (parallel - independent fixes)
 - Wave 2: 11-03, 11-04 (depends on 11-01/11-02)
 - Wave 3: 11-05 (documentation - can run while building)
 - Wave 4: 11-06 (BUILD + TEST - requires all code changes complete)
+- Wave 5: 11-07 (one-liner install - requires built artifacts for GitHub Releases)
 
-**CRITICAL NOTE:** Plans 11-01 through 11-04 updated CODE and SCRIPTS. Plan 11-06 actually BUILDS the installer. Without 11-06, there is no installer artifact.
+**CRITICAL NOTE:** Plans 11-01 through 11-04 updated CODE and SCRIPTS. Plan 11-06 actually BUILDS the installer. Plan 11-07 provides an alternative one-liner install method.
 
 **Success Criteria** (what must be TRUE):
 1. Installer builds successfully with all 6 executables (including matrixlite.exe, matrix-hotkeys.exe)
@@ -127,6 +129,7 @@ Plans:
 5. bluepill.exe finds and starts matrix-monitor correctly
 6. matrixlite.exe works standalone in non-WT terminal
 7. User documentation is accurate and helpful
+8. One-liner install (`irm matrixshader.com/install.ps1 | iex`) works for admin and non-admin users
 
 ## Progress
 
@@ -144,8 +147,8 @@ Plans:
 | 9. Native AOT & Polish | 5/5 | INCOMPLETE | — |
 | 10. MatrixLite Fallback | 4/4 | Complete | 2026-01-30 |
 | 10.5 Global Hotkeys (INSERTED) | 5/5 | Complete | 2026-01-31 |
-| 11. Installer & E2E Validation | 4/6 | In Progress | — |
+| 11. Installer & E2E Validation | 4/7 | In Progress | — |
 
 ---
 *Roadmap created: 2026-01-25*
-*Updated: 2026-01-31 — Added 11-06 (installer build) to fix critical planning gap*
+*Updated: 2026-01-31 — Added 11-07 (one-liner install script)*
