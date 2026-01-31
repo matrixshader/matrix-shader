@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 ## Current Position
 
 Milestone: v1.0 INCOMPLETE (gaps found + missing feature)
-Phase: 10.5 - Global Hotkeys (Plan 01 complete, 4 remaining)
+Phase: 10.5 - Global Hotkeys (Plan 02 complete, 3 remaining)
 Status: In Progress
-Last activity: 2026-01-31 — Completed 10.5-01-PLAN.md (hotkey infrastructure)
+Last activity: 2026-01-31 — Completed 10.5-02-PLAN.md (hotkey project infrastructure)
 
-Progress: [##############################.] 40 plans complete, 9 plans queued
+Progress: [##############################..] 41 plans complete, 8 plans queued
 
 ## Phase 10.5 Plan Summary
 
@@ -23,7 +23,7 @@ Progress: [##############################.] 40 plans complete, 9 plans queued
 | Wave | Plan | Objective | Status |
 |------|------|-----------|--------|
 | 1 | 10.5-01 | Hotkey infrastructure (P/Invoke, models, config) | COMPLETE |
-| 1 | 10.5-02 | Registration service with message pump | Queued |
+| 1 | 10.5-02 | Registration service with message pump | COMPLETE |
 | 2 | 10.5-03 | Redpill integration | Queued |
 | 2 | 10.5-04 | Bluepill integration | Queued |
 | 3 | 10.5-05 | Testing and polish | Queued |
@@ -33,6 +33,12 @@ Progress: [##############################.] 40 plans complete, 9 plans queued
 - HotkeyAction.cs, HotkeyBinding.cs, HotkeyConfig.cs (models)
 - IHotkeyConfigService.cs, HotkeyConfigService.cs (persistence)
 - MatrixJsonContext.cs (updated with hotkey types)
+
+**Key Files Created (10.5-02):**
+- MatrixShader.Hotkeys.csproj (new project with AOT enabled)
+- HotkeyWindow.cs (message-only window for WM_HOTKEY)
+- HotkeyManager.cs (registration lifecycle with conflict tracking)
+- SingleInstance.cs (Global\\ mutex enforcement)
 
 ## Phase 11 Plan Summary
 
@@ -49,7 +55,7 @@ Progress: [##############################.] 40 plans complete, 9 plans queued
 ## Milestone Summary
 
 **v1.0 C# Rebuild (IN PROGRESS)**
-- 12 phases, 49 plans total (40 complete, 9 queued)
+- 12 phases, 49 plans total (41 complete, 8 queued)
 - Phase 10.5 inserted for global hotkeys
 - 14 gaps to close in Phase 11
 - 9,047+ lines of C#
@@ -88,10 +94,10 @@ Progress: [##############################.] 40 plans complete, 9 plans queued
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 10.5-01-PLAN.md
+Stopped at: Completed 10.5-02-PLAN.md
 Resume file: None
-Next action: Execute 10.5-02-PLAN.md (hotkey registration service)
+Next action: Execute 10.5-03-PLAN.md (config loading and action dispatch)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-31 — Plan 10.5-01 complete (hotkey infrastructure)*
+*Last updated: 2026-01-31 — Plan 10.5-02 complete (hotkey project infrastructure)*
