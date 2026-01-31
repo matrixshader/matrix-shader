@@ -116,7 +116,7 @@ Plans:
 - Wave 3: 11-05 (depends on all prior - validation requires working installer)
 
 **Success Criteria** (what must be TRUE):
-1. Installer builds successfully with all 5 executables (including matrixlite.exe)
+1. Installer builds successfully with all 6 executables (including matrixlite.exe, matrix-hotkeys.exe)
 2. Shader paths resolve correctly from installed location
 3. Fresh Windows Sandbox install completes without errors
 4. wakeupneo.exe creates profiles pointing to correct shader paths
