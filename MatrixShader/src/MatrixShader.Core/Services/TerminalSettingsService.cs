@@ -215,7 +215,7 @@ public class TerminalSettingsService : ITerminalSettingsService
         return created;
     }
 
-    public void CreateRedpillProfile(TerminalSettings settings, string shadersDirectory, string controlPanelPath)
+    public void CreateRedpillProfile(TerminalSettings settings, string shadersDirectory, string? controlPanelPath = null)
     {
         const string profileName = "Redpill";
 
@@ -226,11 +226,18 @@ public class TerminalSettingsService : ITerminalSettingsService
             return;
         }
 
+        // Resolve the control panel executable path
+        var effectivePath = string.IsNullOrEmpty(controlPanelPath)
+            ? GetRedpillExecutablePath()
+            : controlPanelPath;
+
+        DiagnosticLogger.Debug("TERMINAL", $"Redpill profile using control panel: {effectivePath}");
+
         var profile = new TerminalProfile
         {
             Name = profileName,
             Guid = $"{{{Guid.NewGuid()}}}",
-            Commandline = $"\"{controlPanelPath}\"",
+            Commandline = $"\"{effectivePath}\"",
             Hidden = true,
             Opacity = 95,
             PixelShaderPath = Path.Combine(shadersDirectory, "Redpill-Neo.hlsl")
@@ -238,6 +245,36 @@ public class TerminalSettingsService : ITerminalSettingsService
 
         UpsertProfile(settings, profile);
         DiagnosticLogger.Info("TERMINAL", "Created Redpill control panel profile");
+    }
+
+    /// <summary>
+    /// Finds the installed redpill.exe executable path.
+    /// Priority: Program Files install location, then local directory.
+    /// </summary>
+    private static string GetRedpillExecutablePath()
+    {
+        // Try Program Files first (installed location)
+        var programFilesPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            "MatrixShader", "redpill.exe");
+
+        if (File.Exists(programFilesPath))
+        {
+            DiagnosticLogger.Debug("TERMINAL", $"Found redpill at installed location: {programFilesPath}");
+            return programFilesPath;
+        }
+
+        // Fallback to same directory as current executable
+        var localPath = Path.Combine(AppContext.BaseDirectory, "redpill.exe");
+        if (File.Exists(localPath))
+        {
+            DiagnosticLogger.Debug("TERMINAL", $"Found redpill at local location: {localPath}");
+            return localPath;
+        }
+
+        // Return the expected installed path even if not found (will error clearly at runtime)
+        DiagnosticLogger.Warn("TERMINAL", $"redpill.exe not found, using expected path: {programFilesPath}");
+        return programFilesPath;
     }
 
     public int UpdateShaderPaths(TerminalSettings settings, string currentShadersDirectory)

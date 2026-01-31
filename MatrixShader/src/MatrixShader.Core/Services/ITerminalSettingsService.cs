@@ -71,8 +71,15 @@ public interface ITerminalSettingsService
     /// </summary>
     /// <param name="settings">Settings to modify</param>
     /// <param name="shadersDirectory">Path to shaders directory</param>
-    /// <param name="controlPanelPath">Path to control panel executable</param>
-    void CreateRedpillProfile(TerminalSettings settings, string shadersDirectory, string controlPanelPath);
+    /// <param name="controlPanelPath">Path to control panel executable (optional - auto-resolved if null)</param>
+    void CreateRedpillProfile(TerminalSettings settings, string shadersDirectory, string? controlPanelPath = null);
+
+    /// <summary>
+    /// Verifies that Matrix profiles exist and have valid shader paths.
+    /// </summary>
+    /// <param name="profileCount">Number of profiles expected (1-8)</param>
+    /// <returns>Verification result with details</returns>
+    ProfileVerificationResult VerifyProfiles(int profileCount);
 
     /// <summary>
     /// Checks and updates shader paths if Matrix folder has moved.
