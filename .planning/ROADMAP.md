@@ -23,7 +23,7 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 - [x] **Phase 8.1: Gap Closure** - INSERTED: Fix implementation gaps before AOT
 - [x] **Phase 9: Native AOT & Polish** - Single-file compilation (INCOMPLETE: installer not built)
 - [x] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
-- [ ] **Phase 10.5: Global Hotkeys** - INSERTED: Port matrix_hotkeys.ps1 to C# (MISSING FROM FEATURE PARITY)
+- [x] **Phase 10.5: Global Hotkeys** - INSERTED: Port matrix_hotkeys.ps1 to C#
 - [ ] **Phase 11: Installer & E2E Validation** - Build installer, fix paths, validate on clean system
 
 ## Phase Details
@@ -54,11 +54,11 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 **Plans:** 5 plans in 3 waves
 
 Plans:
-- [ ] 10.5-01-PLAN.md — Core infrastructure (P/Invoke, models, config service)
-- [ ] 10.5-02-PLAN.md — Hotkey service (project, window, manager, single-instance)
-- [ ] 10.5-03-PLAN.md — Hotkey actions (12 handlers, toast notifications)
-- [ ] 10.5-04-PLAN.md — Integration (Program.cs, monitoring, entry point launches)
-- [ ] 10.5-05-PLAN.md — Redpill config UI (hotkey configuration screen)
+- [x] 10.5-01-PLAN.md — Core infrastructure (P/Invoke, models, config service)
+- [x] 10.5-02-PLAN.md — Hotkey service (project, window, manager, single-instance)
+- [x] 10.5-03-PLAN.md — Hotkey actions (12 handlers, toast notifications)
+- [x] 10.5-04-PLAN.md — Integration (Program.cs, monitoring, entry point launches)
+- [x] 10.5-05-PLAN.md — Redpill config UI (hotkey configuration screen)
 
 **Wave Structure:**
 - Wave 1: 10.5-01, 10.5-02 (parallel - independent foundations)
@@ -139,9 +139,9 @@ Plans:
 | 8.1 Gap Closure (INSERTED) | 5/5 | Complete | 2026-01-29 |
 | 9. Native AOT & Polish | 5/5 | INCOMPLETE | — |
 | 10. MatrixLite Fallback | 4/4 | Complete | 2026-01-30 |
-| 10.5 Global Hotkeys (INSERTED) | 0/5 | Planned | — |
+| 10.5 Global Hotkeys (INSERTED) | 5/5 | Complete | 2026-01-31 |
 | 11. Installer & E2E Validation | 0/5 | Planned | — |
 
 ---
 *Roadmap created: 2026-01-25*
-*Updated: 2026-01-30 — Phase 10.5 planned with 5 plans in 3 waves*
+*Updated: 2026-01-31 — Phase 10.5 complete (global hotkeys)*
