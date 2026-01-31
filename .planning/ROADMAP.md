@@ -94,26 +94,30 @@ Plans:
 | GAP-E05 | Minor | Identity registry cleanup | 11-03 |
 | GAP-E07 | Important | No profile creation verification | 11-04 |
 | GAP-E08 | Important | README has wrong install instructions | 11-05 |
-| GAP-E09 | Critical | No clean-system installer validation | 11-05 |
+| GAP-E09 | Critical | No clean-system installer validation | 11-05, 11-06 |
 | GAP-E10 | Minor | PATH change requires restart notification | 11-03 |
 | GAP-E11 | Minor | No uninstall cleanup for user data | 11-03 |
 | GAP-E12 | Critical | Profiles point to wrong shader location | 11-01 |
 | GAP-E13 | Important | Redpill profile command path issue | 11-04 |
 | GAP-E14 | Minor | Confusing self-contained flag in build | 11-02 |
 
-**Plans:** 5 plans in 3 waves
+**Plans:** 6 plans in 4 waves
 
 Plans:
-- [ ] 11-01-PLAN.md — Path resolution architecture (GAP-E03, E04, E12)
-- [ ] 11-02-PLAN.md — Installer completeness (GAP-E01, E02, E14)
-- [ ] 11-03-PLAN.md — Installer polish (GAP-E05, E10, E11)
-- [ ] 11-04-PLAN.md — Runtime safety (GAP-E07, E13)
+- [x] 11-01-PLAN.md — Path resolution architecture (GAP-E03, E04, E12)
+- [x] 11-02-PLAN.md — Installer completeness (GAP-E01, E02, E14)
+- [x] 11-03-PLAN.md — Installer polish (GAP-E05, E10, E11)
+- [x] 11-04-PLAN.md — Runtime safety (GAP-E07, E13)
 - [ ] 11-05-PLAN.md — Documentation & validation (GAP-E08, E09)
+- [ ] 11-06-PLAN.md — BUILD installer and E2E test (GAP-E09 closure)
 
 **Wave Structure:**
 - Wave 1: 11-01, 11-02 (parallel - independent fixes)
 - Wave 2: 11-03, 11-04 (depends on 11-01/11-02)
-- Wave 3: 11-05 (depends on all prior - validation requires working installer)
+- Wave 3: 11-05 (documentation - can run while building)
+- Wave 4: 11-06 (BUILD + TEST - requires all code changes complete)
+
+**CRITICAL NOTE:** Plans 11-01 through 11-04 updated CODE and SCRIPTS. Plan 11-06 actually BUILDS the installer. Without 11-06, there is no installer artifact.
 
 **Success Criteria** (what must be TRUE):
 1. Installer builds successfully with all 6 executables (including matrixlite.exe, matrix-hotkeys.exe)
@@ -140,8 +144,8 @@ Plans:
 | 9. Native AOT & Polish | 5/5 | INCOMPLETE | — |
 | 10. MatrixLite Fallback | 4/4 | Complete | 2026-01-30 |
 | 10.5 Global Hotkeys (INSERTED) | 5/5 | Complete | 2026-01-31 |
-| 11. Installer & E2E Validation | 0/5 | Planned | — |
+| 11. Installer & E2E Validation | 4/6 | In Progress | — |
 
 ---
 *Roadmap created: 2026-01-25*
-*Updated: 2026-01-31 — Phase 10.5 complete (global hotkeys)*
+*Updated: 2026-01-31 — Added 11-06 (installer build) to fix critical planning gap*

@@ -5,99 +5,49 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Instant startup with full PowerShell feature parity
-**Current focus:** Phase 11 - Installer & E2E Validation (Phase 10.5 complete!)
+**Current focus:** Phase 11 - Installer & E2E Validation (CRITICAL FIX: added 11-06 build plan)
 
 ## Current Position
 
-Milestone: v1.0 INCOMPLETE (gaps found + missing feature)
+Milestone: v1.0 INCOMPLETE (installer never built)
 Phase: 11 - Installer & E2E Validation (IN PROGRESS)
-Status: Wave 2 complete (11-03, 11-04)
-Last activity: 2026-01-31 — Completed 11-04-PLAN.md (runtime safety)
+Status: Wave 3 in progress (11-05), Wave 4 queued (11-06)
+Last activity: 2026-01-31 — Added 11-06-PLAN.md to fix critical planning gap
 
-Progress: [##########################################] 48 plans complete, 1 plan queued
+Progress: [##########################################] 48 plans complete, 2 plans queued
 
-## Phase 10.5 Plan Summary (COMPLETE)
+## CRITICAL PLANNING FIX
 
-**5 plans in 3 waves:**
+**Problem identified:** Phase 11 plans (11-01 through 11-05) updated CODE and SCRIPTS but never BUILT the installer. The publish directory has stale executables from Jan 29-30 missing matrixlite.exe and matrix-hotkeys.exe entirely.
+
+**Fix:** Added 11-06-PLAN.md which:
+1. Runs `dotnet publish` for all 6 projects
+2. Runs `iscc.exe` to compile MatrixShaderSetup.exe
+3. Verifies installer contents
+4. Has checkpoint for Windows Sandbox testing
+
+## Phase 11 Plan Summary (UPDATED)
+
+**6 plans in 4 waves:**
 
 | Wave | Plan | Objective | Status |
 |------|------|-----------|--------|
-| 1 | 10.5-01 | Hotkey infrastructure (P/Invoke, models, config) | COMPLETE |
-| 1 | 10.5-02 | Registration service with message pump | COMPLETE |
-| 2 | 10.5-03 | Hotkey actions and toast notifications | COMPLETE |
-| 2 | 10.5-04 | Redpill integration | COMPLETE |
-| 3 | 10.5-05 | Hotkey configuration screen | COMPLETE |
+| 1 | 11-01 | Path resolution architecture | COMPLETE |
+| 1 | 11-02 | Installer completeness | COMPLETE |
+| 2 | 11-03 | Installer polish | COMPLETE |
+| 2 | 11-04 | Runtime safety | COMPLETE |
+| 3 | 11-05 | Documentation & validation | IN PROGRESS |
+| 4 | 11-06 | BUILD installer and E2E test | QUEUED |
 
-**Key Files Created (10.5-01):**
-- HotkeyApi.cs (P/Invoke declarations)
-- HotkeyAction.cs, HotkeyBinding.cs, HotkeyConfig.cs (models)
-- IHotkeyConfigService.cs, HotkeyConfigService.cs (persistence)
-- MatrixJsonContext.cs (updated with hotkey types)
-
-**Key Files Created (10.5-02):**
-- MatrixShader.Hotkeys.csproj (new project with AOT enabled)
-- HotkeyWindow.cs (message-only window for WM_HOTKEY)
-- HotkeyManager.cs (registration lifecycle with conflict tracking)
-- SingleInstance.cs (Global\\ mutex enforcement)
-
-**Key Files Created (10.5-03):**
-- HotkeyActions.cs (12 action handlers with service integration)
-- ToastNotifications.cs (conflict warnings via Windows toast)
-- TerminalProfile.cs (added UseAcrylic property)
-
-**Key Files Created (10.5-05):**
-- HotkeyConfigScreen.cs (TUI for hotkey configuration)
-
-## Phase 11 Plan Summary
-
-**5 plans in 3 waves:**
-
-| Wave | Plan | Objective | Gaps Addressed | Status |
-|------|------|-----------|----------------|--------|
-| 1 | 11-01 | Path resolution architecture | GAP-E03, E04, E12 (Critical) | COMPLETE |
-| 1 | 11-02 | Installer completeness | GAP-E01, E02, E14 (Critical) | COMPLETE |
-| 2 | 11-03 | Installer polish | GAP-E05, E10, E11 (Minor) | COMPLETE |
-| 2 | 11-04 | Runtime safety | GAP-E06, E07, E13 (Important) | COMPLETE |
-| 3 | 11-05 | Documentation & validation | GAP-E08, E09 (Critical) | QUEUED |
-
-## Milestone Summary
-
-**v1.0 C# Rebuild (IN PROGRESS)**
-- 12 phases, 49 plans total (48 complete, 1 queued)
-- Phase 10.5 COMPLETE (global hotkeys feature parity achieved)
-- 13 gaps closed in Phase 11 (1 remaining: E08 README, E09 validation)
-- 9,400+ lines of C#
+**Key insight:** Plans 11-01 through 11-04 are CODE changes. Plan 11-06 is the BUILD step. Without 11-06, there is no installer artifact.
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 8.1 inserted after Phase 8: Gap closure before AOT (URGENT)
-- Phase 10.5 inserted after Phase 10: Global Hotkeys — NOW COMPLETE
-  - **Root cause:** Claude deferred hotkeys to v2 on Day 1 despite "feature parity" being core value
-  - **Resolution:** 5-plan phase implemented all hotkey features
-
-### Decisions (Phase 10.5-01)
-
-| Decision | Rationale | Source |
-|----------|-----------|--------|
-| LibraryImport over DllImport | AOT compatibility; RegisterClassExW exception for function pointers | 10.5-01 |
-| MOD_NOREPEAT on all bindings | Prevents continuous firing when holding key | 10.5-01 |
-| LocalAppData for hotkey config | Consistent with identity-registry.json location | 10.5-01 |
-
-### Decisions (Phase 10.5-03)
-
-| Decision | Rationale | Source |
-|----------|-----------|--------|
-| Silent failure for all actions | Per CONTEXT.md - if action can't complete, do nothing | plan |
-| Service injection for actions | Testability and separation of concerns | implementation |
-| Toast limit 5 hotkeys | Avoid toast overflow, keep UI clean | implementation |
-
-### Decisions (Phase 10.5-05)
-
-| Decision | Rationale | Source |
-|----------|-----------|--------|
-| Cubase-style validation | Test RegisterHotKey/UnregisterHotKey to check availability | CONTEXT.md |
+- Phase 10.5 inserted after Phase 10: Global Hotkeys — COMPLETE
+- Phase 11 plan 06 added: Installer BUILD step was missing
 
 ### Decisions (Phase 11)
 
@@ -115,6 +65,7 @@ Progress: [##########################################] 48 plans complete, 1 plan
 | Optional controlPanelPath | Simplifies API, auto-finds redpill.exe in installed or local location | 11-04 |
 | Tuple return for CanUseShaders | Provides both result and reason in single call | 11-04 |
 | Verify after SaveSettings | Catches issues early, before confusing runtime errors | 11-04 |
+| Separate build plan (11-06) | Code changes and build step were incorrectly conflated | planning fix |
 
 ### Blockers/Concerns
 
@@ -124,10 +75,10 @@ Progress: [##########################################] 48 plans complete, 1 plan
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 11-04-PLAN.md (runtime safety)
+Stopped at: Fixed critical planning gap - added 11-06-PLAN.md
 Resume file: None
-Next action: Execute 11-05-PLAN.md (Documentation & validation)
+Next action: Complete 11-05 (docs), then execute 11-06 (build + test)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-31 — Completed 11-04 (Wave 2 of Phase 11 complete)*
+*Last updated: 2026-01-31 — Added 11-06-PLAN.md to fix critical planning gap (installer was never built)*
