@@ -23,9 +23,12 @@ public class ConfigService : IConfigService
     {
         var candidates = new[]
         {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Matrix"),
+            // 1. LocalAppData (canonical user location post-install)
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MatrixShader"),
+            // 2. App directory (development/portable)
             Path.Combine(AppContext.BaseDirectory, "config"),
-            @"C:\Users\ehome\Documents\Matrix"
         };
 
         return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
