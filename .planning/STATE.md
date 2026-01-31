@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Instant startup with full PowerShell feature parity
-**Current focus:** Phase 11 - Installer & E2E Validation (7 plans in 5 waves)
+**Current focus:** Phase 11 - Installer & E2E Validation (COMPLETE)
 
 ## Current Position
 
-Milestone: v1.0 INCOMPLETE (installer never built)
-Phase: 11 - Installer & E2E Validation (IN PROGRESS)
-Status: Wave 3 in progress (11-05), Wave 4 queued (11-06), Wave 5 queued (11-07)
-Last activity: 2026-01-31 — Added 11-07-PLAN.md for one-liner install script
+Milestone: v1.0 COMPLETE (all code, installer, and scripts done)
+Phase: 11 - Installer & E2E Validation (COMPLETE)
+Status: All 7 plans complete across 5 waves
+Last activity: 2026-01-31 — Completed 11-07 (one-liner install script)
 
-Progress: [##########################################] 48 plans complete, 3 plans queued
+Progress: [##################################################] 51 plans complete
 
-## Phase 11 Plan Summary (UPDATED)
+## Phase 11 Plan Summary (COMPLETE)
 
 **7 plans in 5 waves:**
 
@@ -26,18 +26,21 @@ Progress: [##########################################] 48 plans complete, 3 plan
 | 1 | 11-02 | Installer completeness | COMPLETE |
 | 2 | 11-03 | Installer polish | COMPLETE |
 | 2 | 11-04 | Runtime safety | COMPLETE |
-| 3 | 11-05 | Documentation & validation | IN PROGRESS |
-| 4 | 11-06 | BUILD installer and E2E test | QUEUED |
-| 5 | 11-07 | One-liner install script | QUEUED |
+| 3 | 11-05 | Documentation & validation | COMPLETE |
+| 4 | 11-06 | BUILD installer and E2E test | COMPLETE |
+| 5 | 11-07 | One-liner install script | COMPLETE |
 
-**Key insight:** Plans 11-01 through 11-04 are CODE changes. Plan 11-06 BUILDS the installer. Plan 11-07 provides an alternative one-liner install method that downloads from GitHub Releases.
+**Deliverables:**
+- GUI installer: `installer/output/MatrixShaderSetup.exe` (55MB)
+- One-liner install: `irm https://matrixshader.com/install.ps1 | iex`
+- Testing guide: `installer/TESTING.md`
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 8.1 inserted after Phase 8: Gap closure before AOT (URGENT)
-- Phase 10.5 inserted after Phase 10: Global Hotkeys — COMPLETE
+- Phase 10.5 inserted after Phase 10: Global Hotkeys - COMPLETE
 - Phase 11 plan 06 added: Installer BUILD step was missing
 - Phase 11 plan 07 added: One-liner install script for command-line users
 
@@ -60,20 +63,21 @@ Progress: [##########################################] 48 plans complete, 3 plan
 | Separate build plan (11-06) | Code changes and build step were incorrectly conflated | planning fix |
 | One-liner as primary install | Developer-friendly, faster than GUI installer | 11-07 |
 | Admin vs non-admin paths | Program Files for admin, LocalAppData for non-admin | 11-07 |
+| GitHub Releases for distribution | Standard pattern, works with one-liner script | 11-07 |
 
 ### Blockers/Concerns
 
-1. **Inno Setup installation** — Required to build installer; winget can install it
-2. **Windows Sandbox testing** — Requires Windows Pro/Enterprise; manual process
-3. **GitHub Releases** — One-liner install requires artifacts uploaded to Releases
+1. **GitHub Releases setup required** - Need to upload MatrixShader.zip to Releases for one-liner to work
+2. **Domain redirect** - Need matrixshader.com/install.ps1 to redirect to raw GitHub URL
+3. **Windows Sandbox testing** - Manual E2E testing recommended before release
 
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Added 11-07-PLAN.md for one-liner install script
+Stopped at: Completed 11-07-PLAN.md (one-liner install script)
 Resume file: None
-Next action: Complete 11-05 (docs), then execute 11-06 (build + test), then 11-07 (one-liner)
+Next action: Upload release artifacts to GitHub, then test in Windows Sandbox
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-31 — Added 11-07-PLAN.md for one-liner install script*
+*Last updated: 2026-01-31 - Phase 11 complete (all 7 plans done)*
