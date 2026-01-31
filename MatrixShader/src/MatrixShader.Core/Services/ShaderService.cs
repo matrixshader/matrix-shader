@@ -57,19 +57,30 @@ public partial class ShaderService : IShaderService
 
     private static string GetDefaultShadersPath()
     {
-        // Try common locations (no hardcoded dev paths)
+        // Priority order for shader resolution:
         var candidates = new[]
         {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Matrix", "shaders"),
+            // 1. LocalAppData (canonical user location post-install)
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MatrixShader", "shaders"),
+            // 2. Program Files (installed location, fallback)
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                "MatrixShader", "shaders"),
+            // 3. App directory (development/portable)
             Path.Combine(AppContext.BaseDirectory, "shaders"),
-            Path.Combine(Directory.GetParent(AppContext.BaseDirectory)?.FullName ?? AppContext.BaseDirectory, "shaders")
         };
 
-        var found = candidates.FirstOrDefault(Directory.Exists);
-        if (found != null)
-            return found;
+        var selectedPath = candidates.FirstOrDefault(Directory.Exists);
+        if (selectedPath != null)
+        {
+            DiagnosticLogger.Debug("SHADER", $"Using shaders from: {selectedPath}");
+            return selectedPath;
+        }
 
-        // Default to MyDocuments location (will be created on first use)
+        // Default to LocalAppData location (will be created on first use)
+        DiagnosticLogger.Debug("SHADER", $"No shader directory found, defaulting to: {candidates[0]}");
         return candidates[0];
     }
 
