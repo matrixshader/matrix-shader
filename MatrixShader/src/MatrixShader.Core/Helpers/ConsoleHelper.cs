@@ -16,6 +16,7 @@ public static partial class ConsoleHelper
     private const string MATRIX_BRIGHT_GREEN = "\x1b[92m";
     private const string RESET = "\x1b[0m";
     private const string DIM = "\x1b[90m";
+    private const string WARNING_YELLOW = "\x1b[33m";
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     private static partial IntPtr GetStdHandle(int nStdHandle);
@@ -110,5 +111,21 @@ public static partial class ConsoleHelper
     {
         Console.Clear();
         Console.SetCursorPosition(0, 0);
+    }
+
+    /// <summary>
+    /// Writes a warning line in yellow color.
+    /// </summary>
+    public static void WriteLineWarning(string text)
+    {
+        Console.WriteLine($"{WARNING_YELLOW}{text}{RESET}");
+    }
+
+    /// <summary>
+    /// Writes warning text in yellow color.
+    /// </summary>
+    public static void WriteWarning(string text)
+    {
+        Console.Write($"{WARNING_YELLOW}{text}{RESET}");
     }
 }

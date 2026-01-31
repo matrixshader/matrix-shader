@@ -40,6 +40,25 @@ public static class Program
                 DiagnosticLogger.Initialize(true);
             }
 
+            // Check shader support before proceeding
+            var (canUseShaders, shaderReason) = ShaderService.CanUseShaders();
+            if (!canUseShaders)
+            {
+                Console.WriteLine();
+                ConsoleHelper.WriteLineWarning($"Note: {shaderReason}");
+                Console.WriteLine();
+                ConsoleHelper.WriteLineDim("You can still use 'matrixlite' for a text-based Matrix effect.");
+                Console.WriteLine();
+
+                Console.Write("Continue with setup anyway? (y/n): ");
+                var response = Console.ReadLine()?.Trim().ToLower();
+                if (response != "y" && response != "yes")
+                {
+                    Console.WriteLine("Run 'matrixlite' for text-mode Matrix effect.");
+                    return 0;
+                }
+            }
+
             // Bootstrap
             var bootstrap = await CliBootstrap.InitializeAsync(verbose: options.Debug);
             if (!bootstrap.Success)
@@ -304,8 +323,34 @@ public class SetupWizard
         // Ensure profiles exist in Windows Terminal
         var terminalSettings = _terminalService.LoadSettings();
         var shadersDir = CliBootstrap.GetShadersDirectory();
+        var profileCount = tabConfigs.Count;
         _terminalService.CreateMatrixProfiles(terminalSettings, 8, shadersDir);
         _terminalService.SaveSettings(terminalSettings);
+
+        // Verify profiles were created correctly
+        var verification = _terminalService.VerifyProfiles(profileCount);
+        if (!verification.Success)
+        {
+            Console.WriteLine();
+            ConsoleHelper.WriteLineDim("Warning: Profile verification found issues:");
+
+            foreach (var missing in verification.MissingProfiles)
+            {
+                ConsoleHelper.WriteLineDim($"  - Missing: {missing}");
+            }
+
+            foreach (var invalid in verification.InvalidShaderPaths)
+            {
+                ConsoleHelper.WriteLineDim($"  - Invalid path: {invalid}");
+            }
+
+            Console.WriteLine();
+            ConsoleHelper.WriteLineDim("Try running wakeupneo again or check shader files.");
+        }
+        else
+        {
+            DiagnosticLogger.Info("WAKEUPNEO", $"Verified {profileCount} profiles successfully");
+        }
 
         // Save state
         var newState = new MatrixState
