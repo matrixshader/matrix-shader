@@ -5,16 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Instant startup with full PowerShell feature parity
-**Current focus:** Phase 11 - Installer & E2E Validation (fixing v1.0 gaps)
+**Current focus:** Phase 10.5 - Global Hotkeys (CRITICAL: missing feature parity)
 
 ## Current Position
 
-Milestone: v1.0 INCOMPLETE (gaps found)
-Phase: 11 - Installer & E2E Validation
-Status: PLANNED - 5 plans in 3 waves
-Last activity: 2026-01-30 — Phase plans created
+Milestone: v1.0 INCOMPLETE (gaps found + missing feature)
+Phase: 10.5 - Global Hotkeys (Plan 01 complete, 4 remaining)
+Status: In Progress
+Last activity: 2026-01-31 — Completed 10.5-01-PLAN.md (hotkey infrastructure)
 
-Progress: [##############################] 39 plans complete, 5 plans queued
+Progress: [##############################.] 40 plans complete, 9 plans queued
+
+## Phase 10.5 Plan Summary
+
+**5 plans in 3 waves:**
+
+| Wave | Plan | Objective | Status |
+|------|------|-----------|--------|
+| 1 | 10.5-01 | Hotkey infrastructure (P/Invoke, models, config) | COMPLETE |
+| 1 | 10.5-02 | Registration service with message pump | Queued |
+| 2 | 10.5-03 | Redpill integration | Queued |
+| 2 | 10.5-04 | Bluepill integration | Queued |
+| 3 | 10.5-05 | Testing and polish | Queued |
+
+**Key Files Created (10.5-01):**
+- HotkeyApi.cs (P/Invoke declarations)
+- HotkeyAction.cs, HotkeyBinding.cs, HotkeyConfig.cs (models)
+- IHotkeyConfigService.cs, HotkeyConfigService.cs (persistence)
+- MatrixJsonContext.cs (updated with hotkey types)
 
 ## Phase 11 Plan Summary
 
@@ -28,22 +46,30 @@ Progress: [##############################] 39 plans complete, 5 plans queued
 | 2 | 11-04 | Runtime safety | GAP-E07, E13 (Important) |
 | 3 | 11-05 | Documentation & validation | GAP-E08, E09 (Critical) |
 
-**Key Files Modified:**
-- CliBootstrap.cs, ConfigService.cs, ShaderService.cs (path resolution)
-- build-installer.ps1, MatrixShaderSetup.iss (installer)
-- Bluepill/Program.cs (monitor name fix)
-- TerminalSettingsService.cs, WakeupNeo/Program.cs (profile verification)
-- README.md, installer/TESTING.md (documentation)
-
 ## Milestone Summary
 
-**v1.0 C# Rebuild (INCOMPLETE)**
-- 11 phases, 44 plans total (39 complete, 5 queued)
+**v1.0 C# Rebuild (IN PROGRESS)**
+- 12 phases, 49 plans total (40 complete, 9 queued)
+- Phase 10.5 inserted for global hotkeys
 - 14 gaps to close in Phase 11
-- 9,047 lines of C#
-- 7 days from start
+- 9,047+ lines of C#
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 8.1 inserted after Phase 8: Gap closure before AOT (URGENT)
+- Phase 10.5 inserted after Phase 10: Global Hotkeys — MISSING FROM FEATURE PARITY (CRITICAL ERROR)
+  - **Root cause:** Claude deferred hotkeys to v2 on Day 1 despite "feature parity" being core value
+  - **Impact:** Installer (Phase 11) blocked until hotkeys implemented
+
+### Decisions (Phase 10.5-01)
+
+| Decision | Rationale | Source |
+|----------|-----------|--------|
+| LibraryImport over DllImport | AOT compatibility; RegisterClassExW exception for function pointers | 10.5-01 |
+| MOD_NOREPEAT on all bindings | Prevents continuous firing when holding key | 10.5-01 |
+| LocalAppData for hotkey config | Consistent with identity-registry.json location | 10.5-01 |
 
 ### Decisions (Phase 11)
 
@@ -61,11 +87,11 @@ Progress: [##############################] 39 plans complete, 5 plans queued
 
 ## Session Continuity
 
-Last session: 2026-01-30
-Stopped at: Phase 11 plans created
+Last session: 2026-01-31
+Stopped at: Completed 10.5-01-PLAN.md
 Resume file: None
-Next action: `/gsd:execute-phase 11` (starts with Wave 1: plans 11-01 and 11-02)
+Next action: Execute 10.5-02-PLAN.md (hotkey registration service)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-30 — Phase 11 planned with 5 plans*
+*Last updated: 2026-01-31 — Plan 10.5-01 complete (hotkey infrastructure)*
