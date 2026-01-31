@@ -80,6 +80,9 @@ public static class Program
 
             if (mode == RenderMode.Full)
             {
+                // Launch hotkeys background process
+                LaunchHotkeysProcess();
+
                 // Full mode with shader control
                 var panel = provider.GetRequiredService<ControlPanel>();
                 await panel.RunAsync();
@@ -151,6 +154,52 @@ public static class Program
         ConsoleHelper.WriteLineDim("   --morpheus   Philosophical explanations");
         ConsoleHelper.WriteLineDim("   --agent-smith  Chaos mode");
         Console.WriteLine();
+    }
+
+    /// <summary>
+    /// Launches the hotkeys background process if not already running.
+    /// </summary>
+    private static void LaunchHotkeysProcess()
+    {
+        try
+        {
+            // Find matrix-hotkeys.exe relative to current executable
+            var exeDir = AppContext.BaseDirectory;
+            var hotkeyExe = Path.Combine(exeDir, "matrix-hotkeys.exe");
+
+            if (!File.Exists(hotkeyExe))
+            {
+                // Try parent directory (development layout)
+                var parentDir = Directory.GetParent(exeDir)?.FullName;
+                if (parentDir != null)
+                {
+                    hotkeyExe = Path.Combine(parentDir, "MatrixShader.Hotkeys", "matrix-hotkeys.exe");
+                }
+            }
+
+            if (!File.Exists(hotkeyExe))
+            {
+                DiagnosticLogger.Debug("REDPILL", "matrix-hotkeys.exe not found, skipping hotkey launch");
+                return;
+            }
+
+            // Start as hidden background process
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = hotkeyExe,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+
+            Process.Start(startInfo);
+            DiagnosticLogger.Debug("REDPILL", $"Launched hotkeys process: {hotkeyExe}");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("REDPILL", $"Failed to launch hotkeys: {ex.Message}");
+            // Non-fatal - Matrix works without hotkeys
+        }
     }
 }
 
