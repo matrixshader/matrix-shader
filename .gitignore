@@ -15,3 +15,9 @@ nul
 
 # IDE
 .vscode/
+
+# Build artifacts
+installer/publish/
+installer/output/
+bin/
+obj/
