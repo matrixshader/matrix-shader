@@ -23,6 +23,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "publish\wakeupneo.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "publish\redpill.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "publish\bluepill.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "publish\matrixlite.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "publish\matrix-hotkeys.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "publish\matrix-monitor.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\shaders\*.hlsl"; DestDir: "{app}\shaders"; Flags: ignoreversion recursesubdirs
 
