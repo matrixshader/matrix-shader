@@ -385,6 +385,9 @@ public class SetupWizard
 
         _identityService.SaveRegistry();
 
+        // Launch hotkeys background process
+        LaunchHotkeysProcess();
+
         // Red Pill: also launch control panel
         if (isRedPill)
         {
@@ -633,5 +636,51 @@ public class SetupWizard
         }
 
         return IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// Launches the hotkeys background process if not already running.
+    /// </summary>
+    private static void LaunchHotkeysProcess()
+    {
+        try
+        {
+            // Find matrix-hotkeys.exe relative to current executable
+            var exeDir = AppContext.BaseDirectory;
+            var hotkeyExe = Path.Combine(exeDir, "matrix-hotkeys.exe");
+
+            if (!File.Exists(hotkeyExe))
+            {
+                // Try parent directory (development layout)
+                var parentDir = Directory.GetParent(exeDir)?.FullName;
+                if (parentDir != null)
+                {
+                    hotkeyExe = Path.Combine(parentDir, "MatrixShader.Hotkeys", "matrix-hotkeys.exe");
+                }
+            }
+
+            if (!File.Exists(hotkeyExe))
+            {
+                DiagnosticLogger.Debug("WAKEUPNEO", "matrix-hotkeys.exe not found, skipping hotkey launch");
+                return;
+            }
+
+            // Start as hidden background process
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = hotkeyExe,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+
+            Process.Start(startInfo);
+            DiagnosticLogger.Debug("WAKEUPNEO", $"Launched hotkeys process: {hotkeyExe}");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("WAKEUPNEO", $"Failed to launch hotkeys: {ex.Message}");
+            // Non-fatal - Matrix works without hotkeys
+        }
     }
 }
