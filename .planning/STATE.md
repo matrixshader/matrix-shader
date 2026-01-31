@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 Milestone: v1.0 INCOMPLETE (gaps found + missing feature)
 Phase: 11 - Installer & E2E Validation (IN PROGRESS)
-Status: Wave 2 in progress (11-03 complete)
-Last activity: 2026-01-31 — Completed 11-03-PLAN.md (installer polish)
+Status: Wave 2 complete (11-03, 11-04)
+Last activity: 2026-01-31 — Completed 11-04-PLAN.md (runtime safety)
 
-Progress: [########################################] 47 plans complete, 2 plans queued
+Progress: [##########################################] 48 plans complete, 1 plan queued
 
 ## Phase 10.5 Plan Summary (COMPLETE)
 
@@ -57,15 +57,15 @@ Progress: [########################################] 47 plans complete, 2 plans 
 | 1 | 11-01 | Path resolution architecture | GAP-E03, E04, E12 (Critical) | COMPLETE |
 | 1 | 11-02 | Installer completeness | GAP-E01, E02, E14 (Critical) | COMPLETE |
 | 2 | 11-03 | Installer polish | GAP-E05, E10, E11 (Minor) | COMPLETE |
-| 2 | 11-04 | Runtime safety | GAP-E07, E13 (Important) | QUEUED |
+| 2 | 11-04 | Runtime safety | GAP-E06, E07, E13 (Important) | COMPLETE |
 | 3 | 11-05 | Documentation & validation | GAP-E08, E09 (Critical) | QUEUED |
 
 ## Milestone Summary
 
 **v1.0 C# Rebuild (IN PROGRESS)**
-- 12 phases, 49 plans total (47 complete, 2 queued)
+- 12 phases, 49 plans total (48 complete, 1 queued)
 - Phase 10.5 COMPLETE (global hotkeys feature parity achieved)
-- 11 gaps closed in Phase 11 (3 remaining)
+- 13 gaps closed in Phase 11 (1 remaining: E08 README, E09 validation)
 - 9,400+ lines of C#
 
 ## Accumulated Context
@@ -112,6 +112,9 @@ Progress: [########################################] 47 plans complete, 2 plans 
 | CMD xcopy over Pascal FileCopy | Simpler, fewer lines, works reliably | 11-03 |
 | Full LocalAppData cleanup | Clean slate on reinstall, users run wakeupneo again | 11-03 |
 | Message box for PATH notification | More visible than finish label, PATH issues common | 11-03 |
+| Optional controlPanelPath | Simplifies API, auto-finds redpill.exe in installed or local location | 11-04 |
+| Tuple return for CanUseShaders | Provides both result and reason in single call | 11-04 |
+| Verify after SaveSettings | Catches issues early, before confusing runtime errors | 11-04 |
 
 ### Blockers/Concerns
 
@@ -121,10 +124,10 @@ Progress: [########################################] 47 plans complete, 2 plans 
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 11-03-PLAN.md (installer polish)
+Stopped at: Completed 11-04-PLAN.md (runtime safety)
 Resume file: None
-Next action: Execute 11-04-PLAN.md (Runtime safety)
+Next action: Execute 11-05-PLAN.md (Documentation & validation)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-31 — Completed 11-03 (Wave 2 of Phase 11 in progress)*
+*Last updated: 2026-01-31 — Completed 11-04 (Wave 2 of Phase 11 complete)*
