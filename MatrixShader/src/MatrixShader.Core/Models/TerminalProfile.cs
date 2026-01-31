@@ -17,6 +17,9 @@ public record TerminalProfile
     public bool Hidden { get; init; } = true;
     public int Opacity { get; init; } = 95;
 
+    // Transparency toggle (acrylic effect)
+    public bool UseAcrylic { get; init; } = false;
+
     // Shader configuration - NOTE: JSON property name is "experimental.pixelShaderPath"
     // Use JsonPropertyName attribute for the dotted property name
     [JsonPropertyName("experimental.pixelShaderPath")]
