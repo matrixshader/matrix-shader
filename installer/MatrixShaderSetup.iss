@@ -20,18 +20,13 @@ ArchitecturesAllowed=x64compatible
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "publish\wakeupneo.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "publish\redpill.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "publish\bluepill.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "publish\matrixlite.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "publish\matrix-hotkeys.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "publish\matrix-monitor.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\shaders\*.hlsl"; DestDir: "{app}\shaders"; Flags: ignoreversion recursesubdirs
+; All runtime files (DLLs, .NET runtime, etc.) go to app directory
+Source: "publish\*"; DestDir: "{app}"; Excludes: "shaders"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Shaders go directly to LocalAppData (where code looks for them)
+Source: "publish\shaders\*.hlsl"; DestDir: "{localappdata}\MatrixShader\shaders"; Flags: ignoreversion
 
 [Run]
-; Copy shaders to user's LocalAppData for consistent path resolution
-Filename: "cmd.exe"; Parameters: "/c mkdir ""{localappdata}\MatrixShader\shaders"" 2>nul & xcopy ""{app}\shaders\*"" ""{localappdata}\MatrixShader\shaders"" /E /Y /Q"; \
-    Flags: runhidden waituntilterminated; StatusMsg: "Setting up shader files..."
+; No xcopy needed - shaders installed directly to LocalAppData above
 
 [Registry]
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
