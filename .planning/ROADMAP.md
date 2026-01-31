@@ -23,14 +23,64 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 - [x] **Phase 8.1: Gap Closure** - INSERTED: Fix implementation gaps before AOT
 - [x] **Phase 9: Native AOT & Polish** - Single-file compilation (INCOMPLETE: installer not built)
 - [x] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
+- [ ] **Phase 10.5: Global Hotkeys** - INSERTED: Port matrix_hotkeys.ps1 to C# (MISSING FROM FEATURE PARITY)
 - [ ] **Phase 11: Installer & E2E Validation** - Build installer, fix paths, validate on clean system
 
 ## Phase Details
 
+### Phase 10.5: Global Hotkeys (INSERTED)
+
+**Goal:** Port matrix_hotkeys.ps1 to C# — system-wide hotkeys work when Matrix windows are minimized
+**Depends on:** Phase 10 (all CLI applications exist)
+**Why INSERTED:** MISSING FROM FEATURE PARITY — PowerShell version has working hotkeys, C# port deferred them to v2 in error
+
+**Hotkeys to implement (12 actions with Ctrl+Shift modifier):**
+- Swap focused window with left/right neighbor
+- Cycle layout mode (Pillars/Quads/Auto)
+- Toggle background transparency
+- Decrease/Increase opacity (5% steps)
+- Cycle through shader library
+- Adjust rain speed (up/down)
+- Toggle FAR/MID/NEAR layers
+
+**Technical approach:**
+- New project: `MatrixShader.Hotkeys` (background process)
+- P/Invoke: `RegisterHotKey`, `UnregisterHotKey`, message pump
+- Single-instance via named mutex
+- Auto-exit when no Matrix windows exist
+- Toast notification for conflicts
+- Redpill config screen for customization
+
+**Plans:** 5 plans in 3 waves
+
+Plans:
+- [ ] 10.5-01-PLAN.md — Core infrastructure (P/Invoke, models, config service)
+- [ ] 10.5-02-PLAN.md — Hotkey service (project, window, manager, single-instance)
+- [ ] 10.5-03-PLAN.md — Hotkey actions (12 handlers, toast notifications)
+- [ ] 10.5-04-PLAN.md — Integration (Program.cs, monitoring, entry point launches)
+- [ ] 10.5-05-PLAN.md — Redpill config UI (hotkey configuration screen)
+
+**Wave Structure:**
+- Wave 1: 10.5-01, 10.5-02 (parallel - independent foundations)
+- Wave 2: 10.5-03, 10.5-04 (depends on 01/02 - wiring and integration)
+- Wave 3: 10.5-05 (depends on all - UI needs working hotkeys)
+
+**Success Criteria** (what must be TRUE):
+1. matrix-hotkeys.exe registers 12 global hotkeys with Ctrl+Shift modifier
+2. Single-instance prevents duplicate hotkey processes
+3. Background process auto-exits when no Matrix windows exist
+4. Toast notification shows when hotkeys conflict
+5. Hotkey actions control layout, shaders, and window swapping
+6. bluepill/redpill/wakeupneo launch hotkey process automatically
+7. Redpill --hotkeys opens configuration screen
+8. Users can disable, remap, and reset hotkeys
+
+---
+
 ### Phase 11: Installer & End-to-End Validation
 
 **Goal**: User can download installer, run it, and have working Matrix shader system on fresh Windows
-**Depends on**: Phase 10 (all executables exist)
+**Depends on**: Phase 10.5 (all executables including hotkeys)
 **Requirements**: E2E-01 through E2E-07, PATH-01 through PATH-04, FRX-01 through FRX-03, BUILD-01 through BUILD-03
 
 **Gaps to Close** (from GAP-ANALYSIS.md):
@@ -89,8 +139,9 @@ Plans:
 | 8.1 Gap Closure (INSERTED) | 5/5 | Complete | 2026-01-29 |
 | 9. Native AOT & Polish | 5/5 | INCOMPLETE | — |
 | 10. MatrixLite Fallback | 4/4 | Complete | 2026-01-30 |
+| 10.5 Global Hotkeys (INSERTED) | 0/5 | Planned | — |
 | 11. Installer & E2E Validation | 0/5 | Planned | — |
 
 ---
 *Roadmap created: 2026-01-25*
-*Updated: 2026-01-30 — Phase 11 planned with 5 plans in 3 waves*
+*Updated: 2026-01-30 — Phase 10.5 planned with 5 plans in 3 waves*
