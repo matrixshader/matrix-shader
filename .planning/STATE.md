@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 ## Current Position
 
 Milestone: v1.0 INCOMPLETE (gaps found + missing feature)
-Phase: 10.5 - Global Hotkeys (COMPLETE)
-Status: Phase complete, ready for Phase 11
-Last activity: 2026-01-31 — Completed 10.5-05-PLAN.md (hotkey configuration screen)
+Phase: 11 - Installer & E2E Validation (IN PROGRESS)
+Status: Wave 1 complete (11-01, 11-02)
+Last activity: 2026-01-31 — Completed 11-02-PLAN.md (installer completeness)
 
-Progress: [#####################################] 44 plans complete, 5 plans queued
+Progress: [######################################] 46 plans complete, 3 plans queued
 
 ## Phase 10.5 Plan Summary (COMPLETE)
 
@@ -52,13 +52,13 @@ Progress: [#####################################] 44 plans complete, 5 plans que
 
 **5 plans in 3 waves:**
 
-| Wave | Plan | Objective | Gaps Addressed |
-|------|------|-----------|----------------|
-| 1 | 11-01 | Path resolution architecture | GAP-E03, E04, E12 (Critical) |
-| 1 | 11-02 | Installer completeness | GAP-E01, E02, E14 (Critical) |
-| 2 | 11-03 | Installer polish | GAP-E05, E10, E11 (Minor) |
-| 2 | 11-04 | Runtime safety | GAP-E07, E13 (Important) |
-| 3 | 11-05 | Documentation & validation | GAP-E08, E09 (Critical) |
+| Wave | Plan | Objective | Gaps Addressed | Status |
+|------|------|-----------|----------------|--------|
+| 1 | 11-01 | Path resolution architecture | GAP-E03, E04, E12 (Critical) | COMPLETE |
+| 1 | 11-02 | Installer completeness | GAP-E01, E02, E14 (Critical) | COMPLETE |
+| 2 | 11-03 | Installer polish | GAP-E05, E10, E11 (Minor) | QUEUED |
+| 2 | 11-04 | Runtime safety | GAP-E07, E13 (Important) | QUEUED |
+| 3 | 11-05 | Documentation & validation | GAP-E08, E09 (Critical) | QUEUED |
 
 ## Milestone Summary
 
@@ -107,6 +107,8 @@ Progress: [#####################################] 44 plans complete, 5 plans que
 | Inno Setup installer | Keep existing approach, mature tooling | CONTEXT.md |
 | winget for WT install | Microsoft's official package manager | RESEARCH.md |
 | Manual testing in Sandbox | Adequate for v1.0, automated testing deferred | CONTEXT.md |
+| Explicit --self-contained true | Clearer than --no-self-contained:false, avoids confusion | 11-02 |
+| Primary lookup matrix-monitor.exe | Matches installed name, legacy fallback for dev | 11-02 |
 
 ### Blockers/Concerns
 
@@ -116,10 +118,10 @@ Progress: [#####################################] 44 plans complete, 5 plans que
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 10.5-05-PLAN.md (Phase 10.5 COMPLETE)
+Stopped at: Completed 11-02-PLAN.md (installer completeness)
 Resume file: None
-Next action: Execute 11-01-PLAN.md (Path resolution architecture)
+Next action: Execute 11-03-PLAN.md (Installer polish)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-31 — Phase 10.5 complete (global hotkeys)*
+*Last updated: 2026-01-31 — Completed 11-02 (Wave 1 of Phase 11 complete)*
