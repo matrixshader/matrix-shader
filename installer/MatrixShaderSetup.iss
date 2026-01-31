@@ -54,6 +54,19 @@ begin
   Result := Pos(';' + UpperCase(Param) + ';', ';' + UpperCase(OrigPath) + ';') = 0;
 end;
 
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssDone then
+  begin
+    MsgBox('Matrix Shader installed successfully!' + #13#10 + #13#10 +
+           'Open a NEW terminal window to use the commands:' + #13#10 +
+           '  - wakeupneo (setup wizard)' + #13#10 +
+           '  - bluepill (quick launch)' + #13#10 +
+           '  - redpill (control panel)' + #13#10 +
+           '  - matrixlite (text fallback)', mbInformation, MB_OK);
+  end;
+end;
+
 [UninstallRegistry]
 ; PATH cleanup on uninstall handled by Inno Setup default behavior
 
