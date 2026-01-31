@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Instant startup with full PowerShell feature parity
-**Current focus:** Phase 10.5 - Global Hotkeys (CRITICAL: missing feature parity)
+**Current focus:** Phase 11 - Installer & E2E Validation (Phase 10.5 complete!)
 
 ## Current Position
 
 Milestone: v1.0 INCOMPLETE (gaps found + missing feature)
-Phase: 10.5 - Global Hotkeys (Plan 03 complete, 2 remaining)
-Status: In Progress
-Last activity: 2026-01-31 — Completed 10.5-03-PLAN.md (hotkey actions and toast notifications)
+Phase: 10.5 - Global Hotkeys (COMPLETE)
+Status: Phase complete, ready for Phase 11
+Last activity: 2026-01-31 — Completed 10.5-05-PLAN.md (hotkey configuration screen)
 
-Progress: [################################.] 42 plans complete, 7 plans queued
+Progress: [#####################################] 44 plans complete, 5 plans queued
 
-## Phase 10.5 Plan Summary
+## Phase 10.5 Plan Summary (COMPLETE)
 
 **5 plans in 3 waves:**
 
@@ -25,8 +25,8 @@ Progress: [################################.] 42 plans complete, 7 plans queued
 | 1 | 10.5-01 | Hotkey infrastructure (P/Invoke, models, config) | COMPLETE |
 | 1 | 10.5-02 | Registration service with message pump | COMPLETE |
 | 2 | 10.5-03 | Hotkey actions and toast notifications | COMPLETE |
-| 2 | 10.5-04 | Redpill integration | Queued |
-| 3 | 10.5-05 | Testing and polish | Queued |
+| 2 | 10.5-04 | Redpill integration | COMPLETE |
+| 3 | 10.5-05 | Hotkey configuration screen | COMPLETE |
 
 **Key Files Created (10.5-01):**
 - HotkeyApi.cs (P/Invoke declarations)
@@ -45,6 +45,9 @@ Progress: [################################.] 42 plans complete, 7 plans queued
 - ToastNotifications.cs (conflict warnings via Windows toast)
 - TerminalProfile.cs (added UseAcrylic property)
 
+**Key Files Created (10.5-05):**
+- HotkeyConfigScreen.cs (TUI for hotkey configuration)
+
 ## Phase 11 Plan Summary
 
 **5 plans in 3 waves:**
@@ -60,19 +63,19 @@ Progress: [################################.] 42 plans complete, 7 plans queued
 ## Milestone Summary
 
 **v1.0 C# Rebuild (IN PROGRESS)**
-- 12 phases, 49 plans total (41 complete, 8 queued)
-- Phase 10.5 inserted for global hotkeys
+- 12 phases, 49 plans total (44 complete, 5 queued)
+- Phase 10.5 COMPLETE (global hotkeys feature parity achieved)
 - 14 gaps to close in Phase 11
-- 9,047+ lines of C#
+- 9,400+ lines of C#
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 8.1 inserted after Phase 8: Gap closure before AOT (URGENT)
-- Phase 10.5 inserted after Phase 10: Global Hotkeys — MISSING FROM FEATURE PARITY (CRITICAL ERROR)
+- Phase 10.5 inserted after Phase 10: Global Hotkeys — NOW COMPLETE
   - **Root cause:** Claude deferred hotkeys to v2 on Day 1 despite "feature parity" being core value
-  - **Impact:** Installer (Phase 11) blocked until hotkeys implemented
+  - **Resolution:** 5-plan phase implemented all hotkey features
 
 ### Decisions (Phase 10.5-01)
 
@@ -81,6 +84,20 @@ Progress: [################################.] 42 plans complete, 7 plans queued
 | LibraryImport over DllImport | AOT compatibility; RegisterClassExW exception for function pointers | 10.5-01 |
 | MOD_NOREPEAT on all bindings | Prevents continuous firing when holding key | 10.5-01 |
 | LocalAppData for hotkey config | Consistent with identity-registry.json location | 10.5-01 |
+
+### Decisions (Phase 10.5-03)
+
+| Decision | Rationale | Source |
+|----------|-----------|--------|
+| Silent failure for all actions | Per CONTEXT.md - if action can't complete, do nothing | plan |
+| Service injection for actions | Testability and separation of concerns | implementation |
+| Toast limit 5 hotkeys | Avoid toast overflow, keep UI clean | implementation |
+
+### Decisions (Phase 10.5-05)
+
+| Decision | Rationale | Source |
+|----------|-----------|--------|
+| Cubase-style validation | Test RegisterHotKey/UnregisterHotKey to check availability | CONTEXT.md |
 
 ### Decisions (Phase 11)
 
@@ -96,21 +113,13 @@ Progress: [################################.] 42 plans complete, 7 plans queued
 1. **Inno Setup installation** — Required to build installer; winget can install it
 2. **Windows Sandbox testing** — Requires Windows Pro/Enterprise; manual process
 
-### Decisions (Phase 10.5-03)
-
-| Decision | Rationale | Source |
-|----------|-----------|--------|
-| Silent failure for all actions | Per CONTEXT.md - if action can't complete, do nothing | plan |
-| Service injection for actions | Testability and separation of concerns | implementation |
-| Toast limit 5 hotkeys | Avoid toast overflow, keep UI clean | implementation |
-
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 10.5-03-PLAN.md
+Stopped at: Completed 10.5-05-PLAN.md (Phase 10.5 COMPLETE)
 Resume file: None
-Next action: Execute 10.5-04-PLAN.md (Redpill integration)
+Next action: Execute 11-01-PLAN.md (Path resolution architecture)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-31 — Plan 10.5-03 complete (hotkey actions and toast notifications)*
+*Last updated: 2026-01-31 — Phase 10.5 complete (global hotkeys)*
