@@ -22,25 +22,29 @@ if (Test-Path $OutputDir) { Remove-Item -Recurse -Force $OutputDir }
 New-Item -ItemType Directory -Force -Path $PublishDir | Out-Null
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
-# Publish CLIs and Monitor
+# Publish CLIs, Lite, Hotkeys, and Monitor
 $projects = @(
     "MatrixShader.Cli\Bluepill",
     "MatrixShader.Cli\Redpill",
     "MatrixShader.Cli\WakeupNeo",
+    "MatrixShader.Cli\MatrixLite",
+    "MatrixShader.Hotkeys",
     "MatrixShader.Monitor"
 )
 
 foreach ($project in $projects) {
     Write-Host "  Publishing $project..." -ForegroundColor Cyan
     $csproj = Join-Path $SrcRoot "$project\*.csproj"
-    dotnet publish $csproj -c Release -o $PublishDir --no-self-contained:false
+    # Self-contained: includes .NET runtime for widest compatibility
+    # Users don't need to install .NET separately
+    dotnet publish $csproj -c Release -o $PublishDir --self-contained true -r win-x64
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to publish $project"
     }
 }
 
 # Verify executables
-@("bluepill.exe", "redpill.exe", "wakeupneo.exe", "matrix-monitor.exe") | ForEach-Object {
+@("bluepill.exe", "redpill.exe", "wakeupneo.exe", "matrixlite.exe", "matrix-hotkeys.exe", "matrix-monitor.exe") | ForEach-Object {
     $exe = Join-Path $PublishDir $_
     if (!(Test-Path $exe)) {
         throw "Missing executable: $_"
