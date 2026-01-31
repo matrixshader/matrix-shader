@@ -17,14 +17,28 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        // Skip splash for help
-        if (!args.Contains("--help"))
+        // Skip splash for help or hotkeys config mode
+        if (!args.Contains("--help") && !args.Contains("--hotkeys"))
         {
             await MatrixSplash.ShowAsync();
         }
 
         try
         {
+            // Check for hotkey config mode (early exit, minimal DI)
+            if (args.Contains("--hotkeys"))
+            {
+                var hotkeyServices = new ServiceCollection();
+                hotkeyServices.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
+                hotkeyServices.AddSingleton<IHotkeyConfigService, HotkeyConfigService>();
+                var hotkeyProvider = hotkeyServices.BuildServiceProvider();
+
+                var configScreen = new HotkeyConfigScreen(
+                    hotkeyProvider.GetRequiredService<IHotkeyConfigService>());
+                configScreen.Run();
+                return 0;
+            }
+
             // Parse arguments
             var options = CliBootstrap.ParseArgs(args);
 
@@ -116,6 +130,7 @@ public static class Program
         services.AddSingleton<IIdentityService, IdentityService>();
         services.AddSingleton<ILayoutService, LayoutService>();
         services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
+        services.AddSingleton<IHotkeyConfigService, HotkeyConfigService>();
 
         // TUI components
         services.AddSingleton<TabManager>();
@@ -131,6 +146,7 @@ public static class Program
         Console.WriteLine();
         ConsoleHelper.WriteLineDim(" Options:");
         ConsoleHelper.WriteLineDim("   --help       Show this help message");
+        ConsoleHelper.WriteLineDim("   --hotkeys    Configure global hotkey bindings");
         ConsoleHelper.WriteLineDim("   --debug      Enable diagnostic logging");
         ConsoleHelper.WriteLineDim("   --morpheus   Philosophical explanations");
         ConsoleHelper.WriteLineDim("   --agent-smith  Chaos mode");
@@ -149,6 +165,7 @@ public class ControlPanel
     private readonly IIdentityService _identityService;
     private readonly ILayoutService _layoutService;
     private readonly ITerminalSettingsService _terminalSettingsService;
+    private readonly IHotkeyConfigService _hotkeyConfigService;
     private readonly ILogger<ControlPanel> _logger;
     private readonly TabManager _tabManager;
 
@@ -163,6 +180,7 @@ public class ControlPanel
         IIdentityService identityService,
         ILayoutService layoutService,
         ITerminalSettingsService terminalSettingsService,
+        IHotkeyConfigService hotkeyConfigService,
         TabManager tabManager,
         ILogger<ControlPanel> logger)
     {
@@ -171,6 +189,7 @@ public class ControlPanel
         _identityService = identityService;
         _layoutService = layoutService;
         _terminalSettingsService = terminalSettingsService;
+        _hotkeyConfigService = hotkeyConfigService;
         _tabManager = tabManager;
         _logger = logger;
 
@@ -520,6 +539,16 @@ public class ControlPanel
                     var newResetLayout = resetState.Layout with { PrimaryWindowCount = 0 }; // 0 = auto
                     _layoutService.UpdateConfig(newResetLayout);
                     DiagnosticLogger.Info("REDPILL", "Primary window count reset to auto");
+                }
+                break;
+
+            case KeyAction.HotkeyConfig:
+                // Open hotkey configuration screen (Shift+H)
+                {
+                    var configScreen = new HotkeyConfigScreen(_hotkeyConfigService);
+                    configScreen.Run();
+                    // Refresh main TUI after config screen exits
+                    Console.Clear();
                 }
                 break;
         }
