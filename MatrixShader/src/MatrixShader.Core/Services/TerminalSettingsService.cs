@@ -182,6 +182,8 @@ public class TerminalSettingsService : ITerminalSettingsService
         if (count < 1 || count > 8)
             throw new ArgumentOutOfRangeException(nameof(count), "Count must be between 1 and 8");
 
+        DiagnosticLogger.Info("TERMINAL", $"Creating profiles with shader path: {shadersDirectory}");
+
         var created = 0;
         for (int i = 1; i <= count; i++)
         {
@@ -364,4 +366,57 @@ public class TerminalSettingsService : ITerminalSettingsService
             }
         };
     }
+
+    /// <summary>
+    /// Verifies that Matrix profiles exist and have valid shader paths.
+    /// </summary>
+    /// <param name="profileCount">Number of profiles expected (1-8)</param>
+    /// <returns>Verification result with details</returns>
+    public ProfileVerificationResult VerifyProfiles(int profileCount)
+    {
+        var settings = LoadSettings();
+        var profiles = settings.Profiles?.List ?? new List<TerminalProfile>();
+
+        var missing = new List<string>();
+        var invalidPaths = new List<string>();
+
+        for (int i = 1; i <= profileCount; i++)
+        {
+            var profileName = $"Matrix-{i}";
+            var profile = profiles.FirstOrDefault(p => p.Name == profileName);
+
+            if (profile == null)
+            {
+                missing.Add(profileName);
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(profile.PixelShaderPath) && !File.Exists(profile.PixelShaderPath))
+            {
+                invalidPaths.Add($"{profileName}: {profile.PixelShaderPath}");
+            }
+        }
+
+        return new ProfileVerificationResult
+        {
+            Success = missing.Count == 0 && invalidPaths.Count == 0,
+            MissingProfiles = missing,
+            InvalidShaderPaths = invalidPaths
+        };
+    }
+}
+
+/// <summary>
+/// Result of profile verification.
+/// </summary>
+public record ProfileVerificationResult
+{
+    /// <summary>Whether all profiles exist and have valid shader paths.</summary>
+    public bool Success { get; init; }
+
+    /// <summary>List of profile names that were expected but not found.</summary>
+    public List<string> MissingProfiles { get; init; } = new();
+
+    /// <summary>List of profiles with invalid (non-existent) shader paths.</summary>
+    public List<string> InvalidShaderPaths { get; init; } = new();
 }
