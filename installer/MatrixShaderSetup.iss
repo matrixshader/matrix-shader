@@ -56,3 +56,7 @@ end;
 
 [UninstallRegistry]
 ; PATH cleanup on uninstall handled by Inno Setup default behavior
+
+[UninstallDelete]
+; Clean up LocalAppData files created during installation and runtime
+Type: filesandordirs; Name: "{localappdata}\MatrixShader"
