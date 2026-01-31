@@ -151,12 +151,14 @@ public static class Program
 
     private static void StartMonitorProcess()
     {
-        var monitorPath = Path.Combine(AppContext.BaseDirectory, "MatrixShader.Monitor.exe");
+        // Primary: installed name from installer
+        var monitorPath = Path.Combine(AppContext.BaseDirectory, "matrix-monitor.exe");
+        DiagnosticLogger.Info("BLUEPILL", $"Looking for monitor at: {monitorPath}");
 
-        // Also check for monitor.exe in case of different naming
+        // Legacy fallback for older installations or development
         if (!File.Exists(monitorPath))
         {
-            monitorPath = Path.Combine(AppContext.BaseDirectory, "monitor.exe");
+            monitorPath = Path.Combine(AppContext.BaseDirectory, "MatrixShader.Monitor.exe");
         }
 
         if (File.Exists(monitorPath))
