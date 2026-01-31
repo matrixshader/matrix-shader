@@ -28,6 +28,11 @@ Source: "publish\matrix-hotkeys.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "publish\matrix-monitor.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\shaders\*.hlsl"; DestDir: "{app}\shaders"; Flags: ignoreversion recursesubdirs
 
+[Run]
+; Copy shaders to user's LocalAppData for consistent path resolution
+Filename: "cmd.exe"; Parameters: "/c mkdir ""{localappdata}\MatrixShader\shaders"" 2>nul & xcopy ""{app}\shaders\*"" ""{localappdata}\MatrixShader\shaders"" /E /Y /Q"; \
+    Flags: runhidden waituntilterminated; StatusMsg: "Setting up shader files..."
+
 [Registry]
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
     ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; \
