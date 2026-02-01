@@ -201,7 +201,10 @@ public partial class ShaderService : IShaderService
     {
         // Match #define NAME followed by whitespace and numeric value
         var pattern = $@"(#define\s+{name}\s+)[\d.]+";
-        return Regex.Replace(content, pattern, $"$1{value.ToString("F1", CultureInfo.InvariantCulture)}");
+        // Use MatchEvaluator to avoid regex backreference interpretation issues
+        // (e.g., "$10.0" would be interpreted as capture group 10, not "$1" + "0.0")
+        var replacement = value.ToString("F1", CultureInfo.InvariantCulture);
+        return Regex.Replace(content, pattern, m => m.Groups[1].Value + replacement);
     }
 
     public void TouchShader(int shaderIndex)
