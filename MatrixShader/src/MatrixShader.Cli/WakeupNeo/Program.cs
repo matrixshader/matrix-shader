@@ -386,9 +386,10 @@ public class SetupWizard
 
             try
             {
+                var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "wt.exe",
+                    FileName = wtPath,
                     Arguments = $"-p \"{profileName}\"",
                     UseShellExecute = true
                 };
@@ -442,9 +443,10 @@ public class SetupWizard
 
             try
             {
+                var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "wt.exe",
+                    FileName = wtPath,
                     Arguments = "-p \"Redpill\"",
                     UseShellExecute = true
                 };

@@ -615,9 +615,10 @@ public class ControlPanel
             var profileName = $"Matrix-{nextSlot}";
             try
             {
+                var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "wt.exe",
+                    FileName = wtPath,
                     Arguments = $"-p \"{profileName}\"",
                     UseShellExecute = true
                 };
