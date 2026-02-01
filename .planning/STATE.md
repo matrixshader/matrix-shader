@@ -5,35 +5,37 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Instant startup with full PowerShell feature parity
-**Current focus:** Phase 11 - Installer & E2E Validation (COMPLETE)
+**Current focus:** Phase 12 - E2E Gap Closure (IN PROGRESS)
 
 ## Current Position
 
-Milestone: v1.0 COMPLETE (all code, installer, and scripts done)
-Phase: 11 - Installer & E2E Validation (COMPLETE)
-Status: All 7 plans complete across 5 waves
-Last activity: 2026-01-31 — Completed 11-07 (one-liner install script)
+Milestone: v1.0 IN PROGRESS (18 bugs found in E2E testing)
+Phase: 12 - E2E Gap Closure (IN PROGRESS)
+Plan: 02 of 7+ (MatrixLite ANSI rendering fixes)
+Status: Plan 12-02 complete
+Last activity: 2026-02-01 - Completed 12-02-PLAN.md (VT Processing + color sync)
 
-Progress: [##################################################] 51 plans complete
+Progress: [####################################################] 52 plans complete
 
-## Phase 11 Plan Summary (COMPLETE)
+## Phase 12 Plan Summary (IN PROGRESS)
 
-**7 plans in 5 waves:**
+**7+ plans in 4 waves:**
 
 | Wave | Plan | Objective | Status |
 |------|------|-----------|--------|
-| 1 | 11-01 | Path resolution architecture | COMPLETE |
-| 1 | 11-02 | Installer completeness | COMPLETE |
-| 2 | 11-03 | Installer polish | COMPLETE |
-| 2 | 11-04 | Runtime safety | COMPLETE |
-| 3 | 11-05 | Documentation & validation | COMPLETE |
-| 4 | 11-06 | BUILD installer and E2E test | COMPLETE |
-| 5 | 11-07 | One-liner install script | COMPLETE |
+| 1 | 12-01 | Critical bugs (WT detection, shader regex) | COMPLETE |
+| 1 | 12-02 | MatrixLite ANSI rendering | COMPLETE |
+| 2 | 12-03 | MatrixLite usability (terminal blocking, menu) | PENDING |
+| 2 | 12-04 | First-run detection | PENDING |
+| 3 | 12-05 | WT installation flow | PENDING |
+| 3 | 12-06 | Uninstaller fixes | PENDING |
+| 4 | 12-07 | Final E2E verification | PENDING |
 
-**Deliverables:**
-- GUI installer: `installer/output/MatrixShaderSetup.exe` (55MB)
-- One-liner install: `irm https://matrixshader.com/install.ps1 | iex`
-- Testing guide: `installer/TESTING.md`
+**Bugs fixed so far:**
+- BUG-WT01/02: Windows Terminal detection (12-01)
+- BUG-SHADER01: Shader regex replacement (12-01)
+- BUG-ML01: VT Processing for cmd.exe (12-02)
+- BUG-ML05/06: Color synchronization (12-02)
 
 ## Accumulated Context
 
@@ -43,6 +45,15 @@ Progress: [##################################################] 51 plans complete
 - Phase 10.5 inserted after Phase 10: Global Hotkeys - COMPLETE
 - Phase 11 plan 06 added: Installer BUILD step was missing
 - Phase 11 plan 07 added: One-liner install script for command-line users
+- Phase 12 added: E2E Gap Closure - Fix all 18 bugs from Windows Sandbox testing
+
+### Decisions (Phase 12)
+
+| Decision | Rationale | Source |
+|----------|-----------|--------|
+| P/Invoke in TextMatrixRenderer | Reduce coupling, local implementation | 12-02 |
+| Both VT flags (0x0004 + 0x0001) | Maximum Windows compatibility | 12-02 |
+| Defensive state sync | Prevent future state divergence bugs | 12-02 |
 
 ### Decisions (Phase 11)
 
@@ -69,15 +80,15 @@ Progress: [##################################################] 51 plans complete
 
 1. **GitHub Releases setup required** - Need to upload MatrixShader.zip to Releases for one-liner to work
 2. **Domain redirect** - Need matrixshader.com/install.ps1 to redirect to raw GitHub URL
-3. **Windows Sandbox testing** - Manual E2E testing recommended before release
+3. **Remaining bugs** - 13 more bugs to fix in Phase 12 (BUG-ML02/03/04, BUG-FRX01, GAPs, BUG-UNINST)
 
 ## Session Continuity
 
-Last session: 2026-01-31
-Stopped at: Completed 11-07-PLAN.md (one-liner install script)
+Last session: 2026-02-01
+Stopped at: Completed 12-02-PLAN.md (MatrixLite ANSI rendering)
 Resume file: None
-Next action: Upload release artifacts to GitHub, then test in Windows Sandbox
+Next action: Execute 12-03-PLAN.md (MatrixLite usability fixes)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-01-31 - Phase 11 complete (all 7 plans done)*
+*Last updated: 2026-02-01 - Phase 12 plan 02 complete*
