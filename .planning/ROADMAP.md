@@ -24,7 +24,8 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 - [x] **Phase 9: Native AOT & Polish** - Single-file compilation (INCOMPLETE: installer not built)
 - [x] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
 - [x] **Phase 10.5: Global Hotkeys** - INSERTED: Port matrix_hotkeys.ps1 to C#
-- [ ] **Phase 11: Installer & E2E Validation** - Build installer, fix paths, validate on clean system
+- [x] **Phase 11: Installer & E2E Validation** - Build installer, fix paths, validate on clean system
+- [ ] **Phase 12: E2E Gap Closure** - Fix all 18 bugs found in sandbox testing
 
 ## Phase Details
 
@@ -108,9 +109,9 @@ Plans:
 - [x] 11-02-PLAN.md — Installer completeness (GAP-E01, E02, E14)
 - [x] 11-03-PLAN.md — Installer polish (GAP-E05, E10, E11)
 - [x] 11-04-PLAN.md — Runtime safety (GAP-E07, E13)
-- [ ] 11-05-PLAN.md — Documentation & validation (GAP-E08, E09)
-- [ ] 11-06-PLAN.md — BUILD installer and E2E test (GAP-E09 closure)
-- [ ] 11-07-PLAN.md — One-liner install script (alternative to GUI installer)
+- [x] 11-05-PLAN.md — Documentation & validation (GAP-E08, E09)
+- [x] 11-06-PLAN.md — BUILD installer and E2E test (GAP-E09 closure)
+- [x] 11-07-PLAN.md — One-liner install script (alternative to GUI installer)
 
 **Wave Structure:**
 - Wave 1: 11-01, 11-02 (parallel - independent fixes)
@@ -131,6 +132,70 @@ Plans:
 7. User documentation is accurate and helpful
 8. One-liner install (`irm matrixshader.com/install.ps1 | iex`) works for admin and non-admin users
 
+---
+
+### Phase 12: E2E Gap Closure
+
+**Goal:** Fix all 18 bugs discovered during Windows Sandbox E2E testing
+**Depends on:** Phase 11 (installer built and tested)
+**Source:** `installer/TESTING.md` test session 2026-01-31
+
+**Bugs to Fix (18 total):**
+
+| Severity | Count | IDs |
+|----------|-------|-----|
+| Critical | 5 | BUG-SHADER01, BUG-ML01, BUG-WT01, BUG-UNINST02, GAP-E03c |
+| High | 6 | BUG-ML02, BUG-ML04, BUG-WT02, BUG-WT03, BUG-WT04, BUG-UNINST01 |
+| Medium | 7 | BUG-ML03, BUG-ML05, BUG-ML06, GAP-E03a, GAP-E03b, BUG-FRX01, GAP-INST01 |
+
+**Plans:** 7 plans in 3 waves
+
+Plans:
+- [ ] 12-01-PLAN.md — Critical shader and WT detection fixes (BUG-SHADER01, BUG-WT01/02/03/04)
+- [ ] 12-02-PLAN.md — MatrixLite ANSI and color fixes (BUG-ML01, BUG-ML05, BUG-ML06)
+- [ ] 12-03-PLAN.md — MatrixLite UX and intro flow (BUG-ML02/03/04, pill choice)
+- [ ] 12-04-PLAN.md — WT installation flow with fallbacks (GAP-E03a/b/c)
+- [ ] 12-05-PLAN.md — Installer uninstall and re-run fixes (BUG-UNINST01/02, GAP-INST01)
+- [ ] 12-06-PLAN.md — First-run detection fix (BUG-FRX01)
+- [ ] 12-07-PLAN.md — Build installer and full E2E verification
+
+**Wave Structure:**
+- Wave 1: 12-01, 12-02 (parallel - independent fixes)
+- Wave 2: 12-03, 12-04, 12-05, 12-06 (parallel - dependent on Wave 1 for some)
+- Wave 3: 12-07 (BUILD + E2E TEST - requires all fixes complete)
+
+**Bug-to-Plan Mapping:**
+
+| Bug ID | Description | Plan |
+|--------|-------------|------|
+| BUG-SHADER01 | Regex `$1` replacement bug | 12-01 |
+| BUG-WT01 | WT detection only checks Store path | 12-01 |
+| BUG-WT02 | Apps fall back to Lite incorrectly | 12-01 |
+| BUG-WT03 | Hardcoded wt.exe path | 12-01 |
+| BUG-WT04 | Wrong settings.json for portable WT | 12-01 |
+| BUG-ML01 | Missing VT Processing P/Invoke | 12-02 |
+| BUG-ML05 | Blue instead of green color | 12-02 |
+| BUG-ML06 | White characters in trail | 12-02 |
+| BUG-ML02 | Terminal blocked (no background mode) | 12-03 |
+| BUG-ML03 | Missing bluepill/background option | 12-03 |
+| BUG-ML04 | Menu broken | 12-03 |
+| GAP-E03a | No winget detection | 12-04 |
+| GAP-E03b | No download fallback | 12-04 |
+| GAP-E03c | Dead end when Store fails | 12-04 |
+| BUG-UNINST01 | Useless uninstall error | 12-05 |
+| BUG-UNINST02 | Files left in Program Files | 12-05 |
+| GAP-INST01 | Blind overwrite on re-run | 12-05 |
+| BUG-FRX01 | False "previous sessions" | 12-06 |
+
+**Success Criteria** (what must be TRUE):
+1. All 18 bugs from TESTING.md are fixed
+2. Local testing passes before sandbox rebuild
+3. Rebuilt installer passes full E2E test in Windows Sandbox
+4. matrixlite displays green in cmd.exe (not raw ANSI codes)
+5. WT detection works for Store, Scoop, Chocolatey, and portable installs
+6. Uninstaller removes ALL files from Program Files
+7. No dead ends in WT installation flow
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -147,8 +212,9 @@ Plans:
 | 9. Native AOT & Polish | 5/5 | INCOMPLETE | — |
 | 10. MatrixLite Fallback | 4/4 | Complete | 2026-01-30 |
 | 10.5 Global Hotkeys (INSERTED) | 5/5 | Complete | 2026-01-31 |
-| 11. Installer & E2E Validation | 4/7 | In Progress | — |
+| 11. Installer & E2E Validation | 7/7 | Complete | 2026-01-31 |
+| 12. E2E Gap Closure | 0/7 | Not Started | — |
 
 ---
 *Roadmap created: 2026-01-25*
-*Updated: 2026-01-31 — Added 11-07 (one-liner install script)*
+*Updated: 2026-01-31 — Phase 12 plans created (7 plans in 3 waves)*
