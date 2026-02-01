@@ -2,7 +2,7 @@
 # Requires: Inno Setup 6.x installed and in PATH (or specify path)
 
 param(
-    [string]$InnoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+    [string]$InnoSetupPath = "C:\ProgramData\chocolatey\bin\ISCC.exe"
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,23 +23,27 @@ New-Item -ItemType Directory -Force -Path $PublishDir | Out-Null
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 # Publish CLIs, Lite, Hotkeys, and Monitor
+# Using explicit csproj paths (wildcards don't work reliably on Windows)
 $projects = @(
-    "MatrixShader.Cli\Bluepill",
-    "MatrixShader.Cli\Redpill",
-    "MatrixShader.Cli\WakeupNeo",
-    "MatrixShader.Cli\MatrixLite",
-    "MatrixShader.Hotkeys",
-    "MatrixShader.Monitor"
+    @{ Name = "Bluepill"; Path = "MatrixShader.Cli\Bluepill\MatrixShader.Cli.Bluepill.csproj" },
+    @{ Name = "Redpill"; Path = "MatrixShader.Cli\Redpill\MatrixShader.Cli.Redpill.csproj" },
+    @{ Name = "WakeupNeo"; Path = "MatrixShader.Cli\WakeupNeo\MatrixShader.Cli.WakeupNeo.csproj" },
+    @{ Name = "MatrixLite"; Path = "MatrixShader.Cli\MatrixLite\MatrixShader.Cli.MatrixLite.csproj" },
+    @{ Name = "Hotkeys"; Path = "MatrixShader.Hotkeys\MatrixShader.Hotkeys.csproj" },
+    @{ Name = "Monitor"; Path = "MatrixShader.Monitor\MatrixShader.Monitor.csproj" }
 )
 
 foreach ($project in $projects) {
-    Write-Host "  Publishing $project..." -ForegroundColor Cyan
-    $csproj = Join-Path $SrcRoot "$project\*.csproj"
+    Write-Host "  Publishing $($project.Name)..." -ForegroundColor Cyan
+    $csproj = Join-Path $SrcRoot $project.Path
     # Self-contained: includes .NET runtime for widest compatibility
     # Users don't need to install .NET separately
-    dotnet publish $csproj -c Release -o $PublishDir --self-contained true -r win-x64
+    # Note: /p:PublishAot=false disables Native AOT (requires Visual Studio C++ tools)
+    #       /p:PublishTrimmed=false disables trimming (avoids IL2104 warnings-as-errors)
+    #       This uses standard self-contained publish instead
+    dotnet publish $csproj -c Release -o $PublishDir --self-contained true -r win-x64 /p:PublishAot=false /p:PublishTrimmed=false
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to publish $project"
+        throw "Failed to publish $($project.Name)"
     }
 }
 
@@ -51,6 +55,18 @@ foreach ($project in $projects) {
     }
     Write-Host "    $_" -ForegroundColor Gray
 }
+
+# Copy shaders from C# project (NOT PowerShell root)
+Write-Host "  Copying shaders..." -ForegroundColor Cyan
+$ShadersSource = Join-Path $ProjectRoot "MatrixShader\shaders"
+$ShadersDest = Join-Path $PublishDir "shaders"
+if (!(Test-Path $ShadersSource)) {
+    throw "Shaders not found at: $ShadersSource"
+}
+New-Item -ItemType Directory -Force -Path $ShadersDest | Out-Null
+Copy-Item -Path "$ShadersSource\*.hlsl" -Destination $ShadersDest -Force
+$shaderCount = (Get-ChildItem "$ShadersDest\*.hlsl").Count
+Write-Host "    $shaderCount shaders copied" -ForegroundColor Gray
 
 # Build installer
 Write-Host "  Building installer..." -ForegroundColor Cyan
