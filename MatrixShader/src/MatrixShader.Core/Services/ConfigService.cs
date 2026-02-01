@@ -38,6 +38,21 @@ public class ConfigService : IConfigService
 
     public bool StateExists => File.Exists(StatePath);
 
+    /// <summary>
+    /// Checks if this is a first run (no saved state file).
+    /// This is the authoritative check - don't rely on ShaderConfigs.Count
+    /// because the default MatrixState() constructor creates 8 empty slots.
+    /// </summary>
+    public bool IsFirstRun
+    {
+        get
+        {
+            var result = !StateExists;
+            DiagnosticLogger.Debug("CONFIG", $"IsFirstRun check: {result} (path: {StatePath})");
+            return result;
+        }
+    }
+
     public MatrixState LoadState()
     {
         if (!StateExists)

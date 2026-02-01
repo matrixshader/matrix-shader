@@ -30,6 +30,12 @@ public interface IConfigService
     bool StateExists { get; }
 
     /// <summary>
+    /// Checks if this is a first run (no saved state file).
+    /// Use this instead of checking ShaderConfigs.Count, which has default values.
+    /// </summary>
+    bool IsFirstRun { get; }
+
+    /// <summary>
     /// Resets state to defaults.
     /// </summary>
     MatrixState ResetState();
