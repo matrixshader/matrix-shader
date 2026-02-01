@@ -196,6 +196,12 @@ public class FallbackMenu
         _animationCts = new CancellationTokenSource();
         _running = true;
 
+        // Ensure renderer has current settings before starting
+        // This guarantees color/speed/density are synchronized
+        _renderer.SetColor(_currentColor);
+        _renderer.SetSpeed(_speed);
+        _renderer.SetDensity(_density);
+
         // Run animation in background
         _ = _renderer.RunAsync(_animationCts.Token);
         await Task.CompletedTask;
