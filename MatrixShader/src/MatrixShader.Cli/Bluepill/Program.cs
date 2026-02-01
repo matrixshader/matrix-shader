@@ -347,12 +347,13 @@ public class SessionRestorer
             // Capture existing handles before launch
             var existingHandles = GetExistingWindowHandles();
 
-            // Launch via wt.exe
+            // Launch via wt.exe (dynamically discovered)
             try
             {
+                var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "wt.exe",
+                    FileName = wtPath,
                     Arguments = $"-p \"{profileName}\"",
                     UseShellExecute = true
                 };
