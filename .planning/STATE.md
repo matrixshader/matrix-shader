@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 Milestone: v1.0 IN PROGRESS (18 bugs found in E2E testing)
 Phase: 12 - E2E Gap Closure (IN PROGRESS)
-Plan: 02 of 7+ (MatrixLite ANSI rendering fixes)
-Status: Plan 12-02 complete
-Last activity: 2026-02-01 - Completed 12-02-PLAN.md (VT Processing + color sync)
+Plan: 05 of 7+ (Installer uninstall and re-run detection)
+Status: Plan 12-05 complete
+Last activity: 2026-02-01 - Completed 12-05-PLAN.md (Uninstaller fixes + re-run detection)
 
-Progress: [####################################################] 52 plans complete
+Progress: [#####################################################] 53 plans complete
 
 ## Phase 12 Plan Summary (IN PROGRESS)
 
@@ -27,8 +27,8 @@ Progress: [####################################################] 52 plans comple
 | 1 | 12-02 | MatrixLite ANSI rendering | COMPLETE |
 | 2 | 12-03 | MatrixLite usability (terminal blocking, menu) | PENDING |
 | 2 | 12-04 | First-run detection | PENDING |
-| 3 | 12-05 | WT installation flow | PENDING |
-| 3 | 12-06 | Uninstaller fixes | PENDING |
+| 3 | 12-05 | Uninstaller fixes + re-run detection | COMPLETE |
+| 3 | 12-06 | WT installation flow | PENDING |
 | 4 | 12-07 | Final E2E verification | PENDING |
 
 **Bugs fixed so far:**
@@ -36,6 +36,9 @@ Progress: [####################################################] 52 plans comple
 - BUG-SHADER01: Shader regex replacement (12-01)
 - BUG-ML01: VT Processing for cmd.exe (12-02)
 - BUG-ML05/06: Color synchronization (12-02)
+- BUG-UNINST01: Useless uninstall error messages (12-05)
+- BUG-UNINST02: 54+ DLLs left behind on uninstall (12-05)
+- GAP-INST01: Installer blindly overwrites existing install (12-05)
 
 ## Accumulated Context
 
@@ -57,6 +60,9 @@ Progress: [####################################################] 52 plans comple
 | P/Invoke in TextMatrixRenderer | Reduce coupling, local implementation | 12-02 |
 | Both VT flags (0x0004 + 0x0001) | Maximum Windows compatibility | 12-02 |
 | Defensive state sync | Prevent future state divergence bugs | 12-02 |
+| filesandordirs for {app} cleanup | Complete removal of all installed files | 12-05 |
+| WHAT/WHERE/WHY/HOW error pattern | Actionable error messages for users | 12-05 |
+| YESNOCANCEL for re-run detection | Clear user choices: Update/Uninstall/Cancel | 12-05 |
 
 ### Decisions (Phase 11)
 
@@ -83,15 +89,15 @@ Progress: [####################################################] 52 plans comple
 
 1. **GitHub Releases setup required** - Need to upload MatrixShader.zip to Releases for one-liner to work
 2. **Domain redirect** - Need matrixshader.com/install.ps1 to redirect to raw GitHub URL
-3. **Remaining bugs** - 13 more bugs to fix in Phase 12 (BUG-ML02/03/04, BUG-FRX01, GAPs, BUG-UNINST)
+3. **Remaining bugs** - 10 more bugs to fix in Phase 12 (BUG-ML02/03/04, BUG-FRX01, remaining GAPs)
 
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 12-02-PLAN.md (MatrixLite ANSI rendering)
+Stopped at: Completed 12-05-PLAN.md (Uninstaller fixes + re-run detection)
 Resume file: None
-Next action: Execute 12-03-PLAN.md (MatrixLite usability fixes)
+Next action: Execute remaining Phase 12 plans (12-03, 12-04, 12-06, 12-07)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-01 - Phase 12 plan 02 complete*
+*Last updated: 2026-02-01 - Phase 12 plan 05 complete*
