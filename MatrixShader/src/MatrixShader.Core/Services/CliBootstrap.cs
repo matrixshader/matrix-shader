@@ -33,12 +33,28 @@ public static class CliBootstrap
         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
         "MatrixShader", "shaders");
 
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Packages",
-        "Microsoft.WindowsTerminal_8wekyb3d8bbwe",
-        "LocalState",
-        "settings.json");
+    /// <summary>
+    /// Windows Terminal settings.json locations to check (in priority order).
+    /// Supports Store, Winget, Scoop, and Chocolatey installations.
+    /// </summary>
+    private static readonly string[] WtSettingsPaths = new[]
+    {
+        // Microsoft Store install (most common)
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Packages", "Microsoft.WindowsTerminal_8wekyb3d8bbwe", "LocalState", "settings.json"),
+        // Winget / unpackaged install
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Microsoft", "Windows Terminal", "settings.json"),
+        // Scoop install
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "scoop", "persist", "windows-terminal", "settings", "settings.json"),
+        // Chocolatey install
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "chocolatey", "lib", "microsoft-windows-terminal", "settings.json"),
+    };
+
+    // Legacy single path kept for backward compatibility
+    private static readonly string SettingsPath = WtSettingsPaths[0];
 
     /// <summary>
     /// Initializes the CLI environment.
@@ -91,11 +107,111 @@ public static class CliBootstrap
     }
 
     /// <summary>
-    /// Checks if Windows Terminal is installed by verifying settings.json exists.
+    /// Checks if Windows Terminal is installed by checking multiple known paths.
+    /// Supports Store, Winget, Scoop, Chocolatey, and PATH-based installations.
     /// </summary>
     public static bool IsWindowsTerminalInstalled()
     {
-        return File.Exists(SettingsPath);
+        // Check settings files across all known install locations
+        if (WtSettingsPaths.Any(File.Exists))
+        {
+            DiagnosticLogger.Debug("BOOTSTRAP", $"WT detected via settings.json: {GetSettingsPath()}");
+            return true;
+        }
+
+        // Check if wt.exe is in PATH (portable or custom install)
+        var wtExePath = GetWindowsTerminalExePath();
+        if (wtExePath != null)
+        {
+            DiagnosticLogger.Debug("BOOTSTRAP", $"WT detected via PATH: {wtExePath}");
+            return true;
+        }
+
+        // Check parent process (running inside WT)
+        if (EnvironmentService.IsWindowsTerminal())
+        {
+            DiagnosticLogger.Debug("BOOTSTRAP", "WT detected via parent process");
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Finds wt.exe path dynamically across multiple install locations.
+    /// </summary>
+    /// <returns>Full path to wt.exe if found, null otherwise</returns>
+    public static string? GetWindowsTerminalExePath()
+    {
+        // Check PATH first (most reliable for all install types)
+        var pathDirs = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? Array.Empty<string>();
+        foreach (var dir in pathDirs)
+        {
+            try
+            {
+                var wtPath = Path.Combine(dir, "wt.exe");
+                if (File.Exists(wtPath))
+                {
+                    return wtPath;
+                }
+            }
+            catch
+            {
+                // Invalid path entry, skip
+            }
+        }
+
+        // Check common install locations
+        var commonPaths = new[]
+        {
+            // Scoop
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "scoop", "apps", "windows-terminal", "current", "wt.exe"),
+            // Chocolatey
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "chocolatey", "bin", "wt.exe"),
+        };
+
+        foreach (var path in commonPaths)
+        {
+            if (File.Exists(path))
+            {
+                return path;
+            }
+        }
+
+        // Check WindowsApps for Store install (may have access issues)
+        try
+        {
+            var windowsAppsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                "WindowsApps");
+
+            if (Directory.Exists(windowsAppsPath))
+            {
+                var wtFolders = Directory.GetDirectories(windowsAppsPath, "Microsoft.WindowsTerminal_*");
+                foreach (var folder in wtFolders)
+                {
+                    var wtPath = Path.Combine(folder, "wt.exe");
+                    if (File.Exists(wtPath))
+                    {
+                        return wtPath;
+                    }
+                }
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // WindowsApps folder is restricted - expected behavior
+            DiagnosticLogger.Debug("BOOTSTRAP", "Cannot access WindowsApps folder for wt.exe detection");
+        }
+        catch
+        {
+            // Other errors, skip
+        }
+
+        // Not found
+        return null;
     }
 
     /// <summary>
@@ -320,8 +436,14 @@ public static class CliBootstrap
 
     /// <summary>
     /// Gets the Windows Terminal settings.json path.
+    /// Returns the first existing path from known install locations,
+    /// or the default Store path if none exist.
     /// </summary>
-    public static string GetSettingsPath() => SettingsPath;
+    public static string GetSettingsPath()
+    {
+        var existingPath = WtSettingsPaths.FirstOrDefault(File.Exists);
+        return existingPath ?? SettingsPath;
+    }
 
     /// <summary>
     /// Parses common CLI arguments.
