@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 Milestone: v1.0 IN PROGRESS (18 bugs found in E2E testing)
 Phase: 12 - E2E Gap Closure (IN PROGRESS)
-Plan: 05 of 7+ (Installer uninstall and re-run detection)
-Status: Plan 12-05 complete
-Last activity: 2026-02-01 - Completed 12-05-PLAN.md (Uninstaller fixes + re-run detection)
+Plan: 04 of 7+ (WT installation fallback chain)
+Status: Plan 12-04 complete
+Last activity: 2026-02-01 - Completed 12-04-PLAN.md (WT installation fallback)
 
-Progress: [#####################################################] 53 plans complete
+Progress: [######################################################] 54 plans complete
 
 ## Phase 12 Plan Summary (IN PROGRESS)
 
@@ -26,7 +26,7 @@ Progress: [#####################################################] 53 plans compl
 | 1 | 12-01 | Critical bugs (WT detection, shader regex) | COMPLETE |
 | 1 | 12-02 | MatrixLite ANSI rendering | COMPLETE |
 | 2 | 12-03 | MatrixLite usability (terminal blocking, menu) | PENDING |
-| 2 | 12-04 | First-run detection | PENDING |
+| 2 | 12-04 | WT installation fallback chain | COMPLETE |
 | 3 | 12-05 | Uninstaller fixes + re-run detection | COMPLETE |
 | 3 | 12-06 | WT installation flow | PENDING |
 | 4 | 12-07 | Final E2E verification | PENDING |
@@ -39,6 +39,7 @@ Progress: [#####################################################] 53 plans compl
 - BUG-UNINST01: Useless uninstall error messages (12-05)
 - BUG-UNINST02: 54+ DLLs left behind on uninstall (12-05)
 - GAP-INST01: Installer blindly overwrites existing install (12-05)
+- GAP-E03a/b/c: WT installation dead ends (12-04)
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Progress: [#####################################################] 53 plans compl
 | filesandordirs for {app} cleanup | Complete removal of all installed files | 12-05 |
 | WHAT/WHERE/WHY/HOW error pattern | Actionable error messages for users | 12-05 |
 | YESNOCANCEL for re-run detection | Clear user choices: Update/Uninstall/Cancel | 12-05 |
+| winget --version with 5s timeout | Detect winget availability before install | 12-04 |
+| GitHub releases API regex parsing | Avoid JSON library dependency | 12-04 |
+| 4-method fallback chain | winget -> Store -> GitHub -> Manual | 12-04 |
 
 ### Decisions (Phase 11)
 
@@ -94,10 +98,10 @@ Progress: [#####################################################] 53 plans compl
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 12-05-PLAN.md (Uninstaller fixes + re-run detection)
+Stopped at: Completed 12-04-PLAN.md (WT installation fallback chain)
 Resume file: None
-Next action: Execute remaining Phase 12 plans (12-03, 12-04, 12-06, 12-07)
+Next action: Execute remaining Phase 12 plans (12-03, 12-06, 12-07)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-01 - Phase 12 plan 05 complete*
+*Last updated: 2026-02-01 - Phase 12 plan 04 complete*
