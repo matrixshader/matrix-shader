@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using MatrixShader.Core.Constants;
 
@@ -9,6 +10,47 @@ namespace MatrixShader.Lite;
 /// </summary>
 public class TextMatrixRenderer : IDisposable
 {
+    // P/Invoke for enabling ANSI escape codes in Windows console
+    private const int STD_OUTPUT_HANDLE = -11;
+    private const uint ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;
+    private const uint ENABLE_PROCESSED_OUTPUT = 0x0001;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GetStdHandle(int nStdHandle);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+
+    /// <summary>
+    /// Enables ANSI escape code processing for Windows console.
+    /// Required for cmd.exe - Windows Terminal has this enabled by default.
+    /// </summary>
+    private static void EnableVirtualTerminalProcessing()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        try
+        {
+            var handle = GetStdHandle(STD_OUTPUT_HANDLE);
+            if (handle == IntPtr.Zero || handle == new IntPtr(-1))
+                return;
+
+            if (GetConsoleMode(handle, out uint mode))
+            {
+                mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING | ENABLE_PROCESSED_OUTPUT;
+                SetConsoleMode(handle, mode);
+            }
+        }
+        catch
+        {
+            // Non-fatal - ANSI codes just won't work in legacy consoles
+        }
+    }
+
     private Column[] _columns;
     private readonly Random _random;
     private readonly StringBuilder _buffer;
@@ -78,6 +120,10 @@ public class TextMatrixRenderer : IDisposable
     /// </summary>
     public void Initialize()
     {
+        // Enable ANSI escape codes BEFORE any output
+        // Required for cmd.exe - Windows Terminal has this enabled by default
+        EnableVirtualTerminalProcessing();
+
         Console.OutputEncoding = Encoding.UTF8;
         Console.Write(HideCursor);
         Console.Write(ClearScreen);
