@@ -15,19 +15,14 @@ public class TerminalSettingsService : ITerminalSettingsService
 {
     private readonly ILogger<TerminalSettingsService> _logger;
 
-    // Standard Windows Terminal settings path
-    private static readonly string DefaultSettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Packages",
-        "Microsoft.WindowsTerminal_8wekyb3d8bbwe",
-        "LocalState",
-        "settings.json");
-
     public TerminalSettingsService(ILogger<TerminalSettingsService> logger, string? settingsPath = null)
     {
         _logger = logger;
-        SettingsPath = settingsPath ?? DefaultSettingsPath;
+        // Use dynamic settings path resolution (supports Store, Winget, Scoop, Chocolatey)
+        SettingsPath = settingsPath ?? CliBootstrap.GetSettingsPath();
         BackupPath = SettingsPath + ".matrix-backup";
+
+        DiagnosticLogger.Debug("TERMINAL", $"Using settings path: {SettingsPath}");
     }
 
     public string SettingsPath { get; }
