@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Http;
 using MatrixShader.Core.Constants;
 using MatrixShader.Core.Helpers;
 
@@ -245,11 +246,12 @@ public static class CliBootstrap
     }
 
     /// <summary>
-    /// Attempts to install Windows Terminal via winget, with Microsoft Store fallback.
+    /// Attempts to install Windows Terminal via multiple methods.
+    /// Priority: winget -> Microsoft Store -> GitHub download -> manual instructions
     /// </summary>
     private static async Task<bool> TryInstallWindowsTerminalAsync(bool verbose)
     {
-        // Try winget first (if available)
+        // Method 1: Try winget (if available)
         if (IsWingetAvailable())
         {
             try
@@ -298,15 +300,14 @@ public static class CliBootstrap
             ConsoleHelper.WriteLineDim(" winget not available on this system.");
         }
 
-        // Fallback: Prompt for Microsoft Store
+        // Method 2: Try Microsoft Store
         Console.WriteLine();
         Console.Write("\x1b[33mTry Microsoft Store? [Y/N]: \x1b[0m");
-        var key = Console.ReadKey(intercept: true);
+        var storeKey = Console.ReadKey(intercept: true);
         Console.WriteLine();
 
-        if (key.Key == ConsoleKey.Y)
+        if (storeKey.Key == ConsoleKey.Y)
         {
-            // Open Microsoft Store page
             try
             {
                 ConsoleHelper.WriteLineDim(" Opening Microsoft Store...");
@@ -332,7 +333,147 @@ public static class CliBootstrap
             }
         }
 
+        // Method 3: Direct download from GitHub
+        Console.WriteLine();
+        Console.Write("\x1b[33mDownload directly from GitHub? [Y/N]: \x1b[0m");
+        var githubKey = Console.ReadKey(intercept: true);
+        Console.WriteLine();
+
+        if (githubKey.Key == ConsoleKey.Y)
+        {
+            var downloaded = await TryDownloadFromGitHubAsync(verbose);
+            if (downloaded && IsWindowsTerminalInstalled())
+            {
+                ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed from GitHub!");
+                return true;
+            }
+        }
+
+        // Method 4: Manual instructions (last resort)
+        Console.WriteLine();
+        ConsoleHelper.WriteLineWarning(" Automatic installation failed.");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" You can install Windows Terminal manually:");
+        ConsoleHelper.WriteLineDim("   1. Visit: https://github.com/microsoft/terminal/releases/latest");
+        ConsoleHelper.WriteLineDim("   2. Download: Microsoft.WindowsTerminal_*_x64.msixbundle");
+        ConsoleHelper.WriteLineDim("   3. Double-click to install");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" Then run 'wakeupneo' again.");
+        Console.WriteLine();
+
+        Console.Write(" Press any key to continue with Lite mode, or close to install WT first...");
+        Console.ReadKey(intercept: true);
+        Console.WriteLine();
+
         return false;
+    }
+
+    /// <summary>
+    /// Downloads and installs Windows Terminal from GitHub releases.
+    /// </summary>
+    private static async Task<bool> TryDownloadFromGitHubAsync(bool verbose)
+    {
+        const string releasesApi = "https://api.github.com/repos/microsoft/terminal/releases/latest";
+
+        try
+        {
+            ConsoleHelper.WriteLineDim(" Checking latest release...");
+
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "MatrixShader-Installer");
+            httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+            // Get latest release info
+            var response = await httpClient.GetStringAsync(releasesApi);
+
+            // Simple JSON parsing for the msixbundle URL
+            // Look for: "browser_download_url": "...msixbundle"
+            var match = System.Text.RegularExpressions.Regex.Match(
+                response,
+                @"""browser_download_url"":\s*""([^""]+\.msixbundle)""");
+
+            if (!match.Success)
+            {
+                ConsoleHelper.WriteLineDim(" Could not find download URL in release.");
+                return false;
+            }
+
+            var downloadUrl = match.Groups[1].Value;
+            var fileName = Path.GetFileName(downloadUrl);
+            var tempDir = Path.Combine(Path.GetTempPath(), "MatrixWTInstall");
+            Directory.CreateDirectory(tempDir);
+            var downloadPath = Path.Combine(tempDir, fileName);
+
+            ConsoleHelper.WriteLineDim($" Downloading: {fileName}");
+            ConsoleHelper.WriteLineDim(" (This may take a minute...)");
+
+            // Download the file with progress
+            using (var downloadResponse = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+            {
+                downloadResponse.EnsureSuccessStatusCode();
+                var totalBytes = downloadResponse.Content.Headers.ContentLength ?? 0;
+
+                await using var fileStream = File.Create(downloadPath);
+                await using var downloadStream = await downloadResponse.Content.ReadAsStreamAsync();
+
+                var buffer = new byte[81920];
+                long totalRead = 0;
+                int bytesRead;
+
+                while ((bytesRead = await downloadStream.ReadAsync(buffer)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead));
+                    totalRead += bytesRead;
+
+                    if (totalBytes > 0 && !verbose)
+                    {
+                        var progress = (int)(totalRead * 100 / totalBytes);
+                        Console.Write($"\r   Progress: {progress}%   ");
+                    }
+                }
+            }
+
+            Console.WriteLine();
+            ConsoleHelper.WriteLineDim(" Download complete. Installing...");
+
+            // Install using Add-AppxPackage (PowerShell)
+            var installPsi = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -Command \"Add-AppxPackage -Path '{downloadPath}'\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true
+            };
+
+            using var installProcess = Process.Start(installPsi);
+            if (installProcess != null)
+            {
+                await installProcess.WaitForExitAsync();
+
+                if (installProcess.ExitCode != 0)
+                {
+                    var error = await installProcess.StandardError.ReadToEndAsync();
+                    DiagnosticLogger.Debug("BOOTSTRAP", $"Install failed: {error}");
+                    ConsoleHelper.WriteLineDim(" Installation failed. You may need to install manually.");
+                    return false;
+                }
+            }
+
+            // Wait for settings.json to be created
+            await Task.Delay(2000);
+
+            // Cleanup
+            try { File.Delete(downloadPath); } catch { }
+
+            return IsWindowsTerminalInstalled();
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Debug("BOOTSTRAP", $"GitHub download failed: {ex.Message}");
+            ConsoleHelper.WriteLineDim($" Download failed: {ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>
