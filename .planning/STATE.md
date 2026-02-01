@@ -51,6 +51,9 @@ Progress: [####################################################] 52 plans comple
 
 | Decision | Rationale | Source |
 |----------|-----------|--------|
+| MatchEvaluator for regex replacement | Avoids $1 backreference interpretation issues | 12-01 |
+| Multi-path WT settings detection | Support Store, Winget, Scoop, Chocolatey installs | 12-01 |
+| wt.exe fallback to PATH | Works with portable/custom installations | 12-01 |
 | P/Invoke in TextMatrixRenderer | Reduce coupling, local implementation | 12-02 |
 | Both VT flags (0x0004 + 0x0001) | Maximum Windows compatibility | 12-02 |
 | Defensive state sync | Prevent future state divergence bugs | 12-02 |
