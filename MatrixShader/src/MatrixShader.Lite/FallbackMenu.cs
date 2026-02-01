@@ -13,7 +13,8 @@ public class FallbackMenu
     private MatrixColor _currentColor;
     private float _speed;
     private float _density;
-    private bool _running;
+    private bool _animationRunning;
+    private bool _backgroundMode;
     private CancellationTokenSource? _animationCts;
 
     public FallbackMenu()
@@ -22,6 +23,8 @@ public class FallbackMenu
         _currentColor = ColorPresets.Green;
         _speed = 1.0f;
         _density = 0.4f;
+        _animationRunning = false;
+        _backgroundMode = false;
     }
 
     /// <summary>
@@ -31,68 +34,89 @@ public class FallbackMenu
     {
         Console.OutputEncoding = Encoding.UTF8;
 
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            if (_running)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                // Animation mode - check for key to return to menu
-                if (Console.KeyAvailable)
+                if (_animationRunning)
                 {
-                    var key = Console.ReadKey(intercept: true);
-                    if (key.Key == ConsoleKey.Q || key.Key == ConsoleKey.Escape)
+                    // Animation mode - check for keys without blocking
+                    if (Console.KeyAvailable)
                     {
-                        await StopAnimation();
-                        ShowMenu();
+                        var key = Console.ReadKey(intercept: true);
+                        await HandleAnimationKeyAsync(key);
                     }
-                    else
-                    {
-                        HandleAnimationKey(key);
-                    }
+                    await Task.Delay(50, cancellationToken);
                 }
-                await Task.Delay(10, cancellationToken);
-            }
-            else
-            {
-                // Menu mode
-                ShowMenu();
-                var key = Console.ReadKey(intercept: true);
-                await HandleMenuKey(key);
+                else
+                {
+                    // Menu mode - show menu and wait for input
+                    ShowMenu();
+                    var key = Console.ReadKey(intercept: true);
+                    await HandleMenuKeyAsync(key);
+                }
             }
         }
+        finally
+        {
+            await StopAnimationAsync();
+        }
+    }
 
-        await StopAnimation();
+    /// <summary>
+    /// Starts rain immediately (for Blue Pill direct start).
+    /// </summary>
+    public async Task StartRainDirectAsync(CancellationToken cancellationToken)
+    {
+        Console.OutputEncoding = Encoding.UTF8;
+        _renderer.SetColor(_currentColor);
+
+        try
+        {
+            await _renderer.RunAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected
+        }
     }
 
     private void ShowMenu()
     {
         Console.Clear();
         Console.WriteLine();
-        Console.WriteLine("  ╔══════════════════════════════════════════════════╗");
-        Console.WriteLine("  ║      MATRIX SHADER - LITE MODE                   ║");
-        Console.WriteLine("  ╠══════════════════════════════════════════════════╣");
-        Console.WriteLine("  ║                                                  ║");
-        Console.WriteLine("  ║  COLOR PRESETS                                   ║");
-        Console.WriteLine("  ║  [1] Green   [2] Cyan   [3] Red                  ║");
-        Console.WriteLine("  ║  [4] Purple  [5] Gold   [6] Teal                 ║");
-        Console.WriteLine("  ║                                                  ║");
-        Console.WriteLine("  ║  CONTROLS                                        ║");
-        Console.WriteLine("  ║  [Enter] Start/Stop Rain                         ║");
-        Console.WriteLine("  ║  [E/R] Speed -/+                                 ║");
-        Console.WriteLine("  ║  [D/F] Density -/+                               ║");
-        Console.WriteLine("  ║  [Q] Quit                                        ║");
-        Console.WriteLine("  ║                                                  ║");
-        Console.WriteLine("  ╠══════════════════════════════════════════════════╣");
-        Console.Write("  ║  Color: ");
-        Console.ForegroundColor = GetConsoleColor(_currentColor);
-        Console.Write($"{_currentColor.Name,-10}");
-        Console.ResetColor();
-        Console.WriteLine($" Speed: {_speed:F1}x  Density: {_density:F1}  ║");
-        Console.WriteLine("  ╚══════════════════════════════════════════════════╝");
+        Console.WriteLine("  \x1b[32m+==================================================+\x1b[0m");
+        Console.WriteLine("  \x1b[32m|      MATRIX SHADER - LITE MODE                   |\x1b[0m");
+        Console.WriteLine("  \x1b[32m+==================================================+\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m  COLOR PRESETS                                   \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m  [1] Green   [2] Cyan   [3] Red                  \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m  [4] Purple  [5] Gold   [6] Teal                 \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m  CONTROLS                                        \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m  [Enter] Start Rain (fullscreen)                 \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m  [B] Background Mode (rain behind commands)      \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m  [E/R] Speed -/+                                 \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m  [D/F] Density -/+                               \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m  [Q] Quit                                        \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m+--------------------------------------------------+\x1b[0m");
+        Console.Write("  \x1b[32m|\x1b[0m  Color: ");
+        WriteColoredText(_currentColor.Name, _currentColor);
+        Console.Write($"  Speed: {_speed:F1}x  Density: {_density:F1}");
+        Console.WriteLine("  \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m+==================================================+\x1b[0m");
         Console.WriteLine();
-        Console.Write("  Press a key...");
+        Console.Write("  \x1b[90mPress a key...\x1b[0m");
     }
 
-    private async Task HandleMenuKey(ConsoleKeyInfo key)
+    private static void WriteColoredText(string text, MatrixColor color)
+    {
+        var (r, g, b) = color.ToRgb();
+        Console.Write($"\x1b[38;2;{r};{g};{b}m{text,-10}\x1b[0m");
+    }
+
+    private async Task HandleMenuKeyAsync(ConsoleKeyInfo key)
     {
         switch (key.Key)
         {
@@ -127,7 +151,10 @@ public class FallbackMenu
                 AdjustDensity(0.1f);
                 break;
             case ConsoleKey.Enter:
-                await StartAnimation();
+                await StartAnimationAsync(backgroundMode: false);
+                break;
+            case ConsoleKey.B:
+                await StartAnimationAsync(backgroundMode: true);
                 break;
             case ConsoleKey.Q:
             case ConsoleKey.Escape:
@@ -136,7 +163,7 @@ public class FallbackMenu
         }
     }
 
-    private void HandleAnimationKey(ConsoleKeyInfo key)
+    private async Task HandleAnimationKeyAsync(ConsoleKeyInfo key)
     {
         switch (key.Key)
         {
@@ -170,6 +197,11 @@ public class FallbackMenu
             case ConsoleKey.F:
                 AdjustDensity(0.1f);
                 break;
+            case ConsoleKey.Q:
+            case ConsoleKey.Escape:
+            case ConsoleKey.Enter:
+                await StopAnimationAsync();
+                break;
         }
     }
 
@@ -191,23 +223,37 @@ public class FallbackMenu
         _renderer.SetDensity(_density);
     }
 
-    private async Task StartAnimation()
+    private async Task StartAnimationAsync(bool backgroundMode)
     {
+        _backgroundMode = backgroundMode;
         _animationCts = new CancellationTokenSource();
-        _running = true;
+        _animationRunning = true;
 
-        // Ensure renderer has current settings before starting
-        // This guarantees color/speed/density are synchronized
+        // Ensure renderer has current settings
         _renderer.SetColor(_currentColor);
         _renderer.SetSpeed(_speed);
         _renderer.SetDensity(_density);
 
-        // Run animation in background
+        if (backgroundMode)
+        {
+            // Background mode: start animation, then return control
+            // The animation runs in background while user can still type
+            Console.WriteLine("\x1b[32mBackground mode - rain runs behind your commands\x1b[0m");
+            Console.WriteLine("\x1b[90mPress Ctrl+C to stop\x1b[0m");
+            Console.WriteLine();
+        }
+
+        // Run animation (blocking for fullscreen, non-blocking for background)
         _ = _renderer.RunAsync(_animationCts.Token);
-        await Task.CompletedTask;
+
+        if (!backgroundMode)
+        {
+            // Wait for animation to be stopped by user
+            await Task.CompletedTask;
+        }
     }
 
-    private async Task StopAnimation()
+    private async Task StopAnimationAsync()
     {
         if (_animationCts != null)
         {
@@ -215,22 +261,7 @@ public class FallbackMenu
             _animationCts.Dispose();
             _animationCts = null;
         }
-        _running = false;
+        _animationRunning = false;
         _renderer.Cleanup();
-    }
-
-    private static ConsoleColor GetConsoleColor(MatrixColor color)
-    {
-        // Map to nearest console color
-        return color.Name switch
-        {
-            "Green" => ConsoleColor.Green,
-            "Cyan" => ConsoleColor.Cyan,
-            "Red" => ConsoleColor.Red,
-            "Purple" => ConsoleColor.Magenta,
-            "Gold" => ConsoleColor.Yellow,
-            "Teal" => ConsoleColor.DarkCyan,
-            _ => ConsoleColor.Green
-        };
     }
 }
