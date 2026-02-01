@@ -25,7 +25,7 @@ Progress: [######################################################] 54 plans comp
 |------|------|-----------|--------|
 | 1 | 12-01 | Critical bugs (WT detection, shader regex) | COMPLETE |
 | 1 | 12-02 | MatrixLite ANSI rendering | COMPLETE |
-| 2 | 12-03 | MatrixLite usability (terminal blocking, menu) | PENDING |
+| 2 | 12-03 | MatrixLite usability (terminal blocking, menu) | COMPLETE |
 | 2 | 12-04 | WT installation fallback chain | COMPLETE |
 | 3 | 12-05 | Uninstaller fixes + re-run detection | COMPLETE |
 | 3 | 12-06 | WT installation flow | PENDING |
@@ -40,6 +40,9 @@ Progress: [######################################################] 54 plans comp
 - BUG-UNINST02: 54+ DLLs left behind on uninstall (12-05)
 - GAP-INST01: Installer blindly overwrites existing install (12-05)
 - GAP-E03a/b/c: WT installation dead ends (12-04)
+- BUG-ML02: Terminal blocking - background mode added (12-03)
+- BUG-ML03: Missing bluepill option - Blue Pill intro choice (12-03)
+- BUG-ML04: Broken menu loop - fixed state machine (12-03)
 
 ## Accumulated Context
 
@@ -67,6 +70,9 @@ Progress: [######################################################] 54 plans comp
 | winget --version with 5s timeout | Detect winget availability before install | 12-04 |
 | GitHub releases API regex parsing | Avoid JSON library dependency | 12-04 |
 | 4-method fallback chain | winget -> Store -> GitHub -> Manual | 12-04 |
+| ASCII box characters for menu | Better cmd.exe compatibility than Unicode | 12-03 |
+| Blue Pill as Enter default | Quick start experience for users | 12-03 |
+| Async menu handler naming | Consistency with async/await pattern | 12-03 |
 
 ### Decisions (Phase 11)
 
