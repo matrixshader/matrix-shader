@@ -236,9 +236,14 @@ public class SetupWizard
         }
 
         // Check for previous session
+        // IMPORTANT: Use IsFirstRun first! The default MatrixState() has 8 ShaderConfigs,
+        // and ShaderExists() finds bundled shaders in Program Files, causing false detection.
+        var isFirstRun = _configService.IsFirstRun;
         var state = _configService.LoadState();
-        var previousSlots = GetActiveSlots(state);
+        var previousSlots = isFirstRun ? new List<int>() : GetActiveSlots(state);
         List<TabConfig> tabConfigs;
+
+        DiagnosticLogger.Debug("WAKEUPNEO", $"IsFirstRun: {isFirstRun}, previousSlots: [{string.Join(", ", previousSlots)}]");
 
         if (previousSlots.Count > 0)
         {
