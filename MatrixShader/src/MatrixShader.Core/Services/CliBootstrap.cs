@@ -215,69 +215,121 @@ public static class CliBootstrap
     }
 
     /// <summary>
-    /// Attempts to install Windows Terminal via winget, with Microsoft Store fallback.
+    /// Checks if winget is available on this system.
     /// </summary>
-    private static async Task<bool> TryInstallWindowsTerminalAsync(bool verbose)
+    private static bool IsWingetAvailable()
     {
-        // Try winget first
         try
         {
-            ConsoleHelper.WriteLineMatrixGreen("Installing Windows Terminal via winget...");
-
             var psi = new ProcessStartInfo
             {
                 FileName = "winget",
-                Arguments = "install Microsoft.WindowsTerminal --accept-source-agreements --accept-package-agreements",
-                RedirectStandardOutput = !verbose,
-                RedirectStandardError = !verbose,
+                Arguments = "--version",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
                 UseShellExecute = false,
-                CreateNoWindow = !verbose
+                CreateNoWindow = true
             };
 
             using var process = Process.Start(psi);
             if (process == null)
-            {
-                DiagnosticLogger.Warn("BOOTSTRAP", "Failed to start winget process");
-            }
-            else
-            {
-                await process.WaitForExitAsync();
+                return false;
 
-                // Wait a moment for settings.json to be created
-                await Task.Delay(1000);
+            process.WaitForExit(5000); // 5 second timeout
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
-                // Verify installation succeeded
-                if (IsWindowsTerminalInstalled())
+    /// <summary>
+    /// Attempts to install Windows Terminal via winget, with Microsoft Store fallback.
+    /// </summary>
+    private static async Task<bool> TryInstallWindowsTerminalAsync(bool verbose)
+    {
+        // Try winget first (if available)
+        if (IsWingetAvailable())
+        {
+            try
+            {
+                ConsoleHelper.WriteLineMatrixGreen(" Attempting install via winget...");
+
+                var psi = new ProcessStartInfo
                 {
-                    ConsoleHelper.WriteLineMatrixGreen("Windows Terminal installed successfully!");
-                    return true;
+                    FileName = "winget",
+                    Arguments = "install Microsoft.WindowsTerminal --accept-source-agreements --accept-package-agreements",
+                    RedirectStandardOutput = !verbose,
+                    RedirectStandardError = !verbose,
+                    UseShellExecute = false,
+                    CreateNoWindow = !verbose
+                };
+
+                using var process = Process.Start(psi);
+                if (process == null)
+                {
+                    DiagnosticLogger.Warn("BOOTSTRAP", "Failed to start winget process");
+                }
+                else
+                {
+                    await process.WaitForExitAsync();
+
+                    // Wait a moment for settings.json to be created
+                    await Task.Delay(1000);
+
+                    // Verify installation succeeded
+                    if (IsWindowsTerminalInstalled())
+                    {
+                        ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed via winget!");
+                        return true;
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Debug("BOOTSTRAP", $"winget install failed: {ex.Message}");
+            }
+
+            ConsoleHelper.WriteLineDim(" winget install did not complete successfully.");
         }
-        catch (Exception ex)
+        else
         {
-            DiagnosticLogger.Warn("BOOTSTRAP", $"winget installation failed: {ex.Message}");
+            ConsoleHelper.WriteLineDim(" winget not available on this system.");
         }
 
         // Fallback: Prompt for Microsoft Store
         Console.WriteLine();
-        Console.Write("\x1b[33mWindows Terminal not found. Install from Microsoft Store? [Y/N]: \x1b[0m");
+        Console.Write("\x1b[33mTry Microsoft Store? [Y/N]: \x1b[0m");
         var key = Console.ReadKey(intercept: true);
         Console.WriteLine();
 
         if (key.Key == ConsoleKey.Y)
         {
             // Open Microsoft Store page
-            Process.Start(new ProcessStartInfo
+            try
             {
-                FileName = "ms-windows-store://pdp/?ProductId=9N0DX20HK701",
-                UseShellExecute = true
-            });
+                ConsoleHelper.WriteLineDim(" Opening Microsoft Store...");
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "ms-windows-store://pdp/?ProductId=9N0DX20HK701",
+                    UseShellExecute = true
+                });
 
-            ConsoleHelper.WriteLineDim("Press any key after installation completes...");
-            Console.ReadKey(intercept: true);
+                ConsoleHelper.WriteLineDim(" Press any key after installation completes...");
+                Console.ReadKey(intercept: true);
 
-            return IsWindowsTerminalInstalled();
+                if (IsWindowsTerminalInstalled())
+                {
+                    ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed via Store!");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Debug("BOOTSTRAP", $"Store install failed: {ex.Message}");
+                ConsoleHelper.WriteLineDim(" Microsoft Store not available.");
+            }
         }
 
         return false;
