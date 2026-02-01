@@ -290,8 +290,14 @@ public class SessionRestorer
         DiagnosticLogger.Info("BLUEPILL", "Starting session restore");
 
         // Load saved state
+        // IMPORTANT: Check IsFirstRun BEFORE GetActiveSlots!
+        // The default MatrixState() has 8 ShaderConfigs, and ShaderExists()
+        // finds bundled shaders in Program Files, falsely returning 8 slots.
+        var isFirstRun = _configService.IsFirstRun;
         var state = _configService.LoadState();
-        var slots = GetActiveSlots(state);
+        var slots = isFirstRun ? new List<int>() : GetActiveSlots(state);
+
+        DiagnosticLogger.Debug("BLUEPILL", $"IsFirstRun: {isFirstRun}, slots: [{string.Join(", ", slots)}]");
 
         if (slots.Count == 0)
         {
