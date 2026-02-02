@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 ## Current Position
 
-Milestone: v1.0 IN PROGRESS (17 bugs, 3 fixed)
+Milestone: v1.0 IN PROGRESS (17 bugs, 6 fixed)
 Phase: 13 - Post-E2E Polish (IN PROGRESS)
-Plan: 02 of 08
-Status: Plan 13-02 complete (BUG-LAYOUT03, BUG-LAYOUT04)
-Last activity: 2026-02-02 - Completed 13-02 (Pillars layout + minimized window fixes)
+Plan: 08 of 08
+Status: Plan 13-08 complete (BUG-ML08/09/10 - effect interruption)
+Last activity: 2026-02-02 - Completed 13-08 (MatrixLite effect interruption)
 
-Progress: [##########################################################] 57 plans complete
+Progress: [###########################################################] 58 plans complete
 
 ## Phase 12 Plan Summary (IN PROGRESS)
 
@@ -108,12 +108,15 @@ Progress: [##########################################################] 57 plans 
 | MinWindowWidth = 200 for narrow pillars | Allow 4+ columns in Pillars mode | 13-02 |
 | Gap reduction before row addition | Preserve Pillars single-row layout intent | 13-02 |
 | Skip minimized windows (continue) | Respect user's intentional window state | 13-02 |
+| Console.CancelKeyPress with e.Cancel = true | Prevents process termination, signals return to menu | 13-08 |
+| Menu loop pattern for iterative choices | Allows re-choosing Blue Pill / Red Pill after effect | 13-08 |
+| Exit option [Q] in pill choice menu | Provides clean way to exit program entirely | 13-08 |
 
 ### Blockers/Concerns
 
 1. **GitHub Releases setup required** - Need to upload MatrixShader.zip to Releases for one-liner to work
 2. **Domain redirect** - Need matrixshader.com/install.ps1 to redirect to raw GitHub URL
-3. **14 remaining bugs from post-microsprint testing** - Phase 13 in progress
+3. **11 remaining bugs from post-microsprint testing** - Phase 13 in progress
 
 ### Phase 12 Microsprint Results (2026-02-01)
 
@@ -128,10 +131,10 @@ During lunch break microsprint, GSD agents fixed 6 bugs:
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 13-02-PLAN.md
+Stopped at: Completed 13-08-PLAN.md
 Resume file: None
-Next action: Execute 13-03-PLAN.md
+Next action: Continue with remaining Phase 13 plans
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-02 - Completed 13-02 (BUG-LAYOUT03, BUG-LAYOUT04 fixes)*
+*Last updated: 2026-02-02 - Completed 13-08 (BUG-ML08/09/10 effect interruption fixes)*
