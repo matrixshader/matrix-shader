@@ -191,13 +191,17 @@ public class TerminalSettingsService : ITerminalSettingsService
                 continue;
             }
 
+            // NOTE: Opacity is set per-profile, not on profiles.defaults.
+            // This ensures only Matrix windows get transparency.
+            // Per user requirement: non-Matrix windows stay 100% opaque.
             var profile = new TerminalProfile
             {
                 Name = profileName,
                 Guid = $"{{{Guid.NewGuid()}}}",
                 Commandline = $"powershell.exe -NoExit -Command \"Write-Host ' Matrix Terminal {i}' -ForegroundColor Green\"",
                 Hidden = true,
-                Opacity = 95,
+                Opacity = 85,  // 85% opacity for Matrix windows only
+                UseAcrylic = true,  // Enable transparency effect
                 PixelShaderPath = Path.Combine(shadersDirectory, $"Matrix-{i}.hlsl")
             };
 
@@ -228,13 +232,16 @@ public class TerminalSettingsService : ITerminalSettingsService
 
         DiagnosticLogger.Debug("TERMINAL", $"Redpill profile using control panel: {effectivePath}");
 
+        // NOTE: Opacity is set per-profile, not on profiles.defaults.
+        // This ensures only Matrix windows get transparency.
         var profile = new TerminalProfile
         {
             Name = profileName,
             Guid = $"{{{Guid.NewGuid()}}}",
             Commandline = $"\"{effectivePath}\"",
             Hidden = true,
-            Opacity = 95,
+            Opacity = 85,  // 85% opacity for Matrix windows only
+            UseAcrylic = true,  // Enable transparency effect
             PixelShaderPath = Path.Combine(shadersDirectory, "Redpill-Neo.hlsl")
         };
 
