@@ -30,6 +30,7 @@ public static class Program
             if (directRain)
             {
                 // Direct rain mode (for background/scripted use)
+                // This mode exits when user presses ESC/Q/Ctrl+C
                 var directRenderer = new FallbackMenu();
                 await directRenderer.StartRainDirectAsync(CancellationToken.None);
                 return 0;
@@ -38,32 +39,13 @@ public static class Program
             if (directMenu)
             {
                 // Direct to menu (skip intro entirely)
-                var menu = new FallbackMenu();
-                await menu.RunAsync(CancellationToken.None);
+                // Returns to pill choice when user exits menu
+                await RunMenuLoopAsync(skipIntro: true);
                 return 0;
             }
 
-            if (!skipIntro)
-            {
-                await ShowIntro();
-
-                // Show pill choice
-                var choice = await ShowPillChoiceAsync();
-
-                if (choice == PillChoice.BluePill)
-                {
-                    // Blue Pill: Straight to the Matrix - start rain immediately
-                    Console.Clear();
-                    var blueMenu = new FallbackMenu();
-                    await blueMenu.StartRainDirectAsync(CancellationToken.None);
-                    return 0;
-                }
-                // Red Pill falls through to menu
-            }
-
-            // Red Pill or skipped intro: show full control menu
-            var redMenu = new FallbackMenu();
-            await redMenu.RunAsync(CancellationToken.None);
+            // Normal flow: intro -> pill choice -> effect/menu -> back to pill choice
+            await RunMenuLoopAsync(skipIntro);
 
             return 0;
         }
@@ -74,7 +56,56 @@ public static class Program
         }
     }
 
-    private enum PillChoice { BluePill, RedPill }
+    /// <summary>
+    /// Runs the main menu loop. User can choose Blue Pill / Red Pill / Exit.
+    /// After effects stop (ESC/Q/Ctrl+C), returns to pill choice.
+    /// </summary>
+    private static async Task RunMenuLoopAsync(bool skipIntro)
+    {
+        var showIntro = !skipIntro;
+
+        while (true)
+        {
+            if (showIntro)
+            {
+                await ShowIntro();
+            }
+            showIntro = false; // Only show intro once
+
+            // Show pill choice (or exit option)
+            var choice = await ShowPillChoiceAsync(showExitOption: true);
+
+            if (choice == PillChoice.Exit)
+            {
+                Console.Clear();
+                Console.WriteLine("\x1b[32m  You take the exit... The story ends.\x1b[0m");
+                Console.WriteLine();
+                break;
+            }
+
+            if (choice == PillChoice.BluePill)
+            {
+                // Blue Pill: Straight to the Matrix - start rain immediately
+                // Returns here when user presses ESC/Q/Ctrl+C
+                Console.Clear();
+                var blueMenu = new FallbackMenu();
+                await blueMenu.StartRainDirectAsync(CancellationToken.None);
+                // After effect ends, loop continues to show pill choice again
+            }
+            else // RedPill
+            {
+                // Red Pill: show full control menu
+                // Returns here when user presses Q/ESC from menu
+                var redMenu = new FallbackMenu();
+                await redMenu.RunAsync(CancellationToken.None);
+                // After menu exits, loop continues to show pill choice again
+            }
+
+            Console.Clear();
+        }
+    }
+
+    private enum PillChoice { BluePill, RedPill, Exit }
 
     private static async Task ShowIntro()
     {
@@ -96,7 +127,7 @@ public static class Program
         Console.Write("\x1b[0m");
     }
 
-    private static async Task<PillChoice> ShowPillChoiceAsync()
+    private static async Task<PillChoice> ShowPillChoiceAsync(bool showExitOption = false)
     {
         Console.Clear();
         Console.WriteLine();
@@ -113,9 +144,15 @@ public static class Program
         Console.WriteLine("\x1b[32m  |\x1b[0m  \x1b[31m[R] RED PILL\x1b[0m - Control the Code                  \x1b[32m|\x1b[0m");
         Console.WriteLine("\x1b[32m  |\x1b[0m      Open the control menu                       \x1b[32m|\x1b[0m");
         Console.WriteLine("\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m");
+        if (showExitOption)
+        {
+            Console.WriteLine("\x1b[32m  |\x1b[0m  \x1b[90m[Q] EXIT\x1b[0m - Leave the Matrix                     \x1b[32m|\x1b[0m");
+            Console.WriteLine("\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m");
+        }
         Console.WriteLine("\x1b[32m  +==================================================+\x1b[0m");
         Console.WriteLine();
-        Console.Write("  \x1b[90mChoose your path [B/R]: \x1b[0m");
+        var promptSuffix = showExitOption ? "[B/R/Q]: " : "[B/R]: ";
+        Console.Write($"  \x1b[90mChoose your path {promptSuffix}\x1b[0m");
 
         while (true)
         {
@@ -138,6 +175,13 @@ public static class Program
                 Console.WriteLine("\x1b[34mBlue Pill\x1b[0m");
                 await Task.Delay(500);
                 return PillChoice.BluePill;
+            }
+            // Q or Escape to exit (if option is shown)
+            if (showExitOption && (key.Key == ConsoleKey.Q || key.Key == ConsoleKey.Escape))
+            {
+                Console.WriteLine("\x1b[90mExit\x1b[0m");
+                await Task.Delay(500);
+                return PillChoice.Exit;
             }
         }
     }
