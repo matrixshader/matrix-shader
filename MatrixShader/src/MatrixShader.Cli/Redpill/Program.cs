@@ -340,6 +340,7 @@ public class ControlPanel
     private void Render()
     {
         Console.SetCursorPosition(0, 0);
+        var cw = TuiRenderer.ClearWidth;
 
         var config = _tabManager.CurrentConfig;
 
@@ -350,7 +351,7 @@ public class ControlPanel
         // Tab bar
         var tabs = _tabManager.GetTabsForRendering();
         TuiRenderer.WriteTabBar(tabs, _tabManager.CurrentSlot);
-        Console.WriteLine(" [TAB] next tab");
+        Console.WriteLine(" [TAB] next tab".PadRight(cw));
         Console.WriteLine();
 
         // Color presets
@@ -359,8 +360,7 @@ public class ControlPanel
         Console.WriteLine();
 
         // Current color with swatch
-        Console.Write($" CURRENT {TuiRenderer.ColorSwatch(config.R, config.G, config.B, 3)}");
-        Console.WriteLine();
+        Console.WriteLine($" CURRENT {TuiRenderer.ColorSwatch(config.R, config.G, config.B, 3)}".PadRight(cw));
         TuiRenderer.WriteParameterRow("Q/W", "Red", config.R.ToString("F1"), config.R, 0, 1);
         TuiRenderer.WriteParameterRow("A/S", "Green", config.G.ToString("F1"), config.G, 0, 1);
         TuiRenderer.WriteParameterRow("Z/X", "Blue", config.B.ToString("F1"), config.B, 0, 1);
@@ -383,41 +383,93 @@ public class ControlPanel
         TuiRenderer.WriteLayerStatus("8", "Mid", config.Layer2);
         Console.Write("  ");
         TuiRenderer.WriteLayerStatus("9", "Near", config.Layer3);
-        Console.WriteLine();
+        Console.WriteLine("".PadRight(cw - 50)); // Pad remaining line to clear residual
         Console.WriteLine();
 
         // Window effects
-        Console.WriteLine($" \x1b[36mWINDOW EFFECTS\x1b[0m");
+        Console.WriteLine($" \x1b[36mWINDOW EFFECTS\x1b[0m".PadRight(cw));
         var transStatus = _transparency ? "ON " : "off";
         var transColor = _transparency ? "\x1b[36m" : "\x1b[90m";
-        Console.WriteLine($" [B] Transparency:  {transColor}{transStatus}\x1b[0m  \x1b[90m(toggles & applies)\x1b[0m");
+        Console.WriteLine($" [B] Transparency:  {transColor}{transStatus}\x1b[0m  \x1b[90m(toggles & applies)\x1b[0m".PadRight(cw));
         if (_transparency)
         {
-            Console.WriteLine($" [K/L] Opacity:     {_opacity,3}% {TuiRenderer.ProgressBar(_opacity, 0, 100)}");
+            Console.WriteLine($" [K/L] Opacity:     {_opacity,3}% {TuiRenderer.ProgressBar(_opacity, 0, 100)}".PadRight(cw));
+        }
+        else
+        {
+            // Clear the opacity line when transparency is off to prevent residual content
+            Console.WriteLine("".PadRight(cw));
         }
 
         // Layout mode
         var state = _configService.LoadState();
         var layoutMode = state.Layout.Mode;
         var layoutColor = layoutMode.Equals("pillars", StringComparison.OrdinalIgnoreCase) ? "\x1b[33m" : "\x1b[35m";
-        Console.WriteLine($" [Shift+L] Layout:  {layoutColor}{layoutMode}\x1b[0m  \x1b[90m(Pillars=columns, Quads=2x2)\x1b[0m");
+        Console.WriteLine($" [Shift+L] Layout:  {layoutColor}{layoutMode}\x1b[0m  \x1b[90m(Pillars=columns, Quads=2x2)\x1b[0m".PadRight(cw));
         Console.WriteLine();
 
         // Launch section
-        Console.WriteLine($" \x1b[35mLAUNCH\x1b[0m");
+        Console.WriteLine($" \x1b[35mLAUNCH\x1b[0m".PadRight(cw));
         var openWindows = _identityService.FindMatrixWindows();
         var openStr = openWindows.Count > 0
             ? string.Join(",", openWindows.Select(w => w.ShaderIndex))
             : "none";
-        Console.WriteLine($" \x1b[90mOpen:\x1b[0m \x1b[32m{openStr}\x1b[0m");
+        Console.WriteLine($" \x1b[90mOpen:\x1b[0m \x1b[32m{openStr}\x1b[0m".PadRight(cw));
 
         var launchStatus = _launchCount > 0 ? $"{_launchCount} window(s)" : "disabled";
         var launchColor = _launchCount > 0 ? "\x1b[35m" : "\x1b[90m";
-        Console.WriteLine($" [-/+] Count: {launchColor}{launchStatus}\x1b[0m");
+        Console.WriteLine($" [-/+] Count: {launchColor}{launchStatus}\x1b[0m".PadRight(cw));
         Console.WriteLine();
 
         // Footer
         TuiRenderer.WriteFooter(_launchCount, _launchCount > 0);
+    }
+
+    /// <summary>
+    /// Shows the hotkey help screen with all available key bindings.
+    /// </summary>
+    private void ShowHotkeyHelp()
+    {
+        Console.Clear();
+        Console.WriteLine();
+        ConsoleHelper.WriteLineMatrixGreen(" HOTKEY HELP");
+        Console.WriteLine();
+
+        ConsoleHelper.WriteLineDim(" CONTROL PANEL KEYS (local):");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim("   [1-6]      Color presets (Green/Cyan/Red/Purple/Gold/Teal)");
+        ConsoleHelper.WriteLineDim("   [Q/W]      Red -/+          [A/S] Green -/+    [Z/X] Blue -/+");
+        ConsoleHelper.WriteLineDim("   [E/R]      Speed -/+        [D/F] Glow -/+");
+        ConsoleHelper.WriteLineDim("   [C/V]      Width -/+        [T/Y] Trail -/+    [G/H] Density -/+");
+        ConsoleHelper.WriteLineDim("   [7/8/9]    Toggle layers (Far/Mid/Near)");
+        ConsoleHelper.WriteLineDim("   [B]        Toggle transparency    [K/L] Opacity -/+");
+        ConsoleHelper.WriteLineDim("   [-/+]      Launch count -/+       [ENTER] Launch windows");
+        ConsoleHelper.WriteLineDim("   [P]        Save shader            [0] Reset to defaults");
+        ConsoleHelper.WriteLineDim("   [TAB]      Switch tabs            [ESC] Quit");
+        Console.WriteLine();
+
+        ConsoleHelper.WriteLineDim(" SHIFT KEYS (local):");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim("   [Shift+L]  Cycle layout mode (Pillars/Quads/Overlap)");
+        ConsoleHelper.WriteLineDim("   [Shift+H]  Configure global hotkey bindings");
+        ConsoleHelper.WriteLineDim("   [Shift+S]  Save snapback position");
+        ConsoleHelper.WriteLineDim("   [Shift+R]  Restore snapback position");
+        Console.WriteLine();
+
+        ConsoleHelper.WriteLineMatrixGreen(" GLOBAL HOTKEYS (active when Matrix windows exist):");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+L       Cycle layout mode");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+B       Toggle background transparency");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+K/O     Decrease/Increase opacity");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+Up/Down Cycle shader in library");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+, / .   Decrease/Increase rain speed");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+7/8/9   Toggle FAR/MID/NEAR layers");
+        Console.WriteLine();
+
+        ConsoleHelper.WriteLineDim(" Press [Shift+H] to customize global hotkey bindings.");
+        Console.WriteLine();
+        Console.Write(" Press any key to return...");
+        Console.ReadKey(intercept: true);
     }
 
     private void HandleKey(ConsoleKeyInfo key)
@@ -662,6 +714,12 @@ public class ControlPanel
                     // Refresh main TUI after config screen exits
                     Console.Clear();
                 }
+                break;
+
+            case KeyAction.Help:
+                // Show hotkey help screen (?)
+                ShowHotkeyHelp();
+                Console.Clear();
                 break;
         }
     }

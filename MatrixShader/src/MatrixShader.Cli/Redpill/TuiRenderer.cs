@@ -6,6 +6,13 @@ namespace MatrixShader.Cli.Redpill;
 /// </summary>
 public static class TuiRenderer
 {
+    #region Constants
+
+    /// <summary>Standard terminal width for padding lines to prevent content overlap.</summary>
+    public const int ClearWidth = 80;
+
+    #endregion
+
     #region ANSI Escape Codes
 
     /// <summary>Escape character for ANSI sequences.</summary>
@@ -172,7 +179,7 @@ public static class TuiRenderer
     }
 
     /// <summary>
-    /// Writes the footer with launch and save controls.
+    /// Writes the footer with launch, save controls, and hotkey help hint.
     /// </summary>
     /// <param name="launchCount">Number of windows to launch (0 shows disabled).</param>
     /// <param name="canLaunch">Whether launching is available.</param>
@@ -182,10 +189,11 @@ public static class TuiRenderer
             ? $"[ENTER] Launch {launchCount} window(s)"
             : "[ENTER] (set count first)";
         var enterColor = launchCount > 0 ? YELLOW : GRAY;
-        Console.WriteLine($" {enterColor}{enterAction}{RESET}  {YELLOW}[P] Save shader{RESET}");
-        Console.WriteLine($" {GRAY}[0] Reset  [ESC] Quit{RESET}");
+        Console.WriteLine($" {enterColor}{enterAction}{RESET}  {YELLOW}[P] Save shader{RESET}".PadRight(ClearWidth));
+        Console.WriteLine($" {GRAY}[0] Reset  [ESC] Quit{RESET}".PadRight(ClearWidth));
         Console.WriteLine();
-        Console.WriteLine($" {GRAY}Shader changes apply automatically when saved (hot-reload){RESET}");
+        Console.WriteLine($" {GRAY}[Shift+H] Configure hotkeys  [?] Help{RESET}".PadRight(ClearWidth));
+        Console.WriteLine($" {GRAY}Shader changes apply automatically when saved (hot-reload){RESET}".PadRight(ClearWidth));
     }
 
     #endregion
