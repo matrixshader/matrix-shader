@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=Matrix Shader
-AppVersion=2.0.0
+AppVersion=1.0.0
 AppPublisher=Matrix Shader Project
 DefaultDirName={autopf}\MatrixShader
 DefaultGroupName=Matrix Shader
@@ -16,8 +16,17 @@ PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
 ArchitecturesAllowed=x64compatible
 
+; Matrix theming
+WizardStyle=modern
+WizardSizePercent=100
+WizardResizable=no
+
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[CustomMessages]
+english.WelcomeLabel1=Welcome to the Matrix
+english.WelcomeLabel2=You take the Red Pill - you stay in Wonderland, and I show you how deep the rabbit hole goes.%n%nThis wizard will install Matrix Shader on your computer.
 
 [Files]
 ; All runtime files (DLLs, .NET runtime, etc.) go to app directory
@@ -34,6 +43,20 @@ Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environmen
     Check: NeedsAddPath(ExpandConstant('{app}'))
 
 [Code]
+procedure InitializeWizard;
+begin
+  { Set dark background }
+  WizardForm.Color := $000000;  { Black }
+  WizardForm.MainPanel.Color := $001100;  { Dark green tint }
+  WizardForm.InnerPage.Color := $000000;
+
+  { Green text for labels where possible }
+  WizardForm.WelcomeLabel1.Font.Color := $00FF00;  { Bright green }
+  WizardForm.WelcomeLabel2.Font.Color := $00AA00;  { Dimmer green }
+  WizardForm.PageDescriptionLabel.Font.Color := $00AA00;
+  WizardForm.PageNameLabel.Font.Color := $00FF00;
+end;
+
 function NeedsAddPath(Param: string): boolean;
 var
   OrigPath: string;
@@ -53,12 +76,13 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssDone then
   begin
-    MsgBox('Matrix Shader installed successfully!' + #13#10 + #13#10 +
-           'Open a NEW terminal window to use the commands:' + #13#10 +
-           '  - wakeupneo (setup wizard)' + #13#10 +
-           '  - bluepill (quick launch)' + #13#10 +
-           '  - redpill (control panel)' + #13#10 +
-           '  - matrixlite (text fallback)', mbInformation, MB_OK);
+    MsgBox('Welcome to the Matrix.' + #13#10 + #13#10 +
+           'Open a NEW terminal window and type:' + #13#10 +
+           '  wakeupneo' + #13#10 + #13#10 +
+           'Other commands:' + #13#10 +
+           '  bluepill  - Quick launch your Matrix session' + #13#10 +
+           '  redpill   - Full control panel' + #13#10 +
+           '  matrixlite - Text fallback mode', mbInformation, MB_OK);
   end;
 end;
 
@@ -118,23 +142,23 @@ begin
 
   if FileExists(ExePath) then
   begin
-    { Existing installation detected - show options }
+    { Existing installation detected - show Matrix-themed options }
     MsgResult := MsgBox('Matrix Shader is already installed.' + #13#10 + #13#10 +
-                        'What would you like to do?' + #13#10 + #13#10 +
-                        'YES = Update/Repair (keep settings, recommended)' + #13#10 +
-                        'NO = Uninstall first, then reinstall (clean install)' + #13#10 +
-                        'CANCEL = Exit installer',
-                        mbConfirmation, MB_YESNOCANCEL);
+                        'Choose your path:' + #13#10 + #13#10 +
+                        'YES = Update (Blue Pill - keep your config, recommended)' + #13#10 +
+                        'NO = Clean Reinstall (Red Pill - start fresh)' + #13#10 + #13#10 +
+                        'Close window to cancel.',
+                        mbConfirmation, MB_YESNO);
 
     case MsgResult of
       IDYES:
         begin
-          { Continue with update/repair - installer will overwrite files }
+          { Blue Pill: Continue with update/repair - installer will overwrite files }
           Result := True;
         end;
       IDNO:
         begin
-          { Run uninstaller first }
+          { Red Pill: Run uninstaller first for clean install }
           UninstallKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\Matrix Shader_is1';
           if RegQueryStringValue(HKLM, UninstallKey, 'UninstallString', UninstallString) then
           begin
@@ -161,11 +185,6 @@ begin
                    mbError, MB_OK);
             Result := False;
           end;
-        end;
-      IDCANCEL:
-        begin
-          { User cancelled }
-          Result := False;
         end;
     end;
   end;
