@@ -121,11 +121,11 @@ public class LayoutService : ILayoutService
             if (!WindowsApi.IsHandleValid(pos.Window.Handle))
                 continue;
 
-            // Restore if minimized
+            // Respect user's intentional minimization - skip minimized windows
             if (WindowsApi.IsIconic(pos.Window.Handle))
             {
-                WindowsApi.ShowWindow(pos.Window.Handle, WindowsApi.SW_RESTORE);
-                Thread.Sleep(100); // Brief delay for restore animation
+                DiagnosticLogger.Debug("LAYOUT", $"Skipping minimized window: Matrix-{pos.Window.ShaderIndex}");
+                continue;
             }
 
             // Position with border compensation for pixel-perfect visible bounds
