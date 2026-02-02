@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 ## Current Position
 
-Milestone: v1.0 IN PROGRESS (17 bugs, 11 fixed)
+Milestone: v1.0 IN PROGRESS (17 bugs, 14 fixed)
 Phase: 13 - Post-E2E Polish (IN PROGRESS)
-Plan: 06 of 08
-Status: Plan 13-06 complete (BUG-TRANS03 - transparency scope)
-Last activity: 2026-02-02 - Completed 13-06 (per-profile opacity)
+Plan: 04 of 08
+Status: Plan 13-04 complete (BUG-REDPILL01/02, BUG-HOTKEY01 - Redpill UX)
+Last activity: 2026-02-02 - Completed 13-04 (Redpill UX fixes)
 
-Progress: [###########################################################] 59 plans complete
+Progress: [############################################################] 60 plans complete
 
 ## Phase 12 Plan Summary (IN PROGRESS)
 
@@ -116,6 +116,9 @@ Progress: [###########################################################] 59 plans
 | $000000 black + $001100 green tint | Matrix aesthetic with dark background and green accents | 13-05 |
 | MB_YESNO instead of MB_YESNOCANCEL | Simplify re-run dialog, close window to cancel | 13-05 |
 | Per-profile opacity (85%) vs defaults | Keeps non-Matrix WT windows 100% opaque | 13-06 |
+| WT_PROFILE_ID for profile detection | Reliable detection of named profile | 13-04 |
+| ClearWidth=80 for line padding | Prevents menu content overlap | 13-04 |
+| '?' key for hotkey help | Easy discovery of all key bindings | 13-04 |
 
 ### Blockers/Concerns
 
@@ -136,10 +139,10 @@ During lunch break microsprint, GSD agents fixed 6 bugs:
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 13-06-PLAN.md
+Stopped at: Completed 13-04-PLAN.md
 Resume file: None
 Next action: Continue with remaining Phase 13 plans (13-07)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-02 - Completed 13-06 (BUG-TRANS03 per-profile opacity)*
+*Last updated: 2026-02-02 - Completed 13-04 (BUG-REDPILL01/02, BUG-HOTKEY01)*
