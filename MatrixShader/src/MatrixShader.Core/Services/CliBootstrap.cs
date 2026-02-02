@@ -88,6 +88,11 @@ public static class CliBootstrap
             var installed = await TryInstallWindowsTerminalAsync(verbose);
             if (!installed)
             {
+                // Check if WT was actually installed but needs restart
+                if (IsWindowsTerminalInstalled())
+                {
+                    return new BootstrapResult(false, "Restart in Windows Terminal required.");
+                }
                 return new BootstrapResult(false, "Windows Terminal is required but not installed.");
             }
 
@@ -216,6 +221,24 @@ public static class CliBootstrap
     }
 
     /// <summary>
+    /// Shows restart instructions after Windows Terminal is installed but not running inside WT.
+    /// </summary>
+    private static void ShowRestartInstructions()
+    {
+        Console.WriteLine();
+        ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed successfully!");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" To continue:");
+        ConsoleHelper.WriteLineDim("   1. Close this window");
+        ConsoleHelper.WriteLineDim("   2. Type 'wt' to open Windows Terminal");
+        ConsoleHelper.WriteLineDim("   3. Run 'wakeupneo' again");
+        Console.WriteLine();
+        Console.Write(" Press any key to exit...");
+        Console.ReadKey(intercept: true);
+        Console.WriteLine();
+    }
+
+    /// <summary>
     /// Checks if winget is available on this system.
     /// </summary>
     private static bool IsWingetAvailable()
@@ -283,6 +306,12 @@ public static class CliBootstrap
                     // Verify installation succeeded
                     if (IsWindowsTerminalInstalled())
                     {
+                        // Check if we need to restart in WT
+                        if (!EnvironmentService.IsWindowsTerminal())
+                        {
+                            ShowRestartInstructions();
+                            return false; // Signal restart needed, not Lite fallback
+                        }
                         ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed via winget!");
                         return true;
                     }
@@ -322,6 +351,12 @@ public static class CliBootstrap
 
                 if (IsWindowsTerminalInstalled())
                 {
+                    // Check if we need to restart in WT
+                    if (!EnvironmentService.IsWindowsTerminal())
+                    {
+                        ShowRestartInstructions();
+                        return false; // Signal restart needed, not Lite fallback
+                    }
                     ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed via Store!");
                     return true;
                 }
@@ -344,6 +379,12 @@ public static class CliBootstrap
             var downloaded = await TryDownloadFromGitHubAsync(verbose);
             if (downloaded && IsWindowsTerminalInstalled())
             {
+                // Check if we need to restart in WT
+                if (!EnvironmentService.IsWindowsTerminal())
+                {
+                    ShowRestartInstructions();
+                    return false; // Signal restart needed, not Lite fallback
+                }
                 ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed from GitHub!");
                 return true;
             }
@@ -370,10 +411,12 @@ public static class CliBootstrap
 
     /// <summary>
     /// Downloads and installs Windows Terminal from GitHub releases.
+    /// Includes automatic installation of Microsoft.UI.Xaml dependency.
     /// </summary>
     private static async Task<bool> TryDownloadFromGitHubAsync(bool verbose)
     {
         const string releasesApi = "https://api.github.com/repos/microsoft/terminal/releases/latest";
+        const string xamlPackageUrl = "https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.8.6";
 
         try
         {
@@ -434,9 +477,20 @@ public static class CliBootstrap
             }
 
             Console.WriteLine();
-            ConsoleHelper.WriteLineDim(" Download complete. Installing...");
+            ConsoleHelper.WriteLineDim(" Download complete.");
 
-            // Install using Add-AppxPackage (PowerShell)
+            // Install XAML dependency first (required for WT msixbundle)
+            ConsoleHelper.WriteLineDim(" Installing Microsoft.UI.Xaml dependency...");
+            var xamlInstalled = await TryInstallXamlDependencyAsync(httpClient, tempDir, xamlPackageUrl);
+            if (!xamlInstalled)
+            {
+                ConsoleHelper.WriteLineWarning(" XAML dependency installation failed.");
+                ConsoleHelper.WriteLineDim(" Windows Terminal may fail to install.");
+                ConsoleHelper.WriteLineDim(" Manual fix: Install Microsoft.UI.Xaml from NuGet or Microsoft Store.");
+            }
+
+            // Install Windows Terminal using Add-AppxPackage (PowerShell)
+            ConsoleHelper.WriteLineDim(" Installing Windows Terminal...");
             var installPsi = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
@@ -455,7 +509,18 @@ public static class CliBootstrap
                 {
                     var error = await installProcess.StandardError.ReadToEndAsync();
                     DiagnosticLogger.Debug("BOOTSTRAP", $"Install failed: {error}");
-                    ConsoleHelper.WriteLineDim(" Installation failed. You may need to install manually.");
+
+                    // Check if it's a dependency error and provide helpful message
+                    if (error.Contains("dependency", StringComparison.OrdinalIgnoreCase) ||
+                        error.Contains("Xaml", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ConsoleHelper.WriteLineWarning(" Installation failed due to missing dependency.");
+                        ConsoleHelper.WriteLineDim(" Try installing from Microsoft Store instead.");
+                    }
+                    else
+                    {
+                        ConsoleHelper.WriteLineDim(" Installation failed. You may need to install manually.");
+                    }
                     return false;
                 }
             }
@@ -465,6 +530,7 @@ public static class CliBootstrap
 
             // Cleanup
             try { File.Delete(downloadPath); } catch { }
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
 
             return IsWindowsTerminalInstalled();
         }
@@ -472,6 +538,112 @@ public static class CliBootstrap
         {
             DiagnosticLogger.Debug("BOOTSTRAP", $"GitHub download failed: {ex.Message}");
             ConsoleHelper.WriteLineDim($" Download failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Downloads and installs Microsoft.UI.Xaml 2.8 dependency from NuGet.
+    /// This is required for Windows Terminal msixbundle installation.
+    /// </summary>
+    private static async Task<bool> TryInstallXamlDependencyAsync(HttpClient httpClient, string tempDir, string xamlPackageUrl)
+    {
+        try
+        {
+            var xamlZipPath = Path.Combine(tempDir, "xaml.zip");
+            var xamlExtractPath = Path.Combine(tempDir, "xaml");
+
+            // Download XAML package from NuGet
+            DiagnosticLogger.Debug("BOOTSTRAP", $"Downloading XAML from: {xamlPackageUrl}");
+            using (var xamlResponse = await httpClient.GetAsync(xamlPackageUrl))
+            {
+                xamlResponse.EnsureSuccessStatusCode();
+                await using var xamlFileStream = File.Create(xamlZipPath);
+                await xamlResponse.Content.CopyToAsync(xamlFileStream);
+            }
+
+            // Extract the zip using PowerShell (Expand-Archive)
+            var extractPsi = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -Command \"Expand-Archive -Path '{xamlZipPath}' -DestinationPath '{xamlExtractPath}' -Force\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true
+            };
+
+            using var extractProcess = Process.Start(extractPsi);
+            if (extractProcess != null)
+            {
+                await extractProcess.WaitForExitAsync();
+                if (extractProcess.ExitCode != 0)
+                {
+                    var error = await extractProcess.StandardError.ReadToEndAsync();
+                    DiagnosticLogger.Debug("BOOTSTRAP", $"XAML extract failed: {error}");
+                    return false;
+                }
+            }
+
+            // Find and install the x64 appx (path: tools/AppX/x64/Release/Microsoft.UI.Xaml.2.8.appx)
+            var xamlAppxPath = Path.Combine(xamlExtractPath, "tools", "AppX", "x64", "Release", "Microsoft.UI.Xaml.2.8.appx");
+
+            if (!File.Exists(xamlAppxPath))
+            {
+                // Try alternate path structure
+                var altPath = Directory.GetFiles(xamlExtractPath, "Microsoft.UI.Xaml.*.appx", SearchOption.AllDirectories)
+                    .FirstOrDefault(p => p.Contains("x64", StringComparison.OrdinalIgnoreCase));
+
+                if (altPath != null)
+                {
+                    xamlAppxPath = altPath;
+                }
+                else
+                {
+                    DiagnosticLogger.Debug("BOOTSTRAP", $"XAML appx not found at expected path: {xamlAppxPath}");
+                    return false;
+                }
+            }
+
+            DiagnosticLogger.Debug("BOOTSTRAP", $"Installing XAML from: {xamlAppxPath}");
+
+            // Install the XAML appx
+            var installPsi = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -Command \"Add-AppxPackage -Path '{xamlAppxPath}'\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true
+            };
+
+            using var installProcess = Process.Start(installPsi);
+            if (installProcess != null)
+            {
+                await installProcess.WaitForExitAsync();
+                if (installProcess.ExitCode != 0)
+                {
+                    var error = await installProcess.StandardError.ReadToEndAsync();
+                    // Ignore "already installed" errors
+                    if (!error.Contains("already installed", StringComparison.OrdinalIgnoreCase) &&
+                        !error.Contains("higher version", StringComparison.OrdinalIgnoreCase))
+                    {
+                        DiagnosticLogger.Debug("BOOTSTRAP", $"XAML install failed: {error}");
+                        return false;
+                    }
+                    DiagnosticLogger.Debug("BOOTSTRAP", "XAML dependency already installed or newer version present");
+                }
+            }
+
+            // Cleanup XAML files
+            try { File.Delete(xamlZipPath); } catch { }
+            try { Directory.Delete(xamlExtractPath, recursive: true); } catch { }
+
+            ConsoleHelper.WriteLineDim(" XAML dependency installed.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Debug("BOOTSTRAP", $"XAML dependency installation failed: {ex.Message}");
             return false;
         }
     }
