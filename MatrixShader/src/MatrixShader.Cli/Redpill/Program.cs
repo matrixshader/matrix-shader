@@ -15,8 +15,65 @@ namespace MatrixShader.Cli.Redpill;
 /// </summary>
 public static class Program
 {
+    /// <summary>
+    /// Checks if currently running in the Redpill WT profile.
+    /// </summary>
+    private static bool IsRunningInRedpillProfile()
+    {
+        // Check if WT_PROFILE_ID contains "Redpill" (set by WT when using named profile)
+        var profileId = Environment.GetEnvironmentVariable("WT_PROFILE_ID");
+        if (!string.IsNullOrEmpty(profileId) &&
+            profileId.Contains("Redpill", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Fallback: check window title contains "Redpill"
+        try
+        {
+            var title = Console.Title;
+            if (title.Contains("Redpill", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        catch { }
+
+        return false;
+    }
+
     public static async Task<int> Main(string[] args)
     {
+        // Self-launch: If running in WT but not in Redpill profile, open new WT window with Redpill profile
+        // Skip self-launch for help/hotkeys/no-relaunch modes
+        if (!args.Contains("--help") && !args.Contains("--hotkeys") && !args.Contains("--no-relaunch"))
+        {
+            // Check if we're in WT but NOT in Redpill profile
+            if (EnvironmentService.IsWindowsTerminal() && !IsRunningInRedpillProfile())
+            {
+                // Launch new WT window with Redpill profile
+                var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
+                try
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = wtPath,
+                        Arguments = "-p \"Redpill\"",
+                        UseShellExecute = true
+                    };
+                    Process.Start(psi);
+
+                    // Exit current instance - the new window will run redpill
+                    return 0;
+                }
+                catch (Exception ex)
+                {
+                    DiagnosticLogger.Debug("REDPILL", $"Self-launch failed: {ex.Message}");
+                    // Fall through to run in current window if launch fails
+                }
+            }
+        }
+
         // Skip splash for help or hotkeys config mode
         if (!args.Contains("--help") && !args.Contains("--hotkeys"))
         {
@@ -148,11 +205,17 @@ public static class Program
         ConsoleHelper.WriteLineDim(" Usage: redpill [options]");
         Console.WriteLine();
         ConsoleHelper.WriteLineDim(" Options:");
-        ConsoleHelper.WriteLineDim("   --help       Show this help message");
-        ConsoleHelper.WriteLineDim("   --hotkeys    Configure global hotkey bindings");
-        ConsoleHelper.WriteLineDim("   --debug      Enable diagnostic logging");
-        ConsoleHelper.WriteLineDim("   --morpheus   Philosophical explanations");
+        ConsoleHelper.WriteLineDim("   --help         Show this help message");
+        ConsoleHelper.WriteLineDim("   --hotkeys      Configure global hotkey bindings");
+        ConsoleHelper.WriteLineDim("   --debug        Enable diagnostic logging");
+        ConsoleHelper.WriteLineDim("   --no-relaunch  Stay in current window (don't open Redpill profile)");
+        ConsoleHelper.WriteLineDim("   --morpheus     Philosophical explanations");
         ConsoleHelper.WriteLineDim("   --agent-smith  Chaos mode");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" Global Hotkeys (press [?] in control panel for list):");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+L   Cycle layout mode");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+B   Toggle background transparency");
+        ConsoleHelper.WriteLineDim("   ... and more - see [?] in control panel");
         Console.WriteLine();
     }
 
