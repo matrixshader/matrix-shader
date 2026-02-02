@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 ## Current Position
 
-Milestone: v1.0 IN PROGRESS (17 bugs, 1 fixed)
+Milestone: v1.0 IN PROGRESS (17 bugs, 3 fixed)
 Phase: 13 - Post-E2E Polish (IN PROGRESS)
-Plan: 01 of 08
-Status: Plan 13-01 complete (BUG-WT06)
-Last activity: 2026-02-02 - Completed 13-01 (post-install WT restart instructions)
+Plan: 02 of 08
+Status: Plan 13-02 complete (BUG-LAYOUT03, BUG-LAYOUT04)
+Last activity: 2026-02-02 - Completed 13-02 (Pillars layout + minimized window fixes)
 
-Progress: [#########################################################] 56 plans complete
+Progress: [##########################################################] 57 plans complete
 
 ## Phase 12 Plan Summary (IN PROGRESS)
 
@@ -105,12 +105,15 @@ Progress: [#########################################################] 56 plans c
 | ShowRestartInstructions after WT install | Users need clear guidance, not silent Lite fallback | 13-01 |
 | Return false to signal restart needed | Prevents automatic Lite mode, BootstrapResult clarifies | 13-01 |
 | Check IsWindowsTerminal() after install | Detects if running inside WT vs cmd/PowerShell | 13-01 |
+| MinWindowWidth = 200 for narrow pillars | Allow 4+ columns in Pillars mode | 13-02 |
+| Gap reduction before row addition | Preserve Pillars single-row layout intent | 13-02 |
+| Skip minimized windows (continue) | Respect user's intentional window state | 13-02 |
 
 ### Blockers/Concerns
 
 1. **GitHub Releases setup required** - Need to upload MatrixShader.zip to Releases for one-liner to work
 2. **Domain redirect** - Need matrixshader.com/install.ps1 to redirect to raw GitHub URL
-3. **16 remaining bugs from post-microsprint testing** - Phase 13 in progress
+3. **14 remaining bugs from post-microsprint testing** - Phase 13 in progress
 
 ### Phase 12 Microsprint Results (2026-02-01)
 
@@ -125,10 +128,10 @@ During lunch break microsprint, GSD agents fixed 6 bugs:
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 13-01-PLAN.md
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None
-Next action: Execute 13-02-PLAN.md
+Next action: Execute 13-03-PLAN.md
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-02 - Completed 13-01 (BUG-WT06 fix)*
+*Last updated: 2026-02-02 - Completed 13-02 (BUG-LAYOUT03, BUG-LAYOUT04 fixes)*
