@@ -17,6 +17,10 @@ public class FallbackMenu
     private bool _backgroundMode;
     private CancellationTokenSource? _animationCts;
 
+    // Signals to return to menu instead of exiting
+    private volatile bool _returnToMenu;
+    private volatile bool _userRequestedExit;
+
     public FallbackMenu()
     {
         _renderer = new TextMatrixRenderer();
@@ -25,18 +29,30 @@ public class FallbackMenu
         _density = 0.4f;
         _animationRunning = false;
         _backgroundMode = false;
+        _returnToMenu = false;
+        _userRequestedExit = false;
     }
 
     /// <summary>
+    /// Gets whether the user requested to exit entirely (vs returning to menu).
+    /// </summary>
+    public bool UserRequestedExit => _userRequestedExit;
+
+    /// <summary>
     /// Runs the interactive menu loop.
+    /// Returns when user presses Q/ESC from menu (or cancellation token is triggered).
     /// </summary>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         Console.OutputEncoding = Encoding.UTF8;
+        _userRequestedExit = false;
+
+        // Register Ctrl+C handler
+        Console.CancelKeyPress += OnCancelKeyPress;
 
         try
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested && !_userRequestedExit)
             {
                 if (_animationRunning)
                 {
@@ -59,25 +75,118 @@ public class FallbackMenu
         }
         finally
         {
+            Console.CancelKeyPress -= OnCancelKeyPress;
             await StopAnimationAsync();
         }
     }
 
     /// <summary>
     /// Starts rain immediately (for Blue Pill direct start).
+    /// Returns when user presses ESC, Q, or Ctrl+C.
     /// </summary>
     public async Task StartRainDirectAsync(CancellationToken cancellationToken)
     {
         Console.OutputEncoding = Encoding.UTF8;
         _renderer.SetColor(_currentColor);
+        _renderer.SetSpeed(_speed);
+        _renderer.SetDensity(_density);
+        _returnToMenu = false;
+
+        // Register Ctrl+C handler to signal return to menu (not exit)
+        Console.CancelKeyPress += OnCancelKeyPress;
 
         try
         {
-            await _renderer.RunAsync(cancellationToken);
+            // Show brief hint about how to exit
+            Console.Clear();
+            Console.WriteLine();
+            Console.WriteLine("\x1b[90m  Press ESC, Q, or Ctrl+C to return to menu...\x1b[0m");
+            await Task.Delay(1500, cancellationToken);
+            Console.Clear();
+
+            // Initialize renderer
+            _renderer.Initialize();
+
+            // Run animation loop with key checking
+            int frameDelay = (int)(1000 / (30 * _speed));
+
+            while (!cancellationToken.IsCancellationRequested && !_returnToMenu)
+            {
+                _renderer.RenderFrame();
+
+                // Check for key press without blocking
+                if (Console.KeyAvailable)
+                {
+                    var key = Console.ReadKey(intercept: true);
+                    if (key.Key == ConsoleKey.Escape || key.Key == ConsoleKey.Q)
+                    {
+                        _returnToMenu = true;
+                        break;
+                    }
+                    // Allow color changes and other controls during effect
+                    HandleEffectKey(key);
+                }
+
+                await Task.Delay(frameDelay, cancellationToken);
+            }
         }
         catch (OperationCanceledException)
         {
-            // Expected
+            // Expected when cancelled
+        }
+        finally
+        {
+            Console.CancelKeyPress -= OnCancelKeyPress;
+            _renderer.Cleanup();
+        }
+    }
+
+    /// <summary>
+    /// Handler for Ctrl+C that signals return to menu instead of terminating.
+    /// </summary>
+    private void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
+    {
+        e.Cancel = true;  // Don't terminate the process
+        _returnToMenu = true;  // Signal to return to menu
+    }
+
+    /// <summary>
+    /// Handles key presses during the effect (color changes, speed, etc.).
+    /// </summary>
+    private void HandleEffectKey(ConsoleKeyInfo key)
+    {
+        switch (key.Key)
+        {
+            case ConsoleKey.D1 or ConsoleKey.NumPad1:
+                SetColor(ColorPresets.Green);
+                break;
+            case ConsoleKey.D2 or ConsoleKey.NumPad2:
+                SetColor(ColorPresets.Cyan);
+                break;
+            case ConsoleKey.D3 or ConsoleKey.NumPad3:
+                SetColor(ColorPresets.Red);
+                break;
+            case ConsoleKey.D4 or ConsoleKey.NumPad4:
+                SetColor(ColorPresets.Purple);
+                break;
+            case ConsoleKey.D5 or ConsoleKey.NumPad5:
+                SetColor(ColorPresets.Gold);
+                break;
+            case ConsoleKey.D6 or ConsoleKey.NumPad6:
+                SetColor(ColorPresets.Teal);
+                break;
+            case ConsoleKey.E:
+                AdjustSpeed(-0.1f);
+                break;
+            case ConsoleKey.R:
+                AdjustSpeed(0.1f);
+                break;
+            case ConsoleKey.D:
+                AdjustDensity(-0.1f);
+                break;
+            case ConsoleKey.F:
+                AdjustDensity(0.1f);
+                break;
         }
     }
 
@@ -158,7 +267,7 @@ public class FallbackMenu
                 break;
             case ConsoleKey.Q:
             case ConsoleKey.Escape:
-                Environment.Exit(0);
+                _userRequestedExit = true;
                 break;
         }
     }
