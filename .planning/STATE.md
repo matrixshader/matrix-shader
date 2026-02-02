@@ -111,6 +111,8 @@ Progress: [###########################################################] 58 plans
 | Console.CancelKeyPress with e.Cancel = true | Prevents process termination, signals return to menu | 13-08 |
 | Menu loop pattern for iterative choices | Allows re-choosing Blue Pill / Red Pill after effect | 13-08 |
 | Exit option [Q] in pill choice menu | Provides clean way to exit program entirely | 13-08 |
+| High-frequency sine hash for col_hash | Different from random() to ensure independent variation | 13-03 |
+| 2.5x screen height phase offset | Sufficient stagger without excessive offset | 13-03 |
 
 ### Blockers/Concerns
 
