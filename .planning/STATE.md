@@ -9,11 +9,11 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 ## Current Position
 
-Milestone: v1.0 IN PROGRESS (17 bugs, 6 fixed)
+Milestone: v1.0 IN PROGRESS (17 bugs, 10 fixed)
 Phase: 13 - Post-E2E Polish (IN PROGRESS)
-Plan: 08 of 08
-Status: Plan 13-08 complete (BUG-ML08/09/10 - effect interruption)
-Last activity: 2026-02-02 - Completed 13-08 (MatrixLite effect interruption)
+Plan: 05 of 08
+Status: Plan 13-05 complete (UX-INST01/02/03 - installer theming)
+Last activity: 2026-02-02 - Completed 13-05 (Matrix-themed installer)
 
 Progress: [###########################################################] 58 plans complete
 
@@ -113,6 +113,8 @@ Progress: [###########################################################] 58 plans
 | Exit option [Q] in pill choice menu | Provides clean way to exit program entirely | 13-08 |
 | High-frequency sine hash for col_hash | Different from random() to ensure independent variation | 13-03 |
 | 2.5x screen height phase offset | Sufficient stagger without excessive offset | 13-03 |
+| $000000 black + $001100 green tint | Matrix aesthetic with dark background and green accents | 13-05 |
+| MB_YESNO instead of MB_YESNOCANCEL | Simplify re-run dialog, close window to cancel | 13-05 |
 
 ### Blockers/Concerns
 
@@ -133,10 +135,10 @@ During lunch break microsprint, GSD agents fixed 6 bugs:
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 13-08-PLAN.md
+Stopped at: Completed 13-05-PLAN.md
 Resume file: None
-Next action: Continue with remaining Phase 13 plans
+Next action: Continue with remaining Phase 13 plans (13-06, 13-07)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-02 - Completed 13-08 (BUG-ML08/09/10 effect interruption fixes)*
+*Last updated: 2026-02-02 - Completed 13-05 (UX-INST01/02/03 installer theming)*
