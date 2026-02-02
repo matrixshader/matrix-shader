@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Instant startup with full PowerShell feature parity
-**Current focus:** Phase 12 - E2E Gap Closure (IN PROGRESS)
+**Current focus:** Phase 13 - Post-E2E Polish (IN PROGRESS)
 
 ## Current Position
 
-Milestone: v1.0 IN PROGRESS (18 bugs found in E2E testing)
-Phase: 12 - E2E Gap Closure (IN PROGRESS)
-Plan: 06 of 7+ (First-run detection fix)
-Status: Plan 12-06 complete
-Last activity: 2026-02-01 - Completed 12-06-PLAN.md (BUG-FRX01 false session detection)
+Milestone: v1.0 IN PROGRESS (17 bugs, 1 fixed)
+Phase: 13 - Post-E2E Polish (IN PROGRESS)
+Plan: 01 of 08
+Status: Plan 13-01 complete (BUG-WT06)
+Last activity: 2026-02-02 - Completed 13-01 (post-install WT restart instructions)
 
-Progress: [########################################################] 55 plans complete
+Progress: [#########################################################] 56 plans complete
 
 ## Phase 12 Plan Summary (IN PROGRESS)
 
@@ -54,6 +54,7 @@ Progress: [########################################################] 55 plans co
 - Phase 11 plan 06 added: Installer BUILD step was missing
 - Phase 11 plan 07 added: One-liner install script for command-line users
 - Phase 12 added: E2E Gap Closure - Fix all 18 bugs from Windows Sandbox testing
+- Phase 13 added: Post-E2E Polish - Fix 17 NEW bugs from post-microsprint testing (WT detection, MatrixLite, layout, transparency, redpill UX, installer theming)
 
 ### Decisions (Phase 12)
 
@@ -97,19 +98,37 @@ Progress: [########################################################] 55 plans co
 | Admin vs non-admin paths | Program Files for admin, LocalAppData for non-admin | 11-07 |
 | GitHub Releases for distribution | Standard pattern, works with one-liner script | 11-07 |
 
+### Decisions (Phase 13)
+
+| Decision | Rationale | Source |
+|----------|-----------|--------|
+| ShowRestartInstructions after WT install | Users need clear guidance, not silent Lite fallback | 13-01 |
+| Return false to signal restart needed | Prevents automatic Lite mode, BootstrapResult clarifies | 13-01 |
+| Check IsWindowsTerminal() after install | Detects if running inside WT vs cmd/PowerShell | 13-01 |
+
 ### Blockers/Concerns
 
 1. **GitHub Releases setup required** - Need to upload MatrixShader.zip to Releases for one-liner to work
 2. **Domain redirect** - Need matrixshader.com/install.ps1 to redirect to raw GitHub URL
-3. **Remaining work** - Final E2E verification (12-07) to confirm all fixes
+3. **16 remaining bugs from post-microsprint testing** - Phase 13 in progress
+
+### Phase 12 Microsprint Results (2026-02-01)
+
+During lunch break microsprint, GSD agents fixed 6 bugs:
+- BUG-WT05: XAML dependency added to GitHub fallback (FIXED)
+- BUG-DEFAULT01: Lowered default density from 0.4 to 0.25 (FIXED)
+- BUG-TRANS01: Removed profiles.defaults modification (FIXED)
+- BUG-SHADER02: Added CreateRedpillProfile() call (FIXED)
+- BUG-LAYOUT01/02: Added WM_DISPLAYCHANGE handling + overlap detection (FIXED)
+- BUG-CRASH01: CPU freeze INCONCLUSIVE - likely WMI/sandbox contention
 
 ## Session Continuity
 
-Last session: 2026-02-01
-Stopped at: Completed 12-06-PLAN.md (BUG-FRX01 false session detection)
+Last session: 2026-02-02
+Stopped at: Completed 13-01-PLAN.md
 Resume file: None
-Next action: Execute 12-07-PLAN.md (Final E2E verification)
+Next action: Execute 13-02-PLAN.md
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-01 - Phase 12 plan 06 complete*
+*Last updated: 2026-02-02 - Completed 13-01 (BUG-WT06 fix)*
