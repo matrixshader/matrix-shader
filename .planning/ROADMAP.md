@@ -25,7 +25,8 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 - [x] **Phase 10: MatrixLite Fallback** - Text-based fallback for non-Windows-Terminal
 - [x] **Phase 10.5: Global Hotkeys** - INSERTED: Port matrix_hotkeys.ps1 to C#
 - [x] **Phase 11: Installer & E2E Validation** - Build installer, fix paths, validate on clean system
-- [ ] **Phase 12: E2E Gap Closure** - Fix all 18 bugs found in sandbox testing
+- [x] **Phase 12: E2E Gap Closure** - Fix all 18 bugs found in sandbox testing
+- [ ] **Phase 13: Post-E2E Polish** - Fix 10 bugs found in post-microsprint testing
 
 ## Phase Details
 
@@ -151,13 +152,13 @@ Plans:
 **Plans:** 7 plans in 3 waves
 
 Plans:
-- [ ] 12-01-PLAN.md — Critical shader and WT detection fixes (BUG-SHADER01, BUG-WT01/02/03/04)
-- [ ] 12-02-PLAN.md — MatrixLite ANSI and color fixes (BUG-ML01, BUG-ML05, BUG-ML06)
-- [ ] 12-03-PLAN.md — MatrixLite UX and intro flow (BUG-ML02/03/04, pill choice)
-- [ ] 12-04-PLAN.md — WT installation flow with fallbacks (GAP-E03a/b/c)
-- [ ] 12-05-PLAN.md — Installer uninstall and re-run fixes (BUG-UNINST01/02, GAP-INST01)
-- [ ] 12-06-PLAN.md — First-run detection fix (BUG-FRX01)
-- [ ] 12-07-PLAN.md — Build installer and full E2E verification
+- [x] 12-01-PLAN.md — Critical shader and WT detection fixes (BUG-SHADER01, BUG-WT01/02/03/04)
+- [x] 12-02-PLAN.md — MatrixLite ANSI and color fixes (BUG-ML01, BUG-ML05, BUG-ML06)
+- [x] 12-03-PLAN.md — MatrixLite UX and intro flow (BUG-ML02/03/04, pill choice)
+- [x] 12-04-PLAN.md — WT installation flow with fallbacks (GAP-E03a/b/c)
+- [x] 12-05-PLAN.md — Installer uninstall and re-run fixes (BUG-UNINST01/02, GAP-INST01)
+- [x] 12-06-PLAN.md — First-run detection fix (BUG-FRX01)
+- [x] 12-07-PLAN.md — Build installer and full E2E verification
 
 **Wave Structure:**
 - Wave 1: 12-01, 12-02 (parallel - independent fixes)
@@ -196,6 +197,67 @@ Plans:
 6. Uninstaller removes ALL files from Program Files
 7. No dead ends in WT installation flow
 
+---
+
+### Phase 13: Post-E2E Polish
+
+**Goal:** Fix 10 bugs from post-microsprint testing (filtered from 17 reported - 7 are Won't Fix or non-issues per user decision)
+**Depends on:** Phase 12 (E2E Gap Closure complete)
+**Source:** `installer/TESTING.md` test session 2026-02-01 (Post-Microsprint Retest)
+
+**Bug Triage:**
+
+| Category | Bugs to Fix | Won't Fix / Non-Issue |
+|----------|-------------|----------------------|
+| WT Detection | BUG-WT06 | GAP-CMD01 (expected WT behavior) |
+| MatrixLite | BUG-ML07 (low) | BUG-ML08, ML09, ML10 (MatrixLite is demo, not terminal) |
+| Shaders | BUG-SHADER03 | - |
+| Layout | BUG-LAYOUT03, BUG-LAYOUT04 | - |
+| Transparency | BUG-TRANS03 | BUG-TRANS02 (FEATURE - keep it) |
+| Redpill | BUG-REDPILL01, BUG-REDPILL02, BUG-HOTKEY01 | - |
+| Installer UX | UX-INST01, UX-INST02, UX-INST03, Version bug | - |
+
+**Plans:** 7 plans in 3 waves
+
+Plans:
+- [ ] 13-01-PLAN.md — WT detection post-install restart instruction (BUG-WT06)
+- [ ] 13-02-PLAN.md — Layout fixes: 4 pillars + minimized windows (BUG-LAYOUT03, BUG-LAYOUT04)
+- [ ] 13-03-PLAN.md — Shader rain column phase stagger (BUG-SHADER03)
+- [ ] 13-04-PLAN.md — Redpill UX: self-launch, menu fix, hotkey help (BUG-REDPILL01/02, BUG-HOTKEY01)
+- [ ] 13-05-PLAN.md — Installer Matrix theming (UX-INST01/02/03, version fix)
+- [ ] 13-06-PLAN.md — Transparency scope verification (BUG-TRANS03)
+- [ ] 13-07-PLAN.md — Build installer and E2E verification (checkpoint)
+
+**Wave Structure:**
+- Wave 1: 13-01, 13-02, 13-03 (parallel - independent fixes)
+- Wave 2: 13-04, 13-05, 13-06 (parallel - can start after Wave 1)
+- Wave 3: 13-07 (BUILD + E2E TEST - requires all fixes complete)
+
+**Bug-to-Plan Mapping:**
+
+| Bug ID | Description | Plan |
+|--------|-------------|------|
+| BUG-WT06 | WT detection after GitHub install | 13-01 |
+| BUG-LAYOUT03 | 4 pillars shows 3+1 tiles | 13-02 |
+| BUG-LAYOUT04 | Minimized windows pop up | 13-02 |
+| BUG-SHADER03 | Rain columns too synchronized | 13-03 |
+| BUG-REDPILL01 | Redpill opens in same window | 13-04 |
+| BUG-REDPILL02 | Menu content repeats | 13-04 |
+| BUG-HOTKEY01 | Hotkeys not discoverable | 13-04 |
+| UX-INST01/02/03 | Installer theming | 13-05 |
+| Version bug | Shows 2.0.0 not 1.0.0 | 13-05 |
+| BUG-TRANS03 | Transparency on all windows | 13-06 |
+
+**Success Criteria** (what must be TRUE):
+1. WT detection shows restart instruction after GitHub install (not silent Lite fallback)
+2. 4 pillars layout shows 4 side-by-side columns
+3. Minimized windows stay minimized during layout
+4. Shader rain columns have staggered animation
+5. Redpill opens in its own window with Redpill-Neo shader
+6. Hotkey help accessible via ? key
+7. Installer has Matrix theming and shows 1.0.0
+8. Transparency only affects Matrix windows
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -213,8 +275,9 @@ Plans:
 | 10. MatrixLite Fallback | 4/4 | Complete | 2026-01-30 |
 | 10.5 Global Hotkeys (INSERTED) | 5/5 | Complete | 2026-01-31 |
 | 11. Installer & E2E Validation | 7/7 | Complete | 2026-01-31 |
-| 12. E2E Gap Closure | 0/7 | Not Started | — |
+| 12. E2E Gap Closure | 6/7 | In Progress | — |
+| 13. Post-E2E Polish | 0/7 | Not Started | — |
 
 ---
 *Roadmap created: 2026-01-25*
-*Updated: 2026-01-31 — Phase 12 plans created (7 plans in 3 waves)*
+*Updated: 2026-02-01 — Phase 13 plans created (7 plans in 3 waves)*
