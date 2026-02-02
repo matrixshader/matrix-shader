@@ -9,7 +9,7 @@ namespace MatrixShader.Core.Services;
 /// </summary>
 public class LayoutService : ILayoutService
 {
-    private const int MinWindowWidth = 475; // Windows Terminal minimum width constraint
+    private const int MinWindowWidth = 200; // Allow narrower pillars for 4-column layout
     private const int DefaultMaxPillars = 4;
     private const int DefaultGapSize = 30;
     private const int MinGapSize = 0;
@@ -88,8 +88,32 @@ public class LayoutService : ILayoutService
     /// <summary>
     /// Applies calculated positions to windows using border-compensated positioning.
     /// Uses PositionWindowExact to ensure visible window bounds match targets exactly.
+    /// Ignores GlitchEnabled - use overload with config for auto-snap behavior.
     /// </summary>
     public void ApplyLayout(IReadOnlyList<WindowPosition> positions)
+    {
+        ApplyLayoutInternal(positions);
+    }
+
+    /// <summary>
+    /// Applies calculated positions to windows, respecting GlitchEnabled setting.
+    /// If GlitchEnabled is false and force is false, this is a no-op.
+    /// </summary>
+    public void ApplyLayout(IReadOnlyList<WindowPosition> positions, LayoutConfig config, bool force = false)
+    {
+        if (!config.GlitchEnabled && !force)
+        {
+            DiagnosticLogger.Debug("LAYOUT", "Glitch is OFF - skipping auto-layout (use force to override)");
+            return;
+        }
+
+        ApplyLayoutInternal(positions);
+    }
+
+    /// <summary>
+    /// Internal implementation of layout application.
+    /// </summary>
+    private void ApplyLayoutInternal(IReadOnlyList<WindowPosition> positions)
     {
         foreach (var pos in positions)
         {
@@ -268,44 +292,37 @@ public class LayoutService : ILayoutService
 
             var workArea = monitor.WorkArea;
 
-            // Calculate grid dimensions
-            int columns = Math.Min(windowsOnScreen, maxPillars);
+            // Calculate grid dimensions - Pillars mode always uses single row
+            int columns = windowsOnScreen;
             int rows = 1;
 
-            // Multi-row if more windows than fit in one row
-            if (windowsOnScreen > maxPillars)
+            // Calculate initial dimensions
+            int adjustedGapSize = gapSize;
+            int totalHGaps = (columns + 1) * adjustedGapSize;
+            int totalVGaps = (rows + 1) * adjustedGapSize;
+            int cellWidth = (workArea.Width - totalHGaps) / columns;
+            int cellHeight = (workArea.Height - totalVGaps) / rows;
+
+            // If width below minimum and we have gaps, reduce gaps first
+            while (cellWidth < MinWindowWidth && adjustedGapSize > 0 && columns > 1)
             {
-                columns = maxPillars;
-                rows = (int)Math.Ceiling((double)windowsOnScreen / columns);
+                // Reduce gap size by 5px increments
+                adjustedGapSize = Math.Max(0, adjustedGapSize - 5);
+                totalHGaps = (columns + 1) * adjustedGapSize;
+                cellWidth = (workArea.Width - totalHGaps) / columns;
             }
 
-            // Auto-reduce columns if width would be below minimum
-            int originalColumns = columns;
-            int cellWidth, cellHeight;
-
-            do
+            // If still too narrow after removing all gaps, use zero gaps
+            if (cellWidth < MinWindowWidth)
             {
-                int totalHGaps = (columns + 1) * gapSize;
-                int totalVGaps = (rows + 1) * gapSize;
-                cellWidth = (workArea.Width - totalHGaps) / columns;
-                cellHeight = (workArea.Height - totalVGaps) / rows;
+                adjustedGapSize = 0;
+                totalHGaps = 0;
+                cellWidth = workArea.Width / columns;
+            }
 
-                if (cellWidth < MinWindowWidth && columns > 1)
-                {
-                    columns--;
-                    rows = (int)Math.Ceiling((double)windowsOnScreen / columns);
-                }
-                else
-                {
-                    break;
-                }
-            } while (columns >= 1);
-
-            // Recalculate after adjustment
-            int finalTotalHGaps = (columns + 1) * gapSize;
-            int finalTotalVGaps = (rows + 1) * gapSize;
-            cellWidth = (workArea.Width - finalTotalHGaps) / columns;
-            cellHeight = (workArea.Height - finalTotalVGaps) / rows;
+            // Recalculate height with adjusted gap
+            totalVGaps = (rows + 1) * adjustedGapSize;
+            cellHeight = (workArea.Height - totalVGaps) / rows;
 
             // Place each window in grid (column-major order)
             for (int i = 0; i < windowsOnScreen; i++)
@@ -313,10 +330,10 @@ public class LayoutService : ILayoutService
                 int col = i % columns;
                 int row = i / columns;
 
-                // Calculate pixel position
+                // Calculate pixel position using adjusted gap size
                 // Formula: edge gap + (cell_index * (cell_size + gap))
-                int x = workArea.Left + gapSize + (col * (cellWidth + gapSize));
-                int y = workArea.Top + gapSize + (row * (cellHeight + gapSize));
+                int x = workArea.Left + adjustedGapSize + (col * (cellWidth + adjustedGapSize));
+                int y = workArea.Top + adjustedGapSize + (row * (cellHeight + adjustedGapSize));
 
                 positions.Add(new CalculatedPosition
                 {
