@@ -119,7 +119,10 @@ public enum KeyAction
     /// <summary>Period key - increase windows on primary monitor.</summary>
     PrimaryIncrease,
     /// <summary>Shift+0 (right paren) - reset to auto distribution.</summary>
-    PrimaryReset
+    PrimaryReset,
+
+    /// <summary>Question mark key - show hotkey help.</summary>
+    Help
 }
 
 /// <summary>
@@ -180,6 +183,7 @@ public static class KeyHandler
             case 'G': return KeyAction.GlitchToggle;     // Shift+G
             case 'M': return KeyAction.MonitorChange;    // Shift+M
             case 'H': return KeyAction.HotkeyConfig;     // Shift+H
+            case '?': return KeyAction.Help;             // ? (Shift+/)
         }
 
         // Now normalize to lowercase for case-insensitive handling
