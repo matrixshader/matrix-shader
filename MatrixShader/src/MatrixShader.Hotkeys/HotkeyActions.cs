@@ -17,10 +17,6 @@ public sealed class HotkeyActions
     private readonly IShaderService _shaderService;
     private readonly ITerminalSettingsService _terminalSettingsService;
 
-    // Shader cycling constants
-    private const int MinShaderIndex = 1;
-    private const int MaxShaderIndex = 8;
-
     // Speed adjustment constants
     private const float SpeedDelta = 0.1f;
     private const float MinSpeed = 0.1f;
@@ -57,7 +53,7 @@ public sealed class HotkeyActions
         HotkeyAction.ToggleTransparency => ToggleTransparency,
         HotkeyAction.OpacityDown => OpacityDown,
         HotkeyAction.OpacityUp => OpacityUp,
-        HotkeyAction.CycleShader => CycleShader,
+        // CycleShader removed - corrupts shader parameters, per user decision
         HotkeyAction.SpeedUp => SpeedUp,
         HotkeyAction.SpeedDown => SpeedDown,
         HotkeyAction.ToggleFar => ToggleFar,
@@ -208,7 +204,7 @@ public sealed class HotkeyActions
 
     #endregion
 
-    #region Terminal Settings Actions (ToggleTransparency, OpacityUp/Down, CycleShader)
+    #region Terminal Settings Actions (ToggleTransparency, OpacityUp/Down)
 
     /// <summary>
     /// Toggles UseAcrylic on the focused Matrix window's profile.
@@ -294,63 +290,9 @@ public sealed class HotkeyActions
         _terminalSettingsService.SaveSettings(settings);
     }
 
-    /// <summary>
-    /// Cycles through Matrix-1 to Matrix-8 shaders on the focused window.
-    /// Uses TerminalSettingsService to update PixelShaderPath.
-    /// </summary>
-    private void CycleShader()
-    {
-        try
-        {
-            var focusedWindow = GetFocusedMatrixWindow();
-            if (focusedWindow == null || string.IsNullOrEmpty(focusedWindow.ProfileName))
-                return;
-
-            var settings = _terminalSettingsService.LoadSettings();
-            var profile = _terminalSettingsService.GetProfile(settings, focusedWindow.ProfileName);
-
-            if (profile == null)
-                return;
-
-            // Determine next shader index
-            var currentShaderPath = profile.PixelShaderPath ?? "";
-            var nextIndex = GetNextShaderIndex(currentShaderPath);
-
-            // Build new shader path (preserve directory, change filename)
-            var directory = Path.GetDirectoryName(currentShaderPath) ?? "";
-            var newShaderPath = Path.Combine(directory, $"Matrix-{nextIndex}.hlsl");
-
-            var updatedProfile = profile with { PixelShaderPath = newShaderPath };
-            _terminalSettingsService.UpsertProfile(settings, updatedProfile);
-            _terminalSettingsService.SaveSettings(settings);
-        }
-        catch
-        {
-            // Fail silently
-        }
-    }
-
-    /// <summary>
-    /// Gets the next shader index from the current shader path.
-    /// Cycles: 1 -> 2 -> ... -> 8 -> 1
-    /// </summary>
-    private static int GetNextShaderIndex(string shaderPath)
-    {
-        // Extract current index from path like "Matrix-3.hlsl"
-        var filename = Path.GetFileNameWithoutExtension(shaderPath);
-        if (string.IsNullOrEmpty(filename))
-            return MinShaderIndex;
-
-        // Try to parse "Matrix-N" format
-        if (filename.StartsWith("Matrix-", StringComparison.OrdinalIgnoreCase) &&
-            int.TryParse(filename.AsSpan(7), out var currentIndex))
-        {
-            // Cycle to next index (wrap 8 -> 1)
-            return currentIndex >= MaxShaderIndex ? MinShaderIndex : currentIndex + 1;
-        }
-
-        return MinShaderIndex;
-    }
+    // CycleShader and GetNextShaderIndex REMOVED
+    // Reason: Shader cycling corrupts shader colors/parameters. Shaders only differ by color anyway.
+    // Decision: User requested removal (BUG-SHADER04, BUG-SHADER05)
 
     #endregion
 

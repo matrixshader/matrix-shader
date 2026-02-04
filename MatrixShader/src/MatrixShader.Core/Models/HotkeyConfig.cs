@@ -27,8 +27,7 @@ public record HotkeyConfig(
         [HotkeyAction.OpacityDown] = HotkeyBinding.CtrlShift(HotkeyAction.OpacityDown, HotkeyApi.VK_J, "J"),
         [HotkeyAction.OpacityUp] = HotkeyBinding.CtrlShift(HotkeyAction.OpacityUp, HotkeyApi.VK_K, "K"),
 
-        // Shader cycling
-        [HotkeyAction.CycleShader] = HotkeyBinding.CtrlShift(HotkeyAction.CycleShader, HotkeyApi.VK_S, "S"),
+        // CycleShader REMOVED - corrupts shader parameters (BUG-SHADER04, BUG-SHADER05)
 
         // Rain speed (up/down arrows)
         [HotkeyAction.SpeedUp] = HotkeyBinding.CtrlShift(HotkeyAction.SpeedUp, HotkeyApi.VK_UP, "Up"),
