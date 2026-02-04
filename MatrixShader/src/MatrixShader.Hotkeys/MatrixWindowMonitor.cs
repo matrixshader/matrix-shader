@@ -1,14 +1,18 @@
+using MatrixShader.Core.Models;
 using MatrixShader.Core.Services;
 
 namespace MatrixShader.Hotkeys;
 
 /// <summary>
 /// Monitors for Matrix windows and triggers exit when none exist.
+/// Also monitors for window overlap to trigger auto-repositioning (Glitch system).
 /// Per CONTEXT.md: "Auto-exits when all Matrix windows close"
 /// </summary>
 public sealed class MatrixWindowMonitor : IDisposable
 {
     private readonly IIdentityService _identityService;
+    private readonly ILayoutService? _layoutService;
+    private readonly IConfigService? _configService;
     private readonly Action _onNoWindows;
     private readonly Timer _timer;
     private bool _disposed;
@@ -19,15 +23,45 @@ public sealed class MatrixWindowMonitor : IDisposable
     // Grace period - wait a few checks before exiting (handles brief window recreation)
     private int _noWindowCount;
 
+    // Stay-alive timer - keep running for 30 seconds after last window seen
+    // This allows users to reopen Matrix windows without restarting hotkey service
+    private DateTime _lastWindowSeen = DateTime.Now;
+    private const int StayAliveSeconds = 30;
+
+    // Overlap detection cooldown - avoid repositioning spam
+    private DateTime _lastOverlapReposition = DateTime.MinValue;
+    private static readonly TimeSpan OverlapCooldown = TimeSpan.FromSeconds(3);
+
+    // Minimum overlap area to trigger repositioning (in pixels squared)
+    private const int MinOverlapArea = 10000; // ~100x100 pixels
+
     /// <summary>
     /// Number of consecutive checks with no windows before triggering exit.
-    /// At 2 second intervals, this means 6 seconds of no windows before exit.
+    /// At 2 second intervals, this works with the stay-alive timer (30 seconds).
+    /// Threshold ensures grace period is respected before exit.
     /// </summary>
-    public const int NoWindowThreshold = 3;
+    public const int NoWindowThreshold = 15; // 15 * 2s = 30 seconds
 
+    /// <summary>
+    /// Creates a monitor for window existence only (original behavior).
+    /// </summary>
     public MatrixWindowMonitor(IIdentityService identityService, Action onNoWindows)
+        : this(identityService, null, null, onNoWindows)
+    {
+    }
+
+    /// <summary>
+    /// Creates a monitor with full Glitch system support (overlap detection + auto-reposition).
+    /// </summary>
+    public MatrixWindowMonitor(
+        IIdentityService identityService,
+        ILayoutService? layoutService,
+        IConfigService? configService,
+        Action onNoWindows)
     {
         _identityService = identityService ?? throw new ArgumentNullException(nameof(identityService));
+        _layoutService = layoutService;
+        _configService = configService;
         _onNoWindows = onNoWindows ?? throw new ArgumentNullException(nameof(onNoWindows));
         _timer = new Timer(CheckWindows, null, Timeout.Infinite, Timeout.Infinite);
     }
@@ -57,41 +91,156 @@ public sealed class MatrixWindowMonitor : IDisposable
             var windows = _identityService.FindMatrixWindows();
 
             // Filter out control panel - only count shader windows
-            var shaderWindowCount = 0;
+            var shaderWindows = new List<WindowInfo>();
             foreach (var window in windows)
             {
                 if (!window.IsControlPanel)
                 {
-                    shaderWindowCount++;
+                    shaderWindows.Add(window);
                 }
             }
 
-            if (shaderWindowCount == 0)
+            if (shaderWindows.Count == 0)
             {
                 _noWindowCount++;
-                DiagnosticLogger.Debug("HOTKEYS", $"No shader windows detected ({_noWindowCount}/{NoWindowThreshold})");
 
-                if (_noWindowCount >= NoWindowThreshold)
+                // Calculate remaining stay-alive time
+                var elapsed = DateTime.Now - _lastWindowSeen;
+                var remaining = StayAliveSeconds - (int)elapsed.TotalSeconds;
+
+                if (remaining > 0)
                 {
-                    DiagnosticLogger.Info("HOTKEYS", "No Matrix windows for grace period, triggering exit");
+                    DiagnosticLogger.Debug("HOTKEYS", $"No shader windows, stay-alive: {remaining}s remaining");
+                }
+                else if (_noWindowCount >= NoWindowThreshold)
+                {
+                    DiagnosticLogger.Info("HOTKEYS", "No Matrix windows for stay-alive period, triggering exit");
                     StopMonitoring();
                     _onNoWindows();
                 }
             }
             else
             {
-                // Reset counter when windows exist
+                // Reset counter and stay-alive timer when windows exist
                 if (_noWindowCount > 0)
                 {
-                    DiagnosticLogger.Debug("HOTKEYS", $"Matrix windows detected ({shaderWindowCount}), resetting counter");
+                    DiagnosticLogger.Debug("HOTKEYS", $"Matrix windows detected ({shaderWindows.Count}), resetting counters");
                 }
                 _noWindowCount = 0;
+                _lastWindowSeen = DateTime.Now;
+
+                // Check for overlapping windows (Glitch system)
+                CheckForOverlap(shaderWindows);
             }
         }
         catch (Exception ex)
         {
             // Silent failure - keep monitoring
             DiagnosticLogger.Warn("HOTKEYS", $"Window check failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Checks if any windows overlap and triggers auto-repositioning if Glitch is enabled.
+    /// </summary>
+    private void CheckForOverlap(List<WindowInfo> windows)
+    {
+        // Skip if we don't have layout service
+        if (_layoutService == null || _configService == null)
+            return;
+
+        // Skip if less than 2 windows
+        if (windows.Count < 2)
+            return;
+
+        // Check cooldown
+        if (DateTime.Now - _lastOverlapReposition < OverlapCooldown)
+            return;
+
+        // Load config to check if Glitch is enabled
+        var state = _configService.LoadState();
+        if (!state.Layout.GlitchEnabled)
+            return;
+
+        // Check for overlap between any two windows
+        bool hasOverlap = false;
+        for (int i = 0; i < windows.Count && !hasOverlap; i++)
+        {
+            for (int j = i + 1; j < windows.Count && !hasOverlap; j++)
+            {
+                var overlapArea = CalculateOverlapArea(windows[i].Position, windows[j].Position);
+                if (overlapArea >= MinOverlapArea)
+                {
+                    hasOverlap = true;
+                    DiagnosticLogger.Info("HOTKEYS", $"Overlap detected between windows {i} and {j} (area: {overlapArea}px^2)");
+                }
+            }
+        }
+
+        // Trigger auto-repositioning if overlap detected
+        if (hasOverlap)
+        {
+            DiagnosticLogger.Info("HOTKEYS", "Glitch triggered: auto-repositioning windows");
+            _lastOverlapReposition = DateTime.Now;
+
+            try
+            {
+                var positions = _layoutService.CalculateLayout(windows, state.Layout);
+                _layoutService.ApplyLayout(positions, state.Layout, force: true);
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("HOTKEYS", $"Auto-reposition failed: {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Calculates the overlapping area between two window rectangles.
+    /// </summary>
+    private static int CalculateOverlapArea(WindowRect a, WindowRect b)
+    {
+        // Calculate intersection rectangle
+        int left = Math.Max(a.Left, b.Left);
+        int top = Math.Max(a.Top, b.Top);
+        int right = Math.Min(a.Left + a.Width, b.Left + b.Width);
+        int bottom = Math.Min(a.Top + a.Height, b.Top + b.Height);
+
+        // If no intersection, return 0
+        if (left >= right || top >= bottom)
+            return 0;
+
+        return (right - left) * (bottom - top);
+    }
+
+    /// <summary>
+    /// Triggers an immediate layout refresh (used when display changes).
+    /// </summary>
+    public void TriggerLayoutRefresh()
+    {
+        if (_layoutService == null || _configService == null)
+            return;
+
+        try
+        {
+            var windows = _identityService.FindMatrixWindows()
+                .Where(w => !w.IsControlPanel)
+                .ToList();
+
+            if (windows.Count == 0)
+                return;
+
+            var state = _configService.LoadState();
+            var positions = _layoutService.CalculateLayout(windows, state.Layout);
+
+            // Force apply even if Glitch is disabled (display change is always important)
+            _layoutService.ApplyLayout(positions, state.Layout, force: true);
+
+            DiagnosticLogger.Info("HOTKEYS", $"Layout refreshed for {windows.Count} windows");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("HOTKEYS", $"Layout refresh failed: {ex.Message}");
         }
     }
 
