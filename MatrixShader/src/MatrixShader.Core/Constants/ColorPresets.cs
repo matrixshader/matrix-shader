@@ -8,8 +8,8 @@ public static class ColorPresets
     // Classic Matrix green (default)
     public static readonly MatrixColor Green = new(0f, 1f, 0.3f, "Green", "Classic Matrix");
 
-    // Electric cyan
-    public static readonly MatrixColor Cyan = new(0f, 0.6f, 1f, "Cyan", "Electric blue");
+    // Electric blue
+    public static readonly MatrixColor Blue = new(0f, 0.6f, 1f, "Blue", "Electric blue");
 
     // Blood/warning red
     public static readonly MatrixColor Red = new(1f, 0.1f, 0.1f, "Red", "Sentinel alert");
@@ -26,7 +26,7 @@ public static class ColorPresets
     /// <summary>
     /// All available color presets in display order.
     /// </summary>
-    public static readonly MatrixColor[] All = [Green, Cyan, Red, Purple, Gold, Teal];
+    public static readonly MatrixColor[] All = [Green, Blue, Red, Purple, Gold, Teal];
 
     /// <summary>
     /// Get preset by number key (1-6).
