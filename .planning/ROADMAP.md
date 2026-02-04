@@ -27,6 +27,7 @@ This roadmap ports the working PowerShell Matrix Terminal Shader (6,800+ lines) 
 - [x] **Phase 11: Installer & E2E Validation** - Build installer, fix paths, validate on clean system
 - [x] **Phase 12: E2E Gap Closure** - Fix all 18 bugs found in sandbox testing
 - [ ] **Phase 13: Post-E2E Polish** - Fix 10 bugs found in post-microsprint testing
+- [ ] **Phase 14: Final Polish & Hotkey Stability** - Fix 12 bugs from one-liner E2E testing
 
 ## Phase Details
 
@@ -258,6 +259,90 @@ Plans:
 7. Installer has Matrix theming and shows 1.0.0
 8. Transparency only affects Matrix windows
 
+---
+
+### Phase 14: Final Polish & Hotkey Stability
+
+**Goal:** Fix all bugs found in one-liner install E2E testing on 2026-02-03. Focus on hotkey service stability, transparency appearance, and background service persistence.
+**Depends on:** Phase 13 (Post-E2E Polish complete)
+**Source:** User testing session in Windows Sandbox using one-liner install (install-local-test.ps1)
+
+**Bugs to Fix (12 total):**
+
+| Severity | Count | IDs |
+|----------|-------|-----|
+| Critical | 4 | BUG-HK01, BUG-HK04, BUG-TRANS04, BUG-TRANS05 |
+| High | 5 | BUG-HK02, BUG-HK03, BUG-SHADER04, BUG-SHADER05, BUG-LAYOUT07 |
+| Medium | 2 | BUG-LAYOUT05, BUG-LAYOUT06 |
+| Low | 1 | UX-COLOR01 |
+
+**Bug Details:**
+
+| Bug ID | Severity | Description |
+|--------|----------|-------------|
+| BUG-HK01 | Critical | Hotkeys work 1-2 times then stop responding. Only work again when redpill is open. Hotkey service (matrix-hotkeys.exe) appears to be crashing or dying. |
+| BUG-HK02 | High | Ctrl+Shift+Left/Right (window swap) not working at all |
+| BUG-HK03 | High | Ctrl+Shift+1/2/3 (layer toggles) listed in control panel but not functioning |
+| BUG-HK04 | Critical | Glitch/snap system only runs when redpill is open - should be silent background service via matrix-monitor |
+| BUG-TRANS04 | Critical | Transparency has "hazy" acrylic blur effect - should be plain transparency without frosted glass look. User explicitly dislikes the haze. Affects both Matrix windows and redpill menu. |
+| BUG-TRANS05 | Critical | WT transparency setting persists after uninstall - even changing in WT settings doesn't fix it. Need to restore original transparency on uninstall. |
+| BUG-SHADER04 | High | Ctrl+Shift+S shader cycling messes up shader colors/parameters. Need to restore defaults properly when cycling. |
+| BUG-SHADER05 | High | Shader cycling only goes one direction - need reverse cycling option |
+| BUG-LAYOUT05 | Medium | 4 pillar gaps too tight - can't click what's behind windows. Gap works fine with 2-3 pillars. Need larger gaps for 4+ windows. |
+| BUG-LAYOUT06 | Medium | F11 fullscreen snaps back immediately (but leaves borderless look which user thought was cool - maybe feature?) |
+| BUG-LAYOUT07 | High | Drag and snap stopped working after changing layout multiple times |
+| UX-COLOR01 | Low | Color option called "cyan" should be called "blue" for clarity |
+
+**User Likes (KEEP - DO NOT FIX):**
+- wakeupneo/bluepill turning their window transparent after launching Matrix windows - INTENTIONAL FEATURE
+- Borderless fullscreen look when F11 snaps back - consider making this intentional
+- MatrixLite running alongside shader windows - works and looks cool
+- Rain animation math - fixed and looks good
+
+**Plans:** 6 plans in 4 waves
+
+Plans:
+- [ ] 14-01-PLAN.md — Hotkey service stability (BUG-HK01, BUG-HK04)
+- [ ] 14-02-PLAN.md — Transparency fixes (BUG-TRANS04, BUG-TRANS05)
+- [ ] 14-03-PLAN.md — Hotkey actions: window rotation + layer toggles (BUG-HK02, BUG-HK03)
+- [ ] 14-04-PLAN.md — Layout fixes: gaps + fullscreen + drag/snap (BUG-LAYOUT05/06/07)
+- [ ] 14-05-PLAN.md — Cleanup: remove shader cycling + rename cyan (BUG-SHADER04/05, UX-COLOR01)
+- [ ] 14-06-PLAN.md — Build installer and E2E verification (checkpoint)
+
+**Wave Structure:**
+- Wave 1: 14-01 (hotkey stability - critical foundation)
+- Wave 2: 14-02 (transparency - independent)
+- Wave 3: 14-03, 14-04 (parallel - hotkey actions + layout fixes)
+- Wave 4: 14-05, 14-06 (cleanup + E2E verification)
+
+**Bug-to-Plan Mapping:**
+
+| Bug ID | Description | Plan |
+|--------|-------------|------|
+| BUG-HK01 | Hotkey service crashes | 14-01 |
+| BUG-HK04 | Glitch needs redpill | 14-01 |
+| BUG-TRANS04 | Acrylic blur | 14-02 |
+| BUG-TRANS05 | Settings persist after uninstall | 14-02 |
+| BUG-HK02 | Window swap not working | 14-03 |
+| BUG-HK03 | Layer toggles not working | 14-03 |
+| BUG-LAYOUT05 | 4-pillar gaps too tight | 14-04 |
+| BUG-LAYOUT06 | F11 fullscreen snaps back | 14-04 |
+| BUG-LAYOUT07 | Drag/snap state corruption | 14-04 |
+| BUG-SHADER04 | Shader cycling corrupts | 14-05 |
+| BUG-SHADER05 | One-direction cycling | 14-05 |
+| UX-COLOR01 | Cyan should be Blue | 14-05 |
+
+**Success Criteria** (what must be TRUE):
+1. Hotkeys remain functional indefinitely without redpill open
+2. Background services (matrix-hotkeys, matrix-monitor) stay alive
+3. Transparency is plain (no acrylic blur/haze)
+4. Uninstall restores WT transparency settings
+5. Shader cycling feature removed (per user decision)
+6. 4+ pillar layout has usable gaps (minimum 20px)
+7. Fullscreen windows excluded from glitch/snap
+8. Drag and snap works reliably after layout changes
+9. Cyan color preset renamed to Blue
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -277,7 +362,8 @@ Plans:
 | 11. Installer & E2E Validation | 7/7 | Complete | 2026-01-31 |
 | 12. E2E Gap Closure | 6/7 | In Progress | — |
 | 13. Post-E2E Polish | 0/7 | Not Started | — |
+| 14. Final Polish & Hotkey Stability | 0/6 | Not Started | — |
 
 ---
 *Roadmap created: 2026-01-25*
-*Updated: 2026-02-01 — Phase 13 plans created (7 plans in 3 waves)*
+*Updated: 2026-02-03 — Phase 14 plans created (6 plans in 4 waves)*
