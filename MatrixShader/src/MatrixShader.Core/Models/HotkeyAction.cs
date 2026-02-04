@@ -24,8 +24,8 @@ public enum HotkeyAction
     /// <summary>Increase window opacity by 5%.</summary>
     OpacityUp,
 
-    /// <summary>Cycle through available shaders.</summary>
-    CycleShader,
+    // CycleShader REMOVED - corrupts shader parameters (BUG-SHADER04, BUG-SHADER05)
+    // Shaders only differ by color, which can be changed via color presets
 
     /// <summary>Increase rain fall speed.</summary>
     SpeedUp,
