@@ -12,10 +12,10 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 Milestone: v1.0 IN PROGRESS
 Phase: 14 - Final Polish & Hotkey Stability (IN PROGRESS)
 Plan: 04 of 06
-Status: Plan 14-04 complete (BUG-LAYOUT05, BUG-LAYOUT06, BUG-LAYOUT07 - layout gaps + fullscreen)
-Last activity: 2026-02-04 - Completed 14-04 (scaled gaps + fullscreen exclusion)
+Status: Plans 14-03 and 14-04 complete (wave 3 parallel execution)
+Last activity: 2026-02-04 - Completed 14-03 (window rotation + layer toggle diagnostics)
 
-Progress: [################################################################] 64 plans complete
+Progress: [#################################################################] 65 plans complete
 
 ## Phase 12 Plan Summary (IN PROGRESS)
 
@@ -136,6 +136,9 @@ Progress: [################################################################] 64 
 | Minimum gap 20px | Ensures clickable space between windows | 14-04 |
 | IsZoomed filters fullscreen before overlap | Prevents F11 snap-back | 14-04 |
 | Cooldown reset after manual layout | Prevents snap-back after layout changes | 14-04 |
+| IsZoomed P/Invoke for fullscreen detection | AOT-compatible, matches IsIconic pattern | 14-03 |
+| Circular rotation algorithm | Rotate through ALL positions, not just adjacent | 14-03 |
+| Diagnostic logging in ToggleLayer | Debug layer toggle issues (BUG-HK03) | 14-03 |
 
 ### Blockers/Concerns
 
@@ -155,10 +158,10 @@ During lunch break microsprint, GSD agents fixed 6 bugs:
 ## Session Continuity
 
 Last session: 2026-02-04
-Stopped at: Completed 14-04-PLAN.md
+Stopped at: Completed 14-03-PLAN.md (14-04 also complete - wave 3 parallel)
 Resume file: None
-Next action: Continue with 14-05 or 14-06 (remaining phase 14 plans)
+Next action: Continue with 14-05 (shader cycling) or 14-06 (verification)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-04 - Completed 14-04 (BUG-LAYOUT05, BUG-LAYOUT06, BUG-LAYOUT07 - layout gaps + fullscreen)*
+*Last updated: 2026-02-04 - Completed 14-03 (BUG-HK02, BUG-HK03 - window rotation + layer toggle diagnostics)*
