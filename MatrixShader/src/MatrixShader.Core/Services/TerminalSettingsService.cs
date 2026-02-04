@@ -27,6 +27,7 @@ public class TerminalSettingsService : ITerminalSettingsService
 
     public string SettingsPath { get; }
     public string BackupPath { get; }
+    public string OriginalBackupPath => SettingsPath + ".matrix-original";
     public bool SettingsExist => File.Exists(SettingsPath);
 
     public TerminalSettings LoadSettings()
@@ -142,6 +143,56 @@ public class TerminalSettingsService : ITerminalSettingsService
         }
     }
 
+    /// <summary>
+    /// Creates a one-time backup of the original settings before any Matrix modifications.
+    /// Only creates if it doesn't exist, preserving the FIRST original state.
+    /// </summary>
+    public bool CreateOriginalBackup()
+    {
+        // Only create if it doesn't exist (preserve FIRST original state)
+        if (File.Exists(OriginalBackupPath))
+        {
+            DiagnosticLogger.Debug("TERMINAL", "Original backup already exists, preserving");
+            return true;
+        }
+        if (!SettingsExist) return false;
+        try
+        {
+            File.Copy(SettingsPath, OriginalBackupPath);
+            DiagnosticLogger.Info("TERMINAL", $"Created original backup: {OriginalBackupPath}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("TERMINAL", $"Failed to create original backup: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Restores the original settings from the .matrix-original backup.
+    /// Used during uninstall to fully clean up Matrix modifications.
+    /// </summary>
+    public bool RestoreOriginalSettings()
+    {
+        if (!File.Exists(OriginalBackupPath))
+        {
+            DiagnosticLogger.Warn("TERMINAL", "No original backup to restore");
+            return false;
+        }
+        try
+        {
+            File.Copy(OriginalBackupPath, SettingsPath, overwrite: true);
+            DiagnosticLogger.Info("TERMINAL", "Restored original settings");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Error("TERMINAL", $"Failed to restore: {ex.Message}");
+            return false;
+        }
+    }
+
     public TerminalProfile? GetProfile(TerminalSettings settings, string profileName)
     {
         return settings.Profiles?.List?.FirstOrDefault(p =>
@@ -174,6 +225,9 @@ public class TerminalSettingsService : ITerminalSettingsService
 
     public int CreateMatrixProfiles(TerminalSettings settings, int count, string shadersDirectory)
     {
+        // Backup original settings before any Matrix modifications
+        CreateOriginalBackup();
+
         if (count < 1 || count > 8)
             throw new ArgumentOutOfRangeException(nameof(count), "Count must be between 1 and 8");
 
@@ -194,6 +248,7 @@ public class TerminalSettingsService : ITerminalSettingsService
             // NOTE: Opacity is set per-profile, not on profiles.defaults.
             // This ensures only Matrix windows get transparency.
             // Per user requirement: non-Matrix windows stay 100% opaque.
+            // UseAcrylic = false gives PLAIN transparency (no blur/haze) on Windows 11.
             var profile = new TerminalProfile
             {
                 Name = profileName,
@@ -201,7 +256,7 @@ public class TerminalSettingsService : ITerminalSettingsService
                 Commandline = $"powershell.exe -NoExit -Command \"Write-Host ' Matrix Terminal {i}' -ForegroundColor Green\"",
                 Hidden = true,
                 Opacity = 85,  // 85% opacity for Matrix windows only
-                UseAcrylic = true,  // Enable transparency effect
+                UseAcrylic = false,  // Plain transparency (no blur) - desktop shows clearly
                 PixelShaderPath = Path.Combine(shadersDirectory, $"Matrix-{i}.hlsl")
             };
 
@@ -216,6 +271,9 @@ public class TerminalSettingsService : ITerminalSettingsService
 
     public void CreateRedpillProfile(TerminalSettings settings, string shadersDirectory, string? controlPanelPath = null)
     {
+        // Backup original settings before any Matrix modifications
+        CreateOriginalBackup();
+
         const string profileName = "Redpill";
 
         // Check if already exists
@@ -234,6 +292,7 @@ public class TerminalSettingsService : ITerminalSettingsService
 
         // NOTE: Opacity is set per-profile, not on profiles.defaults.
         // This ensures only Matrix windows get transparency.
+        // UseAcrylic = false gives PLAIN transparency (no blur/haze) on Windows 11.
         var profile = new TerminalProfile
         {
             Name = profileName,
@@ -241,7 +300,7 @@ public class TerminalSettingsService : ITerminalSettingsService
             Commandline = $"\"{effectivePath}\"",
             Hidden = true,
             Opacity = 85,  // 85% opacity for Matrix windows only
-            UseAcrylic = true,  // Enable transparency effect
+            UseAcrylic = false,  // Plain transparency (no blur) - desktop shows clearly
             PixelShaderPath = Path.Combine(shadersDirectory, "Redpill-Neo.hlsl")
         };
 
