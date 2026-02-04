@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-30)
 
 **Core value:** Instant startup with full PowerShell feature parity
-**Current focus:** Phase 13 - Post-E2E Polish (IN PROGRESS)
+**Current focus:** Phase 14 - Final Polish & Hotkey Stability (IN PROGRESS)
 
 ## Current Position
 
-Milestone: v1.0 IN PROGRESS (17 bugs, 14 fixed)
-Phase: 13 - Post-E2E Polish (IN PROGRESS)
-Plan: 04 of 08
-Status: Plan 13-04 complete (BUG-REDPILL01/02, BUG-HOTKEY01 - Redpill UX)
-Last activity: 2026-02-02 - Completed 13-04 (Redpill UX fixes)
+Milestone: v1.0 IN PROGRESS
+Phase: 14 - Final Polish & Hotkey Stability (IN PROGRESS)
+Plan: 01 of 06
+Status: Plan 14-01 complete (BUG-HK01, BUG-HK04 - Hotkey service stability)
+Last activity: 2026-02-03 - Completed 14-01 (exception handling + stay-alive + watchdog)
 
-Progress: [############################################################] 60 plans complete
+Progress: [#############################################################] 61 plans complete
 
 ## Phase 12 Plan Summary (IN PROGRESS)
 
@@ -55,6 +55,7 @@ Progress: [############################################################] 60 plan
 - Phase 11 plan 07 added: One-liner install script for command-line users
 - Phase 12 added: E2E Gap Closure - Fix all 18 bugs from Windows Sandbox testing
 - Phase 13 added: Post-E2E Polish - Fix 17 NEW bugs from post-microsprint testing (WT detection, MatrixLite, layout, transparency, redpill UX, installer theming)
+- Phase 14 added: Final Polish & Hotkey Stability - Fix 12 bugs from one-liner E2E testing (hotkey service crashes, acrylic haze, transparency persistence, shader cycling, layout gaps)
 
 ### Decisions (Phase 12)
 
@@ -120,11 +121,19 @@ Progress: [############################################################] 60 plan
 | ClearWidth=80 for line padding | Prevents menu content overlap | 13-04 |
 | '?' key for hotkey help | Easy discovery of all key bindings | 13-04 |
 
+### Decisions (Phase 14)
+
+| Decision | Rationale | Source |
+|----------|-----------|--------|
+| 30-second stay-alive timer | Allow window reopening without hotkey service restart | 14-01 |
+| 5-second watchdog health check | Balance responsiveness with CPU overhead | 14-01 |
+| HotkeyWatchdog in Monitor service | Centralized supervision vs self-healing process | 14-01 |
+| NoWindowThreshold = 15 | 15 * 2s intervals = 30 seconds for stay-alive | 14-01 |
+
 ### Blockers/Concerns
 
 1. **GitHub Releases setup required** - Need to upload MatrixShader.zip to Releases for one-liner to work
 2. **Domain redirect** - Need matrixshader.com/install.ps1 to redirect to raw GitHub URL
-3. **11 remaining bugs from post-microsprint testing** - Phase 13 in progress
 
 ### Phase 12 Microsprint Results (2026-02-01)
 
@@ -138,11 +147,11 @@ During lunch break microsprint, GSD agents fixed 6 bugs:
 
 ## Session Continuity
 
-Last session: 2026-02-02
-Stopped at: Completed 13-04-PLAN.md
+Last session: 2026-02-03
+Stopped at: Completed 14-01-PLAN.md
 Resume file: None
-Next action: Continue with remaining Phase 13 plans (13-07)
+Next action: Continue with 14-02 (transparency persistence)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-02 - Completed 13-04 (BUG-REDPILL01/02, BUG-HOTKEY01)*
+*Last updated: 2026-02-03 - Completed 14-01 (BUG-HK01, BUG-HK04 - hotkey service stability)*
