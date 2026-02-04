@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 Milestone: v1.0 IN PROGRESS
 Phase: 14 - Final Polish & Hotkey Stability (IN PROGRESS)
-Plan: 02 of 06
-Status: Plan 14-02 complete (BUG-TRANS04, BUG-TRANS05 - transparency persistence)
-Last activity: 2026-02-04 - Completed 14-02 (plain transparency + settings restoration)
+Plan: 04 of 06
+Status: Plan 14-04 complete (BUG-LAYOUT05, BUG-LAYOUT06, BUG-LAYOUT07 - layout gaps + fullscreen)
+Last activity: 2026-02-04 - Completed 14-04 (scaled gaps + fullscreen exclusion)
 
-Progress: [##############################################################] 62 plans complete
+Progress: [################################################################] 64 plans complete
 
 ## Phase 12 Plan Summary (IN PROGRESS)
 
@@ -132,6 +132,10 @@ Progress: [##############################################################] 62 pl
 | UseAcrylic = false | Plain transparency without blur/haze on Windows 11 | 14-02 |
 | Preserve FIRST original only | Prevents overwriting user's true original settings | 14-02 |
 | Check both WT paths on uninstall | Support Store and Winget installations | 14-02 |
+| Scale formula: 100%/80%/60% for 1-2/3/4+ windows | Progressive gap reduction maintains usability | 14-04 |
+| Minimum gap 20px | Ensures clickable space between windows | 14-04 |
+| IsZoomed filters fullscreen before overlap | Prevents F11 snap-back | 14-04 |
+| Cooldown reset after manual layout | Prevents snap-back after layout changes | 14-04 |
 
 ### Blockers/Concerns
 
@@ -151,10 +155,10 @@ During lunch break microsprint, GSD agents fixed 6 bugs:
 ## Session Continuity
 
 Last session: 2026-02-04
-Stopped at: Completed 14-02-PLAN.md
+Stopped at: Completed 14-04-PLAN.md
 Resume file: None
-Next action: Continue with 14-03 (shader cycling)
+Next action: Continue with 14-05 or 14-06 (remaining phase 14 plans)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-04 - Completed 14-02 (BUG-TRANS04, BUG-TRANS05 - transparency persistence)*
+*Last updated: 2026-02-04 - Completed 14-04 (BUG-LAYOUT05, BUG-LAYOUT06, BUG-LAYOUT07 - layout gaps + fullscreen)*
