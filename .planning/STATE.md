@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-01-30)
 
 Milestone: v1.0 IN PROGRESS
 Phase: 14 - Final Polish & Hotkey Stability (IN PROGRESS)
-Plan: 01 of 06
-Status: Plan 14-01 complete (BUG-HK01, BUG-HK04 - Hotkey service stability)
-Last activity: 2026-02-03 - Completed 14-01 (exception handling + stay-alive + watchdog)
+Plan: 02 of 06
+Status: Plan 14-02 complete (BUG-TRANS04, BUG-TRANS05 - transparency persistence)
+Last activity: 2026-02-04 - Completed 14-02 (plain transparency + settings restoration)
 
-Progress: [#############################################################] 61 plans complete
+Progress: [##############################################################] 62 plans complete
 
 ## Phase 12 Plan Summary (IN PROGRESS)
 
@@ -129,6 +129,9 @@ Progress: [#############################################################] 61 pla
 | 5-second watchdog health check | Balance responsiveness with CPU overhead | 14-01 |
 | HotkeyWatchdog in Monitor service | Centralized supervision vs self-healing process | 14-01 |
 | NoWindowThreshold = 15 | 15 * 2s intervals = 30 seconds for stay-alive | 14-01 |
+| UseAcrylic = false | Plain transparency without blur/haze on Windows 11 | 14-02 |
+| Preserve FIRST original only | Prevents overwriting user's true original settings | 14-02 |
+| Check both WT paths on uninstall | Support Store and Winget installations | 14-02 |
 
 ### Blockers/Concerns
 
@@ -147,11 +150,11 @@ During lunch break microsprint, GSD agents fixed 6 bugs:
 
 ## Session Continuity
 
-Last session: 2026-02-03
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-02-04
+Stopped at: Completed 14-02-PLAN.md
 Resume file: None
-Next action: Continue with 14-02 (transparency persistence)
+Next action: Continue with 14-03 (shader cycling)
 
 ---
 *State initialized: 2026-01-25*
-*Last updated: 2026-02-03 - Completed 14-01 (BUG-HK01, BUG-HK04 - hotkey service stability)*
+*Last updated: 2026-02-04 - Completed 14-02 (BUG-TRANS04, BUG-TRANS05 - transparency persistence)*
