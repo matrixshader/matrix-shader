@@ -14,6 +14,7 @@ public class LayoutService : ILayoutService
     private const int DefaultGapSize = 30;
     private const int MinGapSize = 0;
     private const int MaxGapSize = 200;
+    private const int MinScaledGap = 20; // Minimum gap to ensure clickable space between windows
 
     private readonly IConfigService _configService;
 
@@ -273,7 +274,7 @@ public class LayoutService : ILayoutService
         IReadOnlyList<MonitorInfo> monitors,
         LayoutConfig config)
     {
-        var gapSize = Math.Max(0, config.GapSize);
+        var gapSize = CalculateScaledGap(config.GapSize, windowCount);
         var maxPillars = config.MaxWindowsPerMonitor > 0 ? config.MaxWindowsPerMonitor : DefaultMaxPillars;
 
         // Distribute windows across monitors
@@ -366,7 +367,7 @@ public class LayoutService : ILayoutService
         IReadOnlyList<MonitorInfo> monitors,
         LayoutConfig config)
     {
-        var gapSize = Math.Max(0, config.GapSize);
+        var gapSize = CalculateScaledGap(config.GapSize, windowCount);
         const int windowsPerQuad = 4;
 
         // Distribute windows across monitors
@@ -502,7 +503,7 @@ public class LayoutService : ILayoutService
         IReadOnlyList<MonitorInfo> monitors,
         LayoutConfig config)
     {
-        var gapSize = Math.Max(0, config.GapSize);
+        var gapSize = CalculateScaledGap(config.GapSize, windowCount);
         var overlapPercent = Math.Clamp(config.OverlapPercent, 0, 20);
 
         var positions = new List<CalculatedPosition>();
@@ -599,6 +600,24 @@ public class LayoutService : ILayoutService
             "auto" => LayoutMode.Auto,
             _ => LayoutMode.Auto
         };
+    }
+
+    /// <summary>
+    /// Calculates scaled gap size based on window count.
+    /// More windows = proportionally smaller gaps, but never below 20px minimum.
+    /// Formula: 1-2 windows: 100%, 3 windows: 80%, 4+ windows: 60% of base gap
+    /// </summary>
+    private static int CalculateScaledGap(int baseGap, int windowCount)
+    {
+        double scaleFactor = windowCount switch
+        {
+            <= 2 => 1.0,
+            3 => 0.8,
+            _ => 0.6
+        };
+
+        int scaledGap = (int)(baseGap * scaleFactor);
+        return Math.Max(scaledGap, MinScaledGap);
     }
 
     #endregion
