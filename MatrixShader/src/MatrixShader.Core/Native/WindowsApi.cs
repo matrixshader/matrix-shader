@@ -65,6 +65,13 @@ public static partial class WindowsApi
     public static partial bool IsIconic(nint hWnd);
 
     /// <summary>
+    /// Determines whether the specified window is maximized (fullscreen).
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsZoomed(nint hWnd);
+
+    /// <summary>
     /// Determines whether the specified window handle identifies an existing window.
     /// </summary>
     [LibraryImport("user32.dll")]
