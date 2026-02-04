@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Native;
 using MatrixShader.Core.Services;
@@ -31,7 +32,141 @@ public static class Program
 }
 
 /// <summary>
+/// Supervises the matrix-hotkeys.exe process, restarting it on crash.
+/// Per BUG-HK01: Hotkeys stop working after 1-2 uses because service crashes silently.
+/// </summary>
+public sealed class HotkeyWatchdog : IDisposable
+{
+    private readonly string _hotkeyExePath;
+    private readonly ILogger _logger;
+    private readonly Timer _timer;
+    private Process? _hotkeyProcess;
+    private bool _disposed;
+
+    // Health check interval - 5 seconds
+    private const int HealthCheckIntervalMs = 5000;
+
+    public HotkeyWatchdog(string hotkeyExePath, ILogger logger)
+    {
+        _hotkeyExePath = hotkeyExePath;
+        _logger = logger;
+        _timer = new Timer(CheckHealth, null, Timeout.Infinite, Timeout.Infinite);
+    }
+
+    /// <summary>
+    /// Starts the watchdog - begins health checks and starts process if not running.
+    /// </summary>
+    public void Start()
+    {
+        _logger.LogInformation("Hotkey watchdog starting, monitoring: {Path}", _hotkeyExePath);
+
+        // Initial start
+        EnsureProcessRunning();
+
+        // Start periodic health check
+        _timer.Change(HealthCheckIntervalMs, HealthCheckIntervalMs);
+    }
+
+    /// <summary>
+    /// Stops the watchdog and terminates the monitored process.
+    /// </summary>
+    public void Stop()
+    {
+        _timer.Change(Timeout.Infinite, Timeout.Infinite);
+
+        if (_hotkeyProcess != null && !_hotkeyProcess.HasExited)
+        {
+            try
+            {
+                _hotkeyProcess.Kill();
+                _hotkeyProcess.WaitForExit(3000);
+                _logger.LogInformation("Hotkey process terminated");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to terminate hotkey process");
+            }
+        }
+    }
+
+    private void CheckHealth(object? state)
+    {
+        try
+        {
+            EnsureProcessRunning();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Health check failed");
+        }
+    }
+
+    private void EnsureProcessRunning()
+    {
+        bool needsStart = false;
+        string reason = "";
+
+        if (_hotkeyProcess == null)
+        {
+            needsStart = true;
+            reason = "initial start";
+        }
+        else if (_hotkeyProcess.HasExited)
+        {
+            needsStart = true;
+            reason = $"crashed (exit code: {_hotkeyProcess.ExitCode})";
+            _hotkeyProcess.Dispose();
+            _hotkeyProcess = null;
+        }
+
+        if (needsStart)
+        {
+            if (!File.Exists(_hotkeyExePath))
+            {
+                _logger.LogError("Hotkey executable not found at: {Path}", _hotkeyExePath);
+                return;
+            }
+
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = _hotkeyExePath,
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    WorkingDirectory = Path.GetDirectoryName(_hotkeyExePath)
+                };
+
+                _hotkeyProcess = Process.Start(startInfo);
+
+                if (_hotkeyProcess != null)
+                {
+                    _logger.LogInformation("Hotkey process {Action}: PID {Pid}",
+                        reason == "initial start" ? "started" : "restarted",
+                        _hotkeyProcess.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to start hotkey process");
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        Stop();
+        _timer.Dispose();
+        _hotkeyProcess?.Dispose();
+    }
+}
+
+/// <summary>
 /// Hosted service that monitors Matrix windows for position changes.
+/// Also supervises the hotkey background process via HotkeyWatchdog.
 /// </summary>
 public class MonitorService : BackgroundService
 {
@@ -39,6 +174,7 @@ public class MonitorService : BackgroundService
     private readonly IConfigService _configService;
     private readonly Dictionary<nint, WindowRect> _lastPositions = new();
     private const int PollIntervalMs = 500;
+    private HotkeyWatchdog? _hotkeyWatchdog;
 
     public MonitorService(ILogger<MonitorService> logger, IConfigService configService)
     {
@@ -50,21 +186,71 @@ public class MonitorService : BackgroundService
     {
         _logger.LogInformation("Matrix Monitor started");
 
-        while (!stoppingToken.IsCancellationRequested)
+        // Start hotkey watchdog
+        var hotkeyPath = FindHotkeyExePath();
+        if (hotkeyPath != null)
         {
-            try
-            {
-                CheckWindows();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error checking windows");
-            }
+            _hotkeyWatchdog = new HotkeyWatchdog(hotkeyPath, _logger);
+            _hotkeyWatchdog.Start();
+        }
+        else
+        {
+            _logger.LogWarning("Hotkey executable not found, watchdog disabled");
+        }
 
-            await Task.Delay(PollIntervalMs, stoppingToken);
+        try
+        {
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    CheckWindows();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error checking windows");
+                }
+
+                await Task.Delay(PollIntervalMs, stoppingToken);
+            }
+        }
+        finally
+        {
+            _hotkeyWatchdog?.Dispose();
         }
 
         _logger.LogInformation("Matrix Monitor stopped");
+    }
+
+    /// <summary>
+    /// Finds the path to matrix-hotkeys.exe.
+    /// Checks: same directory as monitor, Program Files, LocalAppData.
+    /// </summary>
+    private static string? FindHotkeyExePath()
+    {
+        // Path 1: Same directory as matrix-monitor.exe (development/installed)
+        var baseDir = AppContext.BaseDirectory;
+        var sameDirPath = Path.Combine(baseDir, "matrix-hotkeys.exe");
+        if (File.Exists(sameDirPath))
+            return sameDirPath;
+
+        // Path 2: Program Files (admin install)
+        var programFilesPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            "MatrixShader",
+            "matrix-hotkeys.exe");
+        if (File.Exists(programFilesPath))
+            return programFilesPath;
+
+        // Path 3: LocalAppData (non-admin install)
+        var localAppDataPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MatrixShader",
+            "matrix-hotkeys.exe");
+        if (File.Exists(localAppDataPath))
+            return localAppDataPath;
+
+        return null;
     }
 
     private void CheckWindows()
