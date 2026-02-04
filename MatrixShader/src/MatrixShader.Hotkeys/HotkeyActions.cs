@@ -51,8 +51,8 @@ public sealed class HotkeyActions
     /// </summary>
     public Action GetHandler(HotkeyAction action) => action switch
     {
-        HotkeyAction.SwapLeft => SwapLeft,
-        HotkeyAction.SwapRight => SwapRight,
+        HotkeyAction.SwapLeft => RotateLeft,
+        HotkeyAction.SwapRight => RotateRight,
         HotkeyAction.CycleLayout => CycleLayout,
         HotkeyAction.ToggleTransparency => ToggleTransparency,
         HotkeyAction.OpacityDown => OpacityDown,
@@ -66,18 +66,20 @@ public sealed class HotkeyActions
         _ => () => { } // Unknown action - do nothing
     };
 
-    #region Window Actions (SwapLeft, SwapRight, CycleLayout)
+    #region Window Actions (RotateLeft, RotateRight, CycleLayout)
 
     /// <summary>
-    /// Swaps the focused Matrix window with the one to its left.
-    /// Uses IdentityService to find windows and WindowsApi to reposition.
+    /// Rotates the focused Matrix window to the left position.
+    /// Windows cycle: 1->4->3->2->1 (moving left wraps around)
+    /// Fullscreen windows are excluded from rotation.
     /// </summary>
-    private void SwapLeft()
+    private void RotateLeft()
     {
         try
         {
+            // Get tiled windows (exclude fullscreen)
             var windows = _identityService.FindMatrixWindows()
-                .Where(w => !w.IsControlPanel)
+                .Where(w => !w.IsControlPanel && !WindowsApi.IsZoomed(w.Handle))
                 .OrderBy(w => w.Position.Left)
                 .ToList();
 
@@ -87,10 +89,34 @@ public sealed class HotkeyActions
             var foreground = WindowsApi.GetForegroundWindow();
             var currentIdx = windows.FindIndex(w => w.Handle == foreground);
 
-            if (currentIdx <= 0)
-                return; // Already leftmost or not found
+            if (currentIdx < 0)
+                return; // Focused window not in Matrix windows
 
-            SwapWindowPositions(windows[currentIdx], windows[currentIdx - 1]);
+            // Calculate target position (one to the left, wrap to end)
+            var targetIdx = (currentIdx - 1 + windows.Count) % windows.Count;
+
+            // Get target position
+            var targetPos = windows[targetIdx].Position;
+
+            // Shift all windows between target and current to the right
+            // This creates the rotation effect
+            var currentPos = windows[currentIdx].Position;
+
+            // Move focused window to target position
+            WindowsApi.PositionWindowExact(windows[currentIdx].Handle, targetPos);
+
+            // Shift windows between target and current
+            for (int i = targetIdx; i != currentIdx; i = (i + 1) % windows.Count)
+            {
+                var nextIdx = (i + 1) % windows.Count;
+                if (nextIdx == currentIdx)
+                {
+                    // Last window in chain moves to original current position
+                    WindowsApi.PositionWindowExact(windows[i].Handle, currentPos);
+                    break;
+                }
+                WindowsApi.PositionWindowExact(windows[i].Handle, windows[nextIdx].Position);
+            }
         }
         catch
         {
@@ -99,15 +125,17 @@ public sealed class HotkeyActions
     }
 
     /// <summary>
-    /// Swaps the focused Matrix window with the one to its right.
-    /// Uses IdentityService to find windows and WindowsApi to reposition.
+    /// Rotates the focused Matrix window to the right position.
+    /// Windows cycle: 1->2->3->4->1 (moving right wraps around)
+    /// Fullscreen windows are excluded from rotation.
     /// </summary>
-    private void SwapRight()
+    private void RotateRight()
     {
         try
         {
+            // Get tiled windows (exclude fullscreen)
             var windows = _identityService.FindMatrixWindows()
-                .Where(w => !w.IsControlPanel)
+                .Where(w => !w.IsControlPanel && !WindowsApi.IsZoomed(w.Handle))
                 .OrderBy(w => w.Position.Left)
                 .ToList();
 
@@ -117,30 +145,34 @@ public sealed class HotkeyActions
             var foreground = WindowsApi.GetForegroundWindow();
             var currentIdx = windows.FindIndex(w => w.Handle == foreground);
 
-            if (currentIdx < 0 || currentIdx >= windows.Count - 1)
-                return; // Already rightmost or not found
+            if (currentIdx < 0)
+                return;
 
-            SwapWindowPositions(windows[currentIdx], windows[currentIdx + 1]);
+            // Calculate target position (one to the right, wrap to start)
+            var targetIdx = (currentIdx + 1) % windows.Count;
+
+            var targetPos = windows[targetIdx].Position;
+            var currentPos = windows[currentIdx].Position;
+
+            // Move focused window to target position
+            WindowsApi.PositionWindowExact(windows[currentIdx].Handle, targetPos);
+
+            // Shift windows between current and target to the left
+            for (int i = targetIdx; i != currentIdx; i = (i - 1 + windows.Count) % windows.Count)
+            {
+                var prevIdx = (i - 1 + windows.Count) % windows.Count;
+                if (prevIdx == currentIdx)
+                {
+                    WindowsApi.PositionWindowExact(windows[i].Handle, currentPos);
+                    break;
+                }
+                WindowsApi.PositionWindowExact(windows[prevIdx].Handle, windows[i].Position);
+            }
         }
         catch
         {
             // Fail silently
         }
-    }
-
-    /// <summary>
-    /// Swaps positions of two windows.
-    /// </summary>
-    private static void SwapWindowPositions(WindowInfo window1, WindowInfo window2)
-    {
-        var pos1 = window1.Position;
-        var pos2 = window2.Position;
-
-        // Move window1 to window2's position
-        WindowsApi.PositionWindowExact(window1.Handle, pos2);
-
-        // Move window2 to window1's original position
-        WindowsApi.PositionWindowExact(window2.Handle, pos1);
     }
 
     /// <summary>
@@ -437,8 +469,13 @@ public sealed class HotkeyActions
     private void ToggleLayer(Func<ShaderConfig, ShaderConfig> updateFunc)
     {
         var focusedWindow = GetFocusedMatrixWindow();
+        DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer called for window shader index: {focusedWindow?.ShaderIndex ?? -1}");
+
         if (focusedWindow == null || focusedWindow.ShaderIndex < 1)
+        {
+            DiagnosticLogger.Debug("HOTKEYS", "ToggleLayer: No valid focused window found, returning");
             return;
+        }
 
         var shaderIndex = focusedWindow.ShaderIndex;
 
@@ -446,6 +483,7 @@ public sealed class HotkeyActions
         var config = _shaderService.ReadConfig(shaderIndex);
         var updatedConfig = updateFunc(config);
 
+        DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer: Writing config for shader {shaderIndex}, Layer1={updatedConfig.Layer1}, Layer2={updatedConfig.Layer2}, Layer3={updatedConfig.Layer3}");
         _shaderService.WriteConfig(shaderIndex, updatedConfig);
 
         // Also update state for persistence
@@ -454,6 +492,7 @@ public sealed class HotkeyActions
         {
             state.ShaderConfigs[shaderIndex] = updatedConfig;
             _configService.SaveState(state);
+            DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer: State saved for shader {shaderIndex}");
         }
     }
 
