@@ -118,6 +118,35 @@ catch {
     Write-Host "  Try closing any Matrix Shader windows first." -ForegroundColor Yellow
 }
 
+# Step 2.5: Restore original Windows Terminal settings
+Write-Host "[2.5/3] Restoring Windows Terminal settings..." -ForegroundColor Cyan
+
+$WTSettings = @(
+    "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json",
+    "$env:LOCALAPPDATA\Microsoft\Windows Terminal\settings.json"
+)
+
+$RestoredAny = $false
+foreach ($SettingsPath in $WTSettings) {
+    $OriginalBackup = "$SettingsPath.matrix-original"
+    if (Test-Path $OriginalBackup) {
+        try {
+            Copy-Item $OriginalBackup $SettingsPath -Force
+            Remove-Item $OriginalBackup -Force
+            Write-Host "  Restored original settings: $([IO.Path]::GetDirectoryName($SettingsPath))" -ForegroundColor Gray
+            $RestoredAny = $true
+        }
+        catch {
+            Write-Host "  WARNING: Could not restore $SettingsPath" -ForegroundColor Yellow
+            Write-Host "  $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+}
+
+if (-not $RestoredAny) {
+    Write-Host "  No original backup found (may be clean install)" -ForegroundColor Gray
+}
+
 # Step 3: Handle user data
 Write-Host "[3/3] User data..." -ForegroundColor Cyan
 if (Test-Path $DataDir) {
@@ -148,6 +177,6 @@ if (Test-Path $DataDir) {
 Write-Host ""
 Write-Host "  Matrix Shader uninstalled." -ForegroundColor Green
 Write-Host ""
-Write-Host "  Note: Windows Terminal Matrix profiles may still exist." -ForegroundColor Yellow
-Write-Host "  You can remove them manually in Windows Terminal settings." -ForegroundColor Yellow
+Write-Host "  Note: Windows Terminal settings have been restored to their original state." -ForegroundColor Yellow
+Write-Host "  If you manually customized any Matrix profiles, those changes were also reverted." -ForegroundColor Yellow
 Write-Host ""
