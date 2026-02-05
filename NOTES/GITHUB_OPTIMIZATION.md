@@ -128,7 +128,7 @@ Row 3 - Engagement (Optional):
 [![GitHub release](https://img.shields.io/github/v/release/USERNAME/REPO)](https://github.com/USERNAME/REPO/releases)
 
 <!-- License -->
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Proprietary Non-Commercial](https://img.shields.io/badge/License-Proprietary%20Non--Commercial-blue.svg)](LICENSE)
 
 <!-- GitHub Stars -->
 [![GitHub stars](https://img.shields.io/github/stars/USERNAME/REPO?style=social)](https://github.com/USERNAME/REPO/stargazers)
@@ -151,7 +151,7 @@ Row 3 - Engagement (Optional):
 [![CI](https://github.com/USERNAME/matrix-terminal-shader/actions/workflows/ci.yml/badge.svg)](https://github.com/USERNAME/matrix-terminal-shader/actions/workflows/ci.yml)
 [![GitHub release](https://img.shields.io/github/v/release/USERNAME/matrix-terminal-shader)](https://github.com/USERNAME/matrix-terminal-shader/releases)
 [![PowerShell Gallery](https://img.shields.io/powershellgallery/v/MatrixTerminalShader)](https://www.powershellgallery.com/packages/MatrixTerminalShader)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Proprietary Non-Commercial](https://img.shields.io/badge/License-Proprietary%20Non--Commercial-blue.svg)](LICENSE)
 
 > Color-coded terminal shaders for Windows Terminal, designed for multi-agent AI workflows.
 
@@ -322,7 +322,7 @@ Matrix Terminal Shader is free and open-source. If it helps your workflow, consi
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Proprietary License - see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
@@ -514,7 +514,7 @@ git clone https://github.com/USERNAME/repo.git
 ```markdown
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Proprietary License - see [LICENSE](LICENSE) for details.
 ```
 
 ### Footer Section
@@ -1207,7 +1207,7 @@ Fixes #
 
 ---
 
-**By submitting this PR, I confirm that my contribution is made under the terms of the MIT license.**
+**By submitting this PR, I confirm that my contribution is made under the terms of the project's license in LICENSE.**
 ```
 
 ## 3.8 Multiple PR Templates (for different types)

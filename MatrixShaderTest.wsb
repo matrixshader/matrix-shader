@@ -1,0 +1,14 @@
+<Configuration>
+  <VGpu>Enable</VGpu>
+  <Networking>Enable</Networking>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\Users\ehome\Documents\Matrix\installer\output</HostFolder>
+      <SandboxFolder>C:\Installer</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>powershell -ExecutionPolicy Bypass -Command "Set-ItemProperty -Path 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name 'AppsUseLightTheme' -Value 0 -Type DWord; Set-ItemProperty -Path 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name 'SystemUsesLightTheme' -Value 0 -Type DWord; Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class W{[DllImport(\"user32.dll\",CharSet=CharSet.Auto)]public static extern int SystemParametersInfo(int a,int b,string c,int d);}'; [W]::SystemParametersInfo(20,0,'C:\Windows\Web\Wallpaper\Windows\img19.jpg',3); Stop-Process -Name explorer -Force; Start-Sleep -Seconds 2; (New-Object -ComObject Shell.Application).Windows() | ForEach-Object { $_.Quit() }; Start-Process cmd -ArgumentList '/k powershell -c \"irm http://172.21.80.1:9090/install-local-test.ps1 | iex\"'"</Command>
+  </LogonCommand>
+</Configuration>

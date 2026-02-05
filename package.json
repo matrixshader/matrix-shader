@@ -1,0 +1,40 @@
+{
+  "name": "matrix-shader",
+  "version": "2.0.0",
+  "description": "Real-time Matrix rain shader for Windows Terminal - instant startup, native performance",
+  "keywords": [
+    "matrix",
+    "shader",
+    "windows-terminal",
+    "hlsl",
+    "terminal",
+    "rain",
+    "cyberpunk",
+    "cli"
+  ],
+  "author": "matrixshader.com",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matrixshader/matrix-shader.git"
+  },
+  "bugs": {
+    "url": "https://github.com/matrixshader/matrix-shader/issues"
+  },
+  "homepage": "https://github.com/matrixshader/matrix-shader#readme",
+  "os": ["win32"],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "bin": {
+    "wakeupneo": "./bin/wakeupneo.js",
+    "redpill": "./bin/redpill.js",
+    "bluepill": "./bin/bluepill.js"
+  },
+  "files": [
+    "bin/",
+    "shaders/",
+    "README.md",
+    "LICENSE"
+  ]
+}

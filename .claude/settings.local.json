@@ -3,7 +3,20 @@
     "allow": [
       "Bash(powershell -ExecutionPolicy Bypass -File:*)",
       "Bash(powershell -Command:*)",
-      "Bash(start notepad:*)"
+      "Bash(start notepad:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(npm pack:*)",
+      "Bash(npm install:*)",
+      "Bash(dir \"$env:USERPROFILE\\\\Documents\\\\Matrix\\\\shaders\")",
+      "Bash(powershell:*)",
+      "Bash(wmic process where \"name=''powershell.exe''\" get processid,commandline)",
+      "Bash(findstr:*)",
+      "Bash(echo:*)",
+      "Bash(tasklist:*)",
+      "Bash(wmic process where \"commandline like ''%matrix_monitor%''\" get processid)",
+      "Bash(wmic process where \"commandline like ''%matrix_monitor%''\" get processid,commandline)"
     ]
   },
   "enabledPlugins": {

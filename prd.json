@@ -138,8 +138,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": "NOT APPROVED. Test exists but awaiting permission to verify."
+      "passes": true,
+      "notes": "COMPLETE. Unified logging via MatrixLogging.ps1 with Write-MatrixLog function. Single debug.log file. Replaced 4 separate logging systems (~241 LOC removed). All catch blocks now log errors. Enable with $env:MATRIX_DEBUG=1."
     },
     {
       "id": "US-010",
@@ -153,8 +153,8 @@
         "PowerShell script runs without errors"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "NOT APPROVED. Test exists but awaiting permission to verify."
+      "passes": true,
+      "notes": "COMPLETE. Line 1040 normalizes letters to lowercase before switch. No duplicate uppercase cases remain. All keyboard controls work identically."
     }
   ]
 }
