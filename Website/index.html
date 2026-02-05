@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Terminal Shader - Real-time GPU Shaders for Windows Terminal</title>
+    <meta name="description" content="Transform your Windows Terminal with real-time Matrix rain effects. Perfect for multi-agent AI workflows with color-coded terminal differentiation.">
+    <meta name="keywords" content="matrix, terminal, shader, windows terminal, gpu, real-time, ai, coding, productivity">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://matrixshader.com/">
+    <meta property="og:title" content="Matrix Terminal Shader - Real-time GPU Shaders for Windows Terminal">
+    <meta property="og:description" content="Transform your Windows Terminal with real-time Matrix rain effects. Perfect for multi-agent AI workflows.">
+    <meta property="og:image" content="./assets/screenshot-hero.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://matrixshader.com/">
+    <meta property="twitter:title" content="Matrix Terminal Shader - Real-time GPU Shaders for Windows Terminal">
+    <meta property="twitter:description" content="Transform your Windows Terminal with real-time Matrix rain effects. Perfect for multi-agent AI workflows.">
+    <meta property="twitter:image" content="./assets/screenshot-hero.png">
+
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
+    
+    <!-- Matrix Rain Effect -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+</head>
+<body>
+    <!-- Matrix Rain Background -->
+    <div id="matrix-bg"></div>
+    
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <img src="./assets/logo.jpg" alt="Matrix Terminal Shader" class="logo-img">
+                <span class="logo-text">Matrix Shader</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#workflow">Multi-Agent Workflow</a></li>
+                <li><a href="#installation">Installation</a></li>
+                <li><a href="#download">Download</a></li>
+                <li><a href="https://github.com/matrixshader/matrix-shader" target="_blank">GitHub</a></li>
+            </ul>
+            <div class="nav-toggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1 class="hero-title">
+                    <span class="matrix-green">Transform</span> Your Terminal 
+                    <span class="matrix-cyan">Experience</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Real-time GPU-powered Matrix rain effects for Windows Terminal. 
+                    <strong>Color-code your AI agent workflows</strong> at a glance.
+                </p>
+                <div class="hero-buttons">
+                    <a href="#download" class="btn btn-primary">
+                        <span>Download Now</span>
+                        <span class="btn-subtitle">Free & Open Source</span>
+                    </a>
+                    <a href="#workflow" class="btn btn-secondary">
+                        <span>See Demo</span>
+                        <span class="btn-subtitle">Multi-Agent Setup</span>
+                    </a>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="terminal-mockup">
+                    <div class="terminal-header">
+                        <div class="terminal-buttons">
+                            <span class="btn-close"></span>
+                            <span class="btn-minimize"></span>
+                            <span class="btn-maximize"></span>
+                        </div>
+                        <div class="terminal-title">Matrix Terminal Shader</div>
+                    </div>
+                    <div class="terminal-content">
+                        <video id="demo-video" autoplay muted loop>
+                            <source src="./assets/agents1.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="hero-scroll">
+            <span class="scroll-indicator">Scroll to explore</span>
+            <div class="scroll-arrow"></div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Real-time Shader Control</h2>
+                <p class="section-subtitle">Live parameter adjustment with instant visual feedback</p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>6 Color Presets</h3>
+                    <p>Instant color schemes including classic Matrix green, cyber blue, and custom themes for different AI agents.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Real-time Control</h3>
+                    <p>Adjust speed, glow, width, trail, and density on-the-fly with keyboard shortcuts.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🪟</div>
+                    <h3>Multi-window Support</h3>
+                    <p>Manage up to 6 independent shader windows with automatic layout modes (Pillars/Quads).</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h3>GPU Accelerated</h3>
+                    <p>HLSL pixel shaders with hardware acceleration. Never impacts terminal performance.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">💾</div>
+                    <h3>State Persistence</h3>
+                    <p>All settings automatically saved. Restore your exact setup instantly.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Multi-monitor Ready</h3>
+                    <p>Automatic window distribution across all connected displays.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Multi-Agent Workflow Section -->
+    <section id="workflow" class="workflow">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Multi-Agent Workflow Game Changer</h2>
+                <p class="section-subtitle">The killer feature that makes this indispensable for AI-powered development</p>
+            </div>
+            
+            <div class="workflow-content">
+                <div class="workflow-visual">
+                    <div class="workflow-grid">
+                        <div class="workflow-terminal matrix-green">
+                            <div class="terminal-label">Aider (Backend)</div>
+                            <div class="terminal-content-mini">npm run dev</div>
+                        </div>
+                        <div class="workflow-terminal matrix-cyan">
+                            <div class="terminal-label">Claude (Frontend)</div>
+                            <div class="terminal-content-mini">git commit</div>
+                        </div>
+                        <div class="workflow-terminal matrix-red">
+                            <div class="terminal-label">Tests (Red)</div>
+                            <div class="terminal-content-mini">pytest</div>
+                        </div>
+                        <div class="workflow-terminal matrix-gold">
+                            <div class="terminal-label">Shell (Gold)</div>
+                            <div class="terminal-content-mini">git status</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="workflow-text">
+                    <h3>Never Mix Up Your AI Agents Again</h3>
+                    <p>Running multiple AI coding assistants? Each terminal gets its own color identity:</p>
+                    <ul class="workflow-list">
+                        <li><span class="color-indicator green"></span> <strong>Green (Classic Matrix)</strong> - Aider working on backend API</li>
+                        <li><span class="color-indicator cyan"></span> <strong>Cyan</strong> - Claude Code refactoring frontend</li>
+                        <li><span class="color-indicator red"></span> <strong>Red</strong> - Running test suite</li>
+                        <li><span class="color-indicator gold"></span> <strong>Gold</strong> - Manual shell operations</li>
+                    </ul>
+                    <div class="workflow-cta">
+                        <p>This use case has <strong>zero competition</strong> and is perfectly timed for the AI coding revolution.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section id="installation" class="installation">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Installation in 2 Minutes</h2>
+                <p class="section-subtitle">Simple setup for instant Matrix effects</p>
+            </div>
+            
+            <div class="installation-content">
+                <div class="installation-steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Download Matrix Shader</h3>
+                            <p>Get the latest release from GitHub or use the direct download below.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>Configure Windows Terminal</h3>
+                            <p>Add one line to your settings.json to enable pixel shaders.</p>
+                            <div class="code-block">
+                                <pre><code>"experimental.pixelShaderPath": "C:\\Matrix\\shaders\\Matrix-1.hlsl"</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>Launch & Customize</h3>
+                            <p>Run <code class="inline-code">wakeupneo.exe</code> for the setup wizard or <code class="inline-code">redpill.exe</code> for the control panel.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="installation-requirements">
+                    <h3>System Requirements</h3>
+                    <ul class="requirements-list">
+                        <li>✅ Windows 10/11</li>
+                        <li>✅ Windows Terminal (installed from Microsoft Store)</li>
+                        <li>✅ GPU with HLSL support (virtually all modern GPUs)</li>
+                        <li>✅ .NET 8 Runtime (included in installer)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="download">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Download Matrix Terminal Shader</h2>
+                <p class="section-subtitle">Free, open source, and ready to transform your terminal</p>
+            </div>
+            
+            <div class="download-options">
+                <div class="download-card featured">
+                    <div class="download-badge">Recommended</div>
+                    <div class="download-icon">📦</div>
+                    <h3>Complete Package</h3>
+                    <p>Full installer with all shaders, presets, and executables</p>
+                    <div class="download-info">
+                        <span class="version">v2.0.0</span>
+                        <span class="size">34.5 MB</span>
+                    </div>
+                    <a href="./matrix-shader-2.0.0.tgz" class="btn btn-primary btn-download">
+                        Download Windows Package
+                    </a>
+                </div>
+                
+                <div class="download-card">
+                    <div class="download-icon">🐙</div>
+                    <h3>GitHub Repository</h3>
+                    <p>Source code, documentation, and community support</p>
+                    <div class="download-info">
+                        <span class="stats">⭐ 1,200+ stars</span>
+                        <span class="license">MIT License</span>
+                    </div>
+                    <a href="https://github.com/matrixshader/matrix-shader" target="_blank" class="btn btn-secondary btn-download">
+                        View on GitHub
+                    </a>
+                </div>
+                
+                <div class="download-card">
+                    <div class="download-icon">📚</div>
+                    <h3>Documentation</h3>
+                    <p>Complete installation guide and API reference</p>
+                    <div class="download-info">
+                        <span class="docs">Detailed guides</span>
+                        <span class="examples">Code examples</span>
+                    </div>
+                    <a href="https://docs.matrixshader.com" target="_blank" class="btn btn-secondary btn-download">
+                        Read Documentation
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="footer-logo">
+                        <img src="./assets/logo.jpg" alt="Matrix Terminal Shader" class="footer-logo-img">
+                        <h4>Matrix Terminal Shader</h4>
+                    </div>
+                    <p>Real-time GPU shaders for Windows Terminal. Transform your coding workflow.</p>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="#workflow">Multi-Agent Setup</a></li>
+                        <li><a href="#installation">Installation</a></li>
+                        <li><a href="#download">Download</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://github.com/matrixshader/matrix-shader" target="_blank">GitHub</a></li>
+                        <li><a href="https://docs.matrixshader.com" target="_blank">Documentation</a></li>
+                        <li><a href="https://github.com/matrixshader/matrix-shader/issues" target="_blank">Issues & Support</a></li>
+                        <li><a href="https://github.com/matrixshader/matrix-shader/blob/main/LICENSE" target="_blank">License</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Community</h4>
+                    <ul>
+                        <li><a href="https://github.com/matrixshader/matrix-shader/discussions" target="_blank">Discussions</a></li>
+                        <li><a href="https://www.reddit.com/r/PowerShell" target="_blank">r/PowerShell</a></li>
+                        <li><a href="https://discord.gg/matrixshader" target="_blank">Discord</a></li>
+                        <li><a href="mailto:hello@matrixshader.com">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2026 Matrix Terminal Shader. Free and open source software.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

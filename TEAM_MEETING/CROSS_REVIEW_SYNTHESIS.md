@@ -178,7 +178,7 @@ Based on cross-review analysis, weighted by user goals (Money + Speed + Growth):
 | # | Task | Time | Agent Source | Rationale |
 |---|------|------|--------------|-----------|
 | 6 | Create README.md with GIF | 2 hours | All agents | Blocks adoption |
-| 7 | Add MIT LICENSE file | 5 min | All agents | Legal requirement |
+| 7 | Add LICENSE file (current non-commercial terms) | 5 min | All agents | Legal requirement |
 | 8 | Document all controls (1-6 presets) | 30 min | Reviewer | Discoverability |
 | 9 | Add Buy Me a Coffee link | 15 min | User requirement | MONEY ASAP |
 | 10 | Create installation instructions | 1 hour | Planning | Reduces friction |
@@ -342,7 +342,7 @@ Week 3: Launch GUI as premium
     - Full keyboard controls table
     - Buy Me a Coffee badge at TOP
     - Screenshots of all 6 presets
-[ ] Add LICENSE file (MIT)
+[ ] Add LICENSE file (current non-commercial terms)
 [ ] Update TUI help to show all keys (1-6 for presets)
 ```
 

@@ -196,7 +196,7 @@ These are **blockers** - do not release until all are fixed:
 
 - [ ] All 5 critical bugs fixed and tested
 - [ ] README.md exists with installation instructions
-- [ ] LICENSE file present (MIT recommended)
+- [ ] LICENSE file present (current non-commercial terms)
 - [ ] Tested on at least 1 NVIDIA and 1 AMD GPU
 - [ ] Tested on Windows 10 and Windows 11
 - [ ] Tested on PowerShell 5.1 and 7.x

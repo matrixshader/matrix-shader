@@ -1,7 +1,7 @@
 // MATRIX SHADER - SLOT 3
-#define RAIN_R         1.0
-#define RAIN_G         0.1
-#define RAIN_B         0.1
+#define RAIN_R         0.0
+#define RAIN_G         0.6
+#define RAIN_B         1.0
 #define RAIN_SPEED     0.8
 #define GLOW_STRENGTH  0.8
 #define FONT_SCALE     1.0
@@ -61,8 +61,14 @@ float3 DrawLayer(float2 uv, float depth, float speed_mult, float brightness, flo
     float shape = glyph * border;
     float col_rnd = random(float2(cell_id.x, seed_shift));
     if (col_rnd > RAIN_DENSITY) return float3(0,0,0);
+
+    // HIGH VARIATION: Use high-frequency hash for unique phase per column
+    // This prevents the "breathing" sync where all columns animate together
+    float col_hash = frac(sin(cell_id.x * 127.1 + seed_shift * 311.7) * 43758.5453);
+    float phase_offset = col_hash * grid_dims.y * 2.5;  // 2.5x screen height variation
+
     float final_speed = ((col_rnd * 0.5 + 0.2) * 10.0 * RAIN_SPEED * speed_mult) / depth;
-    float rain_pos = cell_id.y - (Time * final_speed) + (col_rnd * 1000.0);
+    float rain_pos = cell_id.y - (Time * final_speed) + phase_offset;
     float cycle = frac(rain_pos / grid_dims.y * 1.5);
     float trail = pow(cycle, TRAIL_POWER);
     float is_head = step(0.97, cycle);

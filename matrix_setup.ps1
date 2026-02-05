@@ -5,6 +5,9 @@ $shadersDir = "$matrixDir\shaders"
 $stateFile = "$matrixDir\matrix_state.json"
 $wtSettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
 
+# Unified logging
+. "$PSScriptRoot\MatrixLogging.ps1"
+
 $shaderTemplate = @'
 // MATRIX SHADER - SLOT {SLOT}
 #define RAIN_R         {R}
@@ -100,205 +103,36 @@ $presets = @{
     '6' = @{ Name="Cyan";    R="0.0"; G="0.9"; B="0.9" }
 }
 
-function Swatch($r,$g,$b,$w) {
-    "$([char]27)[48;2;$([int]([float]$r*255));$([int]([float]$g*255));$([int]([float]$b*255))m$(' '*$w)$([char]27)[0m"
-}
+# Import shared utilities (includes Swatch alias for Get-ColorSwatch)
+. "$PSScriptRoot\MatrixUtils.ps1"
 
 function Write-Shader($slot, $cfg) {
     $path = "$shadersDir\Matrix-$slot.hlsl"
+    Write-MatrixLog "Writing shader slot=$slot to $path" -Source SETUP
     $content = $shaderTemplate -replace '\{SLOT\}',$slot -replace '\{R\}',$cfg.R -replace '\{G\}',$cfg.G -replace '\{B\}',$cfg.B `
         -replace '\{SPEED\}',$cfg.Speed -replace '\{GLOW\}',$cfg.Glow -replace '\{WIDTH\}',$cfg.Width `
         -replace '\{TRAIL\}',$cfg.Trail -replace '\{DENS\}',$cfg.Dens
     [System.IO.File]::WriteAllText($path, $content)
+    Write-MatrixLog "Shader slot=$slot written successfully" -Source SETUP
 }
-
-# Window Positioning API + Window Registry
-Add-Type @"
-using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Diagnostics;
-
-public class WindowPositioning {
-    [DllImport("user32.dll")]
-    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
-    [DllImport("user32.dll")]
-    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-
-    [DllImport("user32.dll")]
-    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
-    [DllImport("user32.dll")]
-    public static extern bool IsWindowVisible(IntPtr hWnd);
-
-    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-
-    public const uint SWP_NOZORDER = 0x0004;
-    public const uint SWP_SHOWWINDOW = 0x0040;
-
-    private static List<KeyValuePair<IntPtr, string>> foundWindows;
-
-    // Find ALL Windows Terminal windows (by process name)
-    public static List<KeyValuePair<IntPtr, string>> FindAllTerminalWindows() {
-        foundWindows = new List<KeyValuePair<IntPtr, string>>();
-        EnumWindows((hWnd, lParam) => {
-            if (IsWindowVisible(hWnd)) {
-                uint processId;
-                GetWindowThreadProcessId(hWnd, out processId);
-                try {
-                    var process = Process.GetProcessById((int)processId);
-                    if (process.ProcessName.Equals("WindowsTerminal", StringComparison.OrdinalIgnoreCase)) {
-                        var sb = new StringBuilder(256);
-                        GetWindowText(hWnd, sb, 256);
-                        var title = sb.ToString();
-                        if (!string.IsNullOrEmpty(title)) {
-                            foundWindows.Add(new KeyValuePair<IntPtr, string>(hWnd, title));
-                        }
-                    }
-                } catch { }
-            }
-            return true;
-        }, IntPtr.Zero);
-        return foundWindows;
-    }
-
-    // Fast title-only search (no process lookup) for polling
-    public static List<KeyValuePair<IntPtr, string>> FindWindowsByPattern(string pattern) {
-        foundWindows = new List<KeyValuePair<IntPtr, string>>();
-        EnumWindows((hWnd, lParam) => {
-            if (IsWindowVisible(hWnd)) {
-                var sb = new StringBuilder(256);
-                GetWindowText(hWnd, sb, 256);
-                var title = sb.ToString();
-                if (!string.IsNullOrEmpty(title) && System.Text.RegularExpressions.Regex.IsMatch(title, pattern)) {
-                    foundWindows.Add(new KeyValuePair<IntPtr, string>(hWnd, title));
-                }
-            }
-            return true;
-        }, IntPtr.Zero);
-        return foundWindows;
-    }
-}
-"@ -ErrorAction SilentlyContinue
 
 # Import WindowLayoutEngine for centralized positioning
 . "$PSScriptRoot\WindowLayoutEngine.ps1"
 
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
-
-$windowRegistryPath = "$matrixDir\window-registry.json"
-
-function Get-AllTerminalWindows {
-    return [WindowPositioning]::FindAllTerminalWindows()
-}
-
-function Wait-ForMatrixWindow([string]$profileName, [int]$timeoutMs = 5000) {
-    # Poll for window with title containing profileName
-    # Returns $true if found, $false if timeout
-    # Uses fast title-only search (no process lookup) for speed
-    $pollInterval = 100
-    $startTime = Get-Date
-
-    while ($true) {
-        Start-Sleep -Milliseconds $pollInterval
-
-        # Strict timeout check
-        if (((Get-Date) - $startTime).TotalMilliseconds -ge $timeoutMs) {
-            return $false
-        }
-
-        # Fast check - just look for window title matching profile name
-        $matches = [WindowPositioning]::FindWindowsByPattern($profileName)
-        if ($matches.Count -gt 0) {
-            return $true
-        }
-    }
-}
-
-function Register-MatrixWindow($ShaderFile) {
-    # Wait for window to appear and stabilize
-    Start-Sleep -Milliseconds 800
-
-    $windows = Get-AllTerminalWindows
-    if ($windows.Count -eq 0) { return }
-
-    # Get the newest window (last one found, likely the one just opened)
-    $newest = $windows | Select-Object -Last 1
-
-    # Load existing registry
-    $registry = @{}
-    if (Test-Path $windowRegistryPath) {
-        try {
-            $content = Get-Content $windowRegistryPath -Raw
-            $data = $content | ConvertFrom-Json
-            # Convert PSObject to hashtable
-            $data.PSObject.Properties | ForEach-Object { $registry[$_.Name] = $_.Value }
-        } catch { }
-    }
-
-    # Add/update entry
-    $registry[$newest.Key.ToString()] = $ShaderFile
-
-    # Save registry
-    try {
-        $registry | ConvertTo-Json | Set-Content $windowRegistryPath -Encoding UTF8
-    } catch {
-        Write-Host "   Warning: Could not save window registry" -ForegroundColor Yellow
-    }
-}
-
-function Get-ScreenDimensions {
-    Add-Type -AssemblyName System.Windows.Forms
-    $screen = [System.Windows.Forms.Screen]::PrimaryScreen
-    return @{
-        Width = $screen.WorkingArea.Width
-        Height = $screen.WorkingArea.Height
-        Left = $screen.WorkingArea.Left
-        Top = $screen.WorkingArea.Top
-    }
-}
-
-function Get-ProfileFromUIAutomation($windowHandle) {
-    # Use UI Automation to detect the actual profile name from TermControl element
-    try {
-        $auto = [System.Windows.Automation.AutomationElement]
-        $winElement = $auto::FromHandle($windowHandle)
-        if (-not $winElement) { return $null }
-
-        $allCondition = [System.Windows.Automation.Condition]::TrueCondition
-        $children = $winElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $allCondition)
-
-        foreach ($child in $children) {
-            $childName = $child.Current.Name
-            if ($childName -match "^Matrix-(\d+)$") {
-                return [int]$Matches[1]
-            }
-        }
-    } catch { }
-    return $null
-}
+# Import WindowIdentityService for launch tracking and window detection
+. "$PSScriptRoot\WindowIdentityService.ps1"
 
 function Position-MatrixWindows([int]$WindowCount) {
     # Wait for windows to fully initialize
     Start-Sleep -Milliseconds 500
 
-    # Find all Matrix windows and detect their slots via UI Automation
-    $windows = Get-AllTerminalWindows
+    # Use WindowIdentityService to find all Matrix windows
+    $identityWindows = Get-AllMatrixWindows -IncludeRedpill:$false
     $windowHandles = @{}
 
-    foreach ($win in $windows) {
-        # Skip Redpill window
-        if ($win.Value -match "Redpill") { continue }
-
-        $slot = Get-ProfileFromUIAutomation $win.Key
-        if ($slot) {
-            $windowHandles["Matrix-$slot"] = @{ Handle = $win.Key }
+    foreach ($win in $identityWindows) {
+        if ($win.Slot) {
+            $windowHandles["Matrix-$($win.Slot)"] = @{ Handle = $win.Handle }
         }
     }
 
@@ -310,12 +144,14 @@ function Position-MatrixWindows([int]$WindowCount) {
     # Use WindowLayoutEngine for positioning
     $result = Invoke-MatrixWindowLayout -WindowHandles $windowHandles -Mode 'Auto'
 
-    Write-Host "   Positioned $($windowHandles.Count) windows by slot order" -ForegroundColor DarkGray
+    Write-Host "   Positioned $($windowHandles.Count) windows via identity service" -ForegroundColor DarkGray
 }
 
 function Update-ProfileShaderPath([int]$Slot) {
+    Write-MatrixLog "Updating profile shader path for slot $Slot" -Source SETUP
     # Updates Windows Terminal settings.json so Matrix-$Slot profile points to shaders/Matrix-$Slot.hlsl
     if (-not (Test-Path $wtSettingsPath)) {
+        Write-MatrixLog "Windows Terminal settings.json not found" -Source SETUP -Level WARN
         Write-Host "   WARNING: Windows Terminal settings.json not found" -ForegroundColor Yellow
         return
     }
@@ -336,10 +172,20 @@ function Update-ProfileShaderPath([int]$Slot) {
         }
 
         if ($updated) {
-            $settings | ConvertTo-Json -Depth 10 | Set-Content $wtSettingsPath -Encoding UTF8
+            Write-MatrixLog "Updating settings.json with shader path: $shaderPath" -Source SETUP
+            # US-001: Atomic write pattern - temp file + move (critical for settings.json)
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            $settings | ConvertTo-Json -Depth 10 | Out-File -FilePath $tempFile -Encoding UTF8
+            Move-Item -Path $tempFile -Destination $wtSettingsPath -Force
+            Write-MatrixLog "Settings.json updated successfully" -Source SETUP
         }
     } catch {
+        Write-MatrixLog "Failed to update profile path: $_" -Source SETUP -Level ERROR
         Write-Host "   WARNING: Failed to update profile path: $_" -ForegroundColor Yellow
+        # Clean up temp file on failure
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -351,14 +197,24 @@ if (-not (Test-Path $shadersDir)) {
 
 # State persistence functions
 function Save-MatrixState($slots) {
+    Write-MatrixLog "Saving Matrix state: slots=[$($slots -join ',')]" -Source SETUP
     $state = @{
         lastSlots = $slots
         lastSaved = (Get-Date).ToString("o")
     }
     try {
-        $state | ConvertTo-Json | Set-Content $stateFile -Encoding UTF8
+        # US-001: Atomic write pattern - temp file + move
+        $tempFile = [System.IO.Path]::GetTempFileName()
+        $state | ConvertTo-Json | Out-File -FilePath $tempFile -Encoding UTF8
+        Move-Item -Path $tempFile -Destination $stateFile -Force
+        Write-MatrixLog "Matrix state saved successfully" -Source SETUP
     } catch {
+        Write-MatrixLog "Failed to save Matrix state: $_" -Source SETUP -Level ERROR
         Write-Host "   Warning: Could not save state: $_" -ForegroundColor Yellow
+        # Clean up temp file on failure
+        if ($tempFile -and (Test-Path $tempFile)) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -433,10 +289,33 @@ if ($previousState -and $previousState.lastSlots.Count -gt 0) {
 }
 
 if (-not $usePreviousState) {
-    $numInput = Read-Host " How many Matrix tabs? (1-8)"
-    $numTabs = [Math]::Max(1, [Math]::Min(8, [int]$numInput))
+    # Detect currently open Matrix windows to avoid slot collisions
+    $openWindows = @(Get-AllMatrixWindows -IncludeRedpill:$false)
+    $occupiedSlots = @($openWindows | Where-Object { $_.Slot } | ForEach-Object { $_.Slot })
+    if ($occupiedSlots.Count -gt 0) {
+        Write-Host ""
+        Write-Host " Detected $($occupiedSlots.Count) open Matrix window(s): slots [$($occupiedSlots -join ', ')]" -ForegroundColor Yellow
+        Write-MatrixLog "Detected occupied slots: [$($occupiedSlots -join ', ')]" -Source SETUP
+    }
+
+    # Calculate available slots (1-8 minus occupied)
+    $availableSlots = @(1..8 | Where-Object { $_ -notin $occupiedSlots })
+    $maxNewWindows = $availableSlots.Count
+
+    if ($maxNewWindows -eq 0) {
+        Write-Host ""
+        Write-Host " All 8 Matrix slots are in use!" -ForegroundColor Red
+        Write-Host " Close some Matrix windows first, or use the control panel." -ForegroundColor DarkGray
+        Start-Sleep -Seconds 3
+        exit
+    }
+
+    Write-Host " Available slots: [$($availableSlots -join ', ')]" -ForegroundColor DarkGray
+    $numInput = Read-Host " How many NEW Matrix tabs? (1-$maxNewWindows)"
+    $numTabs = [Math]::Max(1, [Math]::Min($maxNewWindows, [int]$numInput))
 
     $tabConfigs = @()
+    $slotIndex = 0  # Index into availableSlots array
 
     for ($i = 1; $i -le $numTabs; $i++) {
         Clear-Host
@@ -459,12 +338,15 @@ if (-not $usePreviousState) {
         $cfg.G = $color.G
         $cfg.B = $color.B
 
-        $cfg['Slot'] = $i
+        # Assign to next available slot (not just $i)
+        $assignedSlot = $availableSlots[$slotIndex]
+        $slotIndex++
+        $cfg['Slot'] = $assignedSlot
         $cfg['Name'] = $color.Name
         $tabConfigs += $cfg
 
         Write-Host ""
-        Write-Host " Tab ${i} - $(Swatch $cfg.R $cfg.G $cfg.B 2) $($color.Name)" -ForegroundColor Cyan
+        Write-Host " Tab ${i} -> Matrix-$assignedSlot - $(Swatch $cfg.R $cfg.G $cfg.B 2) $($color.Name)" -ForegroundColor Cyan
         Start-Sleep -Milliseconds 300
     }
 }
@@ -502,13 +384,22 @@ foreach ($cfg in $tabConfigs) {
 }
 
 # Save state for future "restore previous" option
-$slotsUsed = $tabConfigs | ForEach-Object { $_.Slot }
-Save-MatrixState $slotsUsed
+# Include BOTH occupied slots and new slots (if in new mode)
+$newSlots = @($tabConfigs | ForEach-Object { $_.Slot })
+if ($occupiedSlots) {
+    $allSlots = @($occupiedSlots + $newSlots | Sort-Object -Unique)
+    Write-MatrixLog "Saving state: occupied=[$($occupiedSlots -join ',')] + new=[$($newSlots -join ',')] = all=[$($allSlots -join ',')]" -Source SETUP
+} else {
+    $allSlots = $newSlots
+    Write-MatrixLog "Saving state (restore mode): slots=[$($allSlots -join ',')]" -Source SETUP
+}
+Save-MatrixState $allSlots
 
 Start-Sleep -Milliseconds 500
 
 if ($choice -eq '2') {
     # Red Pill - launch Matrix windows PLUS control panel
+    Write-MatrixLog "Red Pill selected - launching $($tabConfigs.Count) Matrix windows" -Source SETUP
     Write-Host ""
     Write-Host " Follow the white rabbit..." -ForegroundColor Green
     Write-Host ""
@@ -517,12 +408,27 @@ if ($choice -eq '2') {
     foreach ($cfg in $tabConfigs) {
         $slot = $cfg.Slot
         $pname = "Matrix-$slot"
+
+        # Sync tab color to match shader color BEFORE launching
+        Sync-TabColorToShader -ProfileName $pname | Out-Null
+
         Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
+        Write-MatrixLog "Launching window: $pname" -Source SETUP
+
+        # LAYER 1 INTEGRATION: Capture existing handles BEFORE launch
+        $existingHandles = Get-ExistingWindowHandles
+
         Start-Process wt -ArgumentList "-p `"$pname`""
 
-        if (Wait-ForMatrixWindow $pname) {
+        # LAYER 1 INTEGRATION: Wait for new handle and register it
+        $newHandle = Wait-ForNewMatrixWindow -ProfileName $pname -ExistingHandles $existingHandles
+
+        if ($newHandle -ne [IntPtr]::Zero) {
+            Register-MatrixWindowByHandle -ProfileName $pname -WindowHandle $newHandle
+            Write-MatrixLog "Window $pname launched successfully (handle: $newHandle)" -Source SETUP
             Write-Host " OK" -ForegroundColor Green
         } else {
+            Write-MatrixLog "Window $pname TIMEOUT" -Source SETUP -Level WARN
             Write-Host " TIMEOUT" -ForegroundColor Yellow
         }
     }
@@ -549,18 +455,34 @@ if ($choice -eq '2') {
 }
 
 # Blue Pill path - launch windows user just configured
+Write-MatrixLog "Blue Pill selected - launching $($tabConfigs.Count) Matrix windows" -Source SETUP
 Write-Host ""
 Write-Host " Opening windows..." -ForegroundColor Cyan
 
 foreach ($cfg in $tabConfigs) {
     $slot = $cfg.Slot
     $pname = "Matrix-$slot"
+
+    # Sync tab color to match shader color BEFORE launching
+    Sync-TabColorToShader -ProfileName $pname | Out-Null
+
     Write-Host "   Waiting for $pname..." -ForegroundColor DarkGray -NoNewline
+    Write-MatrixLog "Launching window: $pname" -Source SETUP
+
+    # LAYER 1 INTEGRATION: Capture existing handles BEFORE launch
+    $existingHandles = Get-ExistingWindowHandles
+
     Start-Process wt -ArgumentList "-p `"$pname`""
 
-    if (Wait-ForMatrixWindow $pname) {
+    # LAYER 1 INTEGRATION: Wait for new handle and register it
+    $newHandle = Wait-ForNewMatrixWindow -ProfileName $pname -ExistingHandles $existingHandles
+
+    if ($newHandle -ne [IntPtr]::Zero) {
+        Register-MatrixWindowByHandle -ProfileName $pname -WindowHandle $newHandle
+        Write-MatrixLog "Window $pname launched successfully (handle: $newHandle)" -Source SETUP
         Write-Host " OK" -ForegroundColor Green
     } else {
+        Write-MatrixLog "Window $pname TIMEOUT" -Source SETUP -Level WARN
         Write-Host " TIMEOUT" -ForegroundColor Yellow
     }
 }

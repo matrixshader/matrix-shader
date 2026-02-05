@@ -1,14 +1,23 @@
-# Temporary files
-nul
+# Temp files
 *.tmp
+tmpclaude-*
+nul
 
-# Image assets (working files)
-*.jpg
-*.png
-
-# Debug logs
-debug.log
+# Logs
 *.log
 
-# PowerShell temp files
-*.ps1.bak
+# Backups
+*.bak
+*.backup
+
+# npm package output
+*.tgz
+
+# IDE
+.vscode/
+
+# Build artifacts
+installer/publish/
+installer/output/
+bin/
+obj/

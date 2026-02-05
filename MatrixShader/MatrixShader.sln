@@ -1,0 +1,78 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Core", "src\MatrixShader.Core\MatrixShader.Core.csproj", "{A1B2C3D4-E5F6-7890-A1B2-C3D4E5F67890}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Lite", "src\MatrixShader.Lite\MatrixShader.Lite.csproj", "{B2C3D4E5-F6A7-8901-B2C3-D4E5F6A78901}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Cli.Redpill", "src\MatrixShader.Cli\Redpill\MatrixShader.Cli.Redpill.csproj", "{C3D4E5F6-A7B8-9012-C3D4-E5F6A7B89012}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Cli.Bluepill", "src\MatrixShader.Cli\Bluepill\MatrixShader.Cli.Bluepill.csproj", "{D4E5F6A7-B8C9-0123-D4E5-F6A7B8C90123}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Cli.WakeupNeo", "src\MatrixShader.Cli\WakeupNeo\MatrixShader.Cli.WakeupNeo.csproj", "{E5F6A7B8-C9D0-1234-E5F6-A7B8C9D01234}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Monitor", "src\MatrixShader.Monitor\MatrixShader.Monitor.csproj", "{F6A7B8C9-D0E1-2345-F6A7-B8C9D0E12345}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{00000000-0000-0000-0000-000000000001}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{00000000-0000-0000-0000-000000000002}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MatrixShader.Cli", "MatrixShader.Cli", "{D18659B8-9F72-496C-A1E0-CE02BB85F57A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Cli.MatrixLite", "src\MatrixShader.Cli\MatrixLite\MatrixShader.Cli.MatrixLite.csproj", "{2831EABE-2931-431C-8D80-895DFC29A8F9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Hotkeys", "src\MatrixShader.Hotkeys\MatrixShader.Hotkeys.csproj", "{930401F1-F7C5-4A1B-B617-2EBEC5E33CD9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1B2C3D4-E5F6-7890-A1B2-C3D4E5F67890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-A1B2-C3D4E5F67890}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-A1B2-C3D4E5F67890}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-A1B2-C3D4E5F67890}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2C3D4E5-F6A7-8901-B2C3-D4E5F6A78901}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C3D4E5-F6A7-8901-B2C3-D4E5F6A78901}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2C3D4E5-F6A7-8901-B2C3-D4E5F6A78901}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2C3D4E5-F6A7-8901-B2C3-D4E5F6A78901}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3D4E5F6-A7B8-9012-C3D4-E5F6A7B89012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3D4E5F6-A7B8-9012-C3D4-E5F6A7B89012}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3D4E5F6-A7B8-9012-C3D4-E5F6A7B89012}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3D4E5F6-A7B8-9012-C3D4-E5F6A7B89012}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D4E5F6A7-B8C9-0123-D4E5-F6A7B8C90123}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4E5F6A7-B8C9-0123-D4E5-F6A7B8C90123}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4E5F6A7-B8C9-0123-D4E5-F6A7B8C90123}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4E5F6A7-B8C9-0123-D4E5-F6A7B8C90123}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E5F6A7B8-C9D0-1234-E5F6-A7B8C9D01234}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5F6A7B8-C9D0-1234-E5F6-A7B8C9D01234}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5F6A7B8-C9D0-1234-E5F6-A7B8C9D01234}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5F6A7B8-C9D0-1234-E5F6-A7B8C9D01234}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F6A7B8C9-D0E1-2345-F6A7-B8C9D0E12345}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F6A7B8C9-D0E1-2345-F6A7-B8C9D0E12345}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F6A7B8C9-D0E1-2345-F6A7-B8C9D0E12345}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F6A7B8C9-D0E1-2345-F6A7-B8C9D0E12345}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2831EABE-2931-431C-8D80-895DFC29A8F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2831EABE-2931-431C-8D80-895DFC29A8F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2831EABE-2931-431C-8D80-895DFC29A8F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2831EABE-2931-431C-8D80-895DFC29A8F9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{930401F1-F7C5-4A1B-B617-2EBEC5E33CD9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{930401F1-F7C5-4A1B-B617-2EBEC5E33CD9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{930401F1-F7C5-4A1B-B617-2EBEC5E33CD9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{930401F1-F7C5-4A1B-B617-2EBEC5E33CD9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A1B2C3D4-E5F6-7890-A1B2-C3D4E5F67890} = {00000000-0000-0000-0000-000000000001}
+		{B2C3D4E5-F6A7-8901-B2C3-D4E5F6A78901} = {00000000-0000-0000-0000-000000000001}
+		{C3D4E5F6-A7B8-9012-C3D4-E5F6A7B89012} = {00000000-0000-0000-0000-000000000001}
+		{D4E5F6A7-B8C9-0123-D4E5-F6A7B8C90123} = {00000000-0000-0000-0000-000000000001}
+		{E5F6A7B8-C9D0-1234-E5F6-A7B8C9D01234} = {00000000-0000-0000-0000-000000000001}
+		{F6A7B8C9-D0E1-2345-F6A7-B8C9D0E12345} = {00000000-0000-0000-0000-000000000001}
+		{D18659B8-9F72-496C-A1E0-CE02BB85F57A} = {00000000-0000-0000-0000-000000000001}
+		{2831EABE-2931-431C-8D80-895DFC29A8F9} = {D18659B8-9F72-496C-A1E0-CE02BB85F57A}
+		{930401F1-F7C5-4A1B-B617-2EBEC5E33CD9} = {00000000-0000-0000-0000-000000000001}
+	EndGlobalSection
+EndGlobal

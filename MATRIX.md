@@ -221,7 +221,7 @@ matrix-shader/
 1. ✅ Fix 5 critical bugs (2-3 hours)
 2. ✅ Add error handling and validation
 3. ✅ Create README with screenshots/GIF
-4. ✅ Add LICENSE file (MIT recommended)
+4. ✅ Add LICENSE file (current non-commercial terms)
 5. ✅ Document all controls including presets
 
 ### Phase 2: Release (Week 2)
