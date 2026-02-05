@@ -33,8 +33,22 @@ public sealed class MatrixWindowMonitor : IDisposable
     private DateTime _lastOverlapReposition = DateTime.MinValue;
     private static readonly TimeSpan OverlapCooldown = TimeSpan.FromSeconds(3);
 
+    // Manual action pause - when user does hotkey rotation, pause Glitch
+    private static DateTime _glitchPauseUntil = DateTime.MinValue;
+    private static readonly TimeSpan ManualActionPause = TimeSpan.FromSeconds(5);
+
     // Minimum overlap area to trigger repositioning (in pixels squared)
     private const int MinOverlapArea = 10000; // ~100x100 pixels
+
+    /// <summary>
+    /// Pauses Glitch auto-repositioning for a few seconds.
+    /// Called by HotkeyActions when user manually rotates/moves windows.
+    /// </summary>
+    public static void PauseGlitch()
+    {
+        _glitchPauseUntil = DateTime.Now + ManualActionPause;
+        DiagnosticLogger.Debug("HOTKEYS", $"Glitch paused for {ManualActionPause.TotalSeconds}s");
+    }
 
     /// <summary>
     /// Number of consecutive checks with no windows before triggering exit.
@@ -157,6 +171,10 @@ public sealed class MatrixWindowMonitor : IDisposable
 
         // Check cooldown
         if (DateTime.Now - _lastOverlapReposition < OverlapCooldown)
+            return;
+
+        // Check if manually paused (user did hotkey rotation)
+        if (DateTime.Now < _glitchPauseUntil)
             return;
 
         // Load config to check if Glitch is enabled

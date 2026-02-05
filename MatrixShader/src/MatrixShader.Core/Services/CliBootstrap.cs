@@ -221,14 +221,61 @@ public static class CliBootstrap
     }
 
     /// <summary>
-    /// Shows restart instructions after Windows Terminal is installed but not running inside WT.
+    /// Auto-launches Windows Terminal with wakeupneo after WT is installed.
+    /// Falls back to manual instructions if auto-launch fails.
     /// </summary>
     private static void ShowRestartInstructions()
     {
         Console.WriteLine();
         ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed successfully!");
         Console.WriteLine();
-        ConsoleHelper.WriteLineDim(" To continue:");
+        ConsoleHelper.WriteLineDim(" Launching Windows Terminal with wakeupneo...");
+        Console.WriteLine();
+
+        try
+        {
+            // Find wakeupneo.exe path
+            var wakeupneoPath = Path.Combine(AppContext.BaseDirectory, "wakeupneo.exe");
+            if (!File.Exists(wakeupneoPath))
+            {
+                // Try Program Files
+                wakeupneoPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    "MatrixShader", "wakeupneo.exe");
+            }
+            if (!File.Exists(wakeupneoPath))
+            {
+                // Try LocalAppData
+                wakeupneoPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Programs", "MatrixShader", "wakeupneo.exe");
+            }
+
+            if (File.Exists(wakeupneoPath))
+            {
+                // Launch WT with wakeupneo
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "wt.exe",
+                    Arguments = $"\"{wakeupneoPath}\"",
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+
+                ConsoleHelper.WriteLineDim(" Windows Terminal is starting...");
+                ConsoleHelper.WriteLineDim(" This window will close automatically.");
+                Thread.Sleep(2000);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Debug("BOOTSTRAP", $"Auto-launch failed: {ex.Message}");
+        }
+
+        // Fallback to manual instructions if auto-launch fails
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" Auto-launch failed. Please manually:");
         ConsoleHelper.WriteLineDim("   1. Close this window");
         ConsoleHelper.WriteLineDim("   2. Type 'wt' to open Windows Terminal");
         ConsoleHelper.WriteLineDim("   3. Run 'wakeupneo' again");

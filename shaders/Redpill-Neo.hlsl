@@ -1,5 +1,5 @@
 // REDPILL-NEO.HLSL - 3D Box Corridor with MATRIX SHADER logo
-// Rectangular tunnel with 3D outline block text in center
+// Proper hallway perspective with rectangular back wall
 
 #define RAIN_SPEED       0.7
 #define GLOW_STRENGTH    1.0
@@ -10,6 +10,10 @@
 #define TEXT_HEIGHT      0.08
 #define TEXT_THICKNESS   0.012
 #define TEXT_DEPTH       0.012
+
+// Back wall rectangle dimensions (in UV space, centered at origin)
+#define BACK_WALL_WIDTH  0.12
+#define BACK_WALL_HEIGHT 0.22
 
 Texture2D shaderTexture;
 SamplerState samplerState;
@@ -308,51 +312,125 @@ float4 main(float4 pos : SV_POSITION, float2 tex : TEXCOORD) : SV_TARGET {
     float aspect = Resolution.x / Resolution.y;
     uv.x *= aspect;
 
-    float dist = length(uv);
-    float absX = abs(uv.x);
-    float absY = abs(uv.y);
-
-    float depth = 1.0 - dist * 1.5;
-    depth = clamp(depth, 0.05, 1.0);
+    // Back wall rectangle bounds (aspect-corrected)
+    float backW = BACK_WALL_WIDTH * aspect;
+    float backH = BACK_WALL_HEIGHT;
 
     float3 surfaceColor = float3(0, 0, 0);
     float wireframe = 0.0;
 
-    if (absX > absY * aspect) {
-        float wall_x = (uv.x > 0.0) ? 1.0 : 0.0;
-        float wall_depth = absX - absY;
-        float wall_v = (uv.y / absX + 1.0) * 0.5;
+    // Check if we're inside the back wall rectangle
+    bool inBackWall = (abs(uv.x) < backW) && (abs(uv.y) < backH);
 
-        float2 wall_uv = float2(wall_depth * 5.0, wall_v * 8.0);
-        surfaceColor = DrawWallRain(wall_uv, 1.0 - wall_depth, wall_x * 100.0 + 50.0);
+    if (inBackWall) {
+        // Back wall - static grid with subtle code
+        float2 back_uv = (uv + float2(backW, backH)) / float2(backW * 2.0, backH * 2.0);
+        surfaceColor = DrawFloorCode(back_uv, 0.0, 500.0, 0.3);
 
-        float grid_x = frac(wall_uv.x * 3.0);
-        wireframe = (step(grid_x, GRID_LINES) + step(1.0 - GRID_LINES, grid_x)) * 0.3;
-        float persp_line = frac(wall_depth * 15.0);
-        wireframe += (step(persp_line, GRID_LINES * 2.0)) * 0.2 * (1.0 - wall_depth);
+        // Grid on back wall
+        float grid_x = frac(back_uv.x * 8.0);
+        float grid_y = frac(back_uv.y * 12.0);
+        wireframe = (step(grid_x, GRID_LINES * 2.0) + step(1.0 - GRID_LINES * 2.0, grid_x)) * 0.2;
+        wireframe += (step(grid_y, GRID_LINES * 2.0) + step(1.0 - GRID_LINES * 2.0, grid_y)) * 0.2;
     } else {
-        float is_floor = (uv.y < 0.0) ? 1.0 : 0.0;
-        float floor_depth = absY - absX / aspect;
-        float floor_h = (uv.x / absY + 1.0) * 0.5;
+        // Determine which surface we're on using ratio comparison
+        float screenW = 0.5 * aspect;
+        float screenH = 0.5;
 
-        float2 floor_uv = float2(floor_h, floor_depth * 4.0);
-        float brightness = is_floor > 0.5 ? 0.7 : 0.5;
-        surfaceColor = DrawFloorCode(floor_uv, 1.0 - floor_depth, is_floor * 200.0 + 300.0, brightness);
+        // Ratio determines wall vs floor/ceiling boundary
+        float ratioX = abs(uv.x) / backW;
+        float ratioY = abs(uv.y) / backH;
 
-        float grid_y = frac(floor_depth * 12.0);
-        wireframe = (step(grid_y, GRID_LINES * 2.0)) * 0.25 * (1.0 - floor_depth);
-        float grid_x = frac(floor_h * 8.0);
-        wireframe += (step(grid_x, GRID_LINES) + step(1.0 - GRID_LINES, grid_x)) * 0.15;
+        float depth;
+
+        if (ratioX > ratioY) {
+            // Left or right wall
+            float wall_x = (uv.x > 0.0) ? 1.0 : 0.0;
+
+            // Depth: from back wall (x = backW) to screen edge (x = screenW)
+            depth = (abs(uv.x) - backW) / (screenW - backW);
+            depth = clamp(depth, 0.0, 1.0);
+
+            // V coordinate: interpolate y from back wall height to screen height
+            float edgeY = backH + (screenH - backH) * depth;
+            float wall_v = (uv.y + edgeY) / (edgeY * 2.0);
+
+            float2 wall_uv = float2(depth * 5.0, wall_v * 8.0);
+            surfaceColor = DrawWallRain(wall_uv, 1.0 - depth, wall_x * 100.0 + 50.0);
+
+            // Wireframe
+            float grid_x = frac(wall_uv.x * 3.0);
+            wireframe = (step(grid_x, GRID_LINES) + step(1.0 - GRID_LINES, grid_x)) * 0.3;
+            float persp_line = frac(depth * 15.0);
+            wireframe += (step(persp_line, GRID_LINES * 2.0)) * 0.2 * (1.0 - depth);
+        } else {
+            // Floor or ceiling
+            float is_floor = (uv.y < 0.0) ? 1.0 : 0.0;
+
+            // Depth: from back wall (y = backH) to screen edge (y = screenH)
+            depth = (abs(uv.y) - backH) / (screenH - backH);
+            depth = clamp(depth, 0.0, 1.0);
+
+            // H coordinate: interpolate x from back wall width to screen width
+            float edgeX = backW + (screenW - backW) * depth;
+            float floor_h = (uv.x + edgeX) / (edgeX * 2.0);
+
+            float2 floor_uv = float2(floor_h, depth * 4.0);
+            float brightness = is_floor > 0.5 ? 0.7 : 0.5;
+            surfaceColor = DrawFloorCode(floor_uv, 1.0 - depth, is_floor * 200.0 + 300.0, brightness);
+
+            // Wireframe
+            float grid_y = frac(depth * 12.0);
+            wireframe = (step(grid_y, GRID_LINES * 2.0)) * 0.25 * (1.0 - depth);
+            float grid_x = frac(floor_h * 8.0);
+            wireframe += (step(grid_x, GRID_LINES) + step(1.0 - GRID_LINES, grid_x)) * 0.15;
+        }
     }
 
     totalColor = surfaceColor + float3(0.0, 0.4, 0.1) * wireframe;
 
-    // Perspective edge lines
-    float diag1 = abs(absX - absY * aspect);
-    float edge_line = step(diag1, GRID_LINES * 3.0) * 0.5 * (1.0 - dist);
-    totalColor += float3(0.0, 0.5, 0.15) * edge_line;
+    // Draw the 4 perspective edge lines along ratio boundary (ratioX == ratioY)
+    // These lines go from back wall corners outward at slope backH/backW
+    float screenW = 0.5 * aspect;
+    float screenH = 0.5;
+    float slope = backH / backW;
+
+    // Top-right line: from (backW, backH) toward top-right, slope = backH/backW
+    // Extends until it hits screen edge
+    float2 trBack = float2(backW, backH);
+    float2 trEnd = float2(screenW, backH + (screenW - backW) * slope);
+    if (trEnd.y > screenH) trEnd = float2(backW + (screenH - backH) / slope, screenH);
+    float distTR = sdSegment(uv, trBack, trEnd);
+
+    // Top-left line: from (-backW, backH) toward top-left
+    float2 tlBack = float2(-backW, backH);
+    float2 tlEnd = float2(-screenW, backH + (screenW - backW) * slope);
+    if (tlEnd.y > screenH) tlEnd = float2(-backW - (screenH - backH) / slope, screenH);
+    float distTL = sdSegment(uv, tlBack, tlEnd);
+
+    // Bottom-right line: from (backW, -backH) toward bottom-right
+    float2 brBack = float2(backW, -backH);
+    float2 brEnd = float2(screenW, -backH - (screenW - backW) * slope);
+    if (brEnd.y < -screenH) brEnd = float2(backW + (screenH - backH) / slope, -screenH);
+    float distBR = sdSegment(uv, brBack, brEnd);
+
+    // Bottom-left line: from (-backW, -backH) toward bottom-left
+    float2 blBack = float2(-backW, -backH);
+    float2 blEnd = float2(-screenW, -backH - (screenW - backW) * slope);
+    if (blEnd.y < -screenH) blEnd = float2(-backW - (screenH - backH) / slope, -screenH);
+    float distBL = sdSegment(uv, blBack, blEnd);
+
+    float minEdgeDist = min(min(distTL, distTR), min(distBL, distBR));
+    float edge_line = exp(-minEdgeDist * 150.0) * 0.6;
+    totalColor += float3(0.0, 0.6, 0.2) * edge_line;
+
+    // Back wall rectangle outline
+    float backOutline = sdBox(uv, float2(backW, backH));
+    float backEdge = exp(-abs(backOutline) * 200.0) * 0.4;
+    totalColor += float3(0.0, 0.5, 0.15) * backEdge;
 
     // Center glow (behind text)
+    float dist = length(uv);
     float center_glow = exp(-dist * 6.0) * 0.4;
     totalColor += float3(0.1, 0.3, 0.12) * center_glow;
 

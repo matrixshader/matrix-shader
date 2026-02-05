@@ -73,6 +73,9 @@ public sealed class HotkeyActions
     {
         try
         {
+            // Pause Glitch so it doesn't fight with manual rotation
+            MatrixWindowMonitor.PauseGlitch();
+
             // Get tiled windows (exclude fullscreen)
             var windows = _identityService.FindMatrixWindows()
                 .Where(w => !w.IsControlPanel && !WindowsApi.IsZoomed(w.Handle))
@@ -129,6 +132,9 @@ public sealed class HotkeyActions
     {
         try
         {
+            // Pause Glitch so it doesn't fight with manual rotation
+            MatrixWindowMonitor.PauseGlitch();
+
             // Get tiled windows (exclude fullscreen)
             var windows = _identityService.FindMatrixWindows()
                 .Where(w => !w.IsControlPanel && !WindowsApi.IsZoomed(w.Handle))
@@ -179,6 +185,9 @@ public sealed class HotkeyActions
     {
         try
         {
+            // Pause Glitch so it doesn't fight with layout change
+            MatrixWindowMonitor.PauseGlitch();
+
             var state = _configService.LoadState();
             var newConfig = _layoutService.CycleMode(state.Layout);
 
@@ -207,7 +216,8 @@ public sealed class HotkeyActions
     #region Terminal Settings Actions (ToggleTransparency, OpacityUp/Down)
 
     /// <summary>
-    /// Toggles UseAcrylic on the focused Matrix window's profile.
+    /// Toggles transparency on the focused Matrix window's profile.
+    /// Switches between opaque (100%) and transparent (85%).
     /// Uses TerminalSettingsService to modify terminal settings.
     /// </summary>
     private void ToggleTransparency()
@@ -224,10 +234,15 @@ public sealed class HotkeyActions
             if (profile == null)
                 return;
 
-            // Toggle UseAcrylic
-            var updatedProfile = profile with { UseAcrylic = !profile.UseAcrylic };
+            // Toggle between opaque (100) and transparent (85)
+            // Keep UseAcrylic = false to avoid frosted glass effect
+            var currentOpacity = profile.Opacity;
+            var newOpacity = currentOpacity >= 100 ? 85 : 100;
+            var updatedProfile = profile with { Opacity = newOpacity, UseAcrylic = false };
             _terminalSettingsService.UpsertProfile(settings, updatedProfile);
             _terminalSettingsService.SaveSettings(settings);
+
+            DiagnosticLogger.Debug("HOTKEYS", $"Toggled transparency: {currentOpacity}% -> {newOpacity}%");
         }
         catch
         {
