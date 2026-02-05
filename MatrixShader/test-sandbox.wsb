@@ -1,0 +1,10 @@
+<Configuration>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\Users\ehome\Documents\MATRIX\MatrixShader\publish</HostFolder>
+      <SandboxFolder>C:\Users\WDAGUtilityAccount\Desktop\MatrixShader</SandboxFolder>
+      <ReadOnly>false</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <MemoryInMB>4096</MemoryInMB>
+</Configuration>
