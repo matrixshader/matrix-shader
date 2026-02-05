@@ -330,6 +330,7 @@ public class SetupWizard
         var shadersDir = CliBootstrap.GetShadersDirectory();
         var profileCount = tabConfigs.Count;
         _terminalService.CreateMatrixProfiles(terminalSettings, 8, shadersDir);
+        _terminalService.CreateRedpillProfile(terminalSettings, shadersDir);
         _terminalService.SaveSettings(terminalSettings);
 
         // Verify profiles were created correctly
@@ -436,8 +437,18 @@ public class SetupWizard
 
         _identityService.SaveRegistry();
 
-        // Launch hotkeys background process
-        LaunchHotkeysProcess();
+        // Launch hotkeys background process (includes Glitch auto-snap)
+        Console.WriteLine();
+        ConsoleHelper.WriteMatrixGreen(" Starting hotkeys & Glitch...");
+        var hotkeyStarted = LaunchHotkeysProcess();
+        if (hotkeyStarted)
+        {
+            ConsoleHelper.WriteLineMatrixGreen(" OK");
+        }
+        else
+        {
+            ConsoleHelper.WriteLineDim(" (not available)");
+        }
 
         // Red Pill: also launch control panel
         if (isRedPill)
@@ -692,8 +703,9 @@ public class SetupWizard
 
     /// <summary>
     /// Launches the hotkeys background process if not already running.
+    /// Returns true if launched successfully.
     /// </summary>
-    private static void LaunchHotkeysProcess()
+    private static bool LaunchHotkeysProcess()
     {
         try
         {
@@ -714,7 +726,7 @@ public class SetupWizard
             if (!File.Exists(hotkeyExe))
             {
                 DiagnosticLogger.Debug("WAKEUPNEO", "matrix-hotkeys.exe not found, skipping hotkey launch");
-                return;
+                return false;
             }
 
             // Start as hidden background process
@@ -728,11 +740,13 @@ public class SetupWizard
 
             Process.Start(startInfo);
             DiagnosticLogger.Debug("WAKEUPNEO", $"Launched hotkeys process: {hotkeyExe}");
+            return true;
         }
         catch (Exception ex)
         {
             DiagnosticLogger.Warn("WAKEUPNEO", $"Failed to launch hotkeys: {ex.Message}");
             // Non-fatal - Matrix works without hotkeys
+            return false;
         }
     }
 }
