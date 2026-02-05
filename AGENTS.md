@@ -62,7 +62,7 @@ PowerShell requires CRLF line endings. Always use Windows-native tools.
 
 ## Project State
 
-### Current Phase: COMPLETE - Control Panel Hardening
+### Current Phase: Phase 14 - Final Polish & Hotkey Stability (E2E Round 1 Complete)
 
 ### Completed Phases:
 - [x] MVP single-instance shader (Matrix.hlsl + matrix_tool.ps1)
@@ -71,21 +71,25 @@ PowerShell requires CRLF line endings. Always use Windows-native tools.
 - [x] Neo vision shader (Redpill-Neo.hlsl)
 - [x] Code review and PRD generation
 - [x] Control Panel Hardening (US-001 through US-010)
+- [x] C#/.NET Rebuild (Phases 1-13)
+- [x] Phase 14 Wave 1-4 (14-01 through 14-05)
+- [x] Phase 14-06 E2E Round 1 Testing
 
-### Current Phase Checklist:
-- [x] US-001: Safe atomic file writes (Move-Item -Force instead of delete+rename)
-- [x] US-002: JSON error handling (try-catch around all JSON ops)
-- [x] US-003: Shader value validation (fix regex to reject invalid values)
-- [x] US-004: Auto-save on tab switch (save dirty shader before switching)
-- [x] US-005: Remove dead code (space key handler)
-- [x] US-006: Robust window detection (match by title+process)
-- [x] US-007: Robust window positioning (UI Automation for profile detection)
-- [x] US-008: Poll-based window launch (100ms polling, 5s timeout)
-- [x] US-009: Diagnostic logging ($env:MATRIX_DEBUG=1 to debug.log)
-- [x] US-010: Consolidate key handlers (ToLower normalization, no duplicates)
+### Current Phase Checklist (Phase 14):
+- [x] 14-01: Hotkey service stability (crash recovery, stay-alive timer)
+- [x] 14-02: Transparency fixes (plain transparency, settings backup/restore)
+- [x] 14-03: Hotkey actions (window rotation, layer toggles)
+- [x] 14-04: Layout fixes (gap scaling, fullscreen exclusion)
+- [x] 14-05: Remove shader cycling, rename Cyan to Blue
+- [x] 14-06: E2E Round 1 - Fixed transparency toggle, Glitch cooldown, auto-continue, feedback
 
-### Next Phase:
-After hardening: Feature expansion (additional shaders, advanced effects, performance optimizations)
+### Next Steps (E2E Round 2):
+- [ ] Verify all Round 1 fixes in fresh Windows Sandbox
+- [ ] Test Glitch in Blue Pill path
+- [ ] Test opacity toggle (Ctrl+B: 85%↔100%)
+- [ ] Test 5-second Glitch cooldown prevents snap-back
+- [ ] Test auto-continue after WT install
+- [ ] Implement hotkey help popup (Matrix-styled) - user requested
 
 ## Session History
 
@@ -186,3 +190,58 @@ After hardening: Feature expansion (additional shaders, advanced effects, perfor
 - Test files: test-layout-phase1.ps1 through test-layout-phase8.ps1
 - RECOVERY/phase1-8_output.md (phase documentation)
 - RECOVERY/agent logs (completion tracking)
+
+### Session 2026-02-05: Phase 14 E2E Testing and Bug Fixes
+**Phase:** Final Polish & Hotkey Stability - E2E Round 1
+
+**Accomplishments:**
+1. Executed Phase 14 (6 plans across 4 waves):
+   - 14-01: Hotkey service stability with crash recovery and stay-alive timer
+   - 14-02: Transparency fixes (plain transparency instead of acrylic blur, settings backup/restore)
+   - 14-03: Hotkey action fixes (window rotation instead of swap, layer toggle actions)
+   - 14-04: Layout fixes (gap scaling, fullscreen window exclusion from Glitch)
+   - 14-05: Removed shader cycling feature, renamed Cyan preset to Blue
+   - 14-06: E2E verification and bug fixes from testing
+
+2. Fixed AOT Build Issues:
+   - Disabled AOT compilation to avoid UiaProviderCallback marshalling errors
+   - Rebuild all executables with `/p:PublishAot=false` flag
+
+3. E2E Bug Fixes from Round 1 Testing:
+   - **BUG-TRANS04**: ToggleTransparency (Ctrl+B) changed from UseAcrylic toggle to Opacity 85%↔100% toggle
+   - **BUG-GLITCH01**: Added 5-second cooldown after manual hotkey rotation to prevent Glitch snap-back fighting
+   - **UX-FEEDBACK01**: WakeupNeo now shows "Starting hotkeys & Glitch... OK" for both Blue/Red pill paths
+   - **UX-FLOW01**: Auto-continue after WT install - launches `wt.exe wakeupneo` instead of manual steps
+   - **BUG-SHADER06**: Fixed shader phase offsets - copied correct shaders with staggered rain column timing
+
+4. Documentation Created:
+   - `installer/LOCAL-TESTING.md` - CLI one-liner test setup documentation
+   - `MatrixShaderTest.wsb` - Windows Sandbox config for E2E testing
+
+**Key Decisions:**
+- Disable AOT compilation to avoid UI Automation marshalling errors (trade startup time for stability)
+- Change transparency toggle from acrylic to opacity for plain see-through effect
+- Add Glitch cooldown to prevent hotkey/monitor fighting
+- Auto-continue after WT install improves UX flow
+- Use Windows Sandbox for E2E testing with HTTP server on Default Switch
+
+**Next Steps (Round 2 Testing):**
+- Verify Glitch works in Blue Pill path (wakeupneo and bluepill.exe)
+- Verify Ctrl+B toggles opacity correctly (85%↔100%)
+- Verify hotkey rotation doesn't trigger Glitch snap-back (5s cooldown)
+- Verify auto-continue after WT install works
+- Implement hotkey help popup (Matrix-styled) - user requested feature
+
+**Files Modified:**
+- `MatrixShader/src/MatrixShader.Hotkeys/HotkeyActions.cs` (opacity toggle)
+- `MatrixShader/src/MatrixShader.Hotkeys/MatrixWindowMonitor.cs` (5s cooldown)
+- `MatrixShader/src/MatrixShader.Cli/WakeupNeo/Program.cs` (feedback, auto-continue)
+- `MatrixShader/src/MatrixShader.Core/Services/CliBootstrap.cs` (auto-continue)
+- `installer/LOCAL-TESTING.md` (created)
+- `MatrixShaderTest.wsb` (created)
+
+**Technical Notes:**
+- Build uses AOT disabled: `/p:PublishAot=false`
+- Local testing uses HTTP server on port 9090 with IP 172.21.80.1 (Default Switch)
+- `installer/output` is gitignored - rebuild required for each test
+- Branch `feature/smart-window-management` merged to `master` and pushed
