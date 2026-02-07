@@ -487,6 +487,10 @@ public class SetupWizard
             ConsoleHelper.WriteLineDim(" Type 'redpill' for live controls.");
         }
 
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" Enjoying Matrix Shader? Buy me a coffee:");
+        Console.WriteLine(" \x1b[33mhttps://buymeacoffee.com/IKnowKungFu\x1b[0m");
+
         await Task.Delay(2000);
 
         DiagnosticLogger.Info("WAKEUPNEO", "Setup wizard complete");
@@ -738,7 +742,12 @@ public class SetupWizard
                 WindowStyle = ProcessWindowStyle.Hidden
             };
 
-            Process.Start(startInfo);
+            var process = Process.Start(startInfo);
+            if (process == null)
+            {
+                DiagnosticLogger.ProductionError("WAKEUPNEO", $"Failed to start: {hotkeyExe}");
+                return false;
+            }
             DiagnosticLogger.Debug("WAKEUPNEO", $"Launched hotkeys process: {hotkeyExe}");
             return true;
         }
