@@ -21,3 +21,11 @@ installer/publish/
 installer/output/
 bin/
 obj/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+
+# Large binaries
+ffmpeg.exe

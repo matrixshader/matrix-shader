@@ -15,7 +15,7 @@
   --text-muted: #888888;
   
   --border-green: rgba(0, 255, 65, 0.3);
-  --glow-green: 0 0 20px rgba(0, 255, 65, 0.5);
+  --glow-green: 0 0 30px rgba(0, 255, 65, 0.7);
   
   --font-mono: 'Courier New', 'Consolas', 'Monaco', monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -35,7 +35,7 @@ body {
   line-height: 1.6;
 }
 
-/* Matrix Background Effect */
+/* Matrix Background Effect (Video) */
 #matrix-bg {
   position: fixed;
   top: 0;
@@ -43,7 +43,8 @@ body {
   width: 100%;
   height: 100%;
   z-index: -1;
-  opacity: 0.4;
+  object-fit: cover;
+  opacity: 0.7;
 }
 
 /* Navigation */
@@ -152,17 +153,31 @@ body {
 }
 
 .hero-text h1 {
-  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
   font-weight: bold;
   line-height: 1.1;
   margin-bottom: 1.5rem;
   font-family: var(--font-mono);
+  text-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+  animation: glow 3s ease-in-out infinite;
 }
 
-.matrix-green { color: var(--matrix-green); }
-.matrix-cyan { color: var(--matrix-cyan); }
-.matrix-red { color: var(--matrix-red); }
-.matrix-gold { color: var(--matrix-gold); }
+.matrix-green { 
+  color: var(--matrix-green); 
+  text-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
+}
+.matrix-cyan { 
+  color: var(--matrix-cyan); 
+  text-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+}
+.matrix-red { 
+  color: var(--matrix-red); 
+  text-shadow: 0 0 15px rgba(255, 0, 64, 0.5);
+}
+.matrix-gold { 
+  color: var(--matrix-gold); 
+  text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
 
 .hero-subtitle {
   font-size: 1.25rem;
@@ -199,8 +214,8 @@ body {
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 30px rgba(0, 255, 65, 0.7);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 0 40px rgba(0, 255, 65, 0.8);
 }
 
 .btn-secondary {
@@ -210,10 +225,11 @@ body {
 }
 
 .btn-secondary:hover {
-  background: rgba(0, 255, 65, 0.1);
+  background: rgba(0, 255, 65, 0.15);
   border-color: var(--matrix-green);
   color: var(--matrix-green);
-  box-shadow: var(--glow-green);
+  box-shadow: 0 0 35px rgba(0, 255, 65, 0.6);
+  transform: translateY(-2px) scale(1.02);
 }
 
 .btn-subtitle {
@@ -370,9 +386,10 @@ section {
 }
 
 .feature-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-8px) scale(1.02);
   border-color: var(--matrix-green);
-  box-shadow: var(--glow-green);
+  box-shadow: 0 0 35px rgba(0, 255, 65, 0.6);
+  background: rgba(0, 30, 0, 0.95);
 }
 
 .feature-icon {
@@ -397,112 +414,138 @@ section {
   background: linear-gradient(135deg, #001a00 0%, #002200 50%, #001a00 100%);
 }
 
-.workflow-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4rem;
-  align-items: center;
+.workflow-showcase {
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
-.workflow-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+.workflow-text-intro {
+  text-align: center;
+  margin-bottom: 3rem;
 }
 
-.workflow-terminal {
-  background: rgba(0, 0, 0, 0.9);
-  border: 2px solid;
-  border-radius: 8px;
-  padding: 1rem;
-  min-height: 80px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.matrix-green { border-color: var(--matrix-green); }
-.matrix-cyan { border-color: var(--matrix-cyan); }
-.matrix-red { border-color: var(--matrix-red); }
-.matrix-gold { border-color: var(--matrix-gold); }
-
-.terminal-label {
-  font-size: 0.75rem;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-  text-transform: uppercase;
-}
-
-.matrix-green .terminal-label { color: var(--matrix-green); }
-.matrix-cyan .terminal-label { color: var(--matrix-cyan); }
-.matrix-red .terminal-label { color: var(--matrix-red); }
-.matrix-gold .terminal-label { color: var(--matrix-gold); }
-
-.terminal-content-mini {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.workflow-text h3 {
-  font-size: 2.5rem;
-  margin-bottom: 1.5rem;
+.workflow-text-intro h3 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
   color: var(--matrix-green);
   font-weight: 700;
   text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
 }
 
-.workflow-list {
-  list-style: none;
-  margin-bottom: 2rem;
+.workflow-text-intro p {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  max-width: 700px;
+  margin: 0 auto;
+  line-height: 1.7;
 }
 
-.workflow-list li {
+.layout-demo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+
+.layout-card {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border-green);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.layout-card:hover {
+  border-color: var(--matrix-green);
+  box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
+  transform: translateY(-4px);
+}
+
+.layout-label {
+  padding: 0.75rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: bold;
+  color: var(--matrix-green);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-green);
+  background: rgba(0, 255, 65, 0.05);
+}
+
+.layout-screenshot {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.layout-description {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  border-top: 1px solid rgba(0, 255, 65, 0.1);
+}
+
+.workflow-colors {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.color-tag {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  font-size: 0.875rem;
   color: var(--text-secondary);
-  font-size: 1.1rem;
   font-weight: 500;
 }
 
-.color-indicator {
-  width: 20px;
-  height: 20px;
+.color-dot {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   display: inline-block;
-  box-shadow: 0 0 8px currentColor;
 }
 
-.color-indicator.green { background: var(--matrix-green); }
-.color-indicator.cyan { background: var(--matrix-cyan); }
-.color-indicator.red { background: var(--matrix-red); }
-.color-indicator.gold { background: var(--matrix-gold); }
-
-.workflow-cta {
-  background: rgba(0, 255, 65, 0.1);
-  border: 1px solid var(--border-green);
-  border-radius: 8px;
-  padding: 1.5rem;
-}
-
-.workflow-cta p {
-  color: var(--text-primary);
-  font-weight: 500;
-}
+.color-dot.green { background: var(--matrix-green); box-shadow: 0 0 6px var(--matrix-green); }
+.color-dot.red { background: var(--matrix-red); box-shadow: 0 0 6px var(--matrix-red); }
+.color-dot.blue { background: var(--matrix-cyan); box-shadow: 0 0 6px var(--matrix-cyan); }
+.color-dot.gold { background: var(--matrix-gold); box-shadow: 0 0 6px var(--matrix-gold); }
 
 /* Installation Section */
 .installation-steps {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
+  grid-template-columns: 1fr;
+  gap: 3rem;
   margin-bottom: 3rem;
 }
 
 .step {
   display: flex;
-  gap: 1.5rem;
+  gap: 2rem;
+  align-items: flex-start;
+  padding: 2rem 0;
+  border-bottom: 1px solid rgba(0, 255, 65, 0.2);
+}
+
+.step:last-child {
+  border-bottom: none;
+}
+
+/* Force proper spacing for installation steps */
+.installation .step {
+  margin-bottom: 3rem !important;
+  padding-bottom: 3rem !important;
+}
+
+.installation .step:last-child {
+  margin-bottom: 0 !important;
 }
 
 .step-number {
@@ -525,12 +568,16 @@ section {
 }
 
 .code-block {
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--bg-card);
   border: 1px solid var(--border-green);
   border-radius: 6px;
-  padding: 1rem;
-  margin-top: 1rem;
+  padding: 2rem 4rem 2rem 2rem;
   overflow-x: auto;
+  margin: 2rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  position: relative;
+  min-height: 100px;
 }
 
 .code-block pre {
@@ -593,9 +640,10 @@ section {
 }
 
 .download-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-8px) scale(1.02);
   border-color: var(--matrix-green);
-  box-shadow: var(--glow-green);
+  box-shadow: 0 0 35px rgba(0, 255, 65, 0.6);
+  background: rgba(0, 30, 0, 0.95);
 }
 
 .download-card.featured {
@@ -732,13 +780,13 @@ section {
     justify-content: center;
   }
   
-  .workflow-content {
+  .layout-demo {
     grid-template-columns: 1fr;
-    gap: 2rem;
+    gap: 1.5rem;
   }
-  
-  .workflow-grid {
-    grid-template-columns: 1fr;
+
+  .workflow-colors {
+    gap: 0.75rem;
   }
   
   .features-grid {
@@ -765,8 +813,23 @@ section {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes glow {
+  0%, 100% { box-shadow: var(--glow-green); }
+  50% { box-shadow: 0 0 40px rgba(0, 255, 65, 0.8); }
+}
+
+@keyframes matrixPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 0.9; }
+}
+
 .feature-card, .download-card, .step {
   animation: fadeIn 0.6s ease-out;
+}
+
+/* Add subtle pulsing to Matrix background */
+#matrix-bg {
+  animation: matrixPulse 4s ease-in-out infinite;
 }
 
 /* Smooth Scrolling */
