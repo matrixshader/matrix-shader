@@ -12,6 +12,7 @@ class MatrixWebsite {
     this.initCopyCode();
     this.initMobileMenu();
     this.initInteractiveElements();
+    this.initLightbox();
   }
 
   // Matrix Rain - Simple & performant
@@ -271,6 +272,25 @@ class MatrixWebsite {
         heroTitle.style.opacity = '1';
       }, 500);
     }
+  }
+
+  // Lightbox for layout screenshots
+  initLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    if (!lightbox || !lightboxImg) return;
+
+    document.querySelectorAll('.layout-screenshot').forEach(img => {
+      img.addEventListener('click', () => {
+        lightboxImg.src = img.src;
+        lightboxImg.alt = img.alt;
+        lightbox.classList.add('active');
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') lightbox.classList.remove('active');
+    });
   }
 }
 
