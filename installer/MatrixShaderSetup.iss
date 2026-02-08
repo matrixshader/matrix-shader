@@ -120,6 +120,20 @@ begin
   RegWriteStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', NewPath);
 end;
 
+{ Kill running Matrix processes before install }
+procedure KillMatrixProcesses;
+var
+  ResultCode: Integer;
+begin
+  Exec('taskkill', '/F /IM matrix-hotkeys.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill', '/F /IM matrix-monitor.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill', '/F /IM redpill.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill', '/F /IM bluepill.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill', '/F /IM wakeupneo.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill', '/F /IM matrixlite.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(500); { Brief pause for file handles to release }
+end;
+
 { Remove CLI one-liner install (LocalAppData\Programs\MatrixShader) }
 procedure RemoveCliInstall;
 var
@@ -139,6 +153,8 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then
   begin
+    { Kill running Matrix processes to release file locks }
+    KillMatrixProcesses;
     { Remove CLI one-liner install before installing GUI version }
     RemoveCliInstall;
   end;
