@@ -20,8 +20,8 @@ public enum KeyAction
     // Color presets (1-6)
     /// <summary>Key 1 - Green preset (0.0, 1.0, 0.3).</summary>
     PresetGreen,
-    /// <summary>Key 2 - Cyan preset (0.0, 0.6, 1.0).</summary>
-    PresetCyan,
+    /// <summary>Key 2 - Blue preset (0.0, 0.6, 1.0).</summary>
+    PresetBlue,
     /// <summary>Key 3 - Red preset (1.0, 0.1, 0.1).</summary>
     PresetRed,
     /// <summary>Key 4 - Purple preset (0.7, 0.0, 1.0).</summary>
@@ -195,7 +195,7 @@ public static class KeyHandler
         {
             // Color presets (1-6)
             '1' => KeyAction.PresetGreen,
-            '2' => KeyAction.PresetCyan,
+            '2' => KeyAction.PresetBlue,
             '3' => KeyAction.PresetRed,
             '4' => KeyAction.PresetPurple,
             '5' => KeyAction.PresetGold,

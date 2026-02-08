@@ -65,13 +65,14 @@ public class TerminalSettingsService : ITerminalSettingsService
         }
 
         // Layer 2: Backup and attempt lenient recovery
+        var backupPath = BackupPath;
         CreateBackup();
         try
         {
             var recoveredSettings = RecoverSettings(content);
             if (recoveredSettings != null)
             {
-                _logger.LogInformation("Recovered settings from malformed JSON");
+                _logger.LogWarning("Settings recovery will preserve only profile data. Original backed up to {Path}", backupPath);
                 SaveSettings(recoveredSettings);
                 return recoveredSettings;
             }
@@ -445,9 +446,9 @@ public class TerminalSettingsService : ITerminalSettingsService
                     profiles.Add(profile);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Skip unparseable profiles
+                DiagnosticLogger.ProductionError("TERMINAL", $"Failed to parse profile during recovery: {ex.Message}");
             }
         }
 

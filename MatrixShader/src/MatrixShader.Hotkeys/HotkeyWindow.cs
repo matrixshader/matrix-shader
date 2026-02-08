@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using MatrixShader.Core.Native;
+using MatrixShader.Core.Services;
 
 namespace MatrixShader.Hotkeys;
 
@@ -41,6 +42,12 @@ public sealed class HotkeyWindow : IDisposable
     /// Parameters: hotkey ID, modifiers, virtual key code.
     /// </summary>
     public event Action<int, uint, uint>? HotkeyPressed;
+
+    /// <summary>
+    /// Called when display settings change (WM_DISPLAYCHANGE).
+    /// Parameters: bits per pixel, horizontal resolution, vertical resolution.
+    /// </summary>
+    public event Action<int, int, int>? DisplayChanged;
 
     /// <summary>
     /// Creates a new hotkey window.
@@ -158,6 +165,17 @@ public sealed class HotkeyWindow : IDisposable
                 uint vk = HotkeyApi.GetHotkeyVirtualKey(lParam);
 
                 HotkeyPressed?.Invoke(hotkeyId, modifiers, vk);
+                return nint.Zero;
+
+            case HotkeyApi.WM_DISPLAYCHANGE:
+                // wParam = bits per pixel
+                // lParam low-order = horizontal resolution, high-order = vertical resolution
+                int bitsPerPixel = (int)wParam;
+                int horizontalRes = (int)(lParam & 0xFFFF);
+                int verticalRes = (int)((lParam >> 16) & 0xFFFF);
+
+                DiagnosticLogger.Info("HOTKEYS", $"Display changed: {horizontalRes}x{verticalRes} @ {bitsPerPixel}bpp");
+                DisplayChanged?.Invoke(bitsPerPixel, horizontalRes, verticalRes);
                 return nint.Zero;
 
             case HotkeyApi.WM_DESTROY:

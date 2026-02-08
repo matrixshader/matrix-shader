@@ -24,9 +24,19 @@ public interface ILayoutService
 
     /// <summary>
     /// Applies calculated positions to windows.
+    /// Ignores GlitchEnabled setting - use overload with config for auto-snap behavior.
     /// </summary>
     /// <param name="positions">Positions to apply</param>
     void ApplyLayout(IReadOnlyList<WindowPosition> positions);
+
+    /// <summary>
+    /// Applies calculated positions to windows, respecting GlitchEnabled setting.
+    /// If GlitchEnabled is false and force is false, this is a no-op.
+    /// </summary>
+    /// <param name="positions">Positions to apply</param>
+    /// <param name="config">Layout config to check GlitchEnabled</param>
+    /// <param name="force">Force apply even if Glitch is disabled</param>
+    void ApplyLayout(IReadOnlyList<WindowPosition> positions, LayoutConfig config, bool force = false);
 
     /// <summary>
     /// Cycles to the next layout mode.
