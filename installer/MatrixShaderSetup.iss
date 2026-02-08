@@ -72,8 +72,77 @@ begin
   Result := Pos(';' + UpperCase(Param) + ';', ';' + UpperCase(OrigPath) + ';') = 0;
 end;
 
+{ Remove a directory from User PATH }
+procedure RemoveFromUserPath(DirToRemove: string);
+var
+  UserPath: string;
+  UpperDir: string;
+  NewPath: string;
+  P: Integer;
+begin
+  if not RegQueryStringValue(HKEY_CURRENT_USER,
+    'Environment', 'Path', UserPath) then
+    exit;
+
+  UpperDir := UpperCase(DirToRemove);
+
+  { Check if present (with semicolons) }
+  if Pos(UpperDir, UpperCase(UserPath)) = 0 then
+    exit;
+
+  { Rebuild PATH without the target directory }
+  NewPath := '';
+  while Length(UserPath) > 0 do
+  begin
+    P := Pos(';', UserPath);
+    if P = 0 then
+    begin
+      if UpperCase(Trim(UserPath)) <> UpperDir then
+      begin
+        if NewPath <> '' then
+          NewPath := NewPath + ';';
+        NewPath := NewPath + UserPath;
+      end;
+      UserPath := '';
+    end
+    else
+    begin
+      if UpperCase(Trim(Copy(UserPath, 1, P - 1))) <> UpperDir then
+      begin
+        if NewPath <> '' then
+          NewPath := NewPath + ';';
+        NewPath := NewPath + Copy(UserPath, 1, P - 1);
+      end;
+      Delete(UserPath, 1, P);
+    end;
+  end;
+
+  RegWriteStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', NewPath);
+end;
+
+{ Remove CLI one-liner install (LocalAppData\Programs\MatrixShader) }
+procedure RemoveCliInstall;
+var
+  CliDir: string;
+  ResultCode: Integer;
+begin
+  CliDir := ExpandConstant('{localappdata}\Programs\MatrixShader');
+  if DirExists(CliDir) then
+  begin
+    DelTree(CliDir, True, True, True);
+    RemoveFromUserPath(CliDir);
+    Log('Removed CLI install at: ' + CliDir);
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
+  if CurStep = ssInstall then
+  begin
+    { Remove CLI one-liner install before installing GUI version }
+    RemoveCliInstall;
+  end;
+
   if CurStep = ssDone then
   begin
     MsgBox('Welcome to the Matrix.' + #13#10 + #13#10 +
@@ -96,30 +165,22 @@ begin
     AppDir := ExpandConstant('{app}');
     LocalDir := ExpandConstant('{localappdata}\MatrixShader');
 
+    { Also clean up any CLI one-liner install }
+    RemoveCliInstall;
+
     { Check if app directory still exists (means some files couldn't be removed) }
     if DirExists(AppDir) then
     begin
-      MsgBox('WHAT: Some files could not be removed from the installation directory.' + #13#10 + #13#10 +
-             'WHERE: ' + AppDir + #13#10 + #13#10 +
-             'WHY: Files may be in use by another process, or you may not have delete permissions.' + #13#10 + #13#10 +
-             'HOW TO FIX:' + #13#10 +
-             '1. Close all terminal windows (Windows Terminal, PowerShell, cmd)' + #13#10 +
-             '2. Open File Explorer and navigate to: ' + AppDir + #13#10 +
-             '3. Delete the MatrixShader folder manually' + #13#10 +
-             '4. If files are still locked, restart your computer and try again',
+      MsgBox('Some files could not be removed from: ' + AppDir + #13#10 + #13#10 +
+             'Close all terminal windows, then delete the folder manually.',
              mbError, MB_OK);
     end;
 
     { Check if LocalAppData directory still exists }
     if DirExists(LocalDir) then
     begin
-      MsgBox('WHAT: Some user data files could not be removed.' + #13#10 + #13#10 +
-             'WHERE: ' + LocalDir + #13#10 + #13#10 +
-             'WHY: Files may be in use, or were created after installation.' + #13#10 + #13#10 +
-             'HOW TO FIX:' + #13#10 +
-             '1. Close all applications' + #13#10 +
-             '2. Open File Explorer and navigate to: ' + LocalDir + #13#10 +
-             '3. Delete the MatrixShader folder manually',
+      MsgBox('User data could not be removed from: ' + LocalDir + #13#10 + #13#10 +
+             'Close all applications, then delete the folder manually.',
              mbInformation, MB_OK);
     end;
   end;
@@ -129,6 +190,7 @@ function InitializeSetup(): Boolean;
 var
   AppDir: string;
   ExePath: string;
+  CliDir: string;
   MsgResult: Integer;
   UninstallKey: string;
   UninstallString: string;
@@ -136,33 +198,40 @@ var
 begin
   Result := True;
 
-  { Check if already installed by looking for main executable }
+  { Check for CLI one-liner install }
+  CliDir := ExpandConstant('{localappdata}\Programs\MatrixShader');
+  if DirExists(CliDir) then
+  begin
+    MsgBox('A CLI install of Matrix Shader was detected at:' + #13#10 +
+           CliDir + #13#10 + #13#10 +
+           'It will be removed automatically and replaced with the GUI version.',
+           mbInformation, MB_OK);
+    { Actual removal happens in CurStepChanged(ssInstall) }
+  end;
+
+  { Check if GUI version already installed }
   AppDir := ExpandConstant('{autopf}\MatrixShader');
   ExePath := AppDir + '\wakeupneo.exe';
 
   if FileExists(ExePath) then
   begin
-    { Existing installation detected - show Matrix-themed options }
     MsgResult := MsgBox('Matrix Shader is already installed.' + #13#10 + #13#10 +
                         'Choose your path:' + #13#10 + #13#10 +
-                        'YES = Update (Blue Pill - keep your config, recommended)' + #13#10 +
-                        'NO = Clean Reinstall (Red Pill - start fresh)' + #13#10 + #13#10 +
+                        'YES = Update (keep your config)' + #13#10 +
+                        'NO = Clean Reinstall (start fresh)' + #13#10 + #13#10 +
                         'Close window to cancel.',
                         mbConfirmation, MB_YESNO);
 
     case MsgResult of
       IDYES:
         begin
-          { Blue Pill: Continue with update/repair - installer will overwrite files }
           Result := True;
         end;
       IDNO:
         begin
-          { Red Pill: Run uninstaller first for clean install }
           UninstallKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\Matrix Shader_is1';
           if RegQueryStringValue(HKLM, UninstallKey, 'UninstallString', UninstallString) then
           begin
-            { Remove quotes if present }
             if (Length(UninstallString) > 0) and (UninstallString[1] = '"') then
             begin
               Delete(UninstallString, 1, 1);
@@ -173,15 +242,12 @@ begin
             MsgBox('The uninstaller will run now. After it completes, run this installer again.',
                    mbInformation, MB_OK);
 
-            { Run uninstaller with /SILENT for automated uninstall }
             Exec(UninstallString, '/SILENT', '', SW_SHOW, ewWaitUntilTerminated, ResultCode);
-
-            { Exit this installer - user should run again after uninstall }
             Result := False;
           end
           else
           begin
-            MsgBox('Could not find uninstaller. Please manually uninstall Matrix Shader first, then run this installer again.',
+            MsgBox('Could not find uninstaller. Please manually uninstall first.',
                    mbError, MB_OK);
             Result := False;
           end;

@@ -30,6 +30,52 @@ Write-Host ""
 Write-Host "  Matrix Shader Installer" -ForegroundColor Green
 Write-Host "  =======================" -ForegroundColor Green
 Write-Host ""
+
+# Check for existing GUI (Inno Setup) installation
+$GuiInstallDir = "$env:ProgramFiles\$AppName"
+$InnoUninstallExe = "$GuiInstallDir\unins000.exe"
+if (Test-Path $InnoUninstallExe) {
+    Write-Host "  WARNING: GUI installer version detected at:" -ForegroundColor Yellow
+    Write-Host "    $GuiInstallDir" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  The GUI version will be removed first." -ForegroundColor Yellow
+    Write-Host ""
+    try {
+        # Run Inno Setup uninstaller silently
+        Start-Process -FilePath $InnoUninstallExe -ArgumentList '/SILENT' -Wait -ErrorAction Stop
+        Write-Host "  GUI version removed." -ForegroundColor Green
+        Write-Host ""
+    } catch {
+        Write-Host "  Could not auto-remove GUI version: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "  Please uninstall via Add/Remove Programs first, then re-run this script." -ForegroundColor Red
+        exit 1
+    }
+}
+
+# Check for existing CLI install in the OTHER location
+if ($IsAdmin) {
+    $OtherDir = "$env:LOCALAPPDATA\Programs\$AppName"
+} else {
+    $OtherDir = "$env:ProgramFiles\$AppName"
+}
+if (Test-Path "$OtherDir\wakeupneo.exe") {
+    Write-Host "  Removing previous install at: $OtherDir" -ForegroundColor Yellow
+    try {
+        # Remove from PATH
+        $OtherScope = if ($IsAdmin) { 'User' } else { 'Machine' }
+        $OtherPath = [Environment]::GetEnvironmentVariable('Path', $OtherScope)
+        if ($OtherPath) {
+            $CleanEntries = ($OtherPath -split ';') | Where-Object { $_.Trim().ToLower() -ne $OtherDir.ToLower() -and $_.Trim() -ne '' }
+            [Environment]::SetEnvironmentVariable('Path', ($CleanEntries -join ';'), $OtherScope)
+        }
+        Remove-Item $OtherDir -Recurse -Force
+        Write-Host "  Previous install removed." -ForegroundColor Green
+    } catch {
+        Write-Host "  WARNING: Could not remove $OtherDir" -ForegroundColor Yellow
+    }
+    Write-Host ""
+}
+
 Write-Host "  Install location: $InstallDir"
 Write-Host "  Data location:    $DataDir"
 Write-Host "  Admin mode:       $IsAdmin"
