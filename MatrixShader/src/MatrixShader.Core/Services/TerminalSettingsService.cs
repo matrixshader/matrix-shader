@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using MatrixShader.Core.Constants;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Serialization;
 using Microsoft.Extensions.Logging;
@@ -244,6 +245,14 @@ public class TerminalSettingsService : ITerminalSettingsService
             // This ensures only Matrix windows get transparency.
             // Per user requirement: non-Matrix windows stay 100% opaque.
             // UseAcrylic = false gives PLAIN transparency (no blur/haze) on Windows 11.
+            var preset = ColorPresets.GetByKey(i);
+            string? tabColor = null;
+            if (preset != null)
+            {
+                var (pr, pg, pb) = preset.Value.ToRgb();
+                tabColor = $"#{pr:X2}{pg:X2}{pb:X2}";
+            }
+
             var profile = new TerminalProfile
             {
                 Name = profileName,
@@ -252,7 +261,8 @@ public class TerminalSettingsService : ITerminalSettingsService
                 Hidden = true,
                 Opacity = 85,  // 85% opacity for Matrix windows only
                 UseAcrylic = false,  // Plain transparency (no blur) - desktop shows clearly
-                PixelShaderPath = Path.Combine(shadersDirectory, $"Matrix-{i}.hlsl")
+                PixelShaderPath = Path.Combine(shadersDirectory, $"Matrix-{i}.hlsl"),
+                TabColor = tabColor
             };
 
             UpsertProfile(settings, profile);

@@ -43,6 +43,12 @@ public sealed class MatrixWindowMonitor : IDisposable
     // Reentrancy guard - prevents overlapping CheckWindows calls
     private int _checkingWindows;
 
+    // Truth positions - where windows "should" be (updated on layout apply or user drag)
+    private Dictionary<nint, WindowRect> _truthPositions = new();
+
+    // Threshold for detecting user drag (pixels)
+    private const int UserDragThreshold = 100;
+
     /// <summary>
     /// Pauses Glitch auto-repositioning for a few seconds.
     /// Called by HotkeyActions when user manually rotates/moves windows.
@@ -169,12 +175,16 @@ public sealed class MatrixWindowMonitor : IDisposable
     /// <summary>
     /// Checks if any windows overlap and triggers auto-repositioning if Glitch is enabled.
     /// Fullscreen windows are excluded from overlap detection (fixes BUG-LAYOUT06: F11 snap-back).
+    /// User drags are detected and accepted as new truth positions instead of snapping back.
     /// </summary>
     private void CheckForOverlap(List<WindowInfo> windows)
     {
         // Skip if we don't have layout service
         if (_layoutService == null || _configService == null)
             return;
+
+        // Clean stale handles from truth positions
+        CleanStaleTruthPositions();
 
         // Skip if less than 2 windows
         if (windows.Count < 2)
@@ -193,12 +203,11 @@ public sealed class MatrixWindowMonitor : IDisposable
         if (!state.Layout.GlitchEnabled)
             return;
 
-        // Filter out fullscreen windows - only check tiled windows for overlap
-        // This prevents F11 fullscreen windows from triggering snap-back (BUG-LAYOUT06)
+        // Filter out fullscreen and minimized windows — only check tiled windows
         var tiledWindows = new List<WindowInfo>();
         foreach (var window in windows)
         {
-            if (!WindowsApi.IsZoomed(window.Handle))
+            if (!WindowsApi.IsZoomed(window.Handle) && !WindowsApi.IsIconic(window.Handle))
             {
                 tiledWindows.Add(window);
             }
@@ -207,14 +216,36 @@ public sealed class MatrixWindowMonitor : IDisposable
         var fullscreenCount = windows.Count - tiledWindows.Count;
         if (fullscreenCount > 0)
         {
-            DiagnosticLogger.Debug("HOTKEYS", $"Excluding {fullscreenCount} fullscreen window(s) from glitch detection");
+            DiagnosticLogger.Debug("HOTKEYS", $"Excluding {fullscreenCount} fullscreen/minimized window(s) from glitch detection");
+        }
+
+        // Detect user drags — update truth instead of snapping back
+        foreach (var window in tiledWindows)
+        {
+            var currentPos = window.Position;
+            if (_truthPositions.TryGetValue(window.Handle, out var truth))
+            {
+                var dx = Math.Abs(currentPos.Left - truth.Left);
+                var dy = Math.Abs(currentPos.Top - truth.Top);
+                if (dx > UserDragThreshold || dy > UserDragThreshold)
+                {
+                    // User moved this window — accept as new truth
+                    _truthPositions[window.Handle] = currentPos;
+                    DiagnosticLogger.Debug("HOTKEYS", $"User moved Matrix-{window.ShaderIndex}, updated truth (+{dx},{dy}px)");
+                }
+            }
+            else
+            {
+                // New window — initialize truth from current position
+                _truthPositions[window.Handle] = currentPos;
+            }
         }
 
         // Skip if less than 2 tiled windows remain
         if (tiledWindows.Count < 2)
             return;
 
-        // Check for overlap between any two tiled windows
+        // Check for overlap between any two tiled windows using current positions
         bool hasOverlap = false;
         for (int i = 0; i < tiledWindows.Count && !hasOverlap; i++)
         {
@@ -240,11 +271,34 @@ public sealed class MatrixWindowMonitor : IDisposable
                 // Only reposition tiled windows, leave fullscreen alone
                 var positions = _layoutService.CalculateLayout(tiledWindows, state.Layout);
                 _layoutService.ApplyLayout(positions, state.Layout, force: true);
+
+                // Update truth positions after layout apply
+                foreach (var pos in positions)
+                {
+                    _truthPositions[pos.Window.Handle] = pos.Target;
+                }
             }
             catch (Exception ex)
             {
                 DiagnosticLogger.Warn("HOTKEYS", $"Auto-reposition failed: {ex.Message}");
             }
+        }
+    }
+
+    /// <summary>
+    /// Removes stale handles from truth positions dictionary.
+    /// </summary>
+    private void CleanStaleTruthPositions()
+    {
+        var staleKeys = new List<nint>();
+        foreach (var kv in _truthPositions)
+        {
+            if (!WindowsApi.IsHandleValid(kv.Key))
+                staleKeys.Add(kv.Key);
+        }
+        foreach (var key in staleKeys)
+        {
+            _truthPositions.Remove(key);
         }
     }
 
@@ -300,6 +354,12 @@ public sealed class MatrixWindowMonitor : IDisposable
 
             // Force apply even if Glitch is disabled (display change is always important)
             _layoutService.ApplyLayout(positions, state.Layout, force: true);
+
+            // Update truth positions after layout refresh
+            foreach (var pos in positions)
+            {
+                _truthPositions[pos.Window.Handle] = pos.Target;
+            }
 
             // Reset cooldown to prevent immediate snap-back after manual layout change (BUG-LAYOUT07)
             _lastOverlapReposition = DateTime.Now;

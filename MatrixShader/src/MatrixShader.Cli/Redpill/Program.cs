@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using MatrixShader.Core.Constants;
 using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
@@ -344,90 +345,105 @@ public class ControlPanel
 
     private void Render()
     {
-        Console.SetCursorPosition(0, 0);
         var cw = TuiRenderer.ClearWidth;
-
+        var sb = new StringBuilder(cw * 35); // Pre-allocate for ~35 lines
         var config = _tabManager.CurrentConfig;
 
         // Header with dirty indicator
-        Console.WriteLine();
-        TuiRenderer.WriteHeader(_tabManager.CurrentSlot, _tabManager.IsDirty);
+        TuiRenderer.AppendPaddedLine(sb, cw, "");
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatHeader(_tabManager.CurrentSlot, _tabManager.IsDirty));
+        TuiRenderer.AppendPaddedLine(sb, cw, "");
 
         // Tab bar
         var tabs = _tabManager.GetTabsForRendering();
-        TuiRenderer.WriteTabBar(tabs, _tabManager.CurrentSlot);
-        Console.WriteLine(" [TAB] next tab".PadRight(cw));
-        Console.WriteLine();
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatTabBar(tabs, _tabManager.CurrentSlot));
+        TuiRenderer.AppendPaddedLine(sb, cw, " [TAB] next tab");
+        TuiRenderer.AppendPaddedLine(sb, cw, "");
 
-        // Color presets
-        TuiRenderer.WriteSectionHeader("COLOR PRESETS");
-        TuiRenderer.WriteColorPresets();
-        Console.WriteLine();
+        // Agent colors (presets)
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatSectionHeader("AGENT COLORS"));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatColorPresets());
+        TuiRenderer.AppendPaddedLine(sb, cw, "");
 
         // Current color with swatch
-        Console.WriteLine($" CURRENT {TuiRenderer.ColorSwatch(config.R, config.G, config.B, 3)}".PadRight(cw));
-        TuiRenderer.WriteParameterRow("Q/W", "Red", config.R.ToString("F1"), config.R, 0, 1);
-        TuiRenderer.WriteParameterRow("A/S", "Green", config.G.ToString("F1"), config.G, 0, 1);
-        TuiRenderer.WriteParameterRow("Z/X", "Blue", config.B.ToString("F1"), config.B, 0, 1);
-        Console.WriteLine();
+        TuiRenderer.AppendPaddedLine(sb, cw, $" CURRENT {TuiRenderer.ColorSwatch(config.R, config.G, config.B, 3)}");
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("Q/W", "Red", config.R.ToString("F1"), config.R, 0, 1));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("A/S", "Green", config.G.ToString("F1"), config.G, 0, 1));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("Z/X", "Blue", config.B.ToString("F1"), config.B, 0, 1));
+        TuiRenderer.AppendPaddedLine(sb, cw, "");
 
-        // Rain effects
-        TuiRenderer.WriteSectionHeader("RAIN EFFECTS");
-        TuiRenderer.WriteParameterRow("E/R", "Speed", config.Speed.ToString("F1"), config.Speed, 0.1f, 3f);
-        TuiRenderer.WriteParameterRow("D/F", "Glow", config.Glow.ToString("F1"), config.Glow, 0.2f, 3f);
-        TuiRenderer.WriteParameterRow("C/V", "Width", config.Width.ToString("F0"), config.Width, 6f, 20f);
-        TuiRenderer.WriteParameterRow("T/Y", "Trail", config.Trail.ToString("F0"), config.Trail, 4f, 15f);
-        TuiRenderer.WriteParameterRow("G/H", "Density", config.Density.ToString("F1"), config.Density, 0.2f, 1f);
-        Console.WriteLine();
+        // Rain parameters
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatSectionHeader("RAIN PARAMETERS"));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("E/R", "Speed", config.Speed.ToString("F1"), config.Speed, 0.1f, 3f));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("D/F", "Glow", config.Glow.ToString("F1"), config.Glow, 0.2f, 3f));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("C/V", "Width", config.Width.ToString("F0"), config.Width, 6f, 20f));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("T/Y", "Trail", config.Trail.ToString("F0"), config.Trail, 4f, 15f));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("G/H", "Density", config.Density.ToString("F1"), config.Density, 0.2f, 1f));
+        TuiRenderer.AppendPaddedLine(sb, cw, "");
 
         // Layers
-        TuiRenderer.WriteSectionHeader("LAYERS");
-        Console.Write(" ");
-        TuiRenderer.WriteLayerStatus("7", "Far", config.Layer1);
-        Console.Write("  ");
-        TuiRenderer.WriteLayerStatus("8", "Mid", config.Layer2);
-        Console.Write("  ");
-        TuiRenderer.WriteLayerStatus("9", "Near", config.Layer3);
-        Console.WriteLine("".PadRight(cw - 50)); // Pad remaining line to clear residual
-        Console.WriteLine();
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatSectionHeader("LAYERS"));
+        var layerLine = TuiRenderer.FormatLayerStatus("7", "Far", config.Layer1)
+            + "  " + TuiRenderer.FormatLayerStatus("8", "Mid", config.Layer2)
+            + "  " + TuiRenderer.FormatLayerStatus("9", "Near", config.Layer3);
+        TuiRenderer.AppendPaddedLine(sb, cw, layerLine);
+        TuiRenderer.AppendPaddedLine(sb, cw, "");
 
         // Window effects
-        Console.WriteLine($" \x1b[36mWINDOW EFFECTS\x1b[0m".PadRight(cw));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatSectionHeader("WINDOW EFFECTS"));
         var transStatus = _transparency ? "ON " : "off";
-        var transColor = _transparency ? "\x1b[36m" : "\x1b[90m";
-        Console.WriteLine($" [B] Transparency:  {transColor}{transStatus}\x1b[0m  \x1b[90m(toggles & applies)\x1b[0m".PadRight(cw));
+        var transColor = _transparency ? TuiRenderer.CYAN : TuiRenderer.GRAY;
+        TuiRenderer.AppendPaddedLine(sb, cw, $" [B] Transparency:  {transColor}{transStatus}{TuiRenderer.RESET}  {TuiRenderer.GRAY}(toggles & applies){TuiRenderer.RESET}");
         if (_transparency)
         {
-            Console.WriteLine($" [K/L] Opacity:     {_opacity,3}% {TuiRenderer.ProgressBar(_opacity, 0, 100)}".PadRight(cw));
+            TuiRenderer.AppendPaddedLine(sb, cw, $" [K/L] Opacity:     {_opacity,3}% {TuiRenderer.ProgressBar(_opacity, 0, 100)}");
         }
         else
         {
-            // Clear the opacity line when transparency is off to prevent residual content
-            Console.WriteLine("".PadRight(cw));
+            TuiRenderer.AppendPaddedLine(sb, cw, "");
         }
 
-        // Layout mode
+        // Combat training (Glitch)
         var state = _configService.LoadState();
-        var layoutMode = state.Layout.Mode;
-        var layoutColor = layoutMode.Equals("pillars", StringComparison.OrdinalIgnoreCase) ? "\x1b[33m" : "\x1b[35m";
-        Console.WriteLine($" [Shift+L] Layout:  {layoutColor}{layoutMode}\x1b[0m  \x1b[90m(Pillars=columns, Quads=2x2)\x1b[0m".PadRight(cw));
-        Console.WriteLine();
+        var glitchEnabled = state.Layout.GlitchEnabled;
+        var glitchStatus = glitchEnabled ? "ON " : "off";
+        var glitchColor = glitchEnabled ? TuiRenderer.CYAN : TuiRenderer.GRAY;
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatSectionHeader("COMBAT TRAINING"));
+        TuiRenderer.AppendPaddedLine(sb, cw, $" [Shift+G] Glitch:  {glitchColor}{glitchStatus}{TuiRenderer.RESET}  {TuiRenderer.GRAY}(windows auto-snap to formation){TuiRenderer.RESET}");
 
-        // Launch section
-        Console.WriteLine($" \x1b[35mLAUNCH\x1b[0m".PadRight(cw));
+        // Layout mode
+        var layoutMode = state.Layout.Mode;
+        var layoutColor = layoutMode.Equals("pillars", StringComparison.OrdinalIgnoreCase) ? TuiRenderer.YELLOW : TuiRenderer.MAGENTA;
+        TuiRenderer.AppendPaddedLine(sb, cw, $" [Shift+L] Layout:  {layoutColor}{layoutMode}{TuiRenderer.RESET}  {TuiRenderer.GRAY}(Pillars=columns, Quads=2x2){TuiRenderer.RESET}");
+        TuiRenderer.AppendPaddedLine(sb, cw, "");
+
+        // Deploy section
+        TuiRenderer.AppendPaddedLine(sb, cw, $" {TuiRenderer.MAGENTA}DEPLOY{TuiRenderer.RESET}");
         var openWindows = _identityService.FindMatrixWindows();
         var openStr = openWindows.Count > 0
             ? string.Join(",", openWindows.Select(w => w.ShaderIndex))
             : "none";
-        Console.WriteLine($" \x1b[90mOpen:\x1b[0m \x1b[32m{openStr}\x1b[0m".PadRight(cw));
+        TuiRenderer.AppendPaddedLine(sb, cw, $" {TuiRenderer.GRAY}Open:{TuiRenderer.RESET} {TuiRenderer.GREEN}{openStr}{TuiRenderer.RESET}");
 
         var launchStatus = _launchCount > 0 ? $"{_launchCount} window(s)" : "disabled";
-        var launchColor = _launchCount > 0 ? "\x1b[35m" : "\x1b[90m";
-        Console.WriteLine($" [-/+] Count: {launchColor}{launchStatus}\x1b[0m".PadRight(cw));
-        Console.WriteLine();
+        var launchColor2 = _launchCount > 0 ? TuiRenderer.MAGENTA : TuiRenderer.GRAY;
+        TuiRenderer.AppendPaddedLine(sb, cw, $" [-/+] Count: {launchColor2}{launchStatus}{TuiRenderer.RESET}");
+        TuiRenderer.AppendPaddedLine(sb, cw, "");
 
         // Footer
-        TuiRenderer.WriteFooter(_launchCount, _launchCount > 0);
+        TuiRenderer.AppendFooter(sb, cw, _launchCount, _launchCount > 0, glitchEnabled);
+
+        // Fill remaining visible rows with blanks to prevent old content showing
+        var linesWritten = 35; // Approximate lines in frame
+        var visibleRows = Console.WindowHeight;
+        if (visibleRows > linesWritten)
+        {
+            TuiRenderer.AppendBlankLines(sb, cw, visibleRows - linesWritten);
+        }
+
+        // Single write — no flicker
+        Console.SetCursorPosition(0, 0);
+        Console.Write(sb.ToString());
     }
 
     /// <summary>
@@ -442,23 +458,25 @@ public class ControlPanel
 
         ConsoleHelper.WriteLineDim(" CONTROL PANEL KEYS (local):");
         Console.WriteLine();
-        ConsoleHelper.WriteLineDim("   [1-6]      Color presets (Green/Blue/Red/Purple/Gold/Teal)");
+        ConsoleHelper.WriteLineDim("   [1-6]      Agent colors (Green/Blue/Red/Purple/Gold/Teal)");
         ConsoleHelper.WriteLineDim("   [Q/W]      Red -/+          [A/S] Green -/+    [Z/X] Blue -/+");
         ConsoleHelper.WriteLineDim("   [E/R]      Speed -/+        [D/F] Glow -/+");
         ConsoleHelper.WriteLineDim("   [C/V]      Width -/+        [T/Y] Trail -/+    [G/H] Density -/+");
         ConsoleHelper.WriteLineDim("   [7/8/9]    Toggle layers (Far/Mid/Near)");
         ConsoleHelper.WriteLineDim("   [B]        Toggle transparency    [K/L] Opacity -/+");
-        ConsoleHelper.WriteLineDim("   [-/+]      Launch count -/+       [ENTER] Launch windows");
+        ConsoleHelper.WriteLineDim("   [-/+]      Deploy count -/+       [ENTER] Deploy windows");
         ConsoleHelper.WriteLineDim("   [P]        Save shader            [0] Reset to defaults");
         ConsoleHelper.WriteLineDim("   [TAB]      Switch tabs            [ESC] Quit");
         Console.WriteLine();
 
         ConsoleHelper.WriteLineDim(" SHIFT KEYS (local):");
         Console.WriteLine();
+        ConsoleHelper.WriteLineDim("   [Shift+G]  Toggle Glitch (auto-snap to formation)");
         ConsoleHelper.WriteLineDim("   [Shift+L]  Cycle layout mode (Pillars/Quads/Overlap)");
         ConsoleHelper.WriteLineDim("   [Shift+H]  Configure global hotkey bindings");
         ConsoleHelper.WriteLineDim("   [Shift+S]  Save snapback position");
         ConsoleHelper.WriteLineDim("   [Shift+R]  Restore snapback position");
+        ConsoleHelper.WriteLineDim("   [Shift+F10] Hot reload (toggle shader effect in WT)");
         Console.WriteLine();
 
         ConsoleHelper.WriteLineMatrixGreen(" GLOBAL HOTKEYS (active when Matrix windows exist):");
