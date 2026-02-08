@@ -255,7 +255,12 @@ public static class Program
                 WindowStyle = ProcessWindowStyle.Hidden
             };
 
-            Process.Start(startInfo);
+            var process = Process.Start(startInfo);
+            if (process == null)
+            {
+                DiagnosticLogger.ProductionError("REDPILL", $"Failed to start: {hotkeyExe}");
+                return;
+            }
             DiagnosticLogger.Debug("REDPILL", $"Launched hotkeys process: {hotkeyExe}");
         }
         catch (Exception ex)
@@ -437,7 +442,7 @@ public class ControlPanel
 
         ConsoleHelper.WriteLineDim(" CONTROL PANEL KEYS (local):");
         Console.WriteLine();
-        ConsoleHelper.WriteLineDim("   [1-6]      Color presets (Green/Cyan/Red/Purple/Gold/Teal)");
+        ConsoleHelper.WriteLineDim("   [1-6]      Color presets (Green/Blue/Red/Purple/Gold/Teal)");
         ConsoleHelper.WriteLineDim("   [Q/W]      Red -/+          [A/S] Green -/+    [Z/X] Blue -/+");
         ConsoleHelper.WriteLineDim("   [E/R]      Speed -/+        [D/F] Glow -/+");
         ConsoleHelper.WriteLineDim("   [C/V]      Width -/+        [T/Y] Trail -/+    [G/H] Density -/+");
@@ -491,7 +496,7 @@ public class ControlPanel
             case KeyAction.PresetGreen:
                 _tabManager.UpdateConfig(config.WithColor(0f, 1f, 0.3f));
                 break;
-            case KeyAction.PresetCyan:
+            case KeyAction.PresetBlue:
                 _tabManager.UpdateConfig(config.WithColor(0f, 0.6f, 1f));
                 break;
             case KeyAction.PresetRed:

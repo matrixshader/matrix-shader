@@ -163,7 +163,7 @@ public static class TuiRenderer
     /// </summary>
     public static void WriteColorPresets()
     {
-        Console.WriteLine($" [1]{ColorSwatch(0, 1, 0.3f)}Green [2]{ColorSwatch(0, 0.6f, 1)}Cyan [3]{ColorSwatch(1, 0.1f, 0.1f)}Red [4]{ColorSwatch(0.7f, 0, 1)}Purple [5]{ColorSwatch(1, 0.7f, 0)}Gold [6]{ColorSwatch(0, 0.9f, 0.9f)}Teal");
+        Console.WriteLine($" [1]{ColorSwatch(0, 1, 0.3f)}Green [2]{ColorSwatch(0, 0.6f, 1)}Blue [3]{ColorSwatch(1, 0.1f, 0.1f)}Red [4]{ColorSwatch(0.7f, 0, 1)}Purple [5]{ColorSwatch(1, 0.7f, 0)}Gold [6]{ColorSwatch(0, 0.9f, 0.9f)}Teal");
     }
 
     /// <summary>

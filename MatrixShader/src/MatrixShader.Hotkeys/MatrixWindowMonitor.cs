@@ -40,6 +40,9 @@ public sealed class MatrixWindowMonitor : IDisposable
     // Minimum overlap area to trigger repositioning (in pixels squared)
     private const int MinOverlapArea = 10000; // ~100x100 pixels
 
+    // Reentrancy guard - prevents overlapping CheckWindows calls
+    private int _checkingWindows;
+
     /// <summary>
     /// Pauses Glitch auto-repositioning for a few seconds.
     /// Called by HotkeyActions when user manually rotates/moves windows.
@@ -101,6 +104,10 @@ public sealed class MatrixWindowMonitor : IDisposable
 
     private void CheckWindows(object? state)
     {
+        // Reentrancy guard - skip if previous check is still running
+        if (Interlocked.Exchange(ref _checkingWindows, 1) == 1)
+            return;
+
         try
         {
             var windows = _identityService.FindMatrixWindows();
@@ -152,6 +159,10 @@ public sealed class MatrixWindowMonitor : IDisposable
         {
             // Silent failure - keep monitoring
             DiagnosticLogger.Warn("HOTKEYS", $"Window check failed: {ex.Message}");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _checkingWindows, 0);
         }
     }
 
