@@ -1,0 +1,14 @@
+{
+  "buildCommand": null,
+  "outputDirectory": "Website",
+  "routes": [
+    {
+      "src": "/install.ps1",
+      "dest": "https://raw.githubusercontent.com/matrixshader/matrix-shader/master/installer/install.ps1"
+    },
+    {
+      "src": "/uninstall.ps1",
+      "dest": "https://raw.githubusercontent.com/matrixshader/matrix-shader/master/installer/uninstall.ps1"
+    }
+  ]
+}
