@@ -10,9 +10,9 @@ A native C#/.NET implementation of Matrix Terminal Shader - a real-time controll
 
 ## Current State (v1.0 INCOMPLETE)
 
-**Status:** GAPS FOUND — installer never built, path mismatches, no clean-system validation
+**Status:** E2E TESTED — 18 bugs found, gap closure in progress
 **Original ship date:** 2026-01-30
-**Current focus:** Phase 11 - Installer & E2E Validation
+**Current focus:** Phase 12 - Gap Closure (18 bugs from sandbox testing)
 
 **Tech stack:** C# 12 / .NET 8 / Native AOT
 **Codebase:** 9,047 lines of C#
@@ -86,10 +86,36 @@ A native C#/.NET implementation of Matrix Terminal Shader - a real-time controll
 - ✓ 6 color presets via ANSI codes — v1.0
 - ✓ Graceful degradation — v1.0
 
-### Active (Phase 11)
+### Active (Phase 12 - Gap Closure)
+
+**Critical Bugs (5):**
+- [ ] BUG-SHADER01: Shader #define shows `$10.0` instead of `#define RAIN_R 0.0`
+- [ ] BUG-ML01: ANSI codes print raw in cmd.exe (missing VT Processing)
+- [ ] BUG-WT01: WT detection only checks one Store path
+- [ ] BUG-UNINST02: Uninstaller leaves 54+ DLLs in Program Files
+- [ ] GAP-E03c: Dead end when winget AND Store both fail
+
+**High Bugs (6):**
+- [ ] BUG-ML02: matrixlite blocks terminal
+- [ ] BUG-ML04: matrixlite menu broken
+- [ ] BUG-WT02: Falls back to Lite mode incorrectly
+- [ ] BUG-WT03: Hardcoded wt.exe path
+- [ ] BUG-WT04: Portable WT settings path wrong
+- [ ] BUG-UNINST01: Useless uninstall error message
+
+**Medium Bugs (7):**
+- [ ] BUG-ML03: Missing bluepill option
+- [ ] BUG-ML05: Blue color instead of green
+- [ ] BUG-ML06: White characters
+- [ ] GAP-E03a: Doesn't detect missing winget
+- [ ] GAP-E03b: No direct download fallback for WT
+- [ ] BUG-FRX01: Fresh install shows "Previous sessions found"
+- [ ] GAP-INST01: No Update/Repair/Uninstall on re-run
+
+### Completed (Phase 11)
 
 **End-to-End Installation:**
-- [ ] E2E-01: Installer includes all 5 executables
+- [x] E2E-01: Installer includes all 6 executables
 - [ ] E2E-02: Installer includes all shader files
 - [ ] E2E-03: Executables can find shader files
 - [ ] E2E-04: Executables can find each other

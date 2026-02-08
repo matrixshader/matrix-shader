@@ -134,6 +134,13 @@ try {
         $RelativePath = $_.FullName.Substring($SourceDir.Length + 1)
         $DestPath = Join-Path $InstallDir $RelativePath
 
+        # Path traversal protection - ensure destination stays within install directory
+        $NormalizedDest = [System.IO.Path]::GetFullPath($DestPath)
+        if (-not $NormalizedDest.StartsWith($InstallDir)) {
+            Write-Host "  Skipping suspicious path: $RelativePath" -ForegroundColor Yellow
+            return  # continue in ForEach-Object
+        }
+
         if ($_.PSIsContainer) {
             # Skip shaders directory - handled separately
             if ($RelativePath -notlike 'shaders*') {
@@ -215,6 +222,10 @@ Write-Host "    matrixlite - Text-only fallback"
 Write-Host ""
 Write-Host "  To uninstall:" -ForegroundColor Cyan
 Write-Host "    irm https://matrixshader.com/uninstall.ps1 | iex"
+Write-Host ""
+
+Write-Host "  Enjoying Matrix Shader? Buy me a coffee:" -ForegroundColor DarkGray
+Write-Host "  https://buymeacoffee.com/IKnowKungFu" -ForegroundColor Yellow
 Write-Host ""
 
 # Optional: Run wakeupneo immediately if in same session

@@ -168,6 +168,9 @@ public static partial class HotkeyApi
     /// <summary>Null message.</summary>
     public const uint WM_NULL = 0x0000;
 
+    /// <summary>Sent when the display resolution changes.</summary>
+    public const uint WM_DISPLAYCHANGE = 0x007E;
+
     #endregion
 
     #region Virtual Key Codes
