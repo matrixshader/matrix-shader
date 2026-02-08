@@ -39,6 +39,18 @@ public interface ILayoutService
     void ApplyLayout(IReadOnlyList<WindowPosition> positions, LayoutConfig config, bool force = false);
 
     /// <summary>
+    /// Calculates window positions grouping windows by their CURRENT monitor.
+    /// Unlike CalculateLayout (which redistributes evenly), this respects
+    /// where windows actually are — used by Glitch after user drags.
+    /// </summary>
+    /// <param name="windows">Windows to position</param>
+    /// <param name="config">Layout configuration</param>
+    /// <returns>Calculated positions for each window on its current monitor</returns>
+    IReadOnlyList<WindowPosition> CalculateLayoutByCurrentMonitor(
+        IReadOnlyList<WindowInfo> windows,
+        LayoutConfig config);
+
+    /// <summary>
     /// Cycles to the next layout mode.
     /// </summary>
     /// <param name="currentMode">Current layout mode</param>
