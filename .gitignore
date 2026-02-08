@@ -60,6 +60,7 @@ ffmpeg.exe
 !CLAUDE.md
 /*.json
 !package.json
+!vercel.json
 /*.txt
 /*.wsb
 /*.sh
