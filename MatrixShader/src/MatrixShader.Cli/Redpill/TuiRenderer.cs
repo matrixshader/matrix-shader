@@ -1,15 +1,18 @@
+using System.Text;
+
 namespace MatrixShader.Cli.Redpill;
 
 /// <summary>
 /// Static rendering methods for pixel-perfect TUI output matching PowerShell format.
 /// Uses raw ANSI escape codes for exact control over spacing, colors, and alignment.
+/// All methods return strings for buffered rendering (write-once pattern).
 /// </summary>
 public static class TuiRenderer
 {
     #region Constants
 
-    /// <summary>Standard terminal width for padding lines to prevent content overlap.</summary>
-    public const int ClearWidth = 80;
+    /// <summary>Dynamic terminal width for padding lines (minimum 80).</summary>
+    public static int ClearWidth => Math.Max(80, Console.WindowWidth);
 
     #endregion
 
@@ -42,19 +45,16 @@ public static class TuiRenderer
     /// <summary>Dim/faint text modifier.</summary>
     public const string DIM = "\x1b[2m";
 
+    /// <summary>Magenta foreground color.</summary>
+    public const string MAGENTA = "\x1b[35m";
+
     #endregion
 
     #region Core Rendering Methods
 
     /// <summary>
     /// Creates a color swatch using RGB background color.
-    /// Matches PowerShell Get-ColorSwatch function output.
     /// </summary>
-    /// <param name="r">Red component (0.0 to 1.0).</param>
-    /// <param name="g">Green component (0.0 to 1.0).</param>
-    /// <param name="b">Blue component (0.0 to 1.0).</param>
-    /// <param name="width">Number of space characters for swatch width.</param>
-    /// <returns>ANSI escape sequence for colored background block.</returns>
     public static string ColorSwatch(float r, float g, float b, int width = 2)
     {
         var r8 = (int)Math.Clamp(r * 255, 0, 255);
@@ -65,13 +65,7 @@ public static class TuiRenderer
 
     /// <summary>
     /// Creates a progress bar with green filled and gray empty portions.
-    /// Matches PowerShell Bar function output.
     /// </summary>
-    /// <param name="val">Current value.</param>
-    /// <param name="min">Minimum value.</param>
-    /// <param name="max">Maximum value.</param>
-    /// <param name="width">Total bar width in characters.</param>
-    /// <returns>ANSI escape sequence for progress bar.</returns>
     public static string ProgressBar(float val, float min, float max, int width = 15)
     {
         var pct = Math.Clamp((val - min) / (max - min), 0f, 1f);
@@ -81,42 +75,30 @@ public static class TuiRenderer
     }
 
     /// <summary>
-    /// Writes a parameter row with consistent formatting.
+    /// Returns a parameter row string with consistent formatting.
     /// Format: " [keys] label  value bar"
     /// </summary>
-    /// <param name="keys">Hotkey characters (e.g., "Q/W").</param>
-    /// <param name="label">Parameter label (e.g., "Red").</param>
-    /// <param name="value">Formatted value string.</param>
-    /// <param name="val">Numeric value for progress bar.</param>
-    /// <param name="min">Minimum value for progress bar.</param>
-    /// <param name="max">Maximum value for progress bar.</param>
-    public static void WriteParameterRow(string keys, string label, string value, float val, float min, float max)
+    public static string FormatParameterRow(string keys, string label, string value, float val, float min, float max)
     {
-        // Format: " [keys] label  value bar"
-        // Value is left-padded to 4 chars for alignment
-        Console.Write($" [{keys}] {label,-8} {value,4} {ProgressBar(val, min, max)}\n");
+        return $" [{keys}] {label,-8} {value,4} {ProgressBar(val, min, max)}";
     }
 
     /// <summary>
-    /// Writes layer toggle status with color-coded ON/off indicator.
+    /// Returns layer toggle status string with color-coded ON/off indicator.
     /// </summary>
-    /// <param name="key">Hotkey for the layer.</param>
-    /// <param name="name">Layer name (e.g., "Far", "Mid", "Near").</param>
-    /// <param name="enabled">Whether the layer is enabled.</param>
-    public static void WriteLayerStatus(string key, string name, bool enabled)
+    public static string FormatLayerStatus(string key, string name, bool enabled)
     {
         var status = enabled ? "ON " : "off";
         var color = enabled ? GREEN : GRAY;
-        Console.Write($" [{key}] {name}: {color}{status}{RESET}");
+        return $" [{key}] {name}: {color}{status}{RESET}";
     }
 
     /// <summary>
-    /// Writes a section header with white text.
+    /// Returns a section header string with white text.
     /// </summary>
-    /// <param name="title">Section title text.</param>
-    public static void WriteSectionHeader(string title)
+    public static string FormatSectionHeader(string title)
     {
-        Console.WriteLine($" {WHITE}{title}{RESET}");
+        return $" {WHITE}{title}{RESET}";
     }
 
     #endregion
@@ -124,20 +106,17 @@ public static class TuiRenderer
     #region Tab and Preset Rendering Methods
 
     /// <summary>
-    /// Writes the tab bar showing all Matrix shader windows.
-    /// Active tab shows in yellow brackets, inactive tabs in gray.
-    /// Each tab has a color swatch showing the shader's current color.
+    /// Returns the tab bar string showing all Matrix shader windows.
     /// </summary>
-    /// <param name="tabs">List of tabs with slot number and RGB color values.</param>
-    /// <param name="activeSlot">Currently active slot number.</param>
-    public static void WriteTabBar(
+    public static string FormatTabBar(
         IReadOnlyList<(int slot, float r, float g, float b)> tabs,
         int activeSlot)
     {
-        Console.Write(" TABS: ");
+        var sb = new StringBuilder();
+        sb.Append(" TABS: ");
         if (tabs.Count == 0)
         {
-            Console.Write($"{GRAY}(no Matrix windows detected){RESET}");
+            sb.Append($"{GRAY}(no Matrix windows detected){RESET}");
         }
         else
         {
@@ -145,55 +124,106 @@ public static class TuiRenderer
             {
                 if (slot == activeSlot)
                 {
-                    Console.Write($"{YELLOW}[{slot}]{RESET}");
+                    sb.Append($"{YELLOW}[{slot}]{RESET}");
                 }
                 else
                 {
-                    Console.Write($"{GRAY} {slot} {RESET}");
+                    sb.Append($"{GRAY} {slot} {RESET}");
                 }
-                Console.Write(ColorSwatch(r, g, b, 1));
-                Console.Write(" ");
+                sb.Append(ColorSwatch(r, g, b, 1));
+                sb.Append(' ');
             }
         }
-        Console.WriteLine();
+        return sb.ToString();
     }
 
     /// <summary>
-    /// Writes the color preset row with numbered swatches.
+    /// Returns the color preset row string with numbered swatches.
     /// </summary>
-    public static void WriteColorPresets()
+    public static string FormatColorPresets()
     {
-        Console.WriteLine($" [1]{ColorSwatch(0, 1, 0.3f)}Green [2]{ColorSwatch(0, 0.6f, 1)}Blue [3]{ColorSwatch(1, 0.1f, 0.1f)}Red [4]{ColorSwatch(0.7f, 0, 1)}Purple [5]{ColorSwatch(1, 0.7f, 0)}Gold [6]{ColorSwatch(0, 0.9f, 0.9f)}Teal");
+        return $" [1]{ColorSwatch(0, 1, 0.3f)}Green [2]{ColorSwatch(0, 0.6f, 1)}Blue [3]{ColorSwatch(1, 0.1f, 0.1f)}Red [4]{ColorSwatch(0.7f, 0, 1)}Purple [5]{ColorSwatch(1, 0.7f, 0)}Gold [6]{ColorSwatch(0, 0.9f, 0.9f)}Teal";
     }
 
     /// <summary>
-    /// Writes the header line with title and dirty indicator.
+    /// Returns the header string with title and dirty indicator.
     /// </summary>
-    /// <param name="slot">Current tab slot number.</param>
-    /// <param name="dirty">Whether there are unsaved changes.</param>
-    public static void WriteHeader(int slot, bool dirty)
+    public static string FormatHeader(int slot, bool dirty)
     {
         var dirtyMark = dirty ? "*" : " ";
-        Console.WriteLine($" {RED}RED PILL{RESET}{dirtyMark}- Tab {slot}");
-        Console.WriteLine();
+        return $" {RED}RED PILL{RESET}{dirtyMark}- Tab {slot}";
     }
 
     /// <summary>
-    /// Writes the footer with launch, save controls, and hotkey help hint.
+    /// Appends the footer lines with launch, save controls, and hotkey help hint.
     /// </summary>
-    /// <param name="launchCount">Number of windows to launch (0 shows disabled).</param>
-    /// <param name="canLaunch">Whether launching is available.</param>
-    public static void WriteFooter(int launchCount, bool canLaunch)
+    public static void AppendFooter(StringBuilder sb, int cw, int launchCount, bool canLaunch, bool glitchEnabled)
     {
         var enterAction = launchCount > 0
-            ? $"[ENTER] Launch {launchCount} window(s)"
+            ? $"[ENTER] Deploy {launchCount} window(s)"
             : "[ENTER] (set count first)";
         var enterColor = launchCount > 0 ? YELLOW : GRAY;
-        Console.WriteLine($" {enterColor}{enterAction}{RESET}  {YELLOW}[P] Save shader{RESET}".PadRight(ClearWidth));
-        Console.WriteLine($" {GRAY}[0] Reset  [ESC] Quit{RESET}".PadRight(ClearWidth));
-        Console.WriteLine();
-        Console.WriteLine($" {GRAY}[Shift+H] Configure hotkeys  [?] Help{RESET}".PadRight(ClearWidth));
-        Console.WriteLine($" {GRAY}Shader changes apply automatically when saved (hot-reload){RESET}".PadRight(ClearWidth));
+        AppendPaddedLine(sb, cw, $" {enterColor}{enterAction}{RESET}  {YELLOW}[P] Save shader{RESET}");
+        AppendPaddedLine(sb, cw, $" {GRAY}[0] Reset  [ESC] Quit{RESET}");
+        AppendPaddedLine(sb, cw, "");
+        AppendPaddedLine(sb, cw, $" {GRAY}[Shift+H] Configure hotkeys  [?] Help{RESET}");
+        AppendPaddedLine(sb, cw, $" {GRAY}Shader changes apply automatically (hot-reload via WT){RESET}");
+    }
+
+    #endregion
+
+    #region Buffer Helpers
+
+    /// <summary>
+    /// Appends a line padded to ClearWidth to prevent residual text.
+    /// Strips ANSI codes for accurate visible-length calculation.
+    /// </summary>
+    public static void AppendPaddedLine(StringBuilder sb, int cw, string content)
+    {
+        // Calculate visible length (strip ANSI escape sequences)
+        var visibleLen = VisibleLength(content);
+        var padding = Math.Max(0, cw - visibleLen);
+        sb.Append(content);
+        sb.Append(' ', padding);
+        sb.Append('\n');
+    }
+
+    /// <summary>
+    /// Calculates the visible length of a string (excluding ANSI escape sequences).
+    /// </summary>
+    private static int VisibleLength(string s)
+    {
+        int len = 0;
+        bool inEscape = false;
+        for (int i = 0; i < s.Length; i++)
+        {
+            if (s[i] == '\x1b')
+            {
+                inEscape = true;
+                continue;
+            }
+            if (inEscape)
+            {
+                if (char.IsLetter(s[i]))
+                    inEscape = false;
+                continue;
+            }
+            len++;
+        }
+        return len;
+    }
+
+    /// <summary>
+    /// Appends blank padded lines to fill remaining visible rows.
+    /// </summary>
+    public static void AppendBlankLines(StringBuilder sb, int cw, int count)
+    {
+        var blank = new string(' ', cw);
+        for (int i = 0; i < count; i++)
+        {
+            sb.Append(blank);
+            sb.Append('\n');
+        }
     }
 
     #endregion
