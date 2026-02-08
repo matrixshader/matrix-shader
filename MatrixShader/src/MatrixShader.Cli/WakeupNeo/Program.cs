@@ -331,6 +331,23 @@ public class SetupWizard
         var profileCount = tabConfigs.Count;
         _terminalService.CreateMatrixProfiles(terminalSettings, 8, shadersDir);
         _terminalService.CreateRedpillProfile(terminalSettings, shadersDir);
+
+        // Sync tab colors from actual shader RGB (not just preset defaults)
+        foreach (var cfg in tabConfigs)
+        {
+            var profileName = $"Matrix-{cfg.Slot}";
+            var profile = _terminalService.GetProfile(terminalSettings, profileName);
+            if (profile != null)
+            {
+                var shaderCfg = _shaderService.ReadConfig(cfg.Slot);
+                var r = (int)(shaderCfg.R * 255);
+                var g = (int)(shaderCfg.G * 255);
+                var b = (int)(shaderCfg.B * 255);
+                var updatedProfile = profile with { TabColor = $"#{r:X2}{g:X2}{b:X2}" };
+                _terminalService.UpsertProfile(terminalSettings, updatedProfile);
+            }
+        }
+
         _terminalService.SaveSettings(terminalSettings);
 
         // Verify profiles were created correctly
