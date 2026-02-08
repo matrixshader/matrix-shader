@@ -238,13 +238,7 @@ public class TerminalSettingsService : ITerminalSettingsService
         for (int i = 1; i <= count; i++)
         {
             var profileName = $"Matrix-{i}";
-
-            // Skip if profile already exists
-            if (GetProfile(settings, profileName) != null)
-            {
-                _logger.LogDebug("Profile {Name} already exists, skipping", profileName);
-                continue;
-            }
+            var existing = GetProfile(settings, profileName);
 
             // NOTE: Opacity is set per-profile, not on profiles.defaults.
             // This ensures only Matrix windows get transparency.
@@ -253,7 +247,7 @@ public class TerminalSettingsService : ITerminalSettingsService
             var profile = new TerminalProfile
             {
                 Name = profileName,
-                Guid = $"{{{Guid.NewGuid()}}}",
+                Guid = existing?.Guid ?? $"{{{Guid.NewGuid()}}}",
                 Commandline = $"powershell.exe -NoExit -Command \"Write-Host ' Matrix Terminal {i}' -ForegroundColor Green\"",
                 Hidden = true,
                 Opacity = 85,  // 85% opacity for Matrix windows only
@@ -277,13 +271,6 @@ public class TerminalSettingsService : ITerminalSettingsService
 
         const string profileName = "Redpill";
 
-        // Check if already exists
-        if (GetProfile(settings, profileName) != null)
-        {
-            _logger.LogDebug("Redpill profile already exists");
-            return;
-        }
-
         // Resolve the control panel executable path
         var effectivePath = string.IsNullOrEmpty(controlPanelPath)
             ? GetRedpillExecutablePath()
@@ -291,13 +278,15 @@ public class TerminalSettingsService : ITerminalSettingsService
 
         DiagnosticLogger.Debug("TERMINAL", $"Redpill profile using control panel: {effectivePath}");
 
+        var existing = GetProfile(settings, profileName);
+
         // NOTE: Opacity is set per-profile, not on profiles.defaults.
         // This ensures only Matrix windows get transparency.
         // UseAcrylic = false gives PLAIN transparency (no blur/haze) on Windows 11.
         var profile = new TerminalProfile
         {
             Name = profileName,
-            Guid = $"{{{Guid.NewGuid()}}}",
+            Guid = existing?.Guid ?? $"{{{Guid.NewGuid()}}}",
             Commandline = $"\"{effectivePath}\"",
             Hidden = true,
             Opacity = 85,  // 85% opacity for Matrix windows only

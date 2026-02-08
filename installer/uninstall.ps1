@@ -21,42 +21,36 @@ Write-Host "  Matrix Shader Uninstaller" -ForegroundColor Red
 Write-Host "  =========================" -ForegroundColor Red
 Write-Host ""
 
-# Detect where it's installed
-$InstallDir = $null
-$PathScope = $null
+# Check for GUI (Inno Setup) installation first
+$InnoUninstallExe = "$AdminInstallDir\unins000.exe"
+$HasInnoInstall = Test-Path $InnoUninstallExe
 
-if (Test-Path $AdminInstallDir) {
-    if (-not $IsAdmin) {
-        Write-Host "ERROR: Matrix Shader is installed in Program Files." -ForegroundColor Red
-        Write-Host "       Run this script as Administrator to uninstall." -ForegroundColor Red
-        Write-Host ""
-        Write-Host "  Right-click PowerShell > Run as Administrator" -ForegroundColor Yellow
-        Write-Host "  Then run: irm https://matrixshader.com/uninstall.ps1 | iex" -ForegroundColor Yellow
-        exit 1
+# Detect all install locations
+$Installs = @()
+
+if (Test-Path "$AdminInstallDir\wakeupneo.exe") {
+    if ($HasInnoInstall) {
+        $Installs += @{ Dir = $AdminInstallDir; Scope = 'Machine'; Type = 'GUI installer' }
+    } else {
+        $Installs += @{ Dir = $AdminInstallDir; Scope = 'Machine'; Type = 'CLI (admin)' }
     }
-    $InstallDir = $AdminInstallDir
-    $PathScope = 'Machine'
-    Write-Host "  Found installation: $InstallDir (admin)" -ForegroundColor Gray
 }
-elseif (Test-Path $UserInstallDir) {
-    $InstallDir = $UserInstallDir
-    $PathScope = 'User'
-    Write-Host "  Found installation: $InstallDir (user)" -ForegroundColor Gray
+if (Test-Path "$UserInstallDir\wakeupneo.exe") {
+    $Installs += @{ Dir = $UserInstallDir; Scope = 'User'; Type = 'CLI (user)' }
 }
-else {
+
+if ($Installs.Count -eq 0) {
     Write-Host "  Matrix Shader not found in standard locations:" -ForegroundColor Yellow
     Write-Host "    - $AdminInstallDir"
     Write-Host "    - $UserInstallDir"
     Write-Host ""
 
-    # Check if it's still in PATH somewhere
     $InPath = $env:Path -split ';' | Where-Object { $_ -like '*MatrixShader*' }
     if ($InPath) {
         Write-Host "  Found in PATH: $($InPath -join ', ')" -ForegroundColor Yellow
         Write-Host "  You may need to remove this manually." -ForegroundColor Yellow
     }
 
-    # Check for user data
     if (Test-Path $DataDir) {
         Write-Host ""
         Write-Host "  User data found: $DataDir" -ForegroundColor Yellow
@@ -72,9 +66,26 @@ else {
     exit 0
 }
 
+# Show what was found
+foreach ($inst in $Installs) {
+    Write-Host "  Found: $($inst.Dir) ($($inst.Type))" -ForegroundColor Gray
+}
+
+# Admin check - need admin for Program Files
+$NeedsAdmin = $Installs | Where-Object { $_.Scope -eq 'Machine' }
+if ($NeedsAdmin -and -not $IsAdmin) {
+    Write-Host ""
+    Write-Host "ERROR: Matrix Shader is installed in Program Files." -ForegroundColor Red
+    Write-Host "       Run this script as Administrator to uninstall." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  Right-click PowerShell > Run as Administrator" -ForegroundColor Yellow
+    Write-Host "  Then run: irm https://matrixshader.com/uninstall.ps1 | iex" -ForegroundColor Yellow
+    exit 1
+}
+
 # Confirm uninstall
 Write-Host ""
-$Confirm = Read-Host "Uninstall Matrix Shader from $InstallDir? (y/N)"
+$Confirm = Read-Host "Uninstall Matrix Shader? (y/N)"
 if ($Confirm -ne 'y' -and $Confirm -ne 'Y') {
     Write-Host "  Cancelled." -ForegroundColor Gray
     exit 0
@@ -82,40 +93,56 @@ if ($Confirm -ne 'y' -and $Confirm -ne 'Y') {
 
 Write-Host ""
 
-# Step 1: Remove from PATH
+# Step 1: Remove from PATH (both scopes)
 Write-Host "[1/3] Removing from PATH..." -ForegroundColor Cyan
-try {
-    $CurrentPath = [Environment]::GetEnvironmentVariable('Path', $PathScope)
-    $PathEntries = $CurrentPath -split ';' | Where-Object { $_.Trim() -ne '' }
+foreach ($scope in @('Machine', 'User')) {
+    try {
+        $CurrentPath = [Environment]::GetEnvironmentVariable('Path', $scope)
+        if (-not $CurrentPath) { continue }
+        $PathEntries = $CurrentPath -split ';' | Where-Object { $_.Trim() -ne '' }
+        $NewEntries = $PathEntries | Where-Object { $_.ToLower() -notlike '*matrixshader*' }
 
-    # Remove any MatrixShader entries (case-insensitive)
-    $NewEntries = $PathEntries | Where-Object { $_.ToLower() -ne $InstallDir.ToLower() }
-
-    if ($NewEntries.Count -lt $PathEntries.Count) {
-        $NewPath = $NewEntries -join ';'
-        [Environment]::SetEnvironmentVariable('Path', $NewPath, $PathScope)
-        Write-Host "  Removed from $PathScope PATH" -ForegroundColor Gray
-    } else {
-        Write-Host "  Not found in PATH" -ForegroundColor Gray
+        if ($NewEntries.Count -lt $PathEntries.Count) {
+            $NewPath = $NewEntries -join ';'
+            [Environment]::SetEnvironmentVariable('Path', $NewPath, $scope)
+            Write-Host "  Removed from $scope PATH" -ForegroundColor Gray
+        }
+    }
+    catch {
+        Write-Host "  WARNING: Could not update $scope PATH" -ForegroundColor Yellow
     }
 }
-catch {
-    Write-Host "  WARNING: Could not update PATH" -ForegroundColor Yellow
-    Write-Host "  $($_.Exception.Message)" -ForegroundColor Yellow
-}
 
-# Step 2: Remove executables
+# Step 2: Remove all installs
 Write-Host "[2/3] Removing executables..." -ForegroundColor Cyan
-try {
-    if (Test-Path $InstallDir) {
-        Remove-Item $InstallDir -Recurse -Force
-        Write-Host "  Removed: $InstallDir" -ForegroundColor Gray
+
+# If GUI (Inno Setup) install exists, use its uninstaller
+if ($HasInnoInstall) {
+    Write-Host "  Running GUI uninstaller..." -ForegroundColor Gray
+    try {
+        Start-Process -FilePath $InnoUninstallExe -ArgumentList '/SILENT' -Wait -ErrorAction Stop
+        Write-Host "  GUI version removed." -ForegroundColor Gray
+    } catch {
+        Write-Host "  WARNING: GUI uninstaller failed, removing manually..." -ForegroundColor Yellow
+        if (Test-Path $AdminInstallDir) {
+            Remove-Item $AdminInstallDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 }
-catch {
-    Write-Host "  ERROR: Could not remove $InstallDir" -ForegroundColor Red
-    Write-Host "  $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "  Try closing any Matrix Shader windows first." -ForegroundColor Yellow
+
+# Remove all install directories
+foreach ($inst in $Installs) {
+    try {
+        if (Test-Path $inst.Dir) {
+            Remove-Item $inst.Dir -Recurse -Force
+            Write-Host "  Removed: $($inst.Dir)" -ForegroundColor Gray
+        }
+    }
+    catch {
+        Write-Host "  ERROR: Could not remove $($inst.Dir)" -ForegroundColor Red
+        Write-Host "  $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "  Try closing any Matrix Shader windows first." -ForegroundColor Yellow
+    }
 }
 
 # Step 2.5: Restore original Windows Terminal settings
