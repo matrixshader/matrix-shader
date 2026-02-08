@@ -4,6 +4,12 @@ Transform your terminal into The Matrix.
 
 ## Install
 
+**GUI Installer** (recommended, works offline):
+
+[Download MatrixShaderSetup.exe](https://github.com/matrixshader/matrix-shader/releases/latest/download/MatrixShaderSetup.exe)
+
+**One-liner** (paste in PowerShell):
+
 ```powershell
 irm https://matrixshader.com/install.ps1 | iex
 ```
@@ -44,7 +50,7 @@ Press `H` in redpill to customize.
 
 ## Requirements
 
-- Any Terminal (For Matrixlite)
+- Any Terminal (for MatrixLite)
 - Windows 10/11 (for shader mode)
 - Windows Terminal (for shader mode)
 - GPU with DirectX 11+ (for shader mode)
