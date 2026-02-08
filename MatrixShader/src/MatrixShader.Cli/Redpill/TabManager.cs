@@ -149,6 +149,7 @@ public class TabManager
         if (_shaderService.ShaderExists(_currentSlot))
         {
             _shaderService.WriteConfig(_currentSlot, _currentConfig);
+            SyncTabColorToShader(_currentSlot, _currentConfig);
         }
     }
 
