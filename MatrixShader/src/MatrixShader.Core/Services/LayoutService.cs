@@ -86,6 +86,73 @@ public class LayoutService : ILayoutService
         return result;
     }
 
+    /// <inheritdoc/>
+    public IReadOnlyList<WindowPosition> CalculateLayoutByCurrentMonitor(
+        IReadOnlyList<WindowInfo> windows,
+        LayoutConfig config)
+    {
+        if (windows.Count == 0)
+            return Array.Empty<WindowPosition>();
+
+        var monitors = GetMonitors();
+        if (monitors.Count == 0)
+            return Array.Empty<WindowPosition>();
+
+        // Group windows by which monitor they're CURRENTLY on
+        var windowsByMonitor = new Dictionary<nint, List<WindowInfo>>();
+        foreach (var window in windows)
+        {
+            var monitorHandle = WindowsApi.MonitorFromWindow(
+                window.Handle, WindowsApi.MONITOR_DEFAULTTONEAREST);
+            if (!windowsByMonitor.TryGetValue(monitorHandle, out var group))
+            {
+                group = new List<WindowInfo>();
+                windowsByMonitor[monitorHandle] = group;
+            }
+            group.Add(window);
+        }
+
+        // Determine layout mode
+        var mode = ParseLayoutMode(config.Mode);
+        if (mode == LayoutMode.Auto)
+            mode = windows.Count <= 4 ? LayoutMode.Pillars : LayoutMode.Quads;
+
+        var result = new List<WindowPosition>();
+
+        foreach (var (monitorHandle, group) in windowsByMonitor)
+        {
+            // Find the MonitorInfo for this handle
+            var monitor = monitors.FirstOrDefault(m => m.Handle == monitorHandle);
+            if (monitor == null)
+                continue;
+
+            // Calculate positions for this group on this single monitor
+            var singleMonitor = new List<MonitorInfo> { monitor };
+            var positions = mode switch
+            {
+                LayoutMode.Pillars => CalculatePillarsLayout(group.Count, singleMonitor, config),
+                LayoutMode.Quads => CalculateQuadsLayout(group.Count, singleMonitor, config),
+                LayoutMode.Overlap => CalculateOverlapLayout(group.Count, singleMonitor, config),
+                _ => CalculatePillarsLayout(group.Count, singleMonitor, config)
+            };
+
+            // Sort windows in group by shader index for consistent ordering
+            var sortedGroup = group.OrderBy(w => w.ShaderIndex).ToList();
+
+            for (int i = 0; i < Math.Min(sortedGroup.Count, positions.Count); i++)
+            {
+                result.Add(new WindowPosition
+                {
+                    Window = sortedGroup[i],
+                    Target = positions[i].Rect,
+                    Monitor = positions[i].Monitor
+                });
+            }
+        }
+
+        return result;
+    }
+
     /// <summary>
     /// Applies calculated positions to windows using border-compensated positioning.
     /// Uses PositionWindowExact to ensure visible window bounds match targets exactly.
