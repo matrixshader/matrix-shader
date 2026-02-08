@@ -2,35 +2,20 @@
 
 Transform your terminal into The Matrix.
 
-## Installation
-
-### Option 1: Installer (Recommended)
-
-1. Download `MatrixShaderSetup.exe` from the [Releases](../../releases) page
-2. Run the installer
-3. Open a **new** terminal window (required for PATH to update)
-4. Run `wakeupneo` to complete setup
-
-### Option 2: Build from Source
-
-Requires: .NET 8 SDK, Windows 10/11
+## Install
 
 ```powershell
-git clone https://github.com/matrixshader/matrix-shader.git
-cd matrix-shader
-dotnet build MatrixShader/MatrixShader.sln
+irm https://matrixshader.com/install.ps1 | iex
 ```
 
 ## Commands
 
-After installation, these commands are available:
-
-| Command | Description |
-|---------|-------------|
-| `wakeupneo` | First-time setup wizard - creates profiles, configures shaders |
-| `bluepill` | Quick launch - restores previous session |
-| `redpill` | Control panel - full keyboard-driven TUI for parameter tweaking |
-| `matrixlite` | Text fallback - works in any terminal (no Windows Terminal required) |
+| Command | What it does |
+|---------|--------------|
+| `wakeupneo` | Setup wizard - choose colors, number of windows |
+| `bluepill` | Enter the Matrix - instant launch |
+| `redpill` | Control the Matrix - live adjustments |
+| `matrixlite` | Text fallback - no GPU required |
 
 ## Quick Start
 
@@ -48,22 +33,21 @@ bluepill
 
 ## Hotkeys
 
-Global hotkeys are available when running bluepill, redpill, or wakeupneo (the `matrix-hotkeys` background process starts automatically):
+Global shortcuts (work even when Matrix windows are minimized):
 
-- `Win+Alt+Left/Right` - Swap windows
-- `Win+Alt+L` - Change layout
-- `Win+Alt+B` - Toggle transparency
-- `Win+Alt+J/K` - Adjust opacity
+- `Ctrl+Shift+Left/Right` - Swap windows
+- `Ctrl+Shift+L` - Change layout
+- `Ctrl+Shift+B` - Toggle transparency
+- `Ctrl+Shift+J/K` - Adjust opacity
 
-To configure hotkeys, press `H` in the redpill control panel.
+Press `H` in redpill to customize.
 
 ## Requirements
 
-- Windows 10 version 1903+ or Windows 11
-- Windows Terminal (installed automatically if missing)
-- GPU with DirectX 11+ support (for shader mode)
-
-**Note:** MatrixLite text mode works without Windows Terminal or GPU shaders.
+- Any Terminal (For Matrixlite)
+- Windows 10/11 (for shader mode)
+- Windows Terminal (for shader mode)
+- GPU with DirectX 11+ (for shader mode)
 
 ## License
 
@@ -77,5 +61,4 @@ Commercial use, redistribution, and modification require written permission.
 Inspired by The Matrix (1999).
 Not affiliated with or endorsed by Warner Bros. Entertainment Inc.
 
-If you are a rights holder and are interested in collaboration,
-please contact: architect@matrixshader.com
+If you are a rights holder and are interested in collaboration, please contact: architect@matrixshader.com

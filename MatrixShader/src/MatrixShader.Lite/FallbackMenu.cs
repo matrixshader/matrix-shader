@@ -161,7 +161,7 @@ public class FallbackMenu
                 SetColor(ColorPresets.Green);
                 break;
             case ConsoleKey.D2 or ConsoleKey.NumPad2:
-                SetColor(ColorPresets.Cyan);
+                SetColor(ColorPresets.Blue);
                 break;
             case ConsoleKey.D3 or ConsoleKey.NumPad3:
                 SetColor(ColorPresets.Red);
@@ -199,7 +199,7 @@ public class FallbackMenu
         Console.WriteLine("  \x1b[32m+==================================================+\x1b[0m");
         Console.WriteLine("  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m");
         Console.WriteLine("  \x1b[32m|\x1b[0m  COLOR PRESETS                                   \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m  [1] Green   [2] Cyan   [3] Red                  \x1b[32m|\x1b[0m");
+        Console.WriteLine("  \x1b[32m|\x1b[0m  [1] Green   [2] Blue   [3] Red                  \x1b[32m|\x1b[0m");
         Console.WriteLine("  \x1b[32m|\x1b[0m  [4] Purple  [5] Gold   [6] Teal                 \x1b[32m|\x1b[0m");
         Console.WriteLine("  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m");
         Console.WriteLine("  \x1b[32m|\x1b[0m  CONTROLS                                        \x1b[32m|\x1b[0m");
@@ -233,7 +233,7 @@ public class FallbackMenu
                 SetColor(ColorPresets.Green);
                 break;
             case ConsoleKey.D2 or ConsoleKey.NumPad2:
-                SetColor(ColorPresets.Cyan);
+                SetColor(ColorPresets.Blue);
                 break;
             case ConsoleKey.D3 or ConsoleKey.NumPad3:
                 SetColor(ColorPresets.Red);
@@ -280,7 +280,7 @@ public class FallbackMenu
                 SetColor(ColorPresets.Green);
                 break;
             case ConsoleKey.D2 or ConsoleKey.NumPad2:
-                SetColor(ColorPresets.Cyan);
+                SetColor(ColorPresets.Blue);
                 break;
             case ConsoleKey.D3 or ConsoleKey.NumPad3:
                 SetColor(ColorPresets.Red);
