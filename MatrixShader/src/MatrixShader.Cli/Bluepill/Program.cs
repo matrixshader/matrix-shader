@@ -107,6 +107,10 @@ public static class Program
             await CliBootstrap.TypewriterAsync(" There is no spoon...", charDelayMs: 150);
             Console.WriteLine();
 
+            Console.WriteLine();
+            ConsoleHelper.WriteLineDim(" Enjoying Matrix Shader? Buy me a coffee:");
+            Console.WriteLine(" \x1b[33mhttps://buymeacoffee.com/IKnowKungFu\x1b[0m");
+
             // Wait for any key
             ConsoleHelper.WriteLineDim(" Press any key to exit...");
             Console.ReadKey(intercept: true);
@@ -221,7 +225,12 @@ public static class Program
                 WindowStyle = ProcessWindowStyle.Hidden
             };
 
-            Process.Start(startInfo);
+            var process = Process.Start(startInfo);
+            if (process == null)
+            {
+                DiagnosticLogger.ProductionError("BLUEPILL", $"Failed to start: {hotkeyExe}");
+                return;
+            }
             DiagnosticLogger.Debug("BLUEPILL", $"Launched hotkeys process: {hotkeyExe}");
         }
         catch (Exception ex)

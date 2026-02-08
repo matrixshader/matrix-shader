@@ -117,9 +117,9 @@ public sealed class HotkeyActions
                 WindowsApi.PositionWindowExact(windows[i].Handle, windows[nextIdx].Position);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"RotateLeft failed: {ex.Message}");
         }
     }
 
@@ -171,9 +171,9 @@ public sealed class HotkeyActions
                 WindowsApi.PositionWindowExact(windows[prevIdx].Handle, windows[i].Position);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"RotateRight failed: {ex.Message}");
         }
     }
 
@@ -205,9 +205,9 @@ public sealed class HotkeyActions
             var positions = _layoutService.CalculateLayout(windows, newConfig);
             _layoutService.ApplyLayout(positions);
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"CycleLayout failed: {ex.Message}");
         }
     }
 
@@ -244,9 +244,9 @@ public sealed class HotkeyActions
 
             DiagnosticLogger.Debug("HOTKEYS", $"Toggled transparency: {currentOpacity}% -> {newOpacity}%");
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"ToggleTransparency failed: {ex.Message}");
         }
     }
 
@@ -260,9 +260,9 @@ public sealed class HotkeyActions
         {
             AdjustOpacity(-OpacityDelta);
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"OpacityDown failed: {ex.Message}");
         }
     }
 
@@ -276,9 +276,9 @@ public sealed class HotkeyActions
         {
             AdjustOpacity(OpacityDelta);
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"OpacityUp failed: {ex.Message}");
         }
     }
 
@@ -323,9 +323,9 @@ public sealed class HotkeyActions
         {
             AdjustSpeed(SpeedDelta);
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"SpeedUp failed: {ex.Message}");
         }
     }
 
@@ -339,9 +339,9 @@ public sealed class HotkeyActions
         {
             AdjustSpeed(-SpeedDelta);
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"SpeedDown failed: {ex.Message}");
         }
     }
 
@@ -382,9 +382,9 @@ public sealed class HotkeyActions
         {
             ToggleLayer(c => c with { Layer1 = !c.Layer1 });
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"ToggleFar failed: {ex.Message}");
         }
     }
 
@@ -398,9 +398,9 @@ public sealed class HotkeyActions
         {
             ToggleLayer(c => c with { Layer2 = !c.Layer2 });
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"ToggleMid failed: {ex.Message}");
         }
     }
 
@@ -414,9 +414,9 @@ public sealed class HotkeyActions
         {
             ToggleLayer(c => c with { Layer3 = !c.Layer3 });
         }
-        catch
+        catch (Exception ex)
         {
-            // Fail silently
+            DiagnosticLogger.ProductionError("HOTKEYS", $"ToggleNear failed: {ex.Message}");
         }
     }
 

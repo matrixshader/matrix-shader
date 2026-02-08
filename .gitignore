@@ -29,3 +29,52 @@ Thumbs.db
 
 # Large binaries
 ffmpeg.exe
+
+# PowerShell dev scripts (local dev environment only)
+/*.ps1
+/WindowLayoutEngine.ps1
+/WindowIdentityService.ps1
+/MatrixLogging.ps1
+/MatrixUtils.ps1
+/matrix_control.ps1
+
+# Root shaders (canonical copies in MatrixShader/shaders/)
+/shaders/
+
+# Dev artifacts
+/MatrixAPI.dll
+/config/
+/archive/
+/tasks/
+/BACKGROUND IMAGES/
+/Matrix.hlsl
+
+# Media/images at root
+/*.png
+/*.jpg
+/*.mp4
+
+# Misc dev files
+/*.md
+!README.md
+!CLAUDE.md
+/*.json
+!package.json
+/*.txt
+/*.wsb
+/*.sh
+/*.deb
+/window-registry.json
+/identity-registry.json
+/matrix_state.json
+/MatrixShader/README.md
+
+# Dev docs at root
+/AGENTS.md
+/AGENTS/
+/NOTES/
+/RECOVERY/
+/STRATEGY/
+/TEAM_MEETING/
+/PRD/
+/MVP/

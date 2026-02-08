@@ -295,7 +295,7 @@ public class HotkeyConfigScreen
         HotkeyAction.ToggleTransparency => "Toggle Transparency",
         HotkeyAction.OpacityDown => "Decrease Opacity",
         HotkeyAction.OpacityUp => "Increase Opacity",
-        HotkeyAction.CycleShader => "Cycle Shader",
+        // CycleShader REMOVED - corrupts shader parameters (BUG-SHADER04, BUG-SHADER05)
         HotkeyAction.SpeedUp => "Increase Speed",
         HotkeyAction.SpeedDown => "Decrease Speed",
         HotkeyAction.ToggleFar => "Toggle Far Layer",

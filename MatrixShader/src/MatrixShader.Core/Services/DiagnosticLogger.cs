@@ -107,6 +107,34 @@ public static class DiagnosticLogger
         }
     }
 
+    /// <summary>
+    /// Logs a production error that ALWAYS writes to the log file, regardless of _enabled flag.
+    /// Use for unhandled exceptions and critical failures that must be captured in production.
+    /// </summary>
+    public static void ProductionError(string source, string message)
+    {
+        var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+        var logEntry = $"[{timestamp}] [{source}] [FATAL] {message}";
+
+        // Always write to file, even if debug logging is disabled
+        var logPath = _logPath ?? GetDefaultLogPath();
+        try
+        {
+            var dir = Path.GetDirectoryName(logPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            lock (_lock)
+            {
+                File.AppendAllText(logPath, logEntry + Environment.NewLine);
+            }
+        }
+        catch
+        {
+            // Last resort - nothing we can do
+        }
+    }
+
     private static string GetDefaultLogPath()
     {
         // Match PowerShell: $env:USERPROFILE\Documents\Matrix\debug.log

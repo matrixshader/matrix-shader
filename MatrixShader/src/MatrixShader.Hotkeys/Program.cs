@@ -18,10 +18,10 @@ public static class Program
 {
     public static int Main(string[] args)
     {
-        // Top-level exception handler - log crashes before exit
+        // Top-level exception handler - ALWAYS log crashes (even without MATRIX_DEBUG)
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
         {
-            DiagnosticLogger.Error("HOTKEYS", $"Unhandled exception: {e.ExceptionObject}");
+            DiagnosticLogger.ProductionError("HOTKEYS", $"Unhandled exception: {e.ExceptionObject}");
         };
 
         // Single-instance check - exit silently if already running
@@ -37,7 +37,7 @@ public static class Program
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Error("HOTKEYS", $"Fatal error in Run(): {ex}");
+            DiagnosticLogger.ProductionError("HOTKEYS", $"Fatal error in Run(): {ex}");
             return 1;
         }
         finally
