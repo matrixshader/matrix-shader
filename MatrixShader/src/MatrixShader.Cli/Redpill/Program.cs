@@ -433,16 +433,20 @@ public class ControlPanel
         // Footer
         TuiRenderer.AppendFooter(sb, cw, _launchCount, _launchCount > 0, glitchEnabled);
 
-        // Fill remaining visible rows with blanks to prevent old content showing
-        var linesWritten = 35; // Approximate lines in frame
-        var visibleRows = Console.WindowHeight;
-        if (visibleRows > linesWritten)
+        // Count actual lines written and fill remaining visible rows with blanks
+        var linesWritten = 0;
+        for (int i = 0; i < sb.Length; i++)
+            if (sb[i] == '\n') linesWritten++;
+        var maxRows = Console.WindowHeight;
+        var remaining = maxRows - linesWritten - 1; // -1 to avoid scroll on last row
+        if (remaining > 0)
         {
-            TuiRenderer.AppendBlankLines(sb, cw, visibleRows - linesWritten);
+            TuiRenderer.AppendBlankLines(sb, cw, remaining);
         }
 
-        // Single write — no flicker
-        Console.SetCursorPosition(0, 0);
+        // ANSI cursor home (viewport-relative, not buffer-relative)
+        // Console.SetCursorPosition(0,0) uses buffer coords which break after scroll
+        Console.Write("\x1b[H");
         Console.Write(sb.ToString());
     }
 
