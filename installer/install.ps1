@@ -81,6 +81,21 @@ Write-Host "  Data location:    $DataDir"
 Write-Host "  Admin mode:       $IsAdmin"
 Write-Host ""
 
+# Kill running Matrix processes before install (DLLs are locked while running)
+$MatrixProcesses = @('matrix-hotkeys', 'matrix-monitor', 'redpill', 'bluepill', 'wakeupneo', 'matrixlite')
+$Killed = @()
+foreach ($proc in $MatrixProcesses) {
+    $running = Get-Process -Name $proc -ErrorAction SilentlyContinue
+    if ($running) {
+        $running | Stop-Process -Force -ErrorAction SilentlyContinue
+        $Killed += $proc
+    }
+}
+if ($Killed.Count -gt 0) {
+    Write-Host "  Stopped running processes: $($Killed -join ', ')" -ForegroundColor Yellow
+    Start-Sleep -Seconds 1  # Brief pause for file handles to release
+}
+
 # Create directories
 Write-Host "[1/5] Creating directories..." -ForegroundColor Cyan
 if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
