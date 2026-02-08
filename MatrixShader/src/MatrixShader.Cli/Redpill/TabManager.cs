@@ -51,6 +51,9 @@ public class TabManager
             ? _shaderService.ReadConfig(_currentSlot)
             : new ShaderConfig();
         _dirty = false;
+
+        // Sync ALL open window tab colors from actual shader configs at startup
+        SyncAllTabColors(openWindows);
     }
 
     /// <summary>Current active slot (1-8)</summary>
@@ -167,6 +170,22 @@ public class TabManager
         SyncTabColorToShader(_currentSlot, _currentConfig);
 
         _dirty = false;
+    }
+
+    /// <summary>
+    /// Syncs ALL open window tab colors from their actual shader configs.
+    /// Called at startup to ensure tab colors always match shader rain colors.
+    /// </summary>
+    private void SyncAllTabColors(IReadOnlyList<WindowInfo> windows)
+    {
+        foreach (var window in windows)
+        {
+            if (_shaderService.ShaderExists(window.ShaderIndex))
+            {
+                var cfg = _shaderService.ReadConfig(window.ShaderIndex);
+                SyncTabColorToShader(window.ShaderIndex, cfg);
+            }
+        }
     }
 
     /// <summary>

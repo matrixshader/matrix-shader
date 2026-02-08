@@ -268,8 +268,8 @@ public sealed class MatrixWindowMonitor : IDisposable
 
             try
             {
-                // Only reposition tiled windows, leave fullscreen alone
-                var positions = _layoutService.CalculateLayout(tiledWindows, state.Layout);
+                // Reposition by current monitor — respects user drags
+                var positions = _layoutService.CalculateLayoutByCurrentMonitor(tiledWindows, state.Layout);
                 _layoutService.ApplyLayout(positions, state.Layout, force: true);
 
                 // Update truth positions after layout apply
