@@ -28,7 +28,7 @@ public record ShaderConfig
     public float Trail { get; init; } = 8f;
 
     /// <summary>Character spawn density (0.2 - 1.0)</summary>
-    public float Density { get; init; } = 0.4f;
+    public float Density { get; init; } = 0.25f;
 
     /// <summary>Far depth layer enabled</summary>
     public bool Layer1 { get; init; } = true;

@@ -24,12 +24,12 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
     
-    <!-- Matrix Rain Effect -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
-</head>
+    </head>
 <body>
-    <!-- Matrix Rain Background -->
-    <div id="matrix-bg"></div>
+    <!-- Matrix Rain Background (Video of actual shader) -->
+    <video id="matrix-bg" autoplay muted loop playsinline>
+        <source src="./assets/shader-bg-cropped.mp4" type="video/mp4">
+    </video>
     
     <!-- Navigation -->
     <nav class="navbar">
@@ -45,7 +45,7 @@
                 <li><a href="#download">Download</a></li>
                 <li><a href="https://github.com/matrixshader/matrix-shader" target="_blank">GitHub</a></li>
             </ul>
-            <div class="nav-toggle">
+            <div class="nav-toggle" aria-label="Toggle navigation menu" role="button" tabindex="0">
                 <span></span>
                 <span></span>
                 <span></span>
@@ -68,7 +68,7 @@
                 <div class="hero-buttons">
                     <a href="#download" class="btn btn-primary">
                         <span>Download Now</span>
-                        <span class="btn-subtitle">Free & Open Source</span>
+                        <span class="btn-subtitle">Free</span>
                     </a>
                     <a href="#workflow" class="btn btn-secondary">
                         <span>See Demo</span>
@@ -125,7 +125,7 @@
                 <div class="feature-card">
                     <div class="feature-icon">🪟</div>
                     <h3>Multi-window Support</h3>
-                    <p>Manage up to 6 independent shader windows with automatic layout modes (Pillars/Quads).</p>
+                    <p>Manage up to 8 independent shader windows with automatic layout modes (Pillars/Quads).</p>
                 </div>
                 
                 <div class="feature-card">
@@ -154,43 +154,33 @@
         <div class="container">
             <div class="section-header">
                 <h2 class="section-title">Multi-Agent Workflow Game Changer</h2>
-                <p class="section-subtitle">The killer feature that makes this indispensable for AI-powered development</p>
+                <p class="section-subtitle">Color-code your AI agents. Know which terminal is which at a glance.</p>
             </div>
-            
-            <div class="workflow-content">
-                <div class="workflow-visual">
-                    <div class="workflow-grid">
-                        <div class="workflow-terminal matrix-green">
-                            <div class="terminal-label">Aider (Backend)</div>
-                            <div class="terminal-content-mini">npm run dev</div>
-                        </div>
-                        <div class="workflow-terminal matrix-cyan">
-                            <div class="terminal-label">Claude (Frontend)</div>
-                            <div class="terminal-content-mini">git commit</div>
-                        </div>
-                        <div class="workflow-terminal matrix-red">
-                            <div class="terminal-label">Tests (Red)</div>
-                            <div class="terminal-content-mini">pytest</div>
-                        </div>
-                        <div class="workflow-terminal matrix-gold">
-                            <div class="terminal-label">Shell (Gold)</div>
-                            <div class="terminal-content-mini">git status</div>
-                        </div>
+
+            <div class="workflow-showcase">
+                <div class="workflow-text-intro">
+                    <h3>Never Mix Up Your AI Agents Again</h3>
+                    <p>Running multiple AI coding assistants simultaneously? Each terminal gets its own <strong>color-coded Matrix rain</strong> so you always know which agent is which. Switch between built-in layout modes and more with hotkeys.</p>
+                </div>
+
+                <div class="layout-demo">
+                    <div class="layout-card">
+                        <div class="layout-label">Pillars Layout</div>
+                        <img src="./assets/pillars-layout.png" alt="4 Matrix shader windows in Pillars layout - side by side columns, each a different color running different AI coding tools" class="layout-screenshot" loading="lazy">
+                        <p class="layout-description">Side-by-side columns. Each window runs a different AI tool with its own color.</p>
+                    </div>
+                    <div class="layout-card">
+                        <div class="layout-label">Quads Layout</div>
+                        <img src="./assets/quads-layout.png" alt="4 Matrix shader windows in Quads layout - 2x2 grid, each a different color running different AI coding tools" class="layout-screenshot" loading="lazy">
+                        <p class="layout-description">2x2 grid for maximum screen real estate per window.</p>
                     </div>
                 </div>
-                
-                <div class="workflow-text">
-                    <h3>Never Mix Up Your AI Agents Again</h3>
-                    <p>Running multiple AI coding assistants? Each terminal gets its own color identity:</p>
-                    <ul class="workflow-list">
-                        <li><span class="color-indicator green"></span> <strong>Green (Classic Matrix)</strong> - Aider working on backend API</li>
-                        <li><span class="color-indicator cyan"></span> <strong>Cyan</strong> - Claude Code refactoring frontend</li>
-                        <li><span class="color-indicator red"></span> <strong>Red</strong> - Running test suite</li>
-                        <li><span class="color-indicator gold"></span> <strong>Gold</strong> - Manual shell operations</li>
-                    </ul>
-                    <div class="workflow-cta">
-                        <p>This use case has <strong>zero competition</strong> and is perfectly timed for the AI coding revolution.</p>
-                    </div>
+
+                <div class="workflow-colors">
+                    <div class="color-tag green-tag"><span class="color-dot green"></span> Green - Claude Code</div>
+                    <div class="color-tag red-tag"><span class="color-dot red"></span> Red - ChatGPT / Codex</div>
+                    <div class="color-tag blue-tag"><span class="color-dot blue"></span> Blue - Gemini CLI</div>
+                    <div class="color-tag gold-tag"><span class="color-dot gold"></span> Gold - OpenCode</div>
                 </div>
             </div>
         </div>
@@ -209,18 +199,22 @@
                     <div class="step">
                         <div class="step-number">1</div>
                         <div class="step-content">
-                            <h3>Download Matrix Shader</h3>
-                            <p>Get the latest release from GitHub or use the direct download below.</p>
+                            <h3>Install</h3>
+                            <p>Run this one-liner in PowerShell:</p>
+                            <div class="code-block">
+                                <pre><code>irm https://matrixshader.com/install.ps1 | iex</code></pre>
+                            </div>
+                            <p>Or <a href="https://github.com/matrixshader/matrix-shader/releases/latest">download the installer</a> from GitHub Releases.</p>
                         </div>
                     </div>
                     
                     <div class="step">
                         <div class="step-number">2</div>
                         <div class="step-content">
-                            <h3>Configure Windows Terminal</h3>
-                            <p>Add one line to your settings.json to enable pixel shaders.</p>
+                            <h3>Choose Your Path</h3>
+                            <p>Take the <strong>Blue Pill</strong> for automatic setup, or the <strong>Red Pill</strong> for full control.</p>
                             <div class="code-block">
-                                <pre><code>"experimental.pixelShaderPath": "C:\\Matrix\\shaders\\Matrix-1.hlsl"</code></pre>
+                                <pre><code>wakeupneo.exe</code></pre>
                             </div>
                         </div>
                     </div>
@@ -228,8 +222,8 @@
                     <div class="step">
                         <div class="step-number">3</div>
                         <div class="step-content">
-                            <h3>Launch & Customize</h3>
-                            <p>Run <code class="inline-code">wakeupneo.exe</code> for the setup wizard or <code class="inline-code">redpill.exe</code> for the control panel.</p>
+                            <h3>Customize & Control</h3>
+                            <p>Use <code class="inline-code">redpill.exe</code> for the control panel with hotkeys, color presets, and layout modes.</p>
                         </div>
                     </div>
                 </div>
@@ -252,7 +246,7 @@
         <div class="container">
             <div class="section-header">
                 <h2 class="section-title">Download Matrix Terminal Shader</h2>
-                <p class="section-subtitle">Free, open source, and ready to transform your terminal</p>
+                <p class="section-subtitle">Free and ready to transform your terminal</p>
             </div>
             
             <div class="download-options">
@@ -262,10 +256,10 @@
                     <h3>Complete Package</h3>
                     <p>Full installer with all shaders, presets, and executables</p>
                     <div class="download-info">
-                        <span class="version">v2.0.0</span>
+                        <span class="version">v1.0.0</span>
                         <span class="size">34.5 MB</span>
                     </div>
-                    <a href="./matrix-shader-2.0.0.tgz" class="btn btn-primary btn-download">
+                    <a href="https://github.com/matrixshader/matrix-shader/releases/latest" class="btn btn-primary btn-download">
                         Download Windows Package
                     </a>
                 </div>
@@ -273,10 +267,10 @@
                 <div class="download-card">
                     <div class="download-icon">🐙</div>
                     <h3>GitHub Repository</h3>
-                    <p>Source code, documentation, and community support</p>
+                    <p>Source code and documentation</p>
                     <div class="download-info">
-                        <span class="stats">⭐ 1,200+ stars</span>
-                        <span class="license">MIT License</span>
+                        <span class="stats">Source Code</span>
+                        <span class="license">Documentation</span>
                     </div>
                     <a href="https://github.com/matrixshader/matrix-shader" target="_blank" class="btn btn-secondary btn-download">
                         View on GitHub
@@ -291,10 +285,23 @@
                         <span class="docs">Detailed guides</span>
                         <span class="examples">Code examples</span>
                     </div>
-                    <a href="https://docs.matrixshader.com" target="_blank" class="btn btn-secondary btn-download">
+                    <a href="https://github.com/matrixshader/matrix-shader#readme" target="_blank" class="btn btn-secondary btn-download">
                         Read Documentation
                     </a>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Support Section -->
+    <section id="support" class="support">
+        <div class="container">
+            <div class="support-card">
+                <h2>Enjoying Matrix Shader?</h2>
+                <p>This project is free and built with love. If it makes your dev setup cooler, consider buying me a coffee.</p>
+                <a href="https://buymeacoffee.com/IKnowKungFu" target="_blank" class="btn btn-coffee">
+                    <span>Buy Me a Coffee</span>
+                </a>
             </div>
         </div>
     </section>
@@ -325,9 +332,9 @@
                     <h4>Resources</h4>
                     <ul>
                         <li><a href="https://github.com/matrixshader/matrix-shader" target="_blank">GitHub</a></li>
-                        <li><a href="https://docs.matrixshader.com" target="_blank">Documentation</a></li>
+                        <li><a href="https://github.com/matrixshader/matrix-shader#readme" target="_blank">Documentation</a></li>
                         <li><a href="https://github.com/matrixshader/matrix-shader/issues" target="_blank">Issues & Support</a></li>
-                        <li><a href="https://github.com/matrixshader/matrix-shader/blob/main/LICENSE" target="_blank">License</a></li>
+                        <li><a href="https://github.com/matrixshader/matrix-shader/releases" target="_blank">Releases</a></li>
                     </ul>
                 </div>
                 
@@ -336,17 +343,22 @@
                     <ul>
                         <li><a href="https://github.com/matrixshader/matrix-shader/discussions" target="_blank">Discussions</a></li>
                         <li><a href="https://www.reddit.com/r/PowerShell" target="_blank">r/PowerShell</a></li>
-                        <li><a href="https://discord.gg/matrixshader" target="_blank">Discord</a></li>
+                        <li><a href="https://github.com/matrixshader/matrix-shader/discussions" target="_blank">Community</a></li>
                         <li><a href="mailto:hello@matrixshader.com">Contact</a></li>
                     </ul>
                 </div>
             </div>
             
             <div class="footer-bottom">
-                <p>&copy; 2026 Matrix Terminal Shader. Free and open source software.</p>
+                <p>&copy; 2026 Matrix Terminal Shader.</p>
             </div>
         </div>
     </footer>
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox" onclick="this.classList.remove('active')">
+        <img id="lightbox-img" src="" alt="">
+    </div>
 
     <script src="script.js"></script>
 </body>
