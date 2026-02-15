@@ -23,7 +23,7 @@
     "url": "https://github.com/matrixshader/matrix-shader/issues"
   },
   "homepage": "https://github.com/matrixshader/matrix-shader#readme",
-  "os": ["win32"],
+  "os": ["win32", "linux"],
   "engines": {
     "node": ">=14.0.0"
   },
