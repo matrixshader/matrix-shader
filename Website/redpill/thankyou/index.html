@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to the Real World - Matrix Shader</title>
+    <style>
+        :root {
+            --matrix-green: #00ff41;
+            --matrix-red: #ff0040;
+            --bg-dark: #0a0a0a;
+            --font-mono: 'Courier New', 'Consolas', 'Monaco', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--bg-dark);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 90%;
+            padding: 2rem;
+        }
+
+        .back-link {
+            color: #888;
+            text-decoration: none;
+            font-size: 0.85rem;
+            display: inline-block;
+            margin-bottom: 2rem;
+        }
+        .back-link:hover { color: var(--matrix-green); }
+
+        h1 {
+            color: var(--matrix-green);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+        }
+
+        .tagline {
+            color: #888;
+            margin-bottom: 2rem;
+        }
+
+        .key-card {
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid rgba(0, 255, 65, 0.3);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .key-label {
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .key-value {
+            color: var(--matrix-green);
+            font-size: 1.3rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            word-break: break-all;
+            user-select: all;
+            padding: 0.75rem;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .copy-hint {
+            color: #555;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .copied {
+            color: var(--matrix-green) !important;
+        }
+
+        .command {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #ccc;
+            font-size: 0.9rem;
+            user-select: all;
+            cursor: pointer;
+        }
+        .command code { color: var(--matrix-green); }
+
+        .steps {
+            margin: 1.5rem 0;
+            color: #aaa;
+            line-height: 1.8;
+        }
+        .steps li { margin-bottom: 0.5rem; }
+
+        .error-msg {
+            color: var(--matrix-red);
+            padding: 1rem;
+            border: 1px solid rgba(255, 0, 64, 0.3);
+            border-radius: 8px;
+            background: rgba(40, 0, 0, 0.5);
+            margin: 1.5rem 0;
+        }
+
+        .loading {
+            color: var(--matrix-green);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .manual-entry {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #222;
+        }
+
+        .manual-entry label {
+            color: #888;
+            font-size: 0.85rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .manual-entry input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #333;
+            color: #fff;
+            padding: 0.6rem 0.8rem;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+        }
+        .manual-entry input:focus {
+            outline: none;
+            border-color: var(--matrix-green);
+        }
+
+        .manual-entry button {
+            background: var(--matrix-green);
+            color: #000;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .manual-entry button:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">&lt; matrixshader.com</a>
+
+        <h1>WELCOME TO THE REAL WORLD.</h1>
+        <p class="tagline">Your Red Pill license key is below.</p>
+
+        <div id="result">
+            <p class="loading">Generating your license key...</p>
+        </div>
+
+        <div id="instructions" style="display: none;">
+            <div class="steps">
+                <h3 style="color: var(--matrix-green); margin-bottom: 0.5rem;">Activate in 10 seconds:</h3>
+                <ol>
+                    <li>Open a terminal (PowerShell, CMD, or Windows Terminal)</li>
+                    <li>Run the command below:</li>
+                </ol>
+            </div>
+
+            <div class="command" id="command-box" onclick="copyCommand()">
+                <code id="activate-command"></code>
+            </div>
+            <p class="copy-hint" id="command-hint">Click to copy</p>
+
+            <div class="steps">
+                <ol start="3">
+                    <li>The Red Pill control panel will open. You're in.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="manual-entry">
+            <label>Have an order number? Enter it to retrieve your key:</label>
+            <div class="input-row">
+                <input type="text" id="order-input" placeholder="Order ID (from your receipt email)">
+                <button onclick="lookupOrder()">Go</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function copyToClipboard(text, hintId) {
+            navigator.clipboard.writeText(text).then(() => {
+                const hint = document.getElementById(hintId);
+                hint.textContent = 'Copied!';
+                hint.classList.add('copied');
+                setTimeout(() => {
+                    hint.textContent = 'Click to copy';
+                    hint.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        function copyKey() {
+            const key = document.getElementById('key-display')?.textContent;
+            if (key) copyToClipboard(key, 'key-hint');
+        }
+
+        function copyCommand() {
+            const cmd = document.getElementById('activate-command')?.textContent;
+            if (cmd) copyToClipboard(cmd, 'command-hint');
+        }
+
+        function showKey(data) {
+            document.getElementById('result').innerHTML = `
+                <div class="key-card">
+                    <div class="key-label">YOUR LICENSE KEY</div>
+                    <div class="key-value" id="key-display" onclick="copyKey()">${data.key}</div>
+                    <p class="copy-hint" id="key-hint">Click to copy</p>
+                </div>
+            `;
+            document.getElementById('activate-command').textContent =
+                `redpill --activate ${data.key}`;
+            document.getElementById('instructions').style.display = 'block';
+        }
+
+        function showError(msg) {
+            document.getElementById('result').innerHTML =
+                `<div class="error-msg">${msg}</div>`;
+        }
+
+        async function fetchKey(orderId) {
+            document.getElementById('result').innerHTML =
+                '<p class="loading">Generating your license key...</p>';
+
+            try {
+                const res = await fetch(`/api/activate?order_id=${encodeURIComponent(orderId)}`);
+                const data = await res.json();
+
+                if (res.ok) {
+                    showKey(data);
+                } else {
+                    showError(data.error || 'Failed to generate key. Check your order ID.');
+                }
+            } catch (err) {
+                showError('Connection error. Please try again or contact support.');
+            }
+        }
+
+        function lookupOrder() {
+            const input = document.getElementById('order-input').value.trim();
+            if (!input) return;
+            fetchKey(input);
+        }
+
+        // Handle Enter key in input
+        document.getElementById('order-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') lookupOrder();
+        });
+
+        // Auto-fetch if order_id is in the URL (redirect from checkout)
+        const params = new URLSearchParams(window.location.search);
+        const orderId = params.get('order_id');
+        if (orderId) {
+            fetchKey(orderId);
+        } else {
+            document.getElementById('result').innerHTML =
+                '<p style="color: #888;">Enter your order number below to get your license key.</p>';
+        }
+    </script>
+</body>
+</html>

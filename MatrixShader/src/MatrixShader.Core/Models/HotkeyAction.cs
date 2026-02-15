@@ -40,5 +40,8 @@ public enum HotkeyAction
     ToggleMid,
 
     /// <summary>Toggle the near (foreground) layer.</summary>
-    ToggleNear
+    ToggleNear,
+
+    /// <summary>Show hotkey help overlay.</summary>
+    ShowHelp
 }

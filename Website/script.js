@@ -188,6 +188,10 @@ class MatrixWebsite {
         navigator.clipboard.writeText(code).then(() => {
           button.textContent = 'Copied!';
           button.style.background = 'rgba(0, 255, 65, 0.4)';
+          // Track install script copy in Umami
+          if (code.includes('matrixshader.com/install') && window.umami) {
+            window.umami.track('Copy Install Script');
+          }
           setTimeout(() => {
             button.textContent = 'Copy';
             button.style.background = 'rgba(0, 255, 65, 0.2)';

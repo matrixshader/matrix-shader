@@ -297,10 +297,18 @@ public class SetupWizard
         Console.WriteLine();
 
         // Blue Pill / Red Pill choice using arrow-key menu
+        // Check license to show appropriate Red Pill label
+        var licenseService = new LicenseService();
+        var isLicensed = licenseService.IsLicensed;
+
+        var redPillLabel = isLicensed
+            ? "RED PILL - Full Customization (opens control panel)"
+            : "RED PILL - Full Control Panel ($5) -> matrixshader.com/redpill";
+
         var pillOptions = new[]
         {
             "BLUE PILL - Enter the Matrix",
-            "RED PILL - Full Customization (opens control panel)"
+            redPillLabel
         };
 
         var pillChoice = CliBootstrap.ArrowKeyMenu(pillOptions, "This is your last chance. After this, there is no turning back.");
@@ -495,14 +503,35 @@ public class SetupWizard
         Console.WriteLine();
         if (isRedPill)
         {
-            ConsoleHelper.WriteLineMatrixGreen(" THE MATRIX HAS YOU.");
-            ConsoleHelper.WriteLineDim(" Control panel ready for live adjustments.");
+            if (isLicensed)
+            {
+                ConsoleHelper.WriteLineMatrixGreen(" THE MATRIX HAS YOU.");
+                ConsoleHelper.WriteLineDim(" Control panel ready for live adjustments.");
+            }
+            else
+            {
+                ConsoleHelper.WriteLineMatrixGreen(" THE MATRIX HAS YOU.");
+                Console.WriteLine();
+                ConsoleHelper.WriteLineDim(" The Red Pill control panel requires a license ($5):");
+                Console.WriteLine(" \x1b[36mhttps://matrixshader.com/redpill\x1b[0m");
+            }
         }
         else
         {
             ConsoleHelper.WriteLineMatrixGreen(" FOLLOW THE WHITE RABBIT.");
-            ConsoleHelper.WriteLineDim(" Type 'redpill' for live controls.");
+            if (isLicensed)
+            {
+                ConsoleHelper.WriteLineDim(" Type 'redpill' to customize.");
+            }
+            else
+            {
+                ConsoleHelper.WriteLineDim(" Unlock the Red Pill control panel: \x1b[36mmatrixshader.com/redpill\x1b[0m");
+            }
         }
+
+        // Hotkey hint — always visible so users know how to control it
+        Console.WriteLine();
+        Console.WriteLine(" \x1b[36mPress Ctrl+Shift+H for hotkey help\x1b[0m");
 
         Console.WriteLine();
         ConsoleHelper.WriteLineDim(" Enjoying Matrix Shader? Buy me a coffee:");

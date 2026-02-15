@@ -59,6 +59,7 @@ public sealed class HotkeyActions
         HotkeyAction.ToggleFar => ToggleFar,
         HotkeyAction.ToggleMid => ToggleMid,
         HotkeyAction.ToggleNear => ToggleNear,
+        HotkeyAction.ShowHelp => ShowHelpOverlay,
         _ => () => { } // Unknown action - do nothing
     };
 
@@ -450,6 +451,25 @@ public sealed class HotkeyActions
             state.ShaderConfigs[shaderIndex] = updatedConfig;
             _configService.SaveState(state);
             DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer: State saved for shader {shaderIndex}");
+        }
+    }
+
+    #endregion
+
+    #region Help Overlay
+
+    /// <summary>
+    /// Shows the hotkey help overlay in a new console window.
+    /// </summary>
+    private void ShowHelpOverlay()
+    {
+        try
+        {
+            HotkeyHelpOverlay.SpawnOverlay();
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.ProductionError("HOTKEYS", $"ShowHelp failed: {ex.Message}");
         }
     }
 

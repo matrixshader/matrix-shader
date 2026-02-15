@@ -13,6 +13,7 @@
     "cli"
   ],
   "author": "matrixshader.com",
+  "type": "module",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",

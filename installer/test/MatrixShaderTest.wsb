@@ -1,16 +1,18 @@
 <Configuration>
   <VGpu>Enable</VGpu>
-  <Networking>Disable</Networking>
+  <Networking>Enable</Networking>
   <MemoryInMB>4096</MemoryInMB>
 
+  <!-- NOTE: Update HostFolder paths to match YOUR repo location -->
+  <!-- Or use launch-sandbox.ps1 which resolves paths automatically -->
   <MappedFolders>
     <MappedFolder>
-      <HostFolder>C:\Users\ehome\documents\matrix\installer\publish</HostFolder>
+      <HostFolder>C:\CHANGE_ME\installer\publish</HostFolder>
       <SandboxFolder>C:\MatrixShader</SandboxFolder>
       <ReadOnly>true</ReadOnly>
     </MappedFolder>
     <MappedFolder>
-      <HostFolder>C:\Users\ehome\documents\matrix\installer\test</HostFolder>
+      <HostFolder>C:\CHANGE_ME\installer\test</HostFolder>
       <SandboxFolder>C:\Test</SandboxFolder>
       <ReadOnly>true</ReadOnly>
     </MappedFolder>

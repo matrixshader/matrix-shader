@@ -107,6 +107,22 @@ public static class Program
             await CliBootstrap.TypewriterAsync(" There is no spoon...", charDelayMs: 150);
             Console.WriteLine();
 
+            // Hotkey hint — always visible so users know how to control it
+            Console.WriteLine();
+            Console.WriteLine(" \x1b[36mPress Ctrl+Shift+H for hotkey help\x1b[0m");
+
+            // Upsell or customize prompt based on license status
+            var licenseService = new LicenseService();
+            Console.WriteLine();
+            if (licenseService.IsLicensed)
+            {
+                ConsoleHelper.WriteLineDim(" Type 'redpill' to customize.");
+            }
+            else
+            {
+                ConsoleHelper.WriteLineDim(" Unlock the Red Pill control panel: \x1b[36mmatrixshader.com/redpill\x1b[0m");
+            }
+
             Console.WriteLine();
             ConsoleHelper.WriteLineDim(" Enjoying Matrix Shader? Buy me a coffee:");
             Console.WriteLine(" \x1b[33mhttps://buymeacoffee.com/IKnowKungFu\x1b[0m");
@@ -438,7 +454,6 @@ public class SessionRestorer
 
         Console.WriteLine();
         ConsoleHelper.WriteLineMatrixGreen(" THE MATRIX HAS YOU.");
-        ConsoleHelper.WriteLineDim(" Type 'redpill' to customize.");
 
         DiagnosticLogger.Info("BLUEPILL", $"Session restore complete: {launched} launched, {alreadyOpen} already open");
 
