@@ -1,14 +1,14 @@
 {
-  "buildCommand": null,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "Website",
-  "routes": [
+  "rewrites": [
     {
-      "src": "/install.ps1",
-      "dest": "https://raw.githubusercontent.com/matrixshader/matrix-shader/master/installer/install.ps1"
+      "source": "/install.ps1",
+      "destination": "https://raw.githubusercontent.com/matrixshader/matrix-shader/master/installer/install.ps1"
     },
     {
-      "src": "/uninstall.ps1",
-      "dest": "https://raw.githubusercontent.com/matrixshader/matrix-shader/master/installer/uninstall.ps1"
+      "source": "/uninstall.ps1",
+      "destination": "https://raw.githubusercontent.com/matrixshader/matrix-shader/master/installer/uninstall.ps1"
     }
   ]
 }

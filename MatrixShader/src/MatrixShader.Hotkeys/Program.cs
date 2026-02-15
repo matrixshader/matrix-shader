@@ -18,6 +18,13 @@ public static class Program
 {
     public static int Main(string[] args)
     {
+        // Handle --help-overlay: show help in this console window and exit
+        if (args.Contains("--help-overlay"))
+        {
+            HotkeyHelpOverlay.Show();
+            return 0;
+        }
+
         // Top-level exception handler - ALWAYS log crashes (even without MATRIX_DEBUG)
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
         {

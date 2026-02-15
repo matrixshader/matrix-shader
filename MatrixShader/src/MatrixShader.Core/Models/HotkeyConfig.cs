@@ -36,7 +36,10 @@ public record HotkeyConfig(
         // Layer toggles (number keys)
         [HotkeyAction.ToggleFar] = HotkeyBinding.CtrlShift(HotkeyAction.ToggleFar, HotkeyApi.VK_1, "1"),
         [HotkeyAction.ToggleMid] = HotkeyBinding.CtrlShift(HotkeyAction.ToggleMid, HotkeyApi.VK_2, "2"),
-        [HotkeyAction.ToggleNear] = HotkeyBinding.CtrlShift(HotkeyAction.ToggleNear, HotkeyApi.VK_3, "3")
+        [HotkeyAction.ToggleNear] = HotkeyBinding.CtrlShift(HotkeyAction.ToggleNear, HotkeyApi.VK_3, "3"),
+
+        // Help overlay
+        [HotkeyAction.ShowHelp] = HotkeyBinding.CtrlShift(HotkeyAction.ShowHelp, HotkeyApi.VK_H, "H")
     });
 
     /// <summary>

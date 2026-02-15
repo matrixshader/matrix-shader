@@ -164,6 +164,11 @@ public partial class ShaderService : IShaderService
         {
             File.WriteAllText(tempPath, newContent, new UTF8Encoding(false));
             File.Move(tempPath, path, overwrite: true);
+
+            // Force-bump timestamp so Windows Terminal's file watcher detects the change.
+            // File.Move alone doesn't always trigger WT's shader hot-reload on Windows.
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
+
             _logger.LogDebug("Wrote shader config to {Path}", path);
         }
         catch

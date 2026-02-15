@@ -1,7 +1,9 @@
 <Configuration>
   <MappedFolders>
     <MappedFolder>
-      <HostFolder>C:\Users\ehome\Documents\MATRIX\MatrixShader\publish</HostFolder>
+      <!-- NOTE: Update to match YOUR repo location -->
+      <!-- Or use installer/test/launch-sandbox.ps1 instead -->
+      <HostFolder>C:\CHANGE_ME\MatrixShader\publish</HostFolder>
       <SandboxFolder>C:\Users\WDAGUtilityAccount\Desktop\MatrixShader</SandboxFolder>
       <ReadOnly>false</ReadOnly>
     </MappedFolder>
