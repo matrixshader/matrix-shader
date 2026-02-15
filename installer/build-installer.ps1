@@ -7,8 +7,9 @@ param(
 
 # Auto-detect Inno Setup if not specified
 if (-not $InnoSetupPath) {
+    $cmd = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
     $candidates = @(
-        (Get-Command "ISCC.exe" -ErrorAction SilentlyContinue)?.Source,
+        $(if ($cmd) { $cmd.Source }),
         "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
         "C:\Program Files\Inno Setup 6\ISCC.exe",
         "C:\ProgramData\chocolatey\bin\ISCC.exe"
