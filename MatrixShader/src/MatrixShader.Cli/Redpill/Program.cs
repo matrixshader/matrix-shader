@@ -45,6 +45,12 @@ public static class Program
 
     public static async Task<int> Main(string[] args)
     {
+        // Handle --activate before anything else (no splash, no relaunch)
+        if (args.Length >= 2 && args[0] == "--activate")
+        {
+            return HandleActivation(args[1]);
+        }
+
         // Self-launch: If running in WT but not in Redpill profile, open new WT window with Redpill profile
         // Skip self-launch for help/hotkeys/no-relaunch modes
         if (!args.Contains("--help") && !args.Contains("--hotkeys") && !args.Contains("--no-relaunch"))
@@ -83,6 +89,25 @@ public static class Program
 
         try
         {
+            // License check — gate Red Pill behind valid license
+            if (!args.Contains("--help"))
+            {
+                var licenseService = new LicenseService();
+                if (!licenseService.IsLicensed)
+                {
+                    ShowPurchasePrompt();
+
+                    // Interactive activation — let them paste a key right here
+                    Console.Write(" \x1b[36mAlready have a key? Paste it here (or press Enter to exit): \x1b[0m");
+                    var input = Console.ReadLine()?.Trim();
+                    if (!string.IsNullOrEmpty(input))
+                    {
+                        return HandleActivation(input);
+                    }
+                    return 0;
+                }
+            }
+
             // Check for hotkey config mode (early exit, minimal DI)
             if (args.Contains("--hotkeys"))
             {
@@ -207,6 +232,7 @@ public static class Program
         Console.WriteLine();
         ConsoleHelper.WriteLineDim(" Options:");
         ConsoleHelper.WriteLineDim("   --help         Show this help message");
+        ConsoleHelper.WriteLineDim("   --activate KEY Activate Red Pill license (REDPILL-XXXX-XXXX-XXXX-XXXX)");
         ConsoleHelper.WriteLineDim("   --hotkeys      Configure global hotkey bindings");
         ConsoleHelper.WriteLineDim("   --debug        Enable diagnostic logging");
         ConsoleHelper.WriteLineDim("   --no-relaunch  Stay in current window (don't open Redpill profile)");
@@ -217,6 +243,66 @@ public static class Program
         ConsoleHelper.WriteLineDim("   Ctrl+Shift+L   Cycle layout mode");
         ConsoleHelper.WriteLineDim("   Ctrl+Shift+B   Toggle background transparency");
         ConsoleHelper.WriteLineDim("   ... and more - see [?] in control panel");
+        Console.WriteLine();
+    }
+
+    /// <summary>
+    /// Handles --activate REDPILL-XXXX-XXXX-XXXX-XXXX license activation.
+    /// </summary>
+    private static int HandleActivation(string key)
+    {
+        ConsoleHelper.EnableAnsiEscapeCodes();
+        Console.WriteLine();
+
+        var licenseService = new LicenseService();
+
+        if (licenseService.Activate(key))
+        {
+            ConsoleHelper.WriteLineMatrixGreen(" Welcome to the real world.");
+            Console.WriteLine();
+            ConsoleHelper.WriteLineDim(" License activated. Run 'redpill' to open the control panel.");
+            Console.WriteLine();
+            return 0;
+        }
+        else
+        {
+            Console.WriteLine(" \x1b[31mInvalid license key.\x1b[0m");
+            Console.WriteLine();
+            ConsoleHelper.WriteLineDim(" Format: REDPILL-XXXX-XXXX-XXXX-XXXX");
+            ConsoleHelper.WriteLineDim(" Get your key at: https://matrixshader.com/redpill");
+            Console.WriteLine();
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Shows Matrix-styled purchase prompt when Red Pill is not licensed.
+    /// </summary>
+    private static void ShowPurchasePrompt()
+    {
+        Console.WriteLine();
+        ConsoleHelper.WriteLineMatrixGreen(" THE RED PILL");
+        ConsoleHelper.WriteLineDim(" ----------------------------------------");
+        Console.WriteLine();
+
+        ConsoleHelper.WriteLineDim(" The Red Pill unlocks the full control panel:");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim("   - Live parameter adjustment (speed, glow, width, trail, density)");
+        ConsoleHelper.WriteLineDim("   - Custom RGB color picker (any color, not just presets)");
+        ConsoleHelper.WriteLineDim("   - Per-window layer toggles (Far/Mid/Near)");
+        ConsoleHelper.WriteLineDim("   - Multi-tab management (up to 8 shader configs)");
+        ConsoleHelper.WriteLineDim("   - Layout mode controls (Pillars/Quads/Auto)");
+        ConsoleHelper.WriteLineDim("   - Snapback position save/restore");
+        ConsoleHelper.WriteLineDim("   - Hotkey configuration (remap bindings)");
+        ConsoleHelper.WriteLineDim("   - Neo vision shader background");
+        Console.WriteLine();
+
+        Console.WriteLine(" \x1b[33m$5 — one-time purchase, yours forever.\x1b[0m");
+        Console.WriteLine();
+        Console.WriteLine(" \x1b[36mhttps://matrixshader.com/redpill\x1b[0m");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" Already purchased? Activate with:");
+        ConsoleHelper.WriteLineDim("   redpill --activate REDPILL-XXXX-XXXX-XXXX-XXXX");
         Console.WriteLine();
     }
 
@@ -480,7 +566,6 @@ public class ControlPanel
         ConsoleHelper.WriteLineDim("   [Shift+H]  Configure global hotkey bindings");
         ConsoleHelper.WriteLineDim("   [Shift+S]  Save snapback position");
         ConsoleHelper.WriteLineDim("   [Shift+R]  Restore snapback position");
-        ConsoleHelper.WriteLineDim("   [Shift+F10] Hot reload (toggle shader effect in WT)");
         Console.WriteLine();
 
         ConsoleHelper.WriteLineMatrixGreen(" GLOBAL HOTKEYS (active when Matrix windows exist):");

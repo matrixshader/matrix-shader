@@ -199,6 +199,9 @@ public static partial class HotkeyApi
     /// <summary>B key.</summary>
     public const uint VK_B = 0x42;
 
+    /// <summary>H key.</summary>
+    public const uint VK_H = 0x48;
+
     /// <summary>J key.</summary>
     public const uint VK_J = 0x4A;
 

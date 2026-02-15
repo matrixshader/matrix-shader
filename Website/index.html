@@ -23,7 +23,8 @@
 
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
-    
+    <!-- TODO: Replace UMAMI_URL and WEBSITE_ID after deploying Umami to Vercel -->
+    <script defer src="https://UMAMI_URL/script.js" data-website-id="WEBSITE_ID"></script>
     </head>
 <body>
     <!-- Matrix Rain Background (Video of actual shader) -->
@@ -43,6 +44,7 @@
                 <li><a href="#workflow">Multi-Agent Workflow</a></li>
                 <li><a href="#installation">Installation</a></li>
                 <li><a href="#download">Download</a></li>
+                <li><a href="/redpill" class="nav-redpill">Red Pill</a></li>
                 <li><a href="https://github.com/matrixshader/matrix-shader" target="_blank">GitHub</a></li>
             </ul>
             <div class="nav-toggle" aria-label="Toggle navigation menu" role="button" tabindex="0">
@@ -62,17 +64,17 @@
                     <span class="matrix-cyan">Experience</span>
                 </h1>
                 <p class="hero-subtitle">
-                    Real-time GPU-powered Matrix rain effects for Windows Terminal. 
+                    Real-time GPU-powered Matrix rain effects for Windows Terminal.
                     <strong>Color-code your AI agent workflows</strong> at a glance.
                 </p>
                 <div class="hero-buttons">
                     <a href="#download" class="btn btn-primary">
-                        <span>Download Now</span>
-                        <span class="btn-subtitle">Free</span>
+                        <span>Download Free</span>
+                        <span class="btn-subtitle">Hotkeys, layouts, 6 presets</span>
                     </a>
-                    <a href="#workflow" class="btn btn-secondary">
-                        <span>See Demo</span>
-                        <span class="btn-subtitle">Multi-Agent Setup</span>
+                    <a href="/redpill" class="btn btn-secondary btn-redpill-hero">
+                        <span>Take the Red Pill</span>
+                        <span class="btn-subtitle">$5 &mdash; Full control panel</span>
                     </a>
                 </div>
             </div>
@@ -204,7 +206,7 @@
                             <div class="code-block">
                                 <pre><code>irm https://matrixshader.com/install.ps1 | iex</code></pre>
                             </div>
-                            <p>Or <a href="https://github.com/matrixshader/matrix-shader/releases/latest/download/MatrixShaderSetup.exe">download the installer</a> directly.</p>
+                            <p>Or <a href="https://github.com/matrixshader/matrix-shader/releases/latest/download/MatrixShaderSetup.exe?utm_source=website&utm_medium=download&utm_campaign=launch" data-umami-event="Download Click">download the installer</a> directly.</p>
                         </div>
                     </div>
                     
@@ -241,7 +243,7 @@
         <div class="container">
             <div class="section-header">
                 <h2 class="section-title">Download Matrix Terminal Shader</h2>
-                <p class="section-subtitle">Free and ready to transform your terminal</p>
+                <p class="section-subtitle">Free to run. Upgrade to Red Pill for full control.</p>
             </div>
             
             <div class="download-options">
@@ -254,7 +256,7 @@
                         <span class="version">v1.0.0</span>
                         <span class="size">53 MB</span>
                     </div>
-                    <a href="https://github.com/matrixshader/matrix-shader/releases/latest/download/MatrixShaderSetup.exe" class="btn btn-primary btn-download">
+                    <a href="https://github.com/matrixshader/matrix-shader/releases/latest/download/MatrixShaderSetup.exe?utm_source=website&utm_medium=download&utm_campaign=launch" class="btn btn-primary btn-download" data-umami-event="Download Click">
                         Download Installer (.exe)
                     </a>
                 </div>
@@ -288,14 +290,41 @@
         </div>
     </section>
 
-    <!-- Support Section -->
-    <section id="support" class="support">
+    <!-- Red Pill Upsell Section -->
+    <section id="redpill" class="support">
         <div class="container">
-            <div class="support-card">
-                <h2>Enjoying Matrix Shader?</h2>
-                <p>This project is free and built with love. If it makes your dev setup cooler, consider buying me a coffee.</p>
-                <a href="https://buymeacoffee.com/IKnowKungFu" target="_blank" class="btn btn-coffee">
-                    <span>Buy Me a Coffee</span>
+            <div class="support-card redpill-card">
+                <h2>Free vs Red Pill</h2>
+                <p>The free version runs the Matrix. The <strong>Red Pill</strong> lets you <em>control</em> it.</p>
+                <div class="redpill-comparison">
+                    <div class="redpill-col">
+                        <h3 class="redpill-col-title free-title">Free</h3>
+                        <ul class="redpill-features">
+                            <li>Setup wizard (wakeupneo)</li>
+                            <li>Quick-launch (bluepill)</li>
+                            <li>6 color presets</li>
+                            <li>Global hotkeys</li>
+                            <li>Auto-layout (Pillars/Quads)</li>
+                            <li>Transparency controls</li>
+                        </ul>
+                    </div>
+                    <div class="redpill-col">
+                        <h3 class="redpill-col-title paid-title">Red Pill &mdash; $5</h3>
+                        <ul class="redpill-features">
+                            <li><strong>Everything free, plus:</strong></li>
+                            <li>Live control panel TUI</li>
+                            <li>Custom RGB color picker</li>
+                            <li>Speed, glow, width, trail, density</li>
+                            <li>Per-window layer toggles</li>
+                            <li>Multi-tab management (up to 8)</li>
+                            <li>Custom hotkey bindings</li>
+                            <li>Neo vision shader</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="redpill-price">$5 <span class="redpill-price-note">one-time &mdash; Founder's Edition</span></div>
+                <a href="/redpill" class="btn btn-redpill" data-umami-event="RedPill CTA Click">
+                    <span>Take the Red Pill</span>
                 </a>
             </div>
         </div>
@@ -345,7 +374,8 @@
             </div>
             
             <div class="footer-bottom">
-                <p>&copy; 2026 Matrix Terminal Shader.</p>
+                <p><a href="/privacy">Privacy Policy</a> &middot; <a href="/terms">Terms of Service</a></p>
+                <p>&copy; 2026 MatrixShader.</p>
             </div>
         </div>
     </footer>

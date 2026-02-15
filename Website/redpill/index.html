@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Red Pill - Matrix Shader Control Panel</title>
+    <meta name="description" content="Unlock the full Matrix Shader control panel. Live parameter adjustment, custom RGB colors, multi-tab management, and more. $4.99 one-time purchase.">
+    <!-- TODO: Replace UMAMI_URL and WEBSITE_ID after deploying Umami to Vercel -->
+    <script defer src="https://UMAMI_URL/script.js" data-website-id="WEBSITE_ID"></script>
+    <style>
+        :root {
+            --matrix-green: #00ff41;
+            --matrix-red: #ff0040;
+            --matrix-cyan: #00ffff;
+            --matrix-gold: #ffd700;
+            --bg-dark: #0a0a0a;
+            --bg-darker: #050505;
+            --bg-card: rgba(0, 20, 0, 0.8);
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --text-muted: #888888;
+            --border-green: rgba(0, 255, 65, 0.3);
+            --border-red: rgba(255, 0, 64, 0.3);
+            --glow-green: 0 0 30px rgba(0, 255, 65, 0.7);
+            --glow-red: 0 0 30px rgba(255, 0, 64, 0.5);
+            --font-mono: 'Courier New', 'Consolas', 'Monaco', monospace;
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-darker);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 4rem 0 2rem;
+        }
+
+        .header h1 {
+            font-family: var(--font-mono);
+            font-size: 2.5rem;
+            color: var(--matrix-red);
+            text-shadow: var(--glow-red);
+            margin-bottom: 0.5rem;
+        }
+
+        .header .tagline {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: var(--matrix-green);
+            text-decoration: none;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Price Card */
+        .price-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-red);
+            border-radius: 12px;
+            padding: 2.5rem;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .price {
+            font-size: 3.5rem;
+            font-weight: bold;
+            color: var(--matrix-gold);
+            font-family: var(--font-mono);
+        }
+
+        .price-note {
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+            font-size: 0.95rem;
+        }
+
+        .price-early {
+            display: inline-block;
+            background: rgba(255, 0, 64, 0.15);
+            border: 1px solid var(--border-red);
+            color: var(--matrix-red);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            margin-top: 0.75rem;
+        }
+
+        /* Buy Button — LemonSqueezy checkout overlay */
+        .buy-btn {
+            display: inline-block;
+            margin-top: 1.5rem;
+            padding: 1rem 3rem;
+            font-size: 1.2rem;
+            font-family: var(--font-mono);
+            font-weight: bold;
+            color: #000;
+            background: var(--matrix-red);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .buy-btn:hover {
+            box-shadow: var(--glow-red);
+            transform: translateY(-2px);
+        }
+
+        /* Feature Comparison */
+        .comparison {
+            margin: 3rem 0;
+        }
+
+        .comparison h2 {
+            font-family: var(--font-mono);
+            color: var(--matrix-green);
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .comparison-table th {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .comparison-table th:nth-child(2),
+        .comparison-table th:nth-child(3) {
+            text-align: center;
+            width: 120px;
+        }
+
+        .comparison-table td:nth-child(2),
+        .comparison-table td:nth-child(3) {
+            text-align: center;
+            font-family: var(--font-mono);
+        }
+
+        .check { color: var(--matrix-green); }
+        .cross { color: var(--text-muted); }
+        .free-label { color: var(--matrix-cyan); }
+        .paid-label { color: var(--matrix-red); }
+
+        .comparison-table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Activation Section */
+        .activation {
+            background: var(--bg-card);
+            border: 1px solid var(--border-green);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .activation h3 {
+            font-family: var(--font-mono);
+            color: var(--matrix-green);
+            margin-bottom: 1rem;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--matrix-green);
+            overflow-x: auto;
+        }
+
+        .activation p {
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 3rem 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .footer a {
+            color: var(--matrix-green);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .header h1 { font-size: 1.8rem; }
+            .price { font-size: 2.5rem; }
+            .comparison-table { font-size: 0.9rem; }
+            .comparison-table th:nth-child(2),
+            .comparison-table th:nth-child(3),
+            .comparison-table td:nth-child(2),
+            .comparison-table td:nth-child(3) {
+                width: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">&lt; matrixshader.com</a>
+
+        <div class="header">
+            <h1>THE RED PILL</h1>
+            <p class="tagline">Full control over the Matrix.</p>
+        </div>
+
+        <div class="price-card">
+            <div class="price">$5</div>
+            <div class="price-note">One-time purchase. Yours forever.</div>
+            <div class="price-early">Founder's Edition &mdash; first 5,000 operators</div>
+
+            <br>
+            <a href="https://redpill.matrixshader.com/checkout/buy/5cbadbe6-a194-4c89-8755-5d5111519634?embed=1" class="lemonsqueezy-button buy-btn" data-umami-event="Buy Click" id="buy-button">Take the Red Pill</a>
+        </div>
+
+        <div class="comparison">
+            <h2>Free vs Red Pill</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th class="free-label">Free</th>
+                        <th class="paid-label">Red Pill</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Setup wizard (wakeupneo)</td>
+                        <td class="check">&#10003;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Quick-launch (bluepill)</td>
+                        <td class="check">&#10003;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>6 color presets</td>
+                        <td class="check">&#10003;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Global hotkeys (rotate, transparency, layers)</td>
+                        <td class="check">&#10003;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Glitch auto-snap positioning</td>
+                        <td class="check">&#10003;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>MatrixLite text fallback</td>
+                        <td class="check">&#10003;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Hotkey help overlay (Ctrl+Shift+H)</td>
+                        <td class="check">&#10003;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Full interactive control panel TUI</td>
+                        <td class="cross">&mdash;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Live parameter adjustment (speed, glow, width, trail, density)</td>
+                        <td class="cross">&mdash;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Custom RGB color picker (any color)</td>
+                        <td class="cross">&mdash;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Per-window layer toggles (Far/Mid/Near)</td>
+                        <td class="cross">&mdash;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Multi-tab management (up to 8 configs)</td>
+                        <td class="cross">&mdash;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Layout mode controls (Pillars/Quads/Auto)</td>
+                        <td class="cross">&mdash;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Snapback position save/restore</td>
+                        <td class="cross">&mdash;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Hotkey configuration (remap bindings)</td>
+                        <td class="cross">&mdash;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td>Neo vision shader background</td>
+                        <td class="cross">&mdash;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="activation">
+            <h3>How to Activate</h3>
+            <p>After purchase, you'll receive a license key. Activate it with:</p>
+            <div class="code-block">redpill --activate REDPILL-XXXX-XXXX-XXXX-XXXX</div>
+            <br>
+            <p>Your license is stored locally. No internet required after activation. No subscription. No DRM.</p>
+        </div>
+
+        <div class="footer">
+            <p><a href="/">matrixshader.com</a> &middot; <a href="https://github.com/matrixshader/matrix-shader">GitHub</a> &middot; <a href="https://buymeacoffee.com/IKnowKungFu">Buy me a coffee</a></p>
+            <p><a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a></p>
+            <p>&copy; 2026 MatrixShader</p>
+        </div>
+    </div>
+    <!-- LemonSqueezy checkout overlay -->
+    <script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
+    <script>
+        // After successful checkout, redirect to thank-you page with order info
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.event === 'Checkout.Success') {
+                var order = event.data.data;
+                var orderId = order && order.order ? order.order.data.id : '';
+                if (orderId) {
+                    window.location.href = '/redpill/thankyou?order_id=' + orderId;
+                } else {
+                    window.location.href = '/redpill/thankyou';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

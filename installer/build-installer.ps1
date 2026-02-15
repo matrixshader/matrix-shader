@@ -2,8 +2,23 @@
 # Requires: Inno Setup 6.x installed and in PATH (or specify path)
 
 param(
-    [string]$InnoSetupPath = "C:\ProgramData\chocolatey\bin\ISCC.exe"
+    [string]$InnoSetupPath
 )
+
+# Auto-detect Inno Setup if not specified
+if (-not $InnoSetupPath) {
+    $candidates = @(
+        (Get-Command "ISCC.exe" -ErrorAction SilentlyContinue)?.Source,
+        "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+        "C:\Program Files\Inno Setup 6\ISCC.exe",
+        "C:\ProgramData\chocolatey\bin\ISCC.exe"
+    ) | Where-Object { $_ -and (Test-Path $_) }
+    $InnoSetupPath = $candidates | Select-Object -First 1
+    if (-not $InnoSetupPath) {
+        Write-Error "Inno Setup not found. Install it or pass -InnoSetupPath"
+        exit 1
+    }
+}
 
 $ErrorActionPreference = "Stop"
 
