@@ -107,10 +107,6 @@ public static class Program
             await CliBootstrap.TypewriterAsync(" There is no spoon...", charDelayMs: 150);
             Console.WriteLine();
 
-            // Hotkey hint — always visible so users know how to control it
-            Console.WriteLine();
-            Console.WriteLine(" \x1b[36mPress Ctrl+Shift+H for hotkey help\x1b[0m");
-
             // Upsell or customize prompt based on license status
             var licenseService = new LicenseService();
             Console.WriteLine();
@@ -120,16 +116,29 @@ public static class Program
             }
             else
             {
-                ConsoleHelper.WriteLineDim(" Unlock the Red Pill control panel: \x1b[36mmatrixshader.com/redpill\x1b[0m");
+                ConsoleHelper.WriteLineDim(" Unlock the Red Pill control panel:");
+                Console.WriteLine("   \x1b]8;;https://matrixshader.com/redpill\x07\x1b[36mmatrixshader.com/redpill\x1b[0m\x1b]8;;\x07");
             }
+
+            // Show global hotkeys summary
+            Console.WriteLine();
+            ConsoleHelper.WriteLineDim(" ----------------------------------------");
+            Console.WriteLine(" \x1b[36mGLOBAL HOTKEYS\x1b[0m \x1b[90m(active when Matrix windows exist)\x1b[0m");
+            Console.WriteLine();
+            ConsoleHelper.WriteLineDim("   Ctrl+Shift+Left/Right   Rotate windows");
+            ConsoleHelper.WriteLineDim("   Ctrl+Shift+L            Cycle layout mode");
+            ConsoleHelper.WriteLineDim("   Ctrl+Shift+B            Toggle transparency");
+            ConsoleHelper.WriteLineDim("   Ctrl+Shift+Up/Down      Change rain speed");
+            ConsoleHelper.WriteLineDim("   Ctrl+Shift+1/2/3        Toggle Far/Mid/Near layers");
+            ConsoleHelper.WriteLineDim("   Ctrl+Shift+H            Hotkey help overlay");
 
             Console.WriteLine();
             ConsoleHelper.WriteLineDim(" Enjoying Matrix Shader? Buy me a coffee:");
-            Console.WriteLine(" \x1b[33mhttps://buymeacoffee.com/IKnowKungFu\x1b[0m");
-
-            // Wait for any key
-            ConsoleHelper.WriteLineDim(" Press any key to exit...");
+            Console.WriteLine(" \x1b]8;;https://buymeacoffee.com/IKnowKungFu\x07\x1b[33mhttps://buymeacoffee.com/IKnowKungFu\x1b[0m\x1b]8;;\x07");
+            Console.WriteLine();
             Console.ReadKey(intercept: true);
+
+
 
             return 0;
         }

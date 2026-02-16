@@ -32,9 +32,9 @@ $InstallerDir = $PSScriptRoot
 $PublishDir = Join-Path $InstallerDir "publish"
 $OutputDir = Join-Path $InstallerDir "output"
 
-# Clean previous builds
-if (Test-Path $PublishDir) { Remove-Item -Recurse -Force $PublishDir }
-if (Test-Path $OutputDir) { Remove-Item -Recurse -Force $OutputDir }
+# Clean previous builds (clear contents, don't delete dir — avoids lock issues)
+if (Test-Path $PublishDir) { Get-ChildItem $PublishDir -Recurse | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }
+if (Test-Path $OutputDir) { Get-ChildItem $OutputDir | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Force -Path $PublishDir | Out-Null
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
