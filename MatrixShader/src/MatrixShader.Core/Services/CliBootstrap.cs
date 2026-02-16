@@ -265,6 +265,7 @@ public static class CliBootstrap
                 ConsoleHelper.WriteLineDim(" Windows Terminal is starting...");
                 ConsoleHelper.WriteLineDim(" This window will close automatically.");
                 Thread.Sleep(2000);
+                Environment.Exit(0); // Kill the old cmd/powershell window
                 return;
             }
         }
@@ -371,7 +372,29 @@ public static class CliBootstrap
             ConsoleHelper.WriteLineDim("   winget: not available");
         }
 
-        // Method 2: Try Microsoft Store (auto, no prompt)
+        // Method 2: Direct download from GitHub (fully automatic, no user interaction)
+        try
+        {
+            ConsoleHelper.WriteLineDim("   GitHub download...");
+            var downloaded = await TryDownloadFromGitHubAsync(verbose);
+            if (downloaded && IsWindowsTerminalInstalled())
+            {
+                ConsoleHelper.WriteLineMatrixGreen("   GitHub: OK");
+                if (!EnvironmentService.IsWindowsTerminal())
+                {
+                    ShowRestartInstructions();
+                    return false;
+                }
+                return true;
+            }
+            ConsoleHelper.WriteLineDim("   GitHub: failed");
+        }
+        catch
+        {
+            ConsoleHelper.WriteLineDim("   GitHub: failed");
+        }
+
+        // Method 3: Microsoft Store (last resort — requires user interaction)
         try
         {
             ConsoleHelper.WriteLineDim("   Microsoft Store...");
@@ -402,28 +425,6 @@ public static class CliBootstrap
         {
             DiagnosticLogger.Debug("BOOTSTRAP", $"Store install failed: {ex.Message}");
             ConsoleHelper.WriteLineDim("   Microsoft Store: not available");
-        }
-
-        // Method 3: Direct download from GitHub (auto, no prompt)
-        try
-        {
-            ConsoleHelper.WriteLineDim("   GitHub download...");
-            var downloaded = await TryDownloadFromGitHubAsync(verbose);
-            if (downloaded && IsWindowsTerminalInstalled())
-            {
-                ConsoleHelper.WriteLineMatrixGreen("   GitHub: OK");
-                if (!EnvironmentService.IsWindowsTerminal())
-                {
-                    ShowRestartInstructions();
-                    return false;
-                }
-                return true;
-            }
-            ConsoleHelper.WriteLineDim("   GitHub: failed");
-        }
-        catch
-        {
-            ConsoleHelper.WriteLineDim("   GitHub: failed");
         }
 
         // All methods failed — continue silently to Lite mode
