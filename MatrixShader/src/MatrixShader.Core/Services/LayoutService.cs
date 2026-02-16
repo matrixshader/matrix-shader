@@ -11,7 +11,7 @@ public class LayoutService : ILayoutService
 {
     private const int MinWindowWidth = 200; // Allow narrower pillars for 4-column layout
     private const int DefaultMaxPillars = 4;
-    private const int DefaultGapSize = 30;
+    private const int DefaultGapSize = 40;
     private const int MinGapSize = 0;
     private const int MaxGapSize = 200;
     private const int MinScaledGap = 20; // Minimum gap to ensure clickable space between windows

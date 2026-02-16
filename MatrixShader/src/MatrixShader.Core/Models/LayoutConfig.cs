@@ -9,7 +9,7 @@ public record LayoutConfig
     public int MonitorCount { get; init; } = 1;
 
     /// <summary>Gap size in pixels between windows</summary>
-    public int GapSize { get; init; } = 30;
+    public int GapSize { get; init; } = 40;
 
     /// <summary>Layout mode: Pillars, Quads, Overlap, or Auto</summary>
     public string Mode { get; init; } = "Pillars";

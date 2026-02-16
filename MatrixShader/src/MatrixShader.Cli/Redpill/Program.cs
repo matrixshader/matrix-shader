@@ -97,8 +97,12 @@ public static class Program
                 {
                     ShowPurchasePrompt();
 
+                    // Show hotkey hint since hotkeys still work in free mode
+                    Console.WriteLine(" \x1b[36mPress Ctrl+Shift+H for hotkey help\x1b[0m");
+                    Console.WriteLine();
+
                     // Interactive activation — let them paste a key right here
-                    Console.Write(" \x1b[36mAlready have a key? Paste it here (or press Enter to exit): \x1b[0m");
+                    Console.Write(" \x1b[36mAlready have a key? Paste it here (or press Enter to close): \x1b[0m");
                     var input = Console.ReadLine()?.Trim();
                     if (!string.IsNullOrEmpty(input))
                     {
@@ -299,7 +303,7 @@ public static class Program
 
         Console.WriteLine(" \x1b[33m$5 — one-time purchase, yours forever.\x1b[0m");
         Console.WriteLine();
-        Console.WriteLine(" \x1b[36mhttps://matrixshader.com/redpill\x1b[0m");
+        Console.WriteLine(" \x1b]8;;https://matrixshader.com/redpill\x07\x1b[36mmatrixshader.com/redpill\x1b[0m\x1b]8;;\x07");
         Console.WriteLine();
         ConsoleHelper.WriteLineDim(" Already purchased? Activate with:");
         ConsoleHelper.WriteLineDim("   redpill --activate REDPILL-XXXX-XXXX-XXXX-XXXX");
@@ -460,7 +464,7 @@ public class ControlPanel
 
         // Rain parameters
         TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatSectionHeader("RAIN PARAMETERS"));
-        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("E/R", "Speed", config.Speed.ToString("F1"), config.Speed, 0.1f, 3f));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("E/R", "Speed", config.Speed.ToString("F1"), config.Speed, 0.1f, 5f));
         TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("D/F", "Glow", config.Glow.ToString("F1"), config.Glow, 0.2f, 3f));
         TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("C/V", "Width", config.Width.ToString("F0"), config.Width, 6f, 20f));
         TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("T/Y", "Trail", config.Trail.ToString("F0"), config.Trail, 4f, 15f));
@@ -575,7 +579,7 @@ public class ControlPanel
         ConsoleHelper.WriteLineDim("   Ctrl+Shift+K/O     Decrease/Increase opacity");
         ConsoleHelper.WriteLineDim("   Ctrl+Shift+Up/Down Cycle shader in library");
         ConsoleHelper.WriteLineDim("   Ctrl+Shift+, / .   Decrease/Increase rain speed");
-        ConsoleHelper.WriteLineDim("   Ctrl+Shift+7/8/9   Toggle FAR/MID/NEAR layers");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+1/2/3   Toggle FAR/MID/NEAR layers");
         Console.WriteLine();
 
         ConsoleHelper.WriteLineDim(" Press [Shift+H] to customize global hotkey bindings.");
