@@ -40,27 +40,51 @@ public static class Program
                 DiagnosticLogger.Initialize(true);
             }
 
-            // Check shader support before proceeding
+            // Check shader support — if WT not installed, try to install it automatically
             var (canUseShaders, shaderReason) = ShaderService.CanUseShaders();
             if (!canUseShaders)
             {
                 Console.WriteLine();
                 ConsoleHelper.WriteLineWarning($"Note: {shaderReason}");
                 Console.WriteLine();
-                ConsoleHelper.WriteLineDim("You can still use 'matrixlite' for a text-based Matrix effect.");
+                ConsoleHelper.WriteMatrixGreen(" Attempting to install Windows Terminal...");
                 Console.WriteLine();
 
-                Console.Write("Continue with setup anyway? (y/n): ");
-                var response = Console.ReadLine()?.Trim().ToLower();
-                if (response != "y" && response != "yes")
+                var wtInstalled = await TryInstallWindowsTerminalAsync();
+                if (wtInstalled)
                 {
-                    Console.WriteLine("Run 'matrixlite' for text-mode Matrix effect.");
+                    ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed!");
+                    Console.WriteLine();
+                    ConsoleHelper.WriteLineDim(" Relaunch wakeupneo in Windows Terminal to continue setup.");
+                    Console.WriteLine();
+
+                    // Try to relaunch in WT
+                    try
+                    {
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = "wt.exe",
+                            Arguments = "wakeupneo",
+                            UseShellExecute = true
+                        };
+                        Process.Start(psi);
+                    }
+                    catch { }
+
                     return 0;
+                }
+                else
+                {
+                    Console.WriteLine();
+                    ConsoleHelper.WriteLineDim(" Could not install Windows Terminal automatically.");
+                    ConsoleHelper.WriteLineDim(" Continuing with text-mode fallback...");
+                    Console.WriteLine();
                 }
             }
 
             // Bootstrap
-            var bootstrap = await CliBootstrap.InitializeAsync(verbose: options.Debug);
+            // Skip WT check — we already handled it above with auto-install
+            var bootstrap = await CliBootstrap.InitializeAsync(verbose: options.Debug, skipTerminalCheck: true);
             if (!bootstrap.Success)
             {
                 ConsoleHelper.WriteLineMatrixGreen($"Error: {bootstrap.ErrorMessage}");
@@ -111,6 +135,70 @@ public static class Program
             MatrixErrorHandler.ShowError(ex.Message);
             return 1;
         }
+    }
+
+    /// <summary>
+    /// Tries to install Windows Terminal via winget, then Microsoft Store CLI.
+    /// Returns true if installation succeeded.
+    /// </summary>
+    private static async Task<bool> TryInstallWindowsTerminalAsync()
+    {
+        // Try winget first
+        ConsoleHelper.WriteLineDim("   Trying winget...");
+        try
+        {
+            var winget = new ProcessStartInfo
+            {
+                FileName = "winget",
+                Arguments = "install --id Microsoft.WindowsTerminal --accept-source-agreements --accept-package-agreements --silent",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            var proc = Process.Start(winget);
+            if (proc != null)
+            {
+                await proc.WaitForExitAsync();
+                if (proc.ExitCode == 0)
+                {
+                    ConsoleHelper.WriteLineMatrixGreen("   winget: OK");
+                    return true;
+                }
+            }
+        }
+        catch { }
+        ConsoleHelper.WriteLineDim("   winget: not available");
+
+        // Try Microsoft Store via PowerShell
+        ConsoleHelper.WriteLineDim("   Trying Microsoft Store...");
+        try
+        {
+            var ps = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -Command \"Start-Process 'ms-windows-store://pdp/?ProductId=9n0dx20hk701'\"",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            var proc = Process.Start(ps);
+            if (proc != null)
+            {
+                await proc.WaitForExitAsync();
+                ConsoleHelper.WriteLineDim("   Microsoft Store opened — install Windows Terminal from there.");
+                Console.WriteLine();
+                ConsoleHelper.WriteLineDim("   Press any key after installing...");
+                Console.ReadKey(intercept: true);
+
+                // Check if it's now available
+                var (canUse, _) = ShaderService.CanUseShaders();
+                if (canUse) return true;
+            }
+        }
+        catch { }
+        ConsoleHelper.WriteLineDim("   Microsoft Store: not available");
+
+        return false;
     }
 
     private static void ShowHelp()
@@ -303,7 +391,7 @@ public class SetupWizard
 
         var redPillLabel = isLicensed
             ? "RED PILL - Full Customization (opens control panel)"
-            : "RED PILL - Full Control Panel ($5) -> matrixshader.com/redpill";
+            : "RED PILL - Full Control Panel ($5)";
 
         var pillOptions = new[]
         {
@@ -513,7 +601,7 @@ public class SetupWizard
                 ConsoleHelper.WriteLineMatrixGreen(" THE MATRIX HAS YOU.");
                 Console.WriteLine();
                 ConsoleHelper.WriteLineDim(" The Red Pill control panel requires a license ($5):");
-                Console.WriteLine(" \x1b[36mhttps://matrixshader.com/redpill\x1b[0m");
+                Console.WriteLine(" \x1b]8;;https://matrixshader.com/redpill\x07\x1b[36mmatrixshader.com/redpill\x1b[0m\x1b]8;;\x07");
             }
         }
         else
@@ -525,7 +613,8 @@ public class SetupWizard
             }
             else
             {
-                ConsoleHelper.WriteLineDim(" Unlock the Red Pill control panel: \x1b[36mmatrixshader.com/redpill\x1b[0m");
+                ConsoleHelper.WriteLineDim(" Unlock the Red Pill control panel:");
+                Console.WriteLine("   \x1b]8;;https://matrixshader.com/redpill\x07\x1b[36mmatrixshader.com/redpill\x1b[0m\x1b]8;;\x07");
             }
         }
 
