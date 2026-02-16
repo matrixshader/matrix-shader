@@ -4,7 +4,7 @@
 [Setup]
 AppName=Matrix Shader
 AppVersion=1.0.0
-AppPublisher=Matrix Shader Project
+AppPublisher=MatrixShader
 DefaultDirName={autopf}\MatrixShader
 DefaultGroupName=Matrix Shader
 OutputDir=output
@@ -26,7 +26,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [CustomMessages]
 english.WelcomeLabel1=Welcome to the Matrix
-english.WelcomeLabel2=You take the Red Pill - you stay in Wonderland, and I show you how deep the rabbit hole goes.%n%nThis wizard will install Matrix Shader on your computer.
+english.WelcomeLabel2=Real-time GPU-powered Matrix rain effects for Windows Terminal.%n%nThis wizard will install Matrix Shader on your computer.
 
 [Files]
 ; All runtime files (DLLs, .NET runtime, etc.) go to app directory
@@ -150,6 +150,8 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
 begin
   if CurStep = ssInstall then
   begin
@@ -161,13 +163,8 @@ begin
 
   if CurStep = ssDone then
   begin
-    MsgBox('Welcome to the Matrix.' + #13#10 + #13#10 +
-           'Open a NEW terminal window and type:' + #13#10 +
-           '  wakeupneo' + #13#10 + #13#10 +
-           'Other commands:' + #13#10 +
-           '  bluepill  - Quick launch your Matrix session' + #13#10 +
-           '  redpill   - Full control panel' + #13#10 +
-           '  matrixlite - Text fallback mode', mbInformation, MB_OK);
+    { Auto-launch wakeupneo — matching CLI install behavior }
+    Exec(ExpandConstant('{app}\wakeupneo.exe'), '', '', SW_SHOW, ewNoWait, ResultCode);
   end;
 end;
 
@@ -175,7 +172,16 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   AppDir: string;
   LocalDir: string;
+  ResultCode: Integer;
 begin
+  if CurUninstallStep = usUninstall then
+  begin
+    { Kill running Matrix processes and Windows Terminal BEFORE removing files }
+    KillMatrixProcesses;
+    Exec('taskkill', '/F /IM WindowsTerminal.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Sleep(1000); { Wait for cached handles to release }
+  end;
+
   if CurUninstallStep = usPostUninstall then
   begin
     AppDir := ExpandConstant('{app}');
@@ -183,6 +189,9 @@ begin
 
     { Also clean up any CLI one-liner install }
     RemoveCliInstall;
+
+    { Clean up CLI registry entry if present }
+    RegDeleteKeyIncludingSubkeys(HKEY_CURRENT_USER, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MatrixShader');
 
     { Check if app directory still exists (means some files couldn't be removed) }
     if DirExists(AppDir) then
