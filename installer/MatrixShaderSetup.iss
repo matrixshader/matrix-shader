@@ -25,7 +25,7 @@ WizardResizable=no
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [CustomMessages]
-english.WelcomeLabel1=Welcome to the Matrix
+english.WelcomeLabel1=Welcome to Matrix Shader
 english.WelcomeLabel2=Real-time GPU-powered Matrix rain effects for Windows Terminal.%n%nThis wizard will install Matrix Shader on your computer.
 
 [Files]
