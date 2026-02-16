@@ -93,8 +93,33 @@ if ($Confirm -ne 'y' -and $Confirm -ne 'Y') {
 
 Write-Host ""
 
+# Step 0: Kill all running Matrix processes (they hold DLLs and cached exe in memory)
+Write-Host "[0/5] Stopping running processes..." -ForegroundColor Cyan
+$MatrixProcesses = @('matrix-hotkeys', 'matrix-monitor', 'redpill', 'bluepill', 'wakeupneo', 'matrixlite')
+$Killed = @()
+foreach ($proc in $MatrixProcesses) {
+    $running = Get-Process -Name $proc -ErrorAction SilentlyContinue
+    if ($running) {
+        $running | Stop-Process -Force -ErrorAction SilentlyContinue
+        $Killed += $proc
+    }
+}
+# Also kill any Windows Terminal instances that might have shaders loaded
+$wtProcesses = Get-Process -Name 'WindowsTerminal' -ErrorAction SilentlyContinue
+if ($wtProcesses) {
+    Write-Host "  Closing Windows Terminal instances (shaders cached in memory)..." -ForegroundColor Yellow
+    $wtProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+    $Killed += 'WindowsTerminal'
+}
+if ($Killed.Count -gt 0) {
+    Write-Host "  Stopped: $($Killed -join ', ')" -ForegroundColor Gray
+    Start-Sleep -Seconds 2  # Wait for file handles to release
+} else {
+    Write-Host "  No running processes found" -ForegroundColor Gray
+}
+
 # Step 1: Remove from PATH (both scopes)
-Write-Host "[1/4] Removing from PATH..." -ForegroundColor Cyan
+Write-Host "[1/5] Removing from PATH..." -ForegroundColor Cyan
 foreach ($scope in @('Machine', 'User')) {
     try {
         $CurrentPath = [Environment]::GetEnvironmentVariable('Path', $scope)
@@ -114,7 +139,7 @@ foreach ($scope in @('Machine', 'User')) {
 }
 
 # Step 2: Remove from Add/Remove Programs
-Write-Host "[2/4] Removing from Add/Remove Programs..." -ForegroundColor Cyan
+Write-Host "[2/5] Removing from Add/Remove Programs..." -ForegroundColor Cyan
 foreach ($regScope in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MatrixShader',
                         'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MatrixShader')) {
     if (Test-Path $regScope) {
@@ -129,7 +154,7 @@ foreach ($regScope in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninsta
 }
 
 # Step 3: Remove all installs
-Write-Host "[3/4] Removing executables..." -ForegroundColor Cyan
+Write-Host "[3/5] Removing executables..." -ForegroundColor Cyan
 
 # If GUI (Inno Setup) install exists, use its uninstaller
 if ($HasInnoInstall) {
@@ -161,7 +186,7 @@ foreach ($inst in $Installs) {
 }
 
 # Step 3.5: Restore original Windows Terminal settings
-Write-Host "[3.5/4] Restoring Windows Terminal settings..." -ForegroundColor Cyan
+Write-Host "[4/5] Restoring Windows Terminal settings..." -ForegroundColor Cyan
 
 $WTSettings = @(
     "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json",
@@ -186,11 +211,56 @@ foreach ($SettingsPath in $WTSettings) {
 }
 
 if (-not $RestoredAny) {
-    Write-Host "  No original backup found (may be clean install)" -ForegroundColor Gray
+    # No backup — clean shader references and reset opacity directly in WT settings
+    Write-Host "  No backup found, cleaning shader settings directly..." -ForegroundColor Gray
+    foreach ($SettingsPath in $WTSettings) {
+        if (Test-Path $SettingsPath) {
+            try {
+                $json = Get-Content $SettingsPath -Raw | ConvertFrom-Json
+                $Modified = $false
+
+                # Clean profiles
+                $profiles = $null
+                if ($json.profiles -and $json.profiles.list) {
+                    $profiles = $json.profiles.list
+                } elseif ($json.profiles -is [array]) {
+                    $profiles = $json.profiles
+                }
+
+                if ($profiles) {
+                    foreach ($profile in $profiles) {
+                        # Remove shader path (experimental.pixelShaderPath)
+                        if ($profile.PSObject.Properties['experimental.pixelShaderPath']) {
+                            $profile.PSObject.Properties.Remove('experimental.pixelShaderPath')
+                            $Modified = $true
+                        }
+                        # Reset opacity to 100 if it was lowered
+                        if ($profile.PSObject.Properties['opacity'] -and $profile.opacity -lt 100) {
+                            $profile.opacity = 100
+                            $Modified = $true
+                        }
+                        # Remove useAcrylic if set
+                        if ($profile.PSObject.Properties['useAcrylic']) {
+                            $profile.PSObject.Properties.Remove('useAcrylic')
+                            $Modified = $true
+                        }
+                    }
+                }
+
+                if ($Modified) {
+                    $json | ConvertTo-Json -Depth 32 | Set-Content $SettingsPath -Encoding UTF8
+                    Write-Host "  Cleaned shader settings from: $([IO.Path]::GetDirectoryName($SettingsPath))" -ForegroundColor Gray
+                }
+            }
+            catch {
+                Write-Host "  WARNING: Could not clean WT settings: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
+    }
 }
 
 # Step 4: Handle user data
-Write-Host "[4/4] User data..." -ForegroundColor Cyan
+Write-Host "[5/5] User data..." -ForegroundColor Cyan
 if (Test-Path $DataDir) {
     Write-Host "  Found user data: $DataDir" -ForegroundColor Gray
     Write-Host "  This includes:" -ForegroundColor Gray
