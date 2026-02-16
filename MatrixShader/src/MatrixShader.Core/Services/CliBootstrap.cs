@@ -316,50 +316,46 @@ public static class CliBootstrap
     }
 
     /// <summary>
-    /// Attempts to install Windows Terminal via multiple methods.
-    /// Priority: winget -> Microsoft Store -> GitHub download -> manual instructions
+    /// Attempts to install Windows Terminal via multiple methods automatically.
+    /// No user prompts — tries each method silently, moves to next on failure.
+    /// Priority: winget -> Microsoft Store -> GitHub download -> fallback
     /// </summary>
     private static async Task<bool> TryInstallWindowsTerminalAsync(bool verbose)
     {
+        ConsoleHelper.WriteMatrixGreen(" Installing Windows Terminal...");
+        Console.WriteLine();
+
         // Method 1: Try winget (if available)
         if (IsWingetAvailable())
         {
             try
             {
-                ConsoleHelper.WriteLineMatrixGreen(" Attempting install via winget...");
+                ConsoleHelper.WriteLineDim("   winget...");
 
                 var psi = new ProcessStartInfo
                 {
                     FileName = "winget",
-                    Arguments = "install Microsoft.WindowsTerminal --accept-source-agreements --accept-package-agreements",
-                    RedirectStandardOutput = !verbose,
-                    RedirectStandardError = !verbose,
+                    Arguments = "install Microsoft.WindowsTerminal --accept-source-agreements --accept-package-agreements --silent",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                     UseShellExecute = false,
-                    CreateNoWindow = !verbose
+                    CreateNoWindow = true
                 };
 
                 using var process = Process.Start(psi);
-                if (process == null)
-                {
-                    DiagnosticLogger.Warn("BOOTSTRAP", "Failed to start winget process");
-                }
-                else
+                if (process != null)
                 {
                     await process.WaitForExitAsync();
-
-                    // Wait a moment for settings.json to be created
                     await Task.Delay(1000);
 
-                    // Verify installation succeeded
                     if (IsWindowsTerminalInstalled())
                     {
-                        // Check if we need to restart in WT
+                        ConsoleHelper.WriteLineMatrixGreen("   winget: OK");
                         if (!EnvironmentService.IsWindowsTerminal())
                         {
                             ShowRestartInstructions();
-                            return false; // Signal restart needed, not Lite fallback
+                            return false;
                         }
-                        ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed via winget!");
                         return true;
                     }
                 }
@@ -368,89 +364,71 @@ public static class CliBootstrap
             {
                 DiagnosticLogger.Debug("BOOTSTRAP", $"winget install failed: {ex.Message}");
             }
-
-            ConsoleHelper.WriteLineDim(" winget install did not complete successfully.");
+            ConsoleHelper.WriteLineDim("   winget: failed");
         }
         else
         {
-            ConsoleHelper.WriteLineDim(" winget not available on this system.");
+            ConsoleHelper.WriteLineDim("   winget: not available");
         }
 
-        // Method 2: Try Microsoft Store
-        Console.WriteLine();
-        Console.Write("\x1b[33mTry Microsoft Store? [Y/N]: \x1b[0m");
-        var storeKey = Console.ReadKey(intercept: true);
-        Console.WriteLine();
-
-        if (storeKey.Key == ConsoleKey.Y)
+        // Method 2: Try Microsoft Store (auto, no prompt)
+        try
         {
-            try
+            ConsoleHelper.WriteLineDim("   Microsoft Store...");
+            Process.Start(new ProcessStartInfo
             {
-                ConsoleHelper.WriteLineDim(" Opening Microsoft Store...");
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "ms-windows-store://pdp/?ProductId=9N0DX20HK701",
-                    UseShellExecute = true
-                });
+                FileName = "ms-windows-store://pdp/?ProductId=9N0DX20HK701",
+                UseShellExecute = true
+            });
 
-                ConsoleHelper.WriteLineDim(" Press any key after installation completes...");
-                Console.ReadKey(intercept: true);
-
+            // Wait for store to open and user to install (poll for 30 seconds)
+            for (int i = 0; i < 30; i++)
+            {
+                await Task.Delay(1000);
                 if (IsWindowsTerminalInstalled())
                 {
-                    // Check if we need to restart in WT
+                    ConsoleHelper.WriteLineMatrixGreen("   Microsoft Store: OK");
                     if (!EnvironmentService.IsWindowsTerminal())
                     {
                         ShowRestartInstructions();
-                        return false; // Signal restart needed, not Lite fallback
+                        return false;
                     }
-                    ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed via Store!");
                     return true;
                 }
             }
-            catch (Exception ex)
-            {
-                DiagnosticLogger.Debug("BOOTSTRAP", $"Store install failed: {ex.Message}");
-                ConsoleHelper.WriteLineDim(" Microsoft Store not available.");
-            }
+            ConsoleHelper.WriteLineDim("   Microsoft Store: not installed yet");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Debug("BOOTSTRAP", $"Store install failed: {ex.Message}");
+            ConsoleHelper.WriteLineDim("   Microsoft Store: not available");
         }
 
-        // Method 3: Direct download from GitHub
-        Console.WriteLine();
-        Console.Write("\x1b[33mDownload directly from GitHub? [Y/N]: \x1b[0m");
-        var githubKey = Console.ReadKey(intercept: true);
-        Console.WriteLine();
-
-        if (githubKey.Key == ConsoleKey.Y)
+        // Method 3: Direct download from GitHub (auto, no prompt)
+        try
         {
+            ConsoleHelper.WriteLineDim("   GitHub download...");
             var downloaded = await TryDownloadFromGitHubAsync(verbose);
             if (downloaded && IsWindowsTerminalInstalled())
             {
-                // Check if we need to restart in WT
+                ConsoleHelper.WriteLineMatrixGreen("   GitHub: OK");
                 if (!EnvironmentService.IsWindowsTerminal())
                 {
                     ShowRestartInstructions();
-                    return false; // Signal restart needed, not Lite fallback
+                    return false;
                 }
-                ConsoleHelper.WriteLineMatrixGreen(" Windows Terminal installed from GitHub!");
                 return true;
             }
+            ConsoleHelper.WriteLineDim("   GitHub: failed");
+        }
+        catch
+        {
+            ConsoleHelper.WriteLineDim("   GitHub: failed");
         }
 
-        // Method 4: Manual instructions (last resort)
+        // All methods failed — continue silently to Lite mode
         Console.WriteLine();
-        ConsoleHelper.WriteLineWarning(" Automatic installation failed.");
-        Console.WriteLine();
-        ConsoleHelper.WriteLineDim(" You can install Windows Terminal manually:");
-        ConsoleHelper.WriteLineDim("   1. Visit: https://github.com/microsoft/terminal/releases/latest");
-        ConsoleHelper.WriteLineDim("   2. Download: Microsoft.WindowsTerminal_*_x64.msixbundle");
-        ConsoleHelper.WriteLineDim("   3. Double-click to install");
-        Console.WriteLine();
-        ConsoleHelper.WriteLineDim(" Then run 'wakeupneo' again.");
-        Console.WriteLine();
-
-        Console.Write(" Press any key to continue with Lite mode, or close to install WT first...");
-        Console.ReadKey(intercept: true);
+        ConsoleHelper.WriteLineDim(" Windows Terminal not available — continuing with text fallback.");
         Console.WriteLine();
 
         return false;
