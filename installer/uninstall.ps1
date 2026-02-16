@@ -94,7 +94,7 @@ if ($Confirm -ne 'y' -and $Confirm -ne 'Y') {
 Write-Host ""
 
 # Step 1: Remove from PATH (both scopes)
-Write-Host "[1/3] Removing from PATH..." -ForegroundColor Cyan
+Write-Host "[1/4] Removing from PATH..." -ForegroundColor Cyan
 foreach ($scope in @('Machine', 'User')) {
     try {
         $CurrentPath = [Environment]::GetEnvironmentVariable('Path', $scope)
@@ -113,8 +113,23 @@ foreach ($scope in @('Machine', 'User')) {
     }
 }
 
-# Step 2: Remove all installs
-Write-Host "[2/3] Removing executables..." -ForegroundColor Cyan
+# Step 2: Remove from Add/Remove Programs
+Write-Host "[2/4] Removing from Add/Remove Programs..." -ForegroundColor Cyan
+foreach ($regScope in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MatrixShader',
+                        'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MatrixShader')) {
+    if (Test-Path $regScope) {
+        try {
+            Remove-Item $regScope -Recurse -Force
+            Write-Host "  Removed registry entry" -ForegroundColor Gray
+        }
+        catch {
+            Write-Host "  WARNING: Could not remove registry entry at $regScope" -ForegroundColor Yellow
+        }
+    }
+}
+
+# Step 3: Remove all installs
+Write-Host "[3/4] Removing executables..." -ForegroundColor Cyan
 
 # If GUI (Inno Setup) install exists, use its uninstaller
 if ($HasInnoInstall) {
@@ -145,8 +160,8 @@ foreach ($inst in $Installs) {
     }
 }
 
-# Step 2.5: Restore original Windows Terminal settings
-Write-Host "[2.5/3] Restoring Windows Terminal settings..." -ForegroundColor Cyan
+# Step 3.5: Restore original Windows Terminal settings
+Write-Host "[3.5/4] Restoring Windows Terminal settings..." -ForegroundColor Cyan
 
 $WTSettings = @(
     "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json",
@@ -174,8 +189,8 @@ if (-not $RestoredAny) {
     Write-Host "  No original backup found (may be clean install)" -ForegroundColor Gray
 }
 
-# Step 3: Handle user data
-Write-Host "[3/3] User data..." -ForegroundColor Cyan
+# Step 4: Handle user data
+Write-Host "[4/4] User data..." -ForegroundColor Cyan
 if (Test-Path $DataDir) {
     Write-Host "  Found user data: $DataDir" -ForegroundColor Gray
     Write-Host "  This includes:" -ForegroundColor Gray

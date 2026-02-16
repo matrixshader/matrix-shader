@@ -69,6 +69,12 @@ if (Test-Path "$OtherDir\wakeupneo.exe") {
             [Environment]::SetEnvironmentVariable('Path', ($CleanEntries -join ';'), $OtherScope)
         }
         Remove-Item $OtherDir -Recurse -Force
+        # Remove old registry entry from other scope
+        $OtherRegKey = if ($IsAdmin) { 'HKCU' } else { 'HKLM' }
+        $OtherUninstallKey = "${OtherRegKey}:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$AppName"
+        if (Test-Path $OtherUninstallKey) {
+            Remove-Item $OtherUninstallKey -Recurse -Force -ErrorAction SilentlyContinue
+        }
         Write-Host "  Previous install removed." -ForegroundColor Green
     } catch {
         Write-Host "  WARNING: Could not remove $OtherDir" -ForegroundColor Yellow
@@ -97,12 +103,12 @@ if ($Killed.Count -gt 0) {
 }
 
 # Create directories
-Write-Host "[1/5] Creating directories..." -ForegroundColor Cyan
+Write-Host "[1/6] Creating directories..." -ForegroundColor Cyan
 if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
 if (-not (Test-Path $ShadersDir)) { New-Item -ItemType Directory -Path $ShadersDir -Force | Out-Null }
 
 # Get latest release URL from GitHub API
-Write-Host "[2/5] Finding latest release..." -ForegroundColor Cyan
+Write-Host "[2/6] Finding latest release..." -ForegroundColor Cyan
 try {
     $ApiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases/latest"
     $Headers = @{ 'User-Agent' = 'MatrixShader-Installer' }
@@ -136,7 +142,7 @@ catch {
 }
 
 # Download release zip
-Write-Host "[3/5] Downloading $ZipName..." -ForegroundColor Cyan
+Write-Host "[3/6] Downloading $ZipName..." -ForegroundColor Cyan
 $TempDir = [System.IO.Path]::GetTempPath()
 $ZipPath = Join-Path $TempDir $ZipName
 
@@ -164,7 +170,7 @@ catch {
 }
 
 # Extract to install directory
-Write-Host "[4/5] Extracting files..." -ForegroundColor Cyan
+Write-Host "[4/6] Extracting files..." -ForegroundColor Cyan
 try {
     $ExtractPath = Join-Path $TempDir "MatrixShader_extract"
     if (Test-Path $ExtractPath) { Remove-Item $ExtractPath -Recurse -Force }
@@ -243,7 +249,7 @@ catch {
 }
 
 # Add to PATH
-Write-Host "[5/5] Updating PATH..." -ForegroundColor Cyan
+Write-Host "[5/6] Updating PATH..." -ForegroundColor Cyan
 try {
     if ($PathScope -eq 'Machine') {
         $CurrentPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
@@ -269,6 +275,46 @@ catch {
     Write-Host "  Add this directory manually: $InstallDir" -ForegroundColor Yellow
 }
 
+# Register in Add/Remove Programs
+Write-Host "[6/6] Registering in Add/Remove Programs..." -ForegroundColor Cyan
+try {
+    if ($IsAdmin) {
+        $UninstallKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$AppName"
+    } else {
+        $UninstallKey = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$AppName"
+    }
+
+    # Create the uninstall registry entry
+    if (-not (Test-Path $UninstallKey)) {
+        New-Item -Path $UninstallKey -Force | Out-Null
+    }
+
+    # Calculate installed size in KB
+    $InstalledSizeKB = [math]::Round((Get-ChildItem $InstallDir -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1024)
+
+    # Uninstall command runs the uninstall script non-interactively
+    $UninstallCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"irm https://matrixshader.com/uninstall.ps1 | iex`""
+
+    Set-ItemProperty -Path $UninstallKey -Name 'DisplayName' -Value 'Matrix Terminal Shader'
+    Set-ItemProperty -Path $UninstallKey -Name 'DisplayVersion' -Value '1.0.0'
+    Set-ItemProperty -Path $UninstallKey -Name 'Publisher' -Value 'MatrixShader'
+    Set-ItemProperty -Path $UninstallKey -Name 'InstallLocation' -Value $InstallDir
+    Set-ItemProperty -Path $UninstallKey -Name 'UninstallString' -Value $UninstallCmd
+    Set-ItemProperty -Path $UninstallKey -Name 'DisplayIcon' -Value "$InstallDir\wakeupneo.exe"
+    Set-ItemProperty -Path $UninstallKey -Name 'EstimatedSize' -Value $InstalledSizeKB -Type DWord
+    Set-ItemProperty -Path $UninstallKey -Name 'NoModify' -Value 1 -Type DWord
+    Set-ItemProperty -Path $UninstallKey -Name 'NoRepair' -Value 1 -Type DWord
+    Set-ItemProperty -Path $UninstallKey -Name 'URLInfoAbout' -Value 'https://matrixshader.com'
+    Set-ItemProperty -Path $UninstallKey -Name 'URLUpdateInfo' -Value 'https://github.com/matrixshader/matrix-shader/releases'
+
+    Write-Host "  Registered in Add/Remove Programs" -ForegroundColor Gray
+}
+catch {
+    Write-Host "  WARNING: Could not register in Add/Remove Programs" -ForegroundColor Yellow
+    Write-Host "  $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "  To uninstall manually: irm https://matrixshader.com/uninstall.ps1 | iex" -ForegroundColor Yellow
+}
+
 # Success!
 Write-Host ""
 Write-Host "  Installation complete!" -ForegroundColor Green
@@ -280,9 +326,6 @@ Write-Host "    wakeupneo  - Setup wizard (start here!)"
 Write-Host "    bluepill   - Quick launch Matrix"
 Write-Host "    redpill    - Control panel"
 Write-Host "    matrixlite - Text-only fallback"
-Write-Host ""
-Write-Host "  To uninstall:" -ForegroundColor Cyan
-Write-Host "    irm https://matrixshader.com/uninstall.ps1 | iex"
 Write-Host ""
 
 Write-Host "  Enjoying Matrix Shader? Buy me a coffee:" -ForegroundColor DarkGray
