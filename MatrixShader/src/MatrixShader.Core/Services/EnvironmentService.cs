@@ -20,10 +20,18 @@ public class EnvironmentService
     /// </summary>
     public RenderMode DetectRenderMode()
     {
-        // Check for Windows Terminal
+        // Check if running inside Windows Terminal (WT_SESSION env var)
         if (IsWindowsTerminal())
         {
-            _logger.LogInformation("Detected Windows Terminal - using Full mode");
+            _logger.LogInformation("Detected Windows Terminal (WT_SESSION) - using Full mode");
+            return RenderMode.Full;
+        }
+
+        // Also check if WT is installed even if we're not running inside it
+        // (e.g. CMD tab in WT may not have WT_SESSION, or launched from outside WT)
+        if (CliBootstrap.IsWindowsTerminalInstalled())
+        {
+            _logger.LogInformation("Windows Terminal installed (not running inside it) - using Full mode");
             return RenderMode.Full;
         }
 
