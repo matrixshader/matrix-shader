@@ -618,15 +618,25 @@ public class SetupWizard
             }
         }
 
-        // Hotkey hint — always visible so users know how to control it
+        // Show global hotkeys summary
         Console.WriteLine();
-        Console.WriteLine(" \x1b[36mPress Ctrl+Shift+H for hotkey help\x1b[0m");
+        ConsoleHelper.WriteLineDim(" ----------------------------------------");
+        Console.WriteLine(" \x1b[36mGLOBAL HOTKEYS\x1b[0m \x1b[90m(active when Matrix windows exist)\x1b[0m");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+Left/Right   Rotate windows");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+L            Cycle layout mode");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+B            Toggle transparency");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+Up/Down      Change rain speed");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+1/2/3        Toggle Far/Mid/Near layers");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+H            Hotkey help overlay");
 
         Console.WriteLine();
         ConsoleHelper.WriteLineDim(" Enjoying Matrix Shader? Buy me a coffee:");
-        Console.WriteLine(" \x1b[33mhttps://buymeacoffee.com/IKnowKungFu\x1b[0m");
+        Console.WriteLine(" \x1b]8;;https://buymeacoffee.com/IKnowKungFu\x07\x1b[33mhttps://buymeacoffee.com/IKnowKungFu\x1b[0m\x1b]8;;\x07");
 
-        await Task.Delay(2000);
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim(" Press any key to close this window...");
+        Console.ReadKey(intercept: true);
 
         DiagnosticLogger.Info("WAKEUPNEO", "Setup wizard complete");
 
