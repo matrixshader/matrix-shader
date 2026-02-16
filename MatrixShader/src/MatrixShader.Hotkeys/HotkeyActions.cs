@@ -20,7 +20,7 @@ public sealed class HotkeyActions
     // Speed adjustment constants
     private const float SpeedDelta = 0.1f;
     private const float MinSpeed = 0.1f;
-    private const float MaxSpeed = 3.0f;
+    private const float MaxSpeed = 5.0f;
 
     // Opacity adjustment constants
     private const int OpacityDelta = 5;
