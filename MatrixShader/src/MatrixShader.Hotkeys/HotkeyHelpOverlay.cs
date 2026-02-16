@@ -50,20 +50,6 @@ public static class HotkeyHelpOverlay
             sb.AppendLine($"   {CYAN}Ctrl+Shift+H{RESET}            This help overlay");
             sb.AppendLine();
 
-            sb.AppendLine($" {GREEN}CONTROL PANEL KEYS{RESET} {DIM}(inside redpill TUI){RESET}");
-            sb.AppendLine();
-            sb.AppendLine($"   {CYAN}[1-6]{RESET}       Agent colors (Green/Blue/Red/Purple/Gold/Teal)");
-            sb.AppendLine($"   {CYAN}[Q/W]{RESET}       Red -/+      {CYAN}[A/S]{RESET} Green -/+    {CYAN}[Z/X]{RESET} Blue -/+");
-            sb.AppendLine($"   {CYAN}[E/R]{RESET}       Speed -/+    {CYAN}[D/F]{RESET} Glow -/+");
-            sb.AppendLine($"   {CYAN}[C/V]{RESET}       Width -/+    {CYAN}[T/Y]{RESET} Trail -/+    {CYAN}[G/H]{RESET} Density -/+");
-            sb.AppendLine($"   {CYAN}[7/8/9]{RESET}     Toggle layers (Far/Mid/Near)");
-            sb.AppendLine($"   {CYAN}[B]{RESET}         Transparency  {CYAN}[K/L]{RESET} Opacity -/+");
-            sb.AppendLine($"   {CYAN}[-/+]{RESET}       Deploy count  {CYAN}[Enter]{RESET} Deploy windows");
-            sb.AppendLine($"   {CYAN}[P]{RESET}         Save shader   {CYAN}[0]{RESET} Reset to defaults");
-            sb.AppendLine($"   {CYAN}[Shift+G]{RESET}   Toggle Glitch {CYAN}[Shift+L]{RESET} Cycle layout");
-            sb.AppendLine($"   {CYAN}[TAB]{RESET}       Switch tabs   {CYAN}[ESC]{RESET} Quit");
-            sb.AppendLine();
-
             // Check license for upsell footer
             var licenseService = new LicenseService();
             if (!licenseService.IsLicensed)
