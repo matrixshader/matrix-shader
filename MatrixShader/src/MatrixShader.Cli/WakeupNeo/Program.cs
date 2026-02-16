@@ -536,7 +536,6 @@ public class SetupWizard
         Console.WriteLine(" \x1b]8;;https://buymeacoffee.com/IKnowKungFu\x07\x1b[33mhttps://buymeacoffee.com/IKnowKungFu\x1b[0m\x1b]8;;\x07");
 
         Console.WriteLine();
-        ConsoleHelper.WriteLineDim(" Press any key to close this window...");
         Console.ReadKey(intercept: true);
 
         DiagnosticLogger.Info("WAKEUPNEO", "Setup wizard complete");
