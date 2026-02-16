@@ -15,7 +15,7 @@ public record ShaderConfig
     /// <summary>Blue color component (0.0 - 1.0)</summary>
     public float B { get; init; } = 0.3f;
 
-    /// <summary>Animation speed multiplier (0.1 - 3.0)</summary>
+    /// <summary>Animation speed multiplier (0.1 - 5.0)</summary>
     public float Speed { get; init; } = 0.8f;
 
     /// <summary>Glow intensity (0.2 - 3.0)</summary>
@@ -58,7 +58,7 @@ public record ShaderConfig
         R >= 0f && R <= 1f &&
         G >= 0f && G <= 1f &&
         B >= 0f && B <= 1f &&
-        Speed >= 0.1f && Speed <= 3f &&
+        Speed >= 0.1f && Speed <= 5f &&
         Glow >= 0.2f && Glow <= 3f &&
         Width >= 6f && Width <= 20f &&
         Trail >= 4f && Trail <= 15f &&
@@ -73,7 +73,7 @@ public record ShaderConfig
         R = Math.Clamp(R, 0f, 1f),
         G = Math.Clamp(G, 0f, 1f),
         B = Math.Clamp(B, 0f, 1f),
-        Speed = Math.Clamp(Speed, 0.1f, 3f),
+        Speed = Math.Clamp(Speed, 0.1f, 5f),
         Glow = Math.Clamp(Glow, 0.2f, 3f),
         Width = Math.Clamp(Width, 6f, 20f),
         Trail = Math.Clamp(Trail, 4f, 15f),
