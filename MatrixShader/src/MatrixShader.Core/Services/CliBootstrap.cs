@@ -450,7 +450,7 @@ public static class CliBootstrap
 
             using var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Add("User-Agent", "MatrixShader-Installer");
-            httpClient.Timeout = TimeSpan.FromSeconds(30);
+            httpClient.Timeout = TimeSpan.FromSeconds(120);
 
             // Get latest release info
             var response = await httpClient.GetStringAsync(releasesApi);
