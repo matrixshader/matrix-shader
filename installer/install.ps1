@@ -289,12 +289,9 @@ Write-Host "  Enjoying Matrix Shader? Buy me a coffee:" -ForegroundColor DarkGra
 Write-Host "  https://buymeacoffee.com/IKnowKungFu" -ForegroundColor Yellow
 Write-Host ""
 
-# Optional: Run wakeupneo immediately if in same session
-$RunNow = Read-Host "Run 'wakeupneo' now to get started? (Y/n)"
-if ($RunNow -ne 'n' -and $RunNow -ne 'N') {
-    $WakeupNeo = Join-Path $InstallDir "wakeupneo.exe"
-    if (Test-Path $WakeupNeo) {
-        Write-Host ""
-        & $WakeupNeo
-    }
+# Auto-launch wakeupneo in a new terminal window
+$WakeupNeo = Join-Path $InstallDir "wakeupneo.exe"
+if (Test-Path $WakeupNeo) {
+    Write-Host "  Launching wakeupneo..." -ForegroundColor Green
+    Start-Process $WakeupNeo
 }
