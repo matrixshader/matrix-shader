@@ -82,7 +82,10 @@ export default async function handler(req, res) {
     });
 
     record.activations = activations;
-    await redis.set(kvKey, JSON.stringify(record));
+    await Promise.all([
+      redis.set(kvKey, JSON.stringify(record)),
+      redis.incr('stats:activate'),
+    ]);
 
     return res.status(200).json({
       activated: true,
