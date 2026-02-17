@@ -87,11 +87,15 @@ export default async function handler(req, res) {
     const keyHash = crypto.createHash('sha256').update(key).digest('hex').slice(0, 32);
 
     try {
+      const buyerEmail = event.data?.attributes?.user_email || '';
+      const buyerName = event.data?.attributes?.user_name || event.data?.attributes?.first_name || '';
+
       const existing = await redis.get(`key:${keyHash}`);
       if (!existing) {
         await redis.set(`key:${keyHash}`, JSON.stringify({
           orderId: `LS-${orderId}`,
-          email: event.data?.attributes?.user_email || '',
+          email: buyerEmail,
+          buyerName: buyerName,
           createdAt: new Date().toISOString(),
           activations: [],
         }));
