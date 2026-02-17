@@ -109,6 +109,9 @@ public static class CliBootstrap
 
         DiagnosticLogger.Info("BOOTSTRAP", "CLI bootstrap complete");
 
+        // Fire-and-forget update check — never blocks startup
+        _ = UpdateChecker.CheckAsync();
+
         return new BootstrapResult(true, WasFirstRun: wasFirstRun);
     }
 
