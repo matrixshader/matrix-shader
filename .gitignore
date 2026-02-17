@@ -12,6 +12,7 @@ nul
 
 # npm package output
 *.tgz
+node_modules/
 
 # IDE
 .vscode/

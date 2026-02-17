@@ -1,8 +1,26 @@
 namespace MatrixShader.Core.Services;
 
 /// <summary>
+/// Result of a license activation attempt.
+/// </summary>
+public enum ActivationResult
+{
+    /// <summary>Key is valid, saved, and server-verified (or server was unreachable).</summary>
+    Success,
+
+    /// <summary>Key format or HMAC signature is invalid.</summary>
+    InvalidKey,
+
+    /// <summary>Key is valid but has been activated on too many machines.</summary>
+    ActivationLimitExceeded,
+
+    /// <summary>Failed to save key to disk.</summary>
+    SaveFailed,
+}
+
+/// <summary>
 /// Service for managing Red Pill license validation.
-/// Offline-first: validates locally via HMAC-SHA256, no phone-home.
+/// Offline-first with server-side activation tracking.
 /// </summary>
 public interface ILicenseService
 {
@@ -13,10 +31,11 @@ public interface ILicenseService
 
     /// <summary>
     /// Validates and activates a license key.
+    /// Performs offline HMAC check, then server activation tracking.
     /// </summary>
     /// <param name="key">License key in format REDPILL-XXXX-XXXX-XXXX-XXXX</param>
-    /// <returns>True if key is valid and was saved</returns>
-    bool Activate(string key);
+    /// <returns>Activation result indicating success or failure reason</returns>
+    ActivationResult Activate(string key);
 
     /// <summary>
     /// Gets the installed license key, or null if none.

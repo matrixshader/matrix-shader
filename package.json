@@ -23,7 +23,10 @@
     "url": "https://github.com/matrixshader/matrix-shader/issues"
   },
   "homepage": "https://github.com/matrixshader/matrix-shader#readme",
-  "os": ["win32", "linux"],
+  "os": [
+    "win32",
+    "linux"
+  ],
   "engines": {
     "node": ">=14.0.0"
   },
@@ -37,5 +40,8 @@
     "shaders/",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "dependencies": {
+    "@upstash/redis": "^1.36.2"
+  }
 }
