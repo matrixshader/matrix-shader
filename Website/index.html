@@ -42,6 +42,7 @@
                 <li><a href="#workflow">Multi-Agent Workflow</a></li>
                 <li><a href="#installation">Installation</a></li>
                 <li><a href="#download">Download</a></li>
+                <li><a href="/redpill" class="nav-redpill">Red Pill</a></li>
                 <li><a href="https://github.com/matrixshader/matrix-shader" target="_blank">GitHub</a></li>
             </ul>
             <div class="nav-toggle" aria-label="Toggle navigation menu" role="button" tabindex="0">
@@ -287,13 +288,45 @@
         </div>
     </section>
 
+    <!-- Red Pill Upsell Section -->
+    <section id="redpill" class="support">
+        <div class="container">
+            <div class="support-card redpill-card">
+                <h2>Ready for the Red Pill?</h2>
+                <p>Unlock the full interactive control panel, live parameter adjustment, custom RGB colors, per-window layer toggles, and more. One-time purchase. Yours forever.</p>
+                <div class="redpill-price"><s style="opacity:0.4;font-size:0.6em">$10</s> $5 <span class="redpill-price-note">Founder's Edition</span></div>
+                <a href="/redpill" class="btn-redpill">See What You Unlock</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Agent Smith Email Capture Section -->
+    <section id="agent-smith" class="agent-smith">
+        <div class="container">
+            <div class="smith-card">
+                <div class="smith-avatar">&#x1F576;</div>
+                <h2 class="smith-title">Mr. Anderson...</h2>
+                <p class="smith-quote">I see you're still here, enjoying another day inside the Matrix. Predictable. But perhaps you'd like to know when something... <em>changes</em>.</p>
+                <p class="smith-subtext">Get product updates, new features, and the occasional nudge from Agent Smith himself.</p>
+                <form id="smith-form" class="smith-form" onsubmit="return handleSmithSubscribe(event)">
+                    <div class="smith-input-row">
+                        <input type="email" id="smith-email" placeholder="your.email@example.com" required>
+                        <button type="submit" class="smith-btn">Subscribe</button>
+                    </div>
+                    <p id="smith-status" class="smith-status"></p>
+                </form>
+                <p class="smith-fine-print">No spam. Unsubscribe anytime. We respect your <a href="/privacy">privacy</a>.</p>
+            </div>
+        </div>
+    </section>
+
     <!-- Support Section -->
     <section id="support" class="support">
         <div class="container">
             <div class="support-card">
                 <h2>Enjoying Matrix Shader?</h2>
                 <p>Built with love. If it made your terminal cooler, buy me a coffee.</p>
-                <a href="https://buymeacoffee.com/IKnowKungFu" target="_blank" class="btn btn-primary btn-download" data-umami-event="BuyMeACoffee Click">
+                <a href="https://buymeacoffee.com/IKnowKungFu" target="_blank" class="btn btn-primary btn-download">
                     Buy Me a Coffee
                 </a>
             </div>
@@ -355,14 +388,77 @@
         <img id="lightbox-img" src="" alt="">
     </div>
 
+    <script defer src="/_vercel/insights/script.js"></script>
     <script src="script.js"></script>
     <script>
-    // Lightweight download tracking (replaces Umami)
+    // Vercel Analytics helper
+    function va_track(name, data) {
+        if (window.va) window.va.track(name, data);
+    }
+
+    // Download button clicks
     document.querySelectorAll('[data-umami-event="Download Click"]').forEach(function(el) {
         el.addEventListener('click', function() {
             navigator.sendBeacon('/api/track?event=download');
+            va_track('download_click', { source: 'homepage' });
         });
     });
+
+    // Red Pill link clicks
+    document.querySelectorAll('a[href="/redpill"], a[href="#redpill"]').forEach(function(el) {
+        el.addEventListener('click', function() {
+            va_track('redpill_click', { source: el.closest('nav') ? 'nav' : 'page' });
+        });
+    });
+
+    // GitHub link clicks
+    document.querySelectorAll('a[href*="github.com/matrixshader"]').forEach(function(el) {
+        el.addEventListener('click', function() {
+            va_track('github_click');
+        });
+    });
+
+    // Agent Smith email subscribe
+    function handleSmithSubscribe(e) {
+        e.preventDefault();
+        var email = document.getElementById('smith-email').value.trim();
+        var status = document.getElementById('smith-status');
+        var btn = document.querySelector('.smith-btn');
+
+        if (!email) return false;
+
+        btn.disabled = true;
+        btn.textContent = '...';
+        status.textContent = '';
+
+        fetch('/api/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, source: 'website' })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.subscribed) {
+                status.textContent = 'Welcome to the Matrix, Mr. Anderson.';
+                status.style.color = '#00ff41';
+                va_track('email_subscribe', { source: 'agent_smith' });
+                document.getElementById('smith-email').value = '';
+            } else {
+                status.textContent = data.error || 'Something went wrong.';
+                status.style.color = '#ff0040';
+            }
+        })
+        .catch(function() {
+            status.textContent = 'Connection error. Try again.';
+            status.style.color = '#ff0040';
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.textContent = 'Subscribe';
+        });
+
+        return false;
+    }
     </script>
 </body>
 </html>

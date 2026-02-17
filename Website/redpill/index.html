@@ -377,7 +377,7 @@
             <p>After purchase, you'll receive a license key. Activate it with:</p>
             <div class="code-block">redpill --activate REDPILL-XXXX-XXXX-XXXX-XXXX</div>
             <br>
-            <p>Your license is stored locally. No internet required after activation. No subscription. No DRM.</p>
+            <p>Your license is stored locally. One-time internet connection at activation, then fully offline. Activate on up to 3 machines. No subscription. No DRM.</p>
         </div>
 
         <div class="footer">
@@ -386,9 +386,18 @@
             <p>&copy; 2026 MatrixShader</p>
         </div>
     </div>
+    <script defer src="/_vercel/insights/script.js"></script>
     <!-- LemonSqueezy checkout overlay -->
     <script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
     <script>
+        // Track buy button click
+        var buyBtn = document.getElementById('buy-button');
+        if (buyBtn) {
+            buyBtn.addEventListener('click', function() {
+                if (window.va) window.va.track('buy_click');
+            });
+        }
+
         // After successful checkout, redirect to thank-you page with order info
         window.addEventListener('message', function(event) {
             if (event.data && event.data.event === 'Checkout.Success') {
