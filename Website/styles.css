@@ -859,6 +859,142 @@ section {
   color: var(--matrix-red);
 }
 
+/* Agent Smith Email Section */
+.agent-smith {
+  padding: 4rem 0;
+  background: linear-gradient(135deg, rgba(20, 0, 0, 0.3), rgba(0, 0, 0, 0.5));
+}
+
+.smith-card {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+  background: rgba(10, 5, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.smith-avatar {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.smith-title {
+  font-family: var(--font-mono);
+  font-size: 1.8rem;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  letter-spacing: 0.05em;
+}
+
+.smith-quote {
+  color: var(--text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin-bottom: 0.5rem;
+  font-style: italic;
+}
+
+.smith-quote em {
+  color: var(--matrix-green);
+  font-style: italic;
+}
+
+.smith-subtext {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.smith-form {
+  margin: 0 auto;
+  max-width: 450px;
+}
+
+.smith-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.smith-input-row input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.smith-input-row input:focus {
+  outline: none;
+  border-color: var(--matrix-green);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+}
+
+.smith-input-row input::placeholder {
+  color: var(--text-muted);
+}
+
+.smith-btn {
+  background: var(--matrix-green);
+  color: #000;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-weight: bold;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.smith-btn:hover {
+  box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+  transform: translateY(-1px);
+}
+
+.smith-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.smith-status {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+  min-height: 1.2em;
+}
+
+.smith-fine-print {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-top: 1rem;
+}
+
+.smith-fine-print a {
+  color: var(--matrix-green);
+  text-decoration: none;
+}
+
+.smith-fine-print a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .smith-input-row {
+    flex-direction: column;
+  }
+
+  .smith-btn {
+    width: 100%;
+  }
+}
+
 /* Footer */
 .footer {
   background: var(--bg-darker);
