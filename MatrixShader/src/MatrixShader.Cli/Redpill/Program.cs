@@ -259,23 +259,32 @@ public static class Program
         Console.WriteLine();
 
         var licenseService = new LicenseService();
+        var result = licenseService.Activate(key);
 
-        if (licenseService.Activate(key))
+        switch (result)
         {
-            ConsoleHelper.WriteLineMatrixGreen(" Welcome to the real world.");
-            Console.WriteLine();
-            ConsoleHelper.WriteLineDim(" License activated. Run 'redpill' to open the control panel.");
-            Console.WriteLine();
-            return 0;
-        }
-        else
-        {
-            Console.WriteLine(" \x1b[31mInvalid license key.\x1b[0m");
-            Console.WriteLine();
-            ConsoleHelper.WriteLineDim(" Format: REDPILL-XXXX-XXXX-XXXX-XXXX");
-            ConsoleHelper.WriteLineDim(" Get your key at: https://matrixshader.com/redpill");
-            Console.WriteLine();
-            return 1;
+            case ActivationResult.Success:
+                ConsoleHelper.WriteLineMatrixGreen(" Welcome to the real world.");
+                Console.WriteLine();
+                ConsoleHelper.WriteLineDim(" License activated. Run 'redpill' to open the control panel.");
+                Console.WriteLine();
+                return 0;
+
+            case ActivationResult.ActivationLimitExceeded:
+                Console.WriteLine(" \x1b[31mActivation limit reached.\x1b[0m");
+                Console.WriteLine();
+                ConsoleHelper.WriteLineDim(" This key has been activated on too many machines.");
+                ConsoleHelper.WriteLineDim(" If this is your key, contact support for help.");
+                Console.WriteLine();
+                return 1;
+
+            default:
+                Console.WriteLine(" \x1b[31mInvalid license key.\x1b[0m");
+                Console.WriteLine();
+                ConsoleHelper.WriteLineDim(" Format: REDPILL-XXXX-XXXX-XXXX-XXXX");
+                ConsoleHelper.WriteLineDim(" Get your key at: https://matrixshader.com/redpill");
+                Console.WriteLine();
+                return 1;
         }
     }
 
