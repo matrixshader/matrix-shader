@@ -356,5 +356,13 @@
     </div>
 
     <script src="script.js"></script>
+    <script>
+    // Lightweight download tracking (replaces Umami)
+    document.querySelectorAll('[data-umami-event="Download Click"]').forEach(function(el) {
+        el.addEventListener('click', function() {
+            navigator.sendBeacon('/api/track?event=download');
+        });
+    });
+    </script>
 </body>
 </html>
