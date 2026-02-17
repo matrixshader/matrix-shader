@@ -1,4 +1,10 @@
 import crypto from 'crypto';
+import { Redis } from '@upstash/redis';
+
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+});
 
 const CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -94,6 +100,22 @@ export default async function handler(req, res) {
   // Prefix with LS- so MS Store orders (MS-xxx) get different keys
   const seed = `LS-${orderId}`;
   const key = generateKey(seed, secret);
+
+  // Store key metadata in KV for activation tracking
+  const keyHash = crypto.createHash('sha256').update(key).digest('hex').slice(0, 32);
+  try {
+    const existing = await redis.get(`key:${keyHash}`);
+    if (!existing) {
+      await redis.set(`key:${keyHash}`, JSON.stringify({
+        orderId: `LS-${orderId}`,
+        createdAt: new Date().toISOString(),
+        activations: [],
+      }));
+    }
+  } catch (err) {
+    // KV failure should not block key generation
+    console.error('KV store error:', err);
+  }
 
   return res.status(200).json({
     key,

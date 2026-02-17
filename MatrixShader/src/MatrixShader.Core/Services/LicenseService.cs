@@ -1,15 +1,17 @@
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace MatrixShader.Core.Services;
 
 /// <summary>
-/// Offline license validation using HMAC-SHA256.
+/// Offline license validation using HMAC-SHA256 with server-side activation tracking.
 /// Key format: REDPILL-XXXX-XXXX-XXXX-XXXX where the last group is a truncated HMAC
 /// of the first three groups, keyed with an embedded product secret.
 ///
 /// Design philosophy: honest people pay, pirates never would have.
 /// Don't punish paying customers with aggressive DRM.
+/// Server check is best-effort — if unreachable, activation still succeeds.
 /// </summary>
 public sealed class LicenseService : ILicenseService
 {
@@ -24,6 +26,9 @@ public sealed class LicenseService : ILicenseService
         "MatrixShader");
 
     private static readonly string LicensePath = Path.Combine(LicenseDir, "license.key");
+
+    private const string ValidateUrl = "https://matrixshader.com/api/validate";
+    private static readonly TimeSpan ServerTimeout = TimeSpan.FromSeconds(8);
 
     private bool? _cachedResult;
 
@@ -42,10 +47,15 @@ public sealed class LicenseService : ILicenseService
     }
 
     /// <inheritdoc/>
-    public bool Activate(string key)
+    public ActivationResult Activate(string key)
     {
         if (!ValidateKey(key))
-            return false;
+            return ActivationResult.InvalidKey;
+
+        // Server-side activation check (best-effort)
+        var serverResult = CheckServerActivation(key);
+        if (serverResult == ActivationResult.ActivationLimitExceeded)
+            return ActivationResult.ActivationLimitExceeded;
 
         try
         {
@@ -53,12 +63,12 @@ public sealed class LicenseService : ILicenseService
             File.WriteAllText(LicensePath, key.Trim().ToUpperInvariant());
             _cachedResult = true;
             DiagnosticLogger.Info("LICENSE", "License activated successfully");
-            return true;
+            return ActivationResult.Success;
         }
         catch (Exception ex)
         {
             DiagnosticLogger.Error("LICENSE", $"Failed to save license: {ex.Message}");
-            return false;
+            return ActivationResult.SaveFailed;
         }
     }
 
@@ -129,6 +139,42 @@ public sealed class LicenseService : ILicenseService
         var sig = ComputeSignature(payload);
 
         return $"{payload}-{sig}";
+    }
+
+    /// <summary>
+    /// Calls /api/validate to check activation count.
+    /// Returns Success if server allows (or is unreachable), ActivationLimitExceeded if over limit.
+    /// </summary>
+    private static ActivationResult CheckServerActivation(string key)
+    {
+        try
+        {
+            using var client = new HttpClient { Timeout = ServerTimeout };
+
+            var fingerprint = MachineFingerprint.Get();
+            var normalizedKey = key.Trim().ToUpperInvariant();
+            // Manual JSON to avoid anonymous types (AOT-safe)
+            var payload = $"{{\"key\":\"{normalizedKey}\",\"fingerprint\":\"{fingerprint}\"}}";
+
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            var response = client.PostAsync(ValidateUrl, content).GetAwaiter().GetResult();
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                DiagnosticLogger.Warn("LICENSE", "Activation limit exceeded for this key");
+                return ActivationResult.ActivationLimitExceeded;
+            }
+
+            // Any other response (200, 500, etc.) = allow activation
+            DiagnosticLogger.Info("LICENSE", $"Server validation: {(int)response.StatusCode}");
+            return ActivationResult.Success;
+        }
+        catch (Exception ex)
+        {
+            // Network error, timeout, DNS failure, etc. — graceful degradation
+            DiagnosticLogger.Warn("LICENSE", $"Server unreachable, allowing offline activation: {ex.Message}");
+            return ActivationResult.Success;
+        }
     }
 
     private static string ComputeSignature(string payload)
