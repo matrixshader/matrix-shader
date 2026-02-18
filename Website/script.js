@@ -239,7 +239,7 @@ class MatrixWebsite {
       .then(res => res.json())
       .then(data => {
         if (data.subscribed) {
-          status.textContent = 'Welcome to the Matrix, Mr. Anderson.';
+          status.textContent = 'Welcome to MatrixShader, Mr. Anderson.';
           status.style.color = '#00ff41';
           this.track('email_subscribe', { source: 'agent_smith' });
           document.getElementById('smith-email').value = '';
