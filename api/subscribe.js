@@ -81,7 +81,7 @@ export default async function handler(req, res) {
       syncToLemonSqueezy(normalizedEmail, name),
     ]);
 
-    return res.status(200).json({ subscribed: true, message: 'Welcome to the Matrix' });
+    return res.status(200).json({ subscribed: true, message: 'Welcome to MatrixShader' });
   } catch (err) {
     console.error('Subscribe error:', err);
     return res.status(500).json({ error: 'Server error' });
