@@ -62,7 +62,7 @@ PowerShell requires CRLF line endings. Always use Windows-native tools.
 
 ## Project State
 
-### Current Phase: Phase 14 - Final Polish & Hotkey Stability (E2E Round 1 Complete)
+### Current Phase: Phase 15 - Owner Analytics Dashboard & Website Polish (Complete)
 
 ### Completed Phases:
 - [x] MVP single-instance shader (Matrix.hlsl + matrix_tool.ps1)
@@ -74,6 +74,7 @@ PowerShell requires CRLF line endings. Always use Windows-native tools.
 - [x] C#/.NET Rebuild (Phases 1-13)
 - [x] Phase 14 Wave 1-4 (14-01 through 14-05)
 - [x] Phase 14-06 E2E Round 1 Testing
+- [x] Phase 15 - Owner Analytics Dashboard & Website Polish
 
 ### Current Phase Checklist (Phase 14):
 - [x] 14-01: Hotkey service stability (crash recovery, stay-alive timer)
@@ -83,13 +84,11 @@ PowerShell requires CRLF line endings. Always use Windows-native tools.
 - [x] 14-05: Remove shader cycling, rename Cyan to Blue
 - [x] 14-06: E2E Round 1 - Fixed transparency toggle, Glitch cooldown, auto-continue, feedback
 
-### Next Steps (E2E Round 2):
-- [ ] Verify all Round 1 fixes in fresh Windows Sandbox
-- [ ] Test Glitch in Blue Pill path
-- [ ] Test opacity toggle (Ctrl+B: 85%↔100%)
-- [ ] Test 5-second Glitch cooldown prevents snap-back
-- [ ] Test auto-continue after WT install
-- [ ] Implement hotkey help popup (Matrix-styled) - user requested
+### Next Steps:
+- [ ] Verify DASHBOARD_PASSWORD env var is set in Vercel and dashboard is accessible at /admin
+- [ ] E2E Round 2: verify Glitch, opacity toggle, Glitch cooldown, and auto-continue in Windows Sandbox
+- [ ] Implement hotkey help popup (Matrix-styled) - user requested feature
+- [ ] Test Glitch in Blue Pill path (wakeupneo and bluepill.exe)
 
 ## Session History
 
@@ -245,3 +244,77 @@ PowerShell requires CRLF line endings. Always use Windows-native tools.
 - Local testing uses HTTP server on port 9090 with IP 172.21.80.1 (Default Switch)
 - `installer/output` is gitignored - rebuild required for each test
 - Branch `feature/smart-window-management` merged to `master` and pushed
+
+### Session 2026-02-18: Owner Analytics Dashboard & Website Polish
+**Phase:** Phase 15 - Analytics, Tracking, and Website Asset Completion
+
+**Accomplishments:**
+1. Owner Analytics Dashboard (`Website/admin/index.html`):
+   - Glassmorphism UI with Matrix green terminal aesthetic using JetBrains Mono font
+   - Password-protected (client-side gate + Authorization header to API)
+   - Chart.js line/bar charts for page views, redpill clicks, GitHub clicks over 30 days
+   - KPI cards: total downloads, installs, activations, purchases, subscribers
+   - Live refresh every 60 seconds; `noindex, nofollow` meta to keep it invisible to search
+   - Matrix rain canvas background (same as all other pages)
+
+2. Enhanced `api/track.js`:
+   - Added time-series daily keys (`ts:<event>:<YYYY-MM-DD>`) in parallel with global counters
+   - Extended allowed event list: `page_view`, `redpill_click`, `github_click`
+   - Both global `stats:<event>` and per-day `ts:<event>:<date>` incremented atomically
+
+3. Created `api/dashboard.js`:
+   - Password-protected via `Authorization: Bearer <DASHBOARD_PASSWORD>` header (env var on Vercel)
+   - Fetches last-30-day time-series for page_view, redpill_click, github_click
+   - Returns all-time totals for download, install, activate, subscribe, purchase
+   - Gracefully handles missing Redis keys (defaults to 0)
+
+4. Enhanced `Website/script.js`:
+   - `sendBeacon` calls for `page_view` on DOMContentLoaded
+   - `redpill_click` fires on the Buy button click
+   - `github_click` fires on the GitHub star/release links
+
+5. Added `page_view` tracking to `Website/redpill/index.html` and `Website/redpill/thankyou/index.html`
+
+6. Matrix rain video background added to ALL pages:
+   - `Website/privacy/index.html`, `Website/terms/index.html`
+   - `Website/404.html`, `Website/redpill/thankyou/index.html`
+   - `Website/admin/index.html`
+
+7. Pushed all previously uncommitted website redesign assets (36 files):
+   - Responsive images: `pillars-layout` and `quads-layout` at 400w, 800w, 1920w (webp + png)
+   - `Website/shared.css` - shared stylesheet across all pages
+   - `Website/robots.txt` and `Website/sitemap.xml` - SEO infrastructure
+   - `Website/404.html` - custom 404 page
+   - `Website/assets/icons/` - favicon/PWA icon set
+   - `Website/assets/logo.webp` - WebP logo variant
+   - `Website/assets/favicon-original.ico` and `logo-original.jpg` - originals preserved
+
+**Key Decisions:**
+- Password protection via HTTP Authorization header (Bearer token) rather than session cookies - simpler for a single-owner dashboard
+- `noindex, nofollow` on admin page rather than route-level protection (Vercel handles route auth via env var check in the API)
+- Time-series keys added as a parallel write to avoid breaking existing counters
+- Used `navigator.sendBeacon` for tracking (non-blocking, survives page unload)
+- Matrix rain video background unified across all pages for brand consistency
+- `DASHBOARD_PASSWORD` env var must be set in Vercel dashboard (user confirmed done)
+
+**Files Modified/Created:**
+- `Website/admin/index.html` (created - glassmorphism analytics dashboard)
+- `api/dashboard.js` (created - password-protected analytics API)
+- `api/track.js` (modified - time-series keys, new event types)
+- `Website/script.js` (modified - sendBeacon tracking calls)
+- `Website/index.html` (modified - tracking calls)
+- `Website/redpill/index.html` (modified - page_view tracking, video bg)
+- `Website/redpill/thankyou/index.html` (modified - page_view tracking, video bg)
+- `Website/privacy/index.html` (modified - video background)
+- `Website/terms/index.html` (modified - video background)
+- `Website/404.html` (created - custom 404 with Matrix rain)
+- `Website/shared.css` (created - shared styles)
+- `Website/robots.txt` (created)
+- `Website/sitemap.xml` (created)
+- `Website/assets/` - 20+ new responsive image and icon assets
+
+**Technical Notes:**
+- `DASHBOARD_PASSWORD` must be set in Vercel environment variables (Production)
+- Dashboard URL: `https://matrixshader.com/admin` (noindex - not linked from site)
+- Redis keys used: `stats:<event>` (all-time) and `ts:<event>:<YYYY-MM-DD>` (daily)
+- All 4 commits pushed to `origin/master` before this session close

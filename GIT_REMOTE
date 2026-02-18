@@ -1,2 +1,2 @@
 REMOTE_URL=https://github.com/matrixshader/matrix-shader.git
-DEFAULT_BRANCH=feature/smart-window-management
+DEFAULT_BRANCH=master
