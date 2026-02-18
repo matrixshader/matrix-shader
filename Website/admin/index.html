@@ -34,6 +34,17 @@
       min-height: 100vh;
     }
 
+    #matrix-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      object-fit: cover;
+      opacity: 0.4;
+    }
+
     /* Auth Modal */
     .auth-overlay {
       position: fixed; inset: 0;
@@ -303,6 +314,9 @@
   </style>
 </head>
 <body>
+<video id="matrix-bg" autoplay muted loop playsinline>
+  <source src="../assets/shader-bg-cropped.mp4" type="video/mp4">
+</video>
 
 <!-- Auth Modal -->
 <div class="auth-overlay" id="auth-overlay">
