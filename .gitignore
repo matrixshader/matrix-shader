@@ -62,6 +62,7 @@ ffmpeg.exe
 /*.md
 !README.md
 !CLAUDE.md
+!BRAND.md
 /*.json
 !package.json
 !vercel.json
@@ -85,3 +86,4 @@ ffmpeg.exe
 /MVP/
 .vercel
 .env*.local
+.env.backup
