@@ -5,6 +5,10 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN,
 });
 
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -14,20 +18,23 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // POST /api/track?event=download — increment a counter
+  // POST /api/track?event=download — increment a counter + daily time-series
   if (req.method === 'POST') {
     const event = req.query.event || req.body?.event;
     if (!event || typeof event !== 'string' || event.length > 32) {
       return res.status(400).json({ error: 'Missing or invalid event name' });
     }
 
-    const allowed = ['download', 'install', 'activate'];
+    const allowed = ['download', 'install', 'activate', 'page_view', 'redpill_click', 'github_click'];
     if (!allowed.includes(event)) {
       return res.status(400).json({ error: `Unknown event. Allowed: ${allowed.join(', ')}` });
     }
 
     try {
-      const count = await redis.incr(`stats:${event}`);
+      const [count] = await Promise.all([
+        redis.incr(`stats:${event}`),
+        redis.incr(`ts:${event}:${todayKey()}`),
+      ]);
       return res.status(200).json({ event, count });
     } catch (err) {
       console.error('Track error:', err);
@@ -38,16 +45,22 @@ export default async function handler(req, res) {
   // GET /api/track — return all stats
   if (req.method === 'GET') {
     try {
-      const [downloads, installs, activations] = await Promise.all([
-        redis.get('stats:download'),
-        redis.get('stats:install'),
-        redis.get('stats:activate'),
-      ]);
+      const keys = [
+        'stats:download', 'stats:install', 'stats:activate',
+        'stats:subscribe', 'stats:purchase',
+        'stats:page_view', 'stats:redpill_click', 'stats:github_click',
+      ];
+      const values = await redis.mget(...keys);
 
       return res.status(200).json({
-        downloads: Number(downloads) || 0,
-        installs: Number(installs) || 0,
-        activations: Number(activations) || 0,
+        downloads: Number(values[0]) || 0,
+        installs: Number(values[1]) || 0,
+        activations: Number(values[2]) || 0,
+        subscribers: Number(values[3]) || 0,
+        purchases: Number(values[4]) || 0,
+        page_views: Number(values[5]) || 0,
+        redpill_clicks: Number(values[6]) || 0,
+        github_clicks: Number(values[7]) || 0,
       });
     } catch (err) {
       console.error('Stats error:', err);

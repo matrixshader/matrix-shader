@@ -4,21 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to the Real World - Matrix Shader</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="/shared.css">
     <style>
-        :root {
-            --matrix-green: #00ff41;
-            --matrix-red: #ff0040;
-            --bg-dark: #0a0a0a;
-            --font-mono: 'Courier New', 'Consolas', 'Monaco', monospace;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
             font-family: var(--font-mono);
-            background: var(--bg-dark);
-            color: #ffffff;
-            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -27,22 +17,15 @@
         .container {
             max-width: 600px;
             width: 90%;
-            padding: 2rem;
         }
 
         .back-link {
             color: #888;
-            text-decoration: none;
-            font-size: 0.85rem;
-            display: inline-block;
-            margin-bottom: 2rem;
         }
         .back-link:hover { color: var(--matrix-green); }
 
         h1 {
-            color: var(--matrix-green);
             font-size: 1.8rem;
-            margin-bottom: 0.5rem;
             text-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
         }
 
@@ -215,6 +198,10 @@
     </div>
 
     <script defer src="/_vercel/insights/script.js"></script>
+    <script>
+        // Track page view to our own analytics
+        navigator.sendBeacon('/api/track?event=page_view');
+    </script>
     <script>
         function copyToClipboard(text, hintId) {
             navigator.clipboard.writeText(text).then(() => {
