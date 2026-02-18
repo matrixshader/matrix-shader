@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - There Is No Spoon | MatrixShader</title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="/shared.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        .container { max-width: 600px; }
+
+        .error-code {
+            font-family: var(--font-mono);
+            font-size: 8rem;
+            font-weight: bold;
+            color: var(--matrix-green);
+            text-shadow: 0 0 60px rgba(0, 255, 65, 0.5), 0 0 120px rgba(0, 255, 65, 0.2);
+            margin-bottom: 0;
+            line-height: 1;
+            letter-spacing: 0.2em;
+            animation: flicker 4s ease-in-out infinite;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.85; }
+            52% { opacity: 1; }
+            54% { opacity: 0.9; }
+        }
+
+        h1 {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            color: var(--matrix-green);
+            margin-bottom: 1.5rem;
+            text-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
+        }
+
+        .quote {
+            color: var(--text-muted);
+            font-style: italic;
+            margin-bottom: 2.5rem;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        .quote em {
+            color: var(--matrix-green);
+            font-style: normal;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .actions a {
+            display: inline-block;
+            padding: 0.75rem 2rem;
+            border: 2px solid rgba(0, 255, 65, 0.3);
+            border-radius: 50px;
+            color: var(--matrix-green);
+            text-decoration: none;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .actions a:hover {
+            background: rgba(0, 255, 65, 0.1);
+            border-color: var(--matrix-green);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
+            text-decoration: none;
+            transform: translateY(-2px);
+        }
+
+        .actions a.primary-action {
+            background: linear-gradient(135deg, rgba(0, 255, 65, 0.2), rgba(0, 255, 65, 0.05));
+            border-color: var(--matrix-green);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-code">404</div>
+        <h1>There Is No Spoon</h1>
+        <p class="quote">"Do not try and find the page. That's impossible. Instead, only try to realize the truth... <em>there is no page.</em>"</p>
+        <div class="actions">
+            <a href="/" class="primary-action">Back to the Matrix</a>
+            <a href="https://github.com/matrixshader/matrix-shader" target="_blank">GitHub</a>
+        </div>
+    </div>
+</body>
+</html>

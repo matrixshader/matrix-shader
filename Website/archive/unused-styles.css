@@ -1,0 +1,88 @@
+/* Archived: Unused CSS selectors removed from styles.css.
+   Originally used for a Free vs Red Pill comparison layout on the homepage.
+   The comparison table in redpill/index.html uses its own inline styles.
+   Kept for potential future use.
+
+   Also archived: --matrix-purple (#ff00ff) CSS variable, unused in the current design.
+*/
+
+/* Free vs Red Pill Comparison */
+.redpill-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin: 2rem 0;
+  text-align: left;
+}
+
+.redpill-col {
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.redpill-col:last-child {
+  border-color: rgba(255, 0, 64, 0.3);
+  background: rgba(255, 0, 64, 0.05);
+}
+
+.redpill-col-title {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.free-title {
+  color: var(--matrix-green);
+}
+
+.paid-title {
+  color: var(--matrix-red);
+  text-shadow: 0 0 10px rgba(255, 0, 64, 0.4);
+}
+
+.redpill-features {
+  list-style: none;
+  padding: 0;
+}
+
+.redpill-features li {
+  padding: 0.4rem 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  position: relative;
+  padding-left: 1.25rem;
+}
+
+.redpill-features li::before {
+  content: '>';
+  position: absolute;
+  left: 0;
+  color: var(--matrix-green);
+  font-family: var(--font-mono);
+  font-weight: bold;
+}
+
+.redpill-col:last-child .redpill-features li::before {
+  color: var(--matrix-red);
+}
+
+/* Hero Red Pill Button */
+.btn-redpill-hero {
+  border-color: var(--matrix-red) !important;
+  color: var(--matrix-red) !important;
+}
+
+.btn-redpill-hero:hover {
+  background: rgba(255, 0, 64, 0.15) !important;
+  border-color: #ff3366 !important;
+  color: #ff3366 !important;
+  box-shadow: 0 0 35px rgba(255, 0, 64, 0.6) !important;
+}
+
+.btn-redpill-hero .btn-subtitle {
+  color: var(--matrix-gold);
+}
