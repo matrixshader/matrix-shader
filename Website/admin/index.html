@@ -22,6 +22,10 @@
     <div class="auth-title">ZION MAINFRAME</div>
     <div class="auth-subtitle">Matrix Shader Command Center</div>
     <input type="password" id="auth-password" placeholder="Enter access code" autofocus>
+    <div class="auth-totp-wrap" id="auth-totp-wrap">
+      <input type="text" id="auth-totp" placeholder="6-digit code" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+      <div class="auth-totp-hint">Enter code from authenticator app</div>
+    </div>
     <button id="auth-submit">JACK IN</button>
     <div class="auth-error" id="auth-error"></div>
   </div>
@@ -112,6 +116,7 @@
     <div class="card">
       <div class="card-title">Current Sprint: <span id="sprint-name">--</span></div>
       <div id="sprint-timeline" class="sprint-timeline"></div>
+      <div id="day-detail" class="day-detail hidden"></div>
     </div>
   </div>
 
@@ -128,6 +133,10 @@
         <div class="goal-kpi"><div class="gk-value gold">0.42%</div><div class="gk-label">Goal %</div></div>
         <div class="goal-kpi"><div class="gk-value">47,100</div><div class="gk-label">Sales Needed</div></div>
       </div>
+      <div class="goal-progress-wrap" id="goal-progress-wrap">
+        <div class="goal-progress-bar"><div class="goal-progress-fill" id="goal-progress-fill"></div></div>
+        <div class="goal-progress-text" id="goal-progress-text">Loading...</div>
+      </div>
     </div>
 
     <!-- Growth Chart + Attack Surface -->
@@ -142,7 +151,7 @@
         </div>
         <div class="chart-wrap"><canvas id="growth-chart"></canvas></div>
         <div class="callout">
-          <strong>Dashed gold line = $400K target.</strong> Green = push every channel. Gold = moderate effort. Red = organic only.
+          <strong>Dashed gold line = $400K target.</strong> Green = all-in marketing blitz. Gold = steady growth + marketing. Red = organic + viral (no paid ads).
         </div>
       </div>
       <div class="card">
