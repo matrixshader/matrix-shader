@@ -93,7 +93,7 @@ export const SECURITY = [
   { id: 'SEC-01', task: 'Add rate limiting to /api/subscribe and /api/track', status: 'pending', detail: '@upstash/ratelimit — prevents bot spam' },
   { id: 'SEC-02', task: 'Lock CORS on /api/subscribe and /api/validate', status: 'pending', detail: 'Currently Access-Control-Allow-Origin: * — lock to matrixshader.com' },
   { id: 'SEC-03', task: 'Add unsubscribe endpoint (/api/unsubscribe)', status: 'pending', detail: 'Required by CAN-SPAM. Add unsubscribe link to emails' },
-  { id: 'SEC-04', task: 'Use timing-safe comparison for dashboard password', status: 'pending', detail: 'crypto.timingSafeEqual instead of !== in api/dashboard.js' },
+  { id: 'SEC-04', task: 'Use timing-safe comparison for dashboard password', status: 'done', detail: 'crypto.timingSafeEqual + TOTP 2FA implemented' },
   { id: 'SEC-05', task: 'Add photosensitivity/seizure warning', status: 'pending', detail: 'README, installer, and website health note' },
   { id: 'SEC-06', task: 'GDPR compliance — data deletion capability', status: 'pending', detail: 'Users can request email deletion via /api/unsubscribe' },
 ];
@@ -152,11 +152,17 @@ const MONTHS = Array.from({ length: 24 }, (_, i) => `M${i + 1}`);
 export { MONTHS };
 
 function organicGrowth(m) {
-  if (m <= 1) return 0.5;
-  if (m <= 3) return 0.5 + (m - 1) * 0.8;
-  if (m <= 6) return 2 + (m - 3) * 0.7;
-  if (m <= 12) return 4.8 + (m - 6) * 0.4;
-  return Math.min(9, 7.2 + (m - 12) * 0.12);
+  // Viral IS organic. A visual product with zero competition gets shared naturally.
+  // Includes: Show HN, Reddit posts, Twitter/X virality, YouTube demos, word of mouth.
+  // Every viral moment converts at high rates because there's nothing else like it.
+  if (m <= 1) return 2;       // Launch buzz — Show HN, first tweets, friends
+  if (m <= 2) return 5;       // Community picks it up, Reddit r/commandline
+  if (m <= 3) return 10;      // First viral moment — visual products get shared
+  if (m <= 5) return 10 + (m - 3) * 6;   // 16, 22 — multi-platform presence
+  if (m <= 8) return 22 + (m - 5) * 6;   // 28, 34, 40 — word of mouth flywheel
+  if (m <= 12) return 40 + (m - 8) * 7;  // 47, 54, 61, 68 — category awareness
+  if (m <= 18) return 68 + (m - 12) * 5; // 73-98 — sustained organic + viral bursts
+  return Math.min(120, 98 + (m - 18) * 4); // 102-120 — mature organic ceiling
 }
 
 function steadyGrowth(m, cumMktg) {

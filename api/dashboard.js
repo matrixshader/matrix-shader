@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import crypto from 'crypto';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -15,10 +16,49 @@ function getLast30Days() {
   return dates;
 }
 
+// TOTP verification using Node.js crypto (no external deps)
+function verifyTOTP(secret, token, window = 1) {
+  if (!secret || !token) return false;
+  const time = Math.floor(Date.now() / 1000 / 30);
+  for (let i = -window; i <= window; i++) {
+    const timeStep = time + i;
+    const buffer = Buffer.alloc(8);
+    buffer.writeUInt32BE(0, 0);
+    buffer.writeUInt32BE(timeStep, 4);
+    const keyBytes = base32Decode(secret);
+    const hmac = crypto.createHmac('sha1', keyBytes);
+    hmac.update(buffer);
+    const hash = hmac.digest();
+    const offset = hash[hash.length - 1] & 0x0f;
+    const code = ((hash[offset] & 0x7f) << 24 | hash[offset + 1] << 16 | hash[offset + 2] << 8 | hash[offset + 3]) % 1000000;
+    const codeStr = code.toString().padStart(6, '0');
+    if (crypto.timingSafeEqual(Buffer.from(codeStr), Buffer.from(token))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function base32Decode(str) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  str = str.replace(/[=\s]/g, '').toUpperCase();
+  let bits = '';
+  for (const c of str) {
+    const val = alphabet.indexOf(c);
+    if (val === -1) continue;
+    bits += val.toString(2).padStart(5, '0');
+  }
+  const bytes = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    bytes.push(parseInt(bits.slice(i, i + 8), 2));
+  }
+  return Buffer.from(bytes);
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-TOTP, X-Session');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -28,15 +68,43 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Auth check
-  const password = process.env.DASHBOARD_PASSWORD;
-  if (!password) {
-    return res.status(500).json({ error: 'Dashboard not configured' });
+  // Auth: check session token first (for auto-refresh), then full password+TOTP
+  let authenticated = false;
+  let newSessionToken = null;
+
+  const sessionHeader = req.headers['x-session'];
+  if (sessionHeader) {
+    try {
+      const valid = await redis.get(`session:${sessionHeader}`);
+      if (valid === 'active') authenticated = true;
+    } catch { /* fall through to full auth */ }
   }
 
-  const auth = req.headers.authorization;
-  if (!auth || auth !== `Bearer ${password}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (!authenticated) {
+    // Full auth: password (timing-safe) + TOTP
+    const password = process.env.DASHBOARD_PASSWORD;
+    if (!password) {
+      return res.status(500).json({ error: 'Dashboard not configured' });
+    }
+
+    const auth = req.headers.authorization;
+    const providedPw = auth ? auth.replace('Bearer ', '') : '';
+    if (!providedPw || !crypto.timingSafeEqual(Buffer.from(providedPw), Buffer.from(password))) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // TOTP check (if TOTP_SECRET is configured)
+    const totpSecret = process.env.TOTP_SECRET;
+    if (totpSecret) {
+      const totpCode = req.headers['x-totp'] || '';
+      if (!totpCode || !verifyTOTP(totpSecret, totpCode)) {
+        return res.status(401).json({ error: 'Invalid 2FA code', requires_totp: true });
+      }
+    }
+
+    // Issue session token for future auto-refreshes (4-hour TTL)
+    newSessionToken = crypto.randomBytes(32).toString('hex');
+    await redis.set(`session:${newSessionToken}`, 'active', { ex: 14400 });
   }
 
   try {
@@ -141,13 +209,9 @@ export default async function handler(req, res) {
       conversion_rate: conversionRate,
     };
 
-    return res.status(200).json({
-      totals,
-      timeseries,
-      subscribers,
-      licenses,
-      funnel,
-    });
+    const response = { totals, timeseries, subscribers, licenses, funnel };
+    if (newSessionToken) response.session_token = newSessionToken;
+    return res.status(200).json(response);
   } catch (err) {
     console.error('Dashboard error:', err);
     return res.status(500).json({ error: 'Failed to load dashboard data' });
