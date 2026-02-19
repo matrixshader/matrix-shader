@@ -1273,3 +1273,164 @@ html {
 .layout-screenshot {
   cursor: zoom-in;
 }
+
+/* Email Gate Modal */
+.email-gate-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.email-gate-overlay.active {
+  display: flex;
+}
+
+.email-gate-card {
+  background: rgba(0, 20, 0, 0.95);
+  border: 1px solid var(--matrix-green);
+  border-radius: 12px;
+  padding: 2.5rem;
+  max-width: 440px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(0, 255, 65, 0.15);
+  position: relative;
+}
+
+.email-gate-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+.email-gate-close:hover {
+  color: var(--matrix-green);
+}
+
+.email-gate-card h2 {
+  font-family: var(--font-mono);
+  color: var(--matrix-green);
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.email-gate-card .gate-subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+
+.email-gate-card .gate-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+  outline: none;
+}
+
+.email-gate-card .gate-input:focus {
+  border-color: var(--matrix-green);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+}
+
+.email-gate-card .gate-btn {
+  width: 100%;
+  padding: 0.85rem;
+  background: var(--matrix-green);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.email-gate-card .gate-btn:hover {
+  box-shadow: var(--glow-green);
+  transform: translateY(-1px);
+}
+
+.email-gate-card .gate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.email-gate-status {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+  min-height: 1.2em;
+}
+
+.email-gate-fine-print {
+  color: #555;
+  font-size: 0.75rem;
+  margin-top: 1rem;
+}
+
+.email-gate-fine-print a {
+  color: #555;
+}
+
+/* Download links revealed after email gate */
+.gate-download-links {
+  margin-top: 1.25rem;
+  text-align: center;
+}
+
+.gate-download-links a {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: var(--matrix-green);
+  color: #000;
+  font-family: var(--font-mono);
+  font-weight: bold;
+  font-size: 0.95rem;
+  text-decoration: none;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.gate-download-links a:hover {
+  box-shadow: var(--glow-green);
+  transform: translateY(-1px);
+}
+
+.gate-download-links .gate-alt-link {
+  display: block;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: normal;
+  padding: 0.25rem;
+}
+
+.gate-download-links .gate-alt-link:hover {
+  color: var(--matrix-green);
+  box-shadow: none;
+  transform: none;
+}

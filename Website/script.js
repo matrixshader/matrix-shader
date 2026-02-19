@@ -15,6 +15,7 @@ class MatrixWebsite {
     this.initAnalytics();
     this.initSmithForm();
     this.initGitHubStars();
+    this.initEmailGate();
   }
 
   // Vercel Analytics helper
@@ -255,6 +256,104 @@ class MatrixWebsite {
       .finally(() => {
         btn.disabled = false;
         btn.textContent = 'Subscribe';
+      });
+    });
+  }
+
+  // Email gate for free downloads
+  initEmailGate() {
+    const overlay = document.getElementById('email-gate');
+    const form = document.getElementById('gate-form');
+    const closeBtn = document.getElementById('gate-close');
+    if (!overlay || !form) return;
+
+    const emailInput = document.getElementById('gate-email');
+    const submitBtn = document.getElementById('gate-btn');
+    const status = document.getElementById('gate-status');
+    const downloads = document.getElementById('gate-downloads');
+
+    // Check if user already passed the gate this session
+    const gateCleared = sessionStorage.getItem('matrixshader_gate_cleared');
+
+    // Selectors for all free download links (hero, get-started section, blue pill card)
+    const downloadSelectors = [
+      'a[href*="MatrixShaderSetup.exe"]:not(.gate-download-links a)',
+      '.btn-bluepill-outline'
+    ];
+
+    // If gate already cleared, let links work normally
+    if (gateCleared) return;
+
+    // Intercept free download clicks
+    downloadSelectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(link => {
+        link.addEventListener('click', (e) => {
+          if (sessionStorage.getItem('matrixshader_gate_cleared')) return;
+          e.preventDefault();
+          overlay.classList.add('active');
+          emailInput.focus();
+        });
+      });
+    });
+
+    // Also intercept the hero "Download Free" button that scrolls to #get-started
+    const heroDownloadBtn = document.querySelector('.hero-buttons a[href="#get-started"]');
+    if (heroDownloadBtn) {
+      heroDownloadBtn.addEventListener('click', (e) => {
+        if (sessionStorage.getItem('matrixshader_gate_cleared')) return;
+        e.preventDefault();
+        overlay.classList.add('active');
+        emailInput.focus();
+      });
+    }
+
+    // Close modal
+    closeBtn.addEventListener('click', () => overlay.classList.remove('active'));
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('active');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') overlay.classList.remove('active');
+    });
+
+    // Form submit
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = emailInput.value.trim();
+      if (!email) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '...';
+      status.textContent = '';
+
+      fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, source: 'download_gate' })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.subscribed) {
+          // Gate cleared
+          sessionStorage.setItem('matrixshader_gate_cleared', '1');
+          status.textContent = 'Welcome, Operator.';
+          status.style.color = '#00ff41';
+          form.style.display = 'none';
+          downloads.style.display = 'block';
+          navigator.sendBeacon('/api/track?event=download');
+          this.track('email_gate_complete', { email: email });
+        } else {
+          status.textContent = data.error || 'Something went wrong.';
+          status.style.color = '#ff0040';
+        }
+      })
+      .catch(() => {
+        status.textContent = 'Connection error. Try again.';
+        status.style.color = '#ff0040';
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Download Free';
       });
     });
   }

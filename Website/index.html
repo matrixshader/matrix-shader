@@ -428,6 +428,25 @@
         <img id="lightbox-img" src="" alt="">
     </div>
 
+    <!-- Email Gate Modal -->
+    <div id="email-gate" class="email-gate-overlay">
+        <div class="email-gate-card">
+            <button class="email-gate-close" id="gate-close">&times;</button>
+            <h2>Before you enter...</h2>
+            <p class="gate-subtitle">Drop your email to download MatrixShader. We'll send you the link and occasional updates.</p>
+            <form id="gate-form">
+                <input type="email" class="gate-input" id="gate-email" placeholder="neo@example.com" required>
+                <button type="submit" class="gate-btn" id="gate-btn">Download Free</button>
+            </form>
+            <p class="email-gate-status" id="gate-status"></p>
+            <div class="gate-download-links" id="gate-downloads" style="display: none;">
+                <a href="https://github.com/matrixshader/matrix-shader/releases/latest/download/MatrixShaderSetup.exe" data-umami-event="Download Click">Download Installer (.exe)</a>
+                <a href="https://github.com/matrixshader/matrix-shader" target="_blank" class="gate-alt-link">or view on GitHub</a>
+            </div>
+            <p class="email-gate-fine-print">No spam. Unsubscribe anytime. <a href="/privacy">Privacy policy</a>.</p>
+        </div>
+    </div>
+
     <script defer src="/_vercel/insights/script.js"></script>
     <script src="script.js"></script>
 </body>
