@@ -4,7 +4,7 @@
 import {
   SCHEDULE, SPRINT, TARGETS, TASKS, SECURITY,
   INTEL, UNLOCKS, MONTHS, GROWTH, buildPath, quarterAgg,
-} from './data.js';
+} from '/admin/data.js';
 
 const API = '/api/dashboard';
 let trafficChart = null;
