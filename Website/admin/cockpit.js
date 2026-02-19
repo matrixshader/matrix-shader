@@ -24,14 +24,28 @@ const videoBg = $('matrix-bg');
 function getToken() { return sessionStorage.getItem('zion_token'); }
 function setToken(t) { sessionStorage.setItem('zion_token', t); }
 function clearToken() { sessionStorage.removeItem('zion_token'); }
+function getSession() { return sessionStorage.getItem('zion_session'); }
+function setSession(t) { sessionStorage.setItem('zion_session', t); }
+function clearSession() { sessionStorage.removeItem('zion_session'); }
 
-async function authenticate(pw) {
+async function authenticate(pw, totp = '') {
   authError.textContent = '';
   try {
-    const res = await fetch(API, { headers: { 'Authorization': `Bearer ${pw}` } });
-    if (res.status === 401) { authError.textContent = 'Access denied.'; return null; }
+    const headers = { 'Authorization': `Bearer ${pw}` };
+    if (totp) headers['X-TOTP'] = totp;
+    const res = await fetch(API, { headers });
+    if (res.status === 401) {
+      const body = await res.json();
+      if (body.requires_totp) {
+        return { requires_totp: true };
+      }
+      authError.textContent = 'Access denied.';
+      return null;
+    }
     if (!res.ok) { authError.textContent = 'Server error.'; return null; }
-    return await res.json();
+    const data = await res.json();
+    if (data.session_token) setSession(data.session_token);
+    return data;
   } catch {
     authError.textContent = 'Connection failed.';
     return null;
@@ -48,22 +62,35 @@ function showDashboard(data) {
 
 function logout() {
   clearToken();
+  clearSession();
   stopAutoRefresh();
   dashboard.classList.add('hidden');
   overlay.classList.remove('hidden');
   videoBg.classList.remove('visible');
   pwInput.value = '';
+  const totpInput = $('auth-totp');
+  if (totpInput) totpInput.value = '';
+  const totpWrap = $('auth-totp-wrap');
+  if (totpWrap) totpWrap.classList.remove('visible');
   authError.textContent = '';
 }
 
 async function loadData() {
+  const session = getSession();
   const token = getToken();
-  if (!token) return;
+  if (!session && !token) return;
   try {
-    const res = await fetch(API, { headers: { 'Authorization': `Bearer ${token}` } });
+    const headers = {};
+    if (session) {
+      headers['X-Session'] = session;
+    } else {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(API, { headers });
     if (res.status === 401) { logout(); return; }
     if (!res.ok) return;
     const data = await res.json();
+    if (data.session_token) setSession(data.session_token);
     renderAll(data);
     updateTimestamp();
   } catch { /* silent fail on refresh */ }
@@ -99,36 +126,76 @@ function switchTab(tabId) {
 }
 
 // ── Render All ──
+let lastTimeseries = null;
 function renderAll(data) {
-  renderKpiBar(data.totals);
+  lastTimeseries = data.timeseries;
+  renderKpiBar(data.totals, data.timeseries);
+  renderGoalProgress(data.totals);
   renderMetrics(data.totals);
   renderFunnel(data.funnel);
   renderChart(data.timeseries);
   renderSubscribers(data.subscribers);
   renderLicenses(data.licenses);
-  // Static tabs (render once)
-  renderCalendar();
-  renderStrategy();
-  renderIntel();
+  // Static tabs (render once on first load)
+  if (!calendarRendered) {
+    renderCalendar();
+    calendarRendered = true;
+  }
+  if (!strategyRendered) {
+    renderStrategy();
+    strategyRendered = true;
+  }
+  if (!intelRendered) {
+    renderIntel();
+    intelRendered = true;
+  }
   updateTimestamp();
 }
+let calendarRendered = false;
+let strategyRendered = false;
+let intelRendered = false;
 
-// ── KPI Bar ──
-function renderKpiBar(t) {
+// ── KPI Bar (with week-over-week deltas) ──
+function renderKpiBar(t, timeseries) {
   const items = [
-    { label: 'Views', value: t.page_views },
-    { label: 'Downloads', value: t.downloads },
-    { label: 'Installs', value: t.installs },
-    { label: 'Activations', value: t.activations },
-    { label: 'Purchases', value: t.purchases },
-    { label: 'Subscribers', value: t.subscribers },
+    { label: 'Views', value: t.page_views, tsKey: 'page_view' },
+    { label: 'Downloads', value: t.downloads, tsKey: 'download' },
+    { label: 'Installs', value: t.installs, tsKey: 'install' },
+    { label: 'Activations', value: t.activations, tsKey: 'activate' },
+    { label: 'Purchases', value: t.purchases, tsKey: 'purchase' },
+    { label: 'Subscribers', value: t.subscribers, tsKey: 'subscribe' },
   ];
-  $('kpi-bar').innerHTML = items.map(m =>
-    `<div class="kpi-card">
+  $('kpi-bar').innerHTML = items.map(m => {
+    let weekTotal = 0, prevWeekTotal = 0;
+    const ts = timeseries && timeseries[m.tsKey];
+    if (ts && ts.length >= 14) {
+      for (let i = ts.length - 7; i < ts.length; i++) weekTotal += ts[i].count;
+      for (let i = ts.length - 14; i < ts.length - 7; i++) prevWeekTotal += ts[i].count;
+    }
+    const delta = weekTotal - prevWeekTotal;
+    const showDelta = weekTotal > 0 || prevWeekTotal > 0;
+    const deltaClass = delta > 0 ? 'up' : delta < 0 ? 'down' : '';
+    const deltaText = delta > 0 ? `+${delta}` : `${delta}`;
+    return `<div class="kpi-card">
       <div class="kpi-value">${m.value.toLocaleString()}</div>
       <div class="kpi-label">${m.label}</div>
-    </div>`
-  ).join('');
+      ${showDelta ? `<div class="kpi-delta ${deltaClass}">${deltaText} this wk</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Goal Progress Bar ──
+function renderGoalProgress(totals) {
+  const totalSales = totals.purchases || 0;
+  const salesNeeded = 47100;
+  const pct = Math.min(100, (totalSales / salesNeeded) * 100);
+  const fill = $('goal-progress-fill');
+  const text = $('goal-progress-text');
+  if (fill) fill.style.width = pct.toFixed(2) + '%';
+  if (text) {
+    const estRevenue = Math.min(totalSales, 5000) * 4.25 + Math.max(0, totalSales - 5000) * 9.00;
+    text.textContent = `${totalSales.toLocaleString()} of ${salesNeeded.toLocaleString()} sales | ~$${Math.round(estRevenue).toLocaleString()} revenue | ${pct.toFixed(1)}%`;
+  }
 }
 
 // ── Analytics: Metrics ──
@@ -226,19 +293,24 @@ function renderLicenses(lics) {
     <tbody>${lics.map(l => `<tr><td>${esc(l.orderId)}</td><td>${esc(l.email || '-')}</td><td>${esc(l.buyerName || '-')}</td><td>${l.activationCount}</td><td>${fmtDate(l.createdAt)}</td></tr>`).join('')}</tbody></table>`;
 }
 
-// ── Calendar Tab ──
+// ── Calendar Tab (Interactive) ──
+let selectedDay = null;
+let selectedSprintDay = null;
+
 function renderCalendar() {
   const now = new Date();
   const today = now.getDay(); // 0=Sun
   const todayISO = now.toISOString().slice(0, 10);
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Weekly strip
+  selectedDay = null;
+
+  // Weekly strip (clickable)
   let weekHtml = '';
   for (let d = 0; d < 7; d++) {
     const info = SCHEDULE[d];
     const isToday = d === today;
-    weekHtml += `<div class="week-day${isToday ? ' today' : ''}">
+    weekHtml += `<div class="week-day${isToday ? ' today' : ''}" data-day="${d}">
       <div class="day-label">${dayNames[d]}</div>
       <div class="day-hat" style="color:${info.color}">${info.hat}</div>
       <div class="day-time">${info.times}</div>
@@ -246,33 +318,111 @@ function renderCalendar() {
   }
   $('week-strip').innerHTML = weekHtml;
 
-  // Today's focus card
-  const todayInfo = SCHEDULE[today];
-  $('today-card').innerHTML = `
-    <div class="today-header">
-      <div class="today-hat" style="color:${todayInfo.color}">${todayInfo.hat}</div>
-      <div class="today-time">${todayInfo.times}</div>
-    </div>
-    <div class="today-label">${todayInfo.label}</div>
-    <ul class="today-tasks">
-      ${todayInfo.tasks.map(t => `<li>${esc(t)}</li>`).join('')}
-    </ul>`;
-  $('today-card').style.borderLeftColor = todayInfo.color;
+  // Click handlers for week days
+  document.querySelectorAll('.week-day').forEach(el => {
+    el.addEventListener('click', () => {
+      const d = parseInt(el.dataset.day);
+      selectedDay = selectedDay === d ? null : d;
+      updateFocusCard();
+      document.querySelectorAll('.week-day').forEach(w => w.classList.remove('selected'));
+      if (selectedDay !== null) el.classList.add('selected');
+    });
+  });
 
-  // Sprint timeline
+  // Initial focus card
+  updateFocusCard();
+
+  // Sprint timeline (clickable)
+  renderSprintTimeline(todayISO);
+}
+
+function updateFocusCard() {
+  const now = new Date();
+  const today = now.getDay();
+  const day = selectedDay !== null ? selectedDay : today;
+  const info = SCHEDULE[day];
+  const isToday = day === today;
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const card = $('today-card');
+  card.innerHTML = `
+    <div class="card-title">${isToday ? "Today's Focus" : dayNames[day] + "'s Focus"}${!isToday ? ' <button class="back-to-today" id="back-to-today">Back to Today</button>' : ''}</div>
+    <div class="today-header">
+      <div class="today-hat" style="color:${info.color}">${info.hat}</div>
+      <div class="today-time">${info.times}</div>
+    </div>
+    <div class="today-label">${info.label}</div>
+    <ul class="today-tasks">
+      ${info.tasks.map(t => `<li>${esc(t)}</li>`).join('')}
+    </ul>`;
+  card.style.borderLeftColor = info.color;
+
+  const backBtn = $('back-to-today');
+  if (backBtn) {
+    backBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectedDay = null;
+      updateFocusCard();
+      document.querySelectorAll('.week-day').forEach(w => w.classList.remove('selected'));
+    });
+  }
+}
+
+function renderSprintTimeline(todayISO) {
   $('sprint-name').textContent = `${SPRINT.name} (${SPRINT.start} to ${SPRINT.end})`;
   let sprintHtml = '';
   for (const day of SPRINT.days) {
     const hatInfo = SCHEDULE[new Date(day.date + 'T12:00:00').getDay()];
     const isToday = day.date === todayISO;
     const isPast = day.date < todayISO;
-    sprintHtml += `<div class="sprint-day${isToday ? ' today' : ''}${isPast ? ' past' : ''}" title="${esc(day.focus)}">
+    sprintHtml += `<div class="sprint-day${isToday ? ' today' : ''}${isPast ? ' past' : ''}" data-sprint-date="${day.date}">
       <div class="sd-dow">${day.dow}</div>
       <div class="sd-date">${day.date.slice(5)}</div>
       <div class="sd-hat" style="color:${hatInfo.color}">${hatInfo.hat.slice(0, 3)}</div>
     </div>`;
   }
   $('sprint-timeline').innerHTML = sprintHtml;
+
+  // Click handlers for sprint days
+  document.querySelectorAll('.sprint-day').forEach(el => {
+    el.addEventListener('click', () => {
+      const date = el.dataset.sprintDate;
+      if (selectedSprintDay === date) {
+        selectedSprintDay = null;
+        $('day-detail').classList.add('hidden');
+      } else {
+        selectedSprintDay = date;
+        showDayDetail(date);
+      }
+      document.querySelectorAll('.sprint-day').forEach(s => s.classList.remove('selected'));
+      if (selectedSprintDay) el.classList.add('selected');
+    });
+  });
+}
+
+function showDayDetail(date) {
+  const day = SPRINT.days.find(d => d.date === date);
+  if (!day) return;
+  const hatInfo = SCHEDULE[new Date(day.date + 'T12:00:00').getDay()];
+  const detail = $('day-detail');
+  detail.innerHTML = `
+    <div class="detail-header">
+      <div class="detail-date">${day.dow} ${day.date.slice(5)}</div>
+      <div class="detail-hat" style="color:${hatInfo.color}">${hatInfo.hat}</div>
+      <div class="detail-time">${hatInfo.times}</div>
+      <button class="detail-close" id="detail-close">x</button>
+    </div>
+    <div class="detail-focus">${esc(day.focus)}</div>
+    <ul class="detail-tasks">
+      ${hatInfo.tasks.map(t => `<li>${esc(t)}</li>`).join('')}
+    </ul>`;
+  detail.classList.remove('hidden');
+
+  $('detail-close').addEventListener('click', () => {
+    detail.classList.add('hidden');
+    selectedSprintDay = null;
+    document.querySelectorAll('.sprint-day').forEach(s => s.classList.remove('selected'));
+  });
 }
 
 // ── Strategy Tab ──
@@ -319,7 +469,7 @@ function makeGrowthDatasets(key) {
   return [
     { label: 'Aggressive', data: GROWTH.aggressive[key], borderColor: '#00ff41', backgroundColor: 'rgba(0,255,65,0.06)', fill: true, tension: 0.3, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 4 },
     { label: 'Steady', data: GROWTH.steady[key], borderColor: '#ffd700', backgroundColor: 'rgba(255,215,0,0.04)', fill: true, tension: 0.3, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4 },
-    { label: 'Organic', data: GROWTH.organic[key], borderColor: '#ff4444', backgroundColor: 'rgba(255,68,68,0.03)', fill: true, tension: 0.3, borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 4 },
+    { label: 'Organic + Viral', data: GROWTH.organic[key], borderColor: '#ff4444', backgroundColor: 'rgba(255,68,68,0.03)', fill: true, tension: 0.3, borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 4 },
   ];
 }
 
@@ -469,13 +619,14 @@ function renderTaskBoard() {
 
 // Security status
 function renderSecurityStatus() {
-  $('security-status').innerHTML = SECURITY.map(s =>
-    `<div class="sec-item">
+  $('security-status').innerHTML = SECURITY.map(s => {
+    const isDone = s.status === 'done';
+    return `<div class="sec-item">
       <span class="sec-id">${s.id}</span>
       <span class="sec-text">${esc(s.task)}</span>
-      <span class="sec-badge">PENDING</span>
-    </div>`
-  ).join('');
+      <span class="sec-badge${isDone ? ' done' : ''}">${isDone ? 'DONE' : 'PENDING'}</span>
+    </div>`;
+  }).join('');
 }
 
 // ── Intel Tab ──
@@ -532,7 +683,17 @@ function init() {
   $('auth-submit').addEventListener('click', async () => {
     const pw = pwInput.value.trim();
     if (!pw) return;
-    const data = await authenticate(pw);
+    const totpInput = $('auth-totp');
+    const totp = totpInput ? totpInput.value.trim() : '';
+
+    const data = await authenticate(pw, totp);
+    if (data && data.requires_totp) {
+      // Show TOTP input field
+      $('auth-totp-wrap').classList.add('visible');
+      $('auth-totp').focus();
+      authError.textContent = 'Enter 2FA code from your authenticator app.';
+      return;
+    }
     if (data) {
       setToken(pw);
       setupVideo();
@@ -544,6 +705,19 @@ function init() {
     if (e.key === 'Enter') $('auth-submit').click();
   });
 
+  // TOTP input: auto-submit on 6 digits, Enter key support
+  const totpField = $('auth-totp');
+  if (totpField) {
+    totpField.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('auth-submit').click();
+    });
+    totpField.addEventListener('input', () => {
+      if (totpField.value.length === 6) {
+        $('auth-submit').click();
+      }
+    });
+  }
+
   $('btn-logout').addEventListener('click', logout);
   $('btn-refresh').addEventListener('click', loadData);
 
@@ -554,12 +728,37 @@ function init() {
 
   // Auto-login from session
   (async () => {
+    // Try session token first (persists TOTP verification)
+    const session = getSession();
+    if (session) {
+      try {
+        const res = await fetch(API, { headers: { 'X-Session': session } });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.session_token) setSession(data.session_token);
+          setupVideo();
+          showDashboard(data);
+          return;
+        }
+      } catch { /* fall through */ }
+      clearSession();
+    }
+
+    // Try password token (may require TOTP again)
     const token = getToken();
     if (token) {
       const data = await authenticate(token);
-      if (data) {
+      if (data && !data.requires_totp) {
         setupVideo();
         showDashboard(data);
+        return;
+      }
+      if (data && data.requires_totp) {
+        // Pre-fill password, show TOTP input
+        pwInput.value = token;
+        $('auth-totp-wrap').classList.add('visible');
+        $('auth-totp').focus();
+        authError.textContent = 'Session expired. Enter 2FA code to reconnect.';
         return;
       }
       clearToken();
