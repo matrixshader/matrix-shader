@@ -190,8 +190,13 @@ class MatrixWebsite {
     // Skip all tracking if owner is logged into admin (same browser)
     if (sessionStorage.getItem('zion_session')) return;
 
-    // Page view
-    navigator.sendBeacon('/api/track?event=page_view');
+    // Page view (once per visitor per day — dedup via localStorage)
+    const today = new Date().toISOString().slice(0, 10);
+    const lastView = localStorage.getItem('ms_last_view');
+    if (lastView !== today) {
+      navigator.sendBeacon('/api/track?event=page_view');
+      localStorage.setItem('ms_last_view', today);
+    }
 
     // Download button clicks
     document.querySelectorAll('[data-umami-event="Download Click"]').forEach(el => {

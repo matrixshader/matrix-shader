@@ -55,7 +55,7 @@ async function authenticate(pw, totp = '') {
 function showDashboard(data) {
   overlay.classList.add('hidden');
   dashboard.classList.remove('hidden');
-  videoBg.classList.add('visible');
+
   if (data.totp_enabled !== undefined) totpEnabled = data.totp_enabled;
   update2faButton();
   renderAll(data);
@@ -68,7 +68,6 @@ function logout() {
   stopAutoRefresh();
   dashboard.classList.add('hidden');
   overlay.classList.remove('hidden');
-  videoBg.classList.remove('visible');
   pwInput.value = '';
   const totpInput = $('auth-totp');
   if (totpInput) totpInput.value = '';
@@ -339,6 +338,22 @@ function renderCalendar() {
   renderSprintTimeline(todayISO);
 }
 
+// Map hat to task board departments
+const HAT_DEPTS = {
+  BUILDER: ['ENG', 'PLT'],
+  MARKETER: ['GTM'],
+  OPERATOR: ['BIZ', 'CEO', 'SUP'],
+  RESEARCHER: ['ENG', 'GTM'],
+  HUMAN: [],
+};
+
+function getTasksForHat(hat) {
+  const depts = HAT_DEPTS[hat] || [];
+  if (!depts.length) return [];
+  const allTasks = [...(TASKS.now || []), ...(TASKS.week || []), ...(TASKS.month || [])];
+  return allTasks.filter(t => depts.includes(t.dept));
+}
+
 function updateFocusCard() {
   const now = new Date();
   const today = now.getDay();
@@ -346,6 +361,9 @@ function updateFocusCard() {
   const info = SCHEDULE[day];
   const isToday = day === today;
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  // Get real tasks from task board for this hat
+  const hatTasks = getTasksForHat(info.hat);
 
   const card = $('today-card');
   card.innerHTML = `
@@ -355,9 +373,9 @@ function updateFocusCard() {
       <div class="today-time">${info.times}</div>
     </div>
     <div class="today-label">${info.label}</div>
-    <ul class="today-tasks">
-      ${info.tasks.map(t => `<li>${esc(t)}</li>`).join('')}
-    </ul>`;
+    ${hatTasks.length ? `<ul class="today-tasks">
+      ${hatTasks.map(t => `<li><span style="opacity:0.5;font-size:9px">${t.dept}</span> ${esc(t.task)} ${t.status === 'in_progress' ? '<span style="color:var(--green);font-size:9px">IN PROGRESS</span>' : ''}</li>`).join('')}
+    </ul>` : `<ul class="today-tasks"><li style="color:var(--text-dim)">No tasks. Rest and recharge.</li></ul>`}`;
   card.style.borderLeftColor = info.color;
 
   const backBtn = $('back-to-today');
@@ -407,6 +425,7 @@ function showDayDetail(date) {
   const day = SPRINT.days.find(d => d.date === date);
   if (!day) return;
   const hatInfo = SCHEDULE[new Date(day.date + 'T12:00:00').getDay()];
+  const hatTasks = getTasksForHat(hatInfo.hat);
   const detail = $('day-detail');
   detail.innerHTML = `
     <div class="detail-header">
@@ -416,9 +435,9 @@ function showDayDetail(date) {
       <button class="detail-close" id="detail-close">x</button>
     </div>
     <div class="detail-focus">${esc(day.focus)}</div>
-    <ul class="detail-tasks">
-      ${hatInfo.tasks.map(t => `<li>${esc(t)}</li>`).join('')}
-    </ul>`;
+    ${hatTasks.length ? `<ul class="detail-tasks">
+      ${hatTasks.map(t => `<li><span style="opacity:0.5;font-size:9px">${t.dept}</span> ${esc(t.task)} ${t.status === 'in_progress' ? '<span style="color:var(--green);font-size:9px">IN PROGRESS</span>' : ''}</li>`).join('')}
+    </ul>` : ''}`;
   detail.classList.remove('hidden');
 
   $('detail-close').addEventListener('click', () => {
@@ -661,11 +680,6 @@ function renderIntel() {
     </div>`;
 }
 
-// ── Video Background ──
-function setupVideo() {
-  videoBg.load();
-}
-
 // ── 2FA Management ──
 let totpEnabled = false;
 let pendingTotpSecret = null;
@@ -811,7 +825,7 @@ function init() {
     }
     if (data) {
       setToken(pw);
-      setupVideo();
+
       showDashboard(data);
     }
   });
@@ -881,7 +895,7 @@ function init() {
         if (res.ok) {
           const data = await res.json();
           if (data.session_token) setSession(data.session_token);
-          setupVideo();
+    
           showDashboard(data);
           return;
         }
@@ -894,7 +908,7 @@ function init() {
     if (token) {
       const data = await authenticate(token);
       if (data && !data.requires_totp) {
-        setupVideo();
+  
         showDashboard(data);
         return;
       }
