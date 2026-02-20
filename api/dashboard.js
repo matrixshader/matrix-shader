@@ -109,11 +109,11 @@ export default async function handler(req, res) {
   }
 
   if (!authenticated) {
-    // IP rate limit: 10 failed attempts → locked for 15 minutes
+    // IP rate limit: 5 failed attempts → locked for 15 minutes
     const rlKey = `ratelimit:${ip}`;
     try {
       const failures = Number(await redis.get(rlKey)) || 0;
-      if (failures >= 10) {
+      if (failures >= 5) {
         return res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.' });
       }
     } catch { /* allow through if Redis fails */ }
