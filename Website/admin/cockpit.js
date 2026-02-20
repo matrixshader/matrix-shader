@@ -663,21 +663,7 @@ function renderIntel() {
 
 // ── Video Background ──
 function setupVideo() {
-  // Try blue video first, fall back to green
-  const blueSource = videoBg.querySelector('source[data-blue]');
-  const greenSource = videoBg.querySelector('source[data-green]');
-  if (blueSource) {
-    videoBg.src = '';
-    const blueSrc = blueSource.getAttribute('src');
-    videoBg.src = blueSrc;
-    videoBg.load();
-    videoBg.onerror = () => {
-      if (greenSource) {
-        videoBg.src = greenSource.getAttribute('src');
-        videoBg.load();
-      }
-    };
-  }
+  videoBg.load();
 }
 
 // ── 2FA Management ──
