@@ -4,7 +4,7 @@
 import {
   SCHEDULE, SPRINT, TARGETS, TASKS, SECURITY,
   INTEL, UNLOCKS, MONTHS, GROWTH, buildPath, quarterAgg,
-} from '/admin/data.js';
+} from '/303h4rdl1n3/data.js';
 
 const API = '/api/dashboard';
 let trafficChart = null;
@@ -42,7 +42,10 @@ async function authenticate(pw, totp = '') {
       authError.textContent = 'Access denied.';
       return null;
     }
-    if (!res.ok) { authError.textContent = 'Server error.'; return null; }
+    if (!res.ok) {
+      try { const body = await res.json(); authError.textContent = body.error || 'Server error.'; } catch { authError.textContent = 'Server error.'; }
+      return null;
+    }
     const data = await res.json();
     if (data.session_token) setSession(data.session_token);
     return data;

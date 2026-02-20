@@ -91,11 +91,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // IP from Vercel headers (x-forwarded-for) or fallback
+  const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+
   // Auth: session token first, then full password+TOTP
   let authenticated = false;
   let newSessionToken = null;
   const totpSecret = await getTotpSecret();
 
+  // Session-based auth (auto-refresh) — not rate limited
   const sessionHeader = req.headers['x-session'];
   if (sessionHeader) {
     try {
@@ -105,6 +109,15 @@ export default async function handler(req, res) {
   }
 
   if (!authenticated) {
+    // IP rate limit: 3 failed attempts → locked until manually cleared
+    const rlKey = `ratelimit:${ip}`;
+    try {
+      const failures = Number(await redis.get(rlKey)) || 0;
+      if (failures >= 3) {
+        return res.status(429).json({ error: 'Too many failed attempts. IP locked.' });
+      }
+    } catch { /* allow through if Redis fails */ }
+
     const password = process.env.DASHBOARD_PASSWORD;
     if (!password) {
       return res.status(500).json({ error: 'Dashboard not configured' });
@@ -113,15 +126,20 @@ export default async function handler(req, res) {
     const auth = req.headers.authorization;
     const providedPw = auth ? auth.replace('Bearer ', '') : '';
     if (!providedPw || !crypto.timingSafeEqual(Buffer.from(providedPw), Buffer.from(password))) {
+      try { await redis.incr(rlKey); } catch { /* best effort */ }
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     if (totpSecret) {
       const totpCode = req.headers['x-totp'] || '';
       if (!totpCode || !verifyTOTP(totpSecret, totpCode)) {
+        try { await redis.incr(rlKey); } catch { /* best effort */ }
         return res.status(401).json({ error: 'Invalid 2FA code', requires_totp: true });
       }
     }
+
+    // Successful auth — clear rate limit for this IP
+    try { await redis.del(rlKey); } catch { /* best effort */ }
 
     newSessionToken = crypto.randomBytes(32).toString('hex');
     await redis.set(`session:${newSessionToken}`, 'active', { ex: 14400 });
