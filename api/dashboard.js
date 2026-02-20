@@ -109,12 +109,12 @@ export default async function handler(req, res) {
   }
 
   if (!authenticated) {
-    // IP rate limit: 3 failed attempts → locked until manually cleared
+    // IP rate limit: 10 failed attempts → locked for 15 minutes
     const rlKey = `ratelimit:${ip}`;
     try {
       const failures = Number(await redis.get(rlKey)) || 0;
-      if (failures >= 3) {
-        return res.status(429).json({ error: 'Too many failed attempts. IP locked.' });
+      if (failures >= 10) {
+        return res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.' });
       }
     } catch { /* allow through if Redis fails */ }
 
@@ -126,14 +126,19 @@ export default async function handler(req, res) {
     const auth = req.headers.authorization;
     const providedPw = auth ? auth.replace('Bearer ', '') : '';
     if (!providedPw || !crypto.timingSafeEqual(Buffer.from(providedPw), Buffer.from(password))) {
-      try { await redis.incr(rlKey); } catch { /* best effort */ }
+      try { await redis.incr(rlKey); await redis.expire(rlKey, 900); } catch { /* best effort */ }
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     if (totpSecret) {
       const totpCode = req.headers['x-totp'] || '';
-      if (!totpCode || !verifyTOTP(totpSecret, totpCode)) {
-        try { await redis.incr(rlKey); } catch { /* best effort */ }
+      if (!totpCode) {
+        // No TOTP provided — tell client to show TOTP field (don't count as failure)
+        return res.status(401).json({ error: 'Enter 2FA code', requires_totp: true });
+      }
+      if (!verifyTOTP(totpSecret, totpCode)) {
+        // Wrong TOTP code — count as failure
+        try { await redis.incr(rlKey); await redis.expire(rlKey, 900); } catch { /* best effort */ }
         return res.status(401).json({ error: 'Invalid 2FA code', requires_totp: true });
       }
     }
