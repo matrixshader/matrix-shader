@@ -4,11 +4,12 @@
 /* ── Design Tokens ── */
 :root {
   --bg: #0a0a0a;
-  --card-bg: rgba(0, 20, 0, 0.6);
-  --card-border: rgba(0, 255, 65, 0.15);
+  --accent-rgb: 0, 255, 65;
+  --card-bg: rgba(0, 8, 24, 0.6);
+  --card-border: rgba(var(--accent-rgb), 0.15);
   --green: #00ff41;
   --green-dim: #00cc33;
-  --green-glow: 0 0 20px rgba(0, 255, 65, 0.3);
+  --green-glow: 0 0 20px rgba(var(--accent-rgb), 0.3);
   --red: #ff0040;
   --yellow: #ffcc00;
   --gold: #ffd700;
@@ -45,15 +46,13 @@ body {
   width: 100%; height: 100%;
   z-index: -1;
   object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.8s ease;
+  opacity: 0.7;
 }
-#matrix-bg.visible { opacity: 0.7; }
 
 /* ── Auth Modal ── */
 .auth-overlay {
   position: fixed; inset: 0;
-  background: var(--bg);
+  background: rgba(0, 0, 0, 0.65);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
   flex-direction: column;
@@ -61,7 +60,7 @@ body {
 .auth-overlay.hidden { display: none; }
 
 .auth-box {
-  background: rgba(0, 20, 0, 0.4);
+  background: rgba(0, 8, 24, 0.4);
   border: 1px solid var(--card-border);
   backdrop-filter: blur(10px);
   border-radius: 12px;
@@ -96,11 +95,11 @@ body {
   outline: none;
   margin-bottom: 16px;
 }
-.auth-box input:focus { border-color: var(--green); box-shadow: 0 0 12px rgba(0, 255, 65, 0.15); }
+.auth-box input:focus { border-color: var(--green); box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.15); }
 .auth-box button {
   width: 100%;
   padding: 12px;
-  background: rgba(0, 255, 65, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   border: 1px solid var(--green);
   border-radius: 6px;
   color: var(--green);
@@ -110,7 +109,7 @@ body {
   letter-spacing: 2px;
   transition: background 0.2s;
 }
-.auth-box button:hover { background: rgba(0, 255, 65, 0.25); }
+.auth-box button:hover { background: rgba(var(--accent-rgb), 0.25); }
 .auth-error {
   color: var(--red);
   font-size: 12px;
@@ -118,8 +117,16 @@ body {
   min-height: 18px;
 }
 
-/* ── Dashboard Shell ── */
+/* ── Dashboard Shell (blue theme) ── */
 .dashboard {
+  --accent-rgb: 68, 136, 255;
+  --green: #4488ff;
+  --green-dim: #3366cc;
+  --green-glow: 0 0 20px rgba(var(--accent-rgb), 0.3);
+  --card-bg: rgba(0, 8, 24, 0.6);
+  --card-border: rgba(var(--accent-rgb), 0.15);
+  --text: #b0c8ff;
+  --text-dim: #4a6a9a;
   max-width: 1240px;
   margin: 0 auto;
   padding: 20px 20px 40px;
@@ -225,12 +232,12 @@ body {
   transition: all 0.2s;
   text-transform: uppercase;
 }
-.tab-btn:hover { color: var(--green); background: rgba(0, 255, 65, 0.04); }
+.tab-btn:hover { color: var(--green); background: rgba(var(--accent-rgb), 0.04); }
 .tab-btn.active {
   color: var(--green);
-  background: rgba(0, 255, 65, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   border-color: var(--card-border);
-  text-shadow: 0 0 8px rgba(0, 255, 65, 0.3);
+  text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3);
 }
 
 /* ── Tab Panels ── */
@@ -363,14 +370,14 @@ th {
   border-bottom: 1px solid var(--card-border);
   position: sticky;
   top: 0;
-  background: rgba(0, 10, 0, 0.95);
+  background: rgba(0, 4, 12, 0.95);
 }
 td {
   padding: 7px 10px;
-  border-bottom: 1px solid rgba(0, 255, 65, 0.05);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.05);
   color: var(--text);
 }
-tr:hover td { background: rgba(0, 255, 65, 0.03); }
+tr:hover td { background: rgba(var(--accent-rgb), 0.03); }
 .empty-state {
   text-align: center;
   padding: 28px;
@@ -397,7 +404,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
 }
 .week-day.today {
   border-color: var(--green);
-  box-shadow: 0 0 20px rgba(0, 255, 65, 0.2), inset 0 0 20px rgba(0, 255, 65, 0.05);
+  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.2), inset 0 0 20px rgba(var(--accent-rgb), 0.05);
 }
 .week-day .day-label {
   font-size: 10px;
@@ -422,7 +429,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   padding: 24px;
   margin-bottom: 20px;
   border-radius: 12px;
-  background: rgba(0, 20, 0, 0.5);
+  background: rgba(0, 8, 24, 0.5);
   border-left: 4px solid;
 }
 .today-card .today-header {
@@ -485,7 +492,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
 }
 .sprint-day.today {
   border-color: var(--green);
-  box-shadow: 0 0 12px rgba(0, 255, 65, 0.15);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.15);
 }
 .sprint-day.past { opacity: 0.5; }
 .sprint-day .sd-date {
@@ -562,8 +569,8 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   flex-wrap: wrap;
 }
 .controls button {
-  background: rgba(0, 255, 65, 0.06);
-  border: 1px solid rgba(0, 255, 65, 0.2);
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
   color: var(--green);
   font-family: var(--font);
   font-size: 10px;
@@ -575,9 +582,9 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
 }
 .controls button:hover,
 .controls button.active {
-  background: rgba(0, 255, 65, 0.18);
+  background: rgba(var(--accent-rgb), 0.18);
   border-color: var(--green);
-  box-shadow: 0 0 8px rgba(0, 255, 65, 0.15);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.15);
 }
 
 /* Attack surface map */
@@ -590,7 +597,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   align-items: center;
   gap: 10px;
   padding: 7px 0;
-  border-bottom: 1px solid rgba(0, 255, 65, 0.05);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.05);
   font-size: 12px;
 }
 .target-item:last-child { border-bottom: none; }
@@ -605,7 +612,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   min-width: 72px;
   text-align: center;
 }
-.target-status.shipping { background: rgba(0, 255, 65, 0.2); color: var(--green); }
+.target-status.shipping { background: rgba(var(--accent-rgb), 0.2); color: var(--green); }
 .target-status.ready { background: rgba(68, 136, 255, 0.2); color: var(--blue); }
 .target-status.free { background: rgba(0, 204, 204, 0.2); color: var(--cyan); }
 .target-status.planned { background: rgba(255, 204, 0, 0.15); color: var(--yellow); }
@@ -626,7 +633,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   gap: 8px;
 }
 .task-count {
-  background: rgba(0, 255, 65, 0.15);
+  background: rgba(var(--accent-rgb), 0.15);
   color: var(--green);
   font-size: 10px;
   padding: 1px 7px;
@@ -653,7 +660,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   border-radius: 3px;
   flex-shrink: 0;
 }
-.task-badge.in_progress { background: rgba(0, 255, 65, 0.15); color: var(--green); }
+.task-badge.in_progress { background: rgba(var(--accent-rgb), 0.15); color: var(--green); }
 .task-badge.pending { background: rgba(255, 204, 0, 0.12); color: var(--yellow); }
 
 /* Security status */
@@ -662,7 +669,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   align-items: flex-start;
   gap: 10px;
   padding: 6px 0;
-  border-bottom: 1px solid rgba(0, 255, 65, 0.05);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.05);
   font-size: 11px;
 }
 .sec-item:last-child { border-bottom: none; }
@@ -683,7 +690,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   flex-shrink: 0;
 }
 .sec-badge.done {
-  background: rgba(0, 255, 65, 0.15);
+  background: rgba(var(--accent-rgb), 0.15);
   color: var(--green);
 }
 
@@ -706,10 +713,10 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
 .data-table td {
   padding: 6px 8px;
   text-align: right;
-  border-bottom: 1px solid rgba(0, 255, 65, 0.04);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.04);
 }
 .data-table td:first-child { text-align: left; color: var(--text-dim); }
-.data-table tr:hover td { background: rgba(0, 255, 65, 0.03); }
+.data-table tr:hover td { background: rgba(var(--accent-rgb), 0.03); }
 .data-table tr.highlight td { background: rgba(255, 215, 0, 0.04); }
 .green { color: var(--green); }
 .gold { color: var(--gold); }
@@ -769,7 +776,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   display: flex;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(0, 255, 65, 0.05);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.05);
   font-size: 11px;
   align-items: flex-start;
 }
@@ -788,7 +795,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   border-radius: 3px;
   flex-shrink: 0;
 }
-.agent-conf.HIGH { background: rgba(0, 255, 65, 0.15); color: var(--green); }
+.agent-conf.HIGH { background: rgba(var(--accent-rgb), 0.15); color: var(--green); }
 .agent-conf.MEDIUM { background: rgba(255, 204, 0, 0.12); color: var(--yellow); }
 
 /* ── 2FA Header Button ── */
@@ -807,10 +814,10 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
 }
 .btn-2fa:hover { background: rgba(255, 204, 0, 0.18); border-color: var(--yellow); }
 .btn-2fa.active {
-  background: rgba(0, 255, 65, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
   border-color: var(--green);
   color: var(--green);
-  box-shadow: 0 0 8px rgba(0, 255, 65, 0.15);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.15);
 }
 
 /* ── 2FA Setup Modal ── */
@@ -824,7 +831,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
 .modal-overlay.hidden { display: none; }
 
 .modal-box {
-  background: rgba(0, 15, 0, 0.95);
+  background: rgba(0, 6, 18, 0.95);
   border: 1px solid var(--card-border);
   backdrop-filter: blur(10px);
   border-radius: 14px;
@@ -891,15 +898,15 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   color: var(--green);
   font-size: 12px;
   letter-spacing: 2px;
-  background: rgba(0, 255, 65, 0.06);
+  background: rgba(var(--accent-rgb), 0.06);
   padding: 4px 10px;
   border-radius: 4px;
-  border: 1px solid rgba(0, 255, 65, 0.15);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
   word-break: break-all;
 }
 .totp-copy-btn {
-  background: rgba(0, 255, 65, 0.08);
-  border: 1px solid rgba(0, 255, 65, 0.2);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
   color: var(--green);
   font-family: var(--font);
   font-size: 9px;
@@ -909,7 +916,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   letter-spacing: 1px;
   transition: all 0.2s;
 }
-.totp-copy-btn:hover { background: rgba(0, 255, 65, 0.2); }
+.totp-copy-btn:hover { background: rgba(var(--accent-rgb), 0.2); }
 
 .totp-verify-section, .totp-disable-section {
   margin-top: 16px;
@@ -918,7 +925,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   width: 100%;
   padding: 12px 16px;
   background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(0, 255, 65, 0.25);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
   border-radius: 6px;
   color: var(--green);
   font-family: var(--font);
@@ -930,13 +937,13 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
 }
 .totp-verify-section input:focus, .totp-disable-section input:focus {
   border-color: var(--green);
-  box-shadow: 0 0 12px rgba(0, 255, 65, 0.15);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.15);
 }
 
 .btn-verify {
   width: 100%;
   padding: 12px;
-  background: rgba(0, 255, 65, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   border: 1px solid var(--green);
   border-radius: 6px;
   color: var(--green);
@@ -947,7 +954,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   letter-spacing: 2px;
   transition: background 0.2s;
 }
-.btn-verify:hover { background: rgba(0, 255, 65, 0.25); }
+.btn-verify:hover { background: rgba(var(--accent-rgb), 0.25); }
 
 .btn-danger {
   width: 100%;
@@ -969,7 +976,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   display: inline-block;
   padding: 6px 20px;
   margin: 12px 0;
-  background: rgba(0, 255, 65, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
   border: 1px solid var(--green);
   border-radius: 6px;
   color: var(--green);
@@ -996,7 +1003,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   width: 100%;
   padding: 12px 16px;
   background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(0, 255, 65, 0.3);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
   border-radius: 6px;
   color: var(--green);
   font-family: var(--font);
@@ -1005,7 +1012,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   text-align: center;
   outline: none;
 }
-.auth-totp-wrap input:focus { border-color: var(--green); box-shadow: 0 0 12px rgba(0, 255, 65, 0.15); }
+.auth-totp-wrap input:focus { border-color: var(--green); box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.15); }
 .auth-totp-hint {
   color: var(--text-dim);
   font-size: 10px;
@@ -1043,7 +1050,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   background: linear-gradient(90deg, var(--green), var(--gold));
   border-radius: 5px;
   transition: width 1.5s ease;
-  box-shadow: 0 0 8px rgba(0, 255, 65, 0.3);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3);
 }
 .goal-progress-text {
   font-size: 10px;
@@ -1058,8 +1065,8 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   cursor: pointer;
 }
 .week-day:hover {
-  background: rgba(0, 255, 65, 0.06);
-  border-color: rgba(0, 255, 65, 0.2);
+  background: rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.2);
 }
 .week-day.selected {
   border-color: var(--gold);
@@ -1067,8 +1074,8 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   background: rgba(255, 215, 0, 0.05);
 }
 .back-to-today {
-  background: rgba(0, 255, 65, 0.08);
-  border: 1px solid rgba(0, 255, 65, 0.25);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
   color: var(--green);
   font-family: var(--font);
   font-size: 9px;
@@ -1080,15 +1087,15 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   vertical-align: middle;
   transition: all 0.2s;
 }
-.back-to-today:hover { background: rgba(0, 255, 65, 0.2); }
+.back-to-today:hover { background: rgba(var(--accent-rgb), 0.2); }
 
 .sprint-day {
   cursor: pointer;
   transition: all 0.2s;
 }
 .sprint-day:hover {
-  background: rgba(0, 255, 65, 0.08);
-  border-color: rgba(0, 255, 65, 0.2);
+  background: rgba(var(--accent-rgb), 0.08);
+  border-color: rgba(var(--accent-rgb), 0.2);
   transform: translateY(-1px);
 }
 .sprint-day.selected {
@@ -1101,7 +1108,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
 .day-detail {
   margin-top: 12px;
   padding: 16px 20px;
-  background: rgba(0, 20, 0, 0.5);
+  background: rgba(0, 8, 24, 0.5);
   border: 1px solid rgba(255, 215, 0, 0.2);
   border-radius: 10px;
   animation: slideDown 0.25s ease;
@@ -1153,7 +1160,7 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
   color: var(--text);
   line-height: 1.7;
   padding: 8px 0;
-  border-top: 1px solid rgba(0, 255, 65, 0.06);
+  border-top: 1px solid rgba(var(--accent-rgb), 0.06);
 }
 .detail-tasks {
   list-style: none;
