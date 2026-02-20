@@ -14,26 +14,28 @@ export const SCHEDULE = {
 };
 
 // ── Current Sprint ──
+// Update the focus text here with ACTUAL plans for each day.
+// The calendar also pulls real tasks from TASKS below based on hat->department mapping.
 export const SPRINT = {
-  name: 'Hardening + Ghostty Port',
+  name: 'Launch Prep + Ghostty Port',
   start: '2026-02-19',
   end: '2026-03-05',
   days: [
-    { date: '2026-02-19', dow: 'Wed', hat: 'BUILDER', focus: 'Help overlay done. Security audit done. Research done.' },
-    { date: '2026-02-20', dow: 'Thu', hat: 'MARKETER', focus: 'Post about features. Start security fixes (rate limiting, CORS).' },
-    { date: '2026-02-21', dow: 'Fri', hat: 'BUILDER', focus: 'Finish security fixes. E2E Round 2 in Sandbox.' },
-    { date: '2026-02-22', dow: 'Sat', hat: 'RESEARCHER', focus: 'Ghostty shader port — translate HLSL to GLSL.' },
-    { date: '2026-02-23', dow: 'Sun', hat: 'HUMAN', focus: 'Karaoke.' },
-    { date: '2026-02-24', dow: 'Mon', hat: 'OPERATOR', focus: 'Dashboard check. Bookkeeping. LLC progress.' },
-    { date: '2026-02-25', dow: 'Tue', hat: 'MARKETER', focus: 'Reddit draft. Tweet Ghostty shader preview.' },
-    { date: '2026-02-26', dow: 'Wed', hat: 'BUILDER', focus: 'Ghostty shader polish + Tattoy test.' },
-    { date: '2026-02-27', dow: 'Thu', hat: 'MARKETER', focus: 'Post Ghostty shader demo. Start "Coming Soon" website section.' },
-    { date: '2026-02-28', dow: 'Fri', hat: 'BUILDER', focus: 'Ship day. /dejavu if ready. Update README.' },
-    { date: '2026-03-01', dow: 'Sat', hat: 'BUILDER', focus: 'Easter egg messages in shader (fun feature).' },
+    { date: '2026-02-19', dow: 'Wed', hat: 'BUILDER', focus: 'Zion Mainframe cockpit polish. Build v1.0.1 release with UpdateChecker.' },
+    { date: '2026-02-20', dow: 'Thu', hat: 'MARKETER', focus: 'Write first Agent Smith email campaign. Screenshot new features for posts.' },
+    { date: '2026-02-21', dow: 'Fri', hat: 'BUILDER', focus: 'Rate limiting + CORS security fixes. E2E Round 2 in Sandbox.' },
+    { date: '2026-02-22', dow: 'Sat', hat: 'RESEARCHER', focus: 'Ghostty shader port — translate HLSL to GLSL. Test hot-reload.' },
+    { date: '2026-02-23', dow: 'Sun', hat: 'HUMAN', focus: 'Karaoke. Recharge.' },
+    { date: '2026-02-24', dow: 'Mon', hat: 'OPERATOR', focus: 'Traveling Mailbox setup. LemonSqueezy email config. LLC filing ($104).' },
+    { date: '2026-02-25', dow: 'Tue', hat: 'MARKETER', focus: 'Reddit launch post draft (r/commandline). GitHub README redesign.' },
+    { date: '2026-02-26', dow: 'Wed', hat: 'BUILDER', focus: 'Ghostty shader polish. FAQ page. BetterStack monitoring setup.' },
+    { date: '2026-02-27', dow: 'Thu', hat: 'MARKETER', focus: 'Record 60s demo video. Post Ghostty shader preview to Twitter/X.' },
+    { date: '2026-02-28', dow: 'Fri', hat: 'BUILDER', focus: 'Ship day. /dejavu v1.0.1 release. Verify support links. Update README.' },
+    { date: '2026-03-01', dow: 'Sat', hat: 'BUILDER', focus: 'Wave bookkeeping setup. Sentry error tracking. Redis backup schedule.' },
     { date: '2026-03-02', dow: 'Sun', hat: 'HUMAN', focus: 'Rest.' },
-    { date: '2026-03-03', dow: 'Mon', hat: 'OPERATOR', focus: 'Sprint retrospective. Plan next sprint.' },
-    { date: '2026-03-04', dow: 'Tue', hat: 'MARKETER', focus: 'Launch Ghostty shaders to community. Submit to shader repos.' },
-    { date: '2026-03-05', dow: 'Wed', hat: 'BUILDER', focus: 'Sprint buffer / overflow.' },
+    { date: '2026-03-03', dow: 'Mon', hat: 'OPERATOR', focus: 'Sprint retrospective. Open business bank account. Plan next sprint.' },
+    { date: '2026-03-04', dow: 'Tue', hat: 'MARKETER', focus: 'Product Hunt launch prep. Hacker News "Show HN" draft.' },
+    { date: '2026-03-05', dow: 'Wed', hat: 'BUILDER', focus: 'Sprint buffer. VS Code extension research spike.' },
   ],
 };
 

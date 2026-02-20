@@ -298,8 +298,14 @@
     <!-- LemonSqueezy checkout overlay -->
     <script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
     <script>
-        // Track page view (skip if owner is logged into admin)
-        if (!sessionStorage.getItem('zion_session')) navigator.sendBeacon('/api/track?event=page_view');
+        // Track page view (skip owner + dedup same visitor per day)
+        if (!sessionStorage.getItem('zion_session')) {
+            var today = new Date().toISOString().slice(0, 10);
+            if (localStorage.getItem('ms_last_view') !== today) {
+                navigator.sendBeacon('/api/track?event=page_view');
+                localStorage.setItem('ms_last_view', today);
+            }
+        }
 
         // Track buy button click
         var buyBtn = document.getElementById('buy-button');
