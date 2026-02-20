@@ -55,22 +55,46 @@ function base32Decode(str) {
   return Buffer.from(bytes);
 }
 
+function base32Encode(buffer) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const byte of buffer) {
+    bits += byte.toString(2).padStart(8, '0');
+  }
+  let result = '';
+  for (let i = 0; i < bits.length; i += 5) {
+    const chunk = bits.slice(i, i + 5).padEnd(5, '0');
+    result += alphabet[parseInt(chunk, 2)];
+  }
+  return result;
+}
+
+// Get TOTP secret from Redis (self-service) or env var (manual)
+async function getTotpSecret() {
+  try {
+    const fromRedis = await redis.get('totp:secret');
+    if (fromRedis) return fromRedis;
+  } catch { /* fall through */ }
+  return process.env.TOTP_SECRET || null;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-TOTP, X-Session');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Auth: check session token first (for auto-refresh), then full password+TOTP
+  // Auth: session token first, then full password+TOTP
   let authenticated = false;
   let newSessionToken = null;
+  const totpSecret = await getTotpSecret();
 
   const sessionHeader = req.headers['x-session'];
   if (sessionHeader) {
@@ -81,7 +105,6 @@ export default async function handler(req, res) {
   }
 
   if (!authenticated) {
-    // Full auth: password (timing-safe) + TOTP
     const password = process.env.DASHBOARD_PASSWORD;
     if (!password) {
       return res.status(500).json({ error: 'Dashboard not configured' });
@@ -93,8 +116,6 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // TOTP check (if TOTP_SECRET is configured)
-    const totpSecret = process.env.TOTP_SECRET;
     if (totpSecret) {
       const totpCode = req.headers['x-totp'] || '';
       if (!totpCode || !verifyTOTP(totpSecret, totpCode)) {
@@ -102,11 +123,55 @@ export default async function handler(req, res) {
       }
     }
 
-    // Issue session token for future auto-refreshes (4-hour TTL)
     newSessionToken = crypto.randomBytes(32).toString('hex');
     await redis.set(`session:${newSessionToken}`, 'active', { ex: 14400 });
   }
 
+  // ── POST: TOTP management ──
+  if (req.method === 'POST') {
+    const { action, secret, code } = req.body || {};
+
+    if (action === 'totp-setup') {
+      // Generate a new 20-byte secret
+      const secretBytes = crypto.randomBytes(20);
+      const secretB32 = base32Encode(secretBytes);
+      const uri = `otpauth://totp/MatrixShader:admin?secret=${secretB32}&issuer=MatrixShader&algorithm=SHA1&digits=6&period=30`;
+      const response = { secret: secretB32, uri };
+      if (newSessionToken) response.session_token = newSessionToken;
+      return res.status(200).json(response);
+    }
+
+    if (action === 'totp-verify') {
+      if (!secret || !code) {
+        return res.status(400).json({ error: 'Secret and code required' });
+      }
+      if (!verifyTOTP(secret, code)) {
+        return res.status(400).json({ error: 'Invalid code. Check your app and try again.' });
+      }
+      // Save to Redis (permanent — no TTL)
+      await redis.set('totp:secret', secret);
+      const response = { success: true };
+      if (newSessionToken) response.session_token = newSessionToken;
+      return res.status(200).json(response);
+    }
+
+    if (action === 'totp-disable') {
+      if (!code) {
+        return res.status(400).json({ error: 'Enter your current 2FA code to disable' });
+      }
+      if (!totpSecret || !verifyTOTP(totpSecret, code)) {
+        return res.status(400).json({ error: 'Invalid code' });
+      }
+      await redis.del('totp:secret');
+      const response = { success: true };
+      if (newSessionToken) response.session_token = newSessionToken;
+      return res.status(200).json(response);
+    }
+
+    return res.status(400).json({ error: 'Unknown action' });
+  }
+
+  // ── GET: Dashboard data ──
   try {
     // 1. Totals
     const statKeys = [
@@ -209,7 +274,7 @@ export default async function handler(req, res) {
       conversion_rate: conversionRate,
     };
 
-    const response = { totals, timeseries, subscribers, licenses, funnel };
+    const response = { totals, timeseries, subscribers, licenses, funnel, totp_enabled: !!totpSecret };
     if (newSessionToken) response.session_token = newSessionToken;
     return res.status(200).json(response);
   } catch (err) {

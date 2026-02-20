@@ -56,6 +56,8 @@ function showDashboard(data) {
   overlay.classList.add('hidden');
   dashboard.classList.remove('hidden');
   videoBg.classList.add('visible');
+  if (data.totp_enabled !== undefined) totpEnabled = data.totp_enabled;
+  update2faButton();
   renderAll(data);
   startAutoRefresh();
 }
@@ -91,6 +93,7 @@ async function loadData() {
     if (!res.ok) return;
     const data = await res.json();
     if (data.session_token) setSession(data.session_token);
+    if (data.totp_enabled !== undefined) { totpEnabled = data.totp_enabled; update2faButton(); }
     renderAll(data);
     updateTimestamp();
   } catch { /* silent fail on refresh */ }
@@ -677,6 +680,132 @@ function setupVideo() {
   }
 }
 
+// ── 2FA Management ──
+let totpEnabled = false;
+let pendingTotpSecret = null;
+
+function update2faButton() {
+  const btn = $('btn-2fa');
+  if (!btn) return;
+  if (totpEnabled) {
+    btn.classList.add('active');
+    btn.textContent = '2FA';
+    btn.title = 'Two-Factor Authentication (Active)';
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = '2FA';
+    btn.title = 'Set up Two-Factor Authentication';
+  }
+}
+
+function open2faModal() {
+  const modal = $('totp-modal');
+  modal.classList.remove('hidden');
+  if (totpEnabled) {
+    $('totp-setup-view').classList.add('hidden');
+    $('totp-enabled-view').classList.remove('hidden');
+    $('totp-disable-error').textContent = '';
+    const disableInput = $('totp-disable-code');
+    if (disableInput) { disableInput.value = ''; disableInput.focus(); }
+  } else {
+    $('totp-setup-view').classList.remove('hidden');
+    $('totp-enabled-view').classList.add('hidden');
+    $('totp-setup-error').textContent = '';
+    startTotpSetup();
+  }
+}
+
+function close2faModal() {
+  $('totp-modal').classList.add('hidden');
+  pendingTotpSecret = null;
+}
+
+async function apiPost(action, body = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  const session = getSession();
+  const token = getToken();
+  if (session) headers['X-Session'] = session;
+  else if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(API, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action, ...body }),
+  });
+  const data = await res.json();
+  if (data.session_token) setSession(data.session_token);
+  return { ok: res.ok, data };
+}
+
+async function startTotpSetup() {
+  const { ok, data } = await apiPost('totp-setup');
+  if (!ok) {
+    $('totp-setup-error').textContent = data.error || 'Failed to generate secret.';
+    return;
+  }
+  pendingTotpSecret = data.secret;
+
+  // Render QR code
+  const canvas = $('totp-qr-canvas');
+  try {
+    await QRCode.toCanvas(canvas, data.uri, {
+      width: 200,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' },
+    });
+  } catch {
+    $('totp-setup-error').textContent = 'Failed to render QR code.';
+  }
+
+  // Show manual secret (formatted in groups of 4)
+  const formatted = data.secret.replace(/(.{4})/g, '$1 ').trim();
+  $('totp-manual-secret').textContent = formatted;
+
+  const codeInput = $('totp-setup-code');
+  if (codeInput) { codeInput.value = ''; codeInput.focus(); }
+}
+
+async function verifyTotpSetup() {
+  const code = ($('totp-setup-code').value || '').trim();
+  if (!code || code.length !== 6) {
+    $('totp-setup-error').textContent = 'Enter the 6-digit code from your app.';
+    return;
+  }
+  if (!pendingTotpSecret) {
+    $('totp-setup-error').textContent = 'No secret generated. Try again.';
+    return;
+  }
+
+  const { ok, data } = await apiPost('totp-verify', { secret: pendingTotpSecret, code });
+  if (!ok) {
+    $('totp-setup-error').textContent = data.error || 'Verification failed.';
+    return;
+  }
+
+  totpEnabled = true;
+  pendingTotpSecret = null;
+  update2faButton();
+  close2faModal();
+}
+
+async function disableTotp() {
+  const code = ($('totp-disable-code').value || '').trim();
+  if (!code || code.length !== 6) {
+    $('totp-disable-error').textContent = 'Enter your current 6-digit code.';
+    return;
+  }
+
+  const { ok, data } = await apiPost('totp-disable', { code });
+  if (!ok) {
+    $('totp-disable-error').textContent = data.error || 'Failed to disable.';
+    return;
+  }
+
+  totpEnabled = false;
+  update2faButton();
+  close2faModal();
+}
+
 // ── Init ──
 function init() {
   // Auth handlers
@@ -720,6 +849,36 @@ function init() {
 
   $('btn-logout').addEventListener('click', logout);
   $('btn-refresh').addEventListener('click', loadData);
+
+  // 2FA modal handlers
+  $('btn-2fa').addEventListener('click', open2faModal);
+  $('totp-modal-close').addEventListener('click', close2faModal);
+  $('totp-modal').addEventListener('click', (e) => {
+    if (e.target === $('totp-modal')) close2faModal();
+  });
+  $('totp-verify-btn').addEventListener('click', verifyTotpSetup);
+  $('totp-disable-btn').addEventListener('click', disableTotp);
+  $('totp-copy-btn').addEventListener('click', () => {
+    const secret = pendingTotpSecret;
+    if (secret) {
+      navigator.clipboard.writeText(secret).then(() => {
+        $('totp-copy-btn').textContent = 'Copied';
+        setTimeout(() => { $('totp-copy-btn').textContent = 'Copy'; }, 2000);
+      });
+    }
+  });
+
+  // Auto-submit on 6 digits in setup/disable inputs
+  const setupCode = $('totp-setup-code');
+  if (setupCode) {
+    setupCode.addEventListener('input', () => { if (setupCode.value.length === 6) verifyTotpSetup(); });
+    setupCode.addEventListener('keydown', (e) => { if (e.key === 'Enter') verifyTotpSetup(); });
+  }
+  const disableCode = $('totp-disable-code');
+  if (disableCode) {
+    disableCode.addEventListener('input', () => { if (disableCode.value.length === 6) disableTotp(); });
+    disableCode.addEventListener('keydown', (e) => { if (e.key === 'Enter') disableTotp(); });
+  }
 
   // Tab handlers
   document.querySelectorAll('.tab-btn').forEach(btn => {

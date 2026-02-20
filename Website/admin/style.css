@@ -791,6 +791,201 @@ tr:hover td { background: rgba(0, 255, 65, 0.03); }
 .agent-conf.HIGH { background: rgba(0, 255, 65, 0.15); color: var(--green); }
 .agent-conf.MEDIUM { background: rgba(255, 204, 0, 0.12); color: var(--yellow); }
 
+/* ── 2FA Header Button ── */
+.btn-2fa {
+  background: rgba(255, 204, 0, 0.08);
+  border: 1px solid rgba(255, 204, 0, 0.3);
+  border-radius: 6px;
+  color: var(--yellow);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 7px 12px;
+  cursor: pointer;
+  letter-spacing: 2px;
+  transition: all 0.2s;
+}
+.btn-2fa:hover { background: rgba(255, 204, 0, 0.18); border-color: var(--yellow); }
+.btn-2fa.active {
+  background: rgba(0, 255, 65, 0.1);
+  border-color: var(--green);
+  color: var(--green);
+  box-shadow: 0 0 8px rgba(0, 255, 65, 0.15);
+}
+
+/* ── 2FA Setup Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2000;
+}
+.modal-overlay.hidden { display: none; }
+
+.modal-box {
+  background: rgba(0, 15, 0, 0.95);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(10px);
+  border-radius: 14px;
+  padding: 36px 32px;
+  max-width: 440px;
+  width: 92%;
+  position: relative;
+  text-align: center;
+}
+.modal-close {
+  position: absolute;
+  top: 12px; right: 14px;
+  background: rgba(255, 0, 64, 0.08);
+  border: 1px solid rgba(255, 0, 64, 0.25);
+  color: var(--red);
+  font-family: var(--font);
+  font-size: 13px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.modal-close:hover { background: rgba(255, 0, 64, 0.2); }
+.modal-title {
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+.modal-subtitle {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-bottom: 20px;
+}
+
+.totp-qr-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 10px;
+  display: inline-block;
+}
+.totp-qr-wrap canvas {
+  display: block;
+}
+
+.totp-manual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0 20px;
+  flex-wrap: wrap;
+}
+.totp-manual-label {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+.totp-manual code {
+  color: var(--green);
+  font-size: 12px;
+  letter-spacing: 2px;
+  background: rgba(0, 255, 65, 0.06);
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 255, 65, 0.15);
+  word-break: break-all;
+}
+.totp-copy-btn {
+  background: rgba(0, 255, 65, 0.08);
+  border: 1px solid rgba(0, 255, 65, 0.2);
+  color: var(--green);
+  font-family: var(--font);
+  font-size: 9px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+.totp-copy-btn:hover { background: rgba(0, 255, 65, 0.2); }
+
+.totp-verify-section, .totp-disable-section {
+  margin-top: 16px;
+}
+.totp-verify-section input, .totp-disable-section input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 255, 65, 0.25);
+  border-radius: 6px;
+  color: var(--green);
+  font-family: var(--font);
+  font-size: 18px;
+  letter-spacing: 6px;
+  text-align: center;
+  outline: none;
+  margin-bottom: 10px;
+}
+.totp-verify-section input:focus, .totp-disable-section input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.15);
+}
+
+.btn-verify {
+  width: 100%;
+  padding: 12px;
+  background: rgba(0, 255, 65, 0.12);
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  color: var(--green);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 2px;
+  transition: background 0.2s;
+}
+.btn-verify:hover { background: rgba(0, 255, 65, 0.25); }
+
+.btn-danger {
+  width: 100%;
+  padding: 12px;
+  background: rgba(255, 0, 64, 0.08);
+  border: 1px solid rgba(255, 0, 64, 0.4);
+  border-radius: 6px;
+  color: var(--red);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 2px;
+  transition: background 0.2s;
+}
+.btn-danger:hover { background: rgba(255, 0, 64, 0.2); }
+
+.totp-active-badge {
+  display: inline-block;
+  padding: 6px 20px;
+  margin: 12px 0;
+  background: rgba(0, 255, 65, 0.1);
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-shadow: var(--green-glow);
+}
+
+.totp-error {
+  color: var(--red);
+  font-size: 11px;
+  margin-top: 8px;
+  min-height: 16px;
+}
+
 /* ── TOTP Auth Input ── */
 .auth-totp-wrap {
   display: none;
