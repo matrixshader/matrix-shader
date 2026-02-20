@@ -187,6 +187,9 @@ class MatrixWebsite {
 
   // Analytics event tracking
   initAnalytics() {
+    // Skip all tracking if owner is logged into admin (same browser)
+    if (sessionStorage.getItem('zion_session')) return;
+
     // Page view
     navigator.sendBeacon('/api/track?event=page_view');
 
