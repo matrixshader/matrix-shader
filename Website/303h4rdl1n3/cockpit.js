@@ -18,7 +18,8 @@ const overlay = $('auth-overlay');
 const dashboard = $('dashboard');
 const pwInput = $('auth-password');
 const authError = $('auth-error');
-const videoBg = $('matrix-bg');
+const greenBg = $('matrix-bg-green');
+const blueBg = $('matrix-bg-blue');
 
 // ── Auth ──
 function getToken() { return sessionStorage.getItem('zion_token'); }
@@ -59,6 +60,10 @@ function showDashboard(data) {
   overlay.classList.add('hidden');
   dashboard.classList.remove('hidden');
 
+  // Swap to blue rain video after auth
+  greenBg.classList.add('hidden');
+  blueBg.classList.remove('hidden');
+
   if (data.totp_enabled !== undefined) totpEnabled = data.totp_enabled;
   update2faButton();
   renderAll(data);
@@ -71,6 +76,11 @@ function logout() {
   stopAutoRefresh();
   dashboard.classList.add('hidden');
   overlay.classList.remove('hidden');
+
+  // Swap back to green rain video
+  greenBg.classList.remove('hidden');
+  blueBg.classList.add('hidden');
+
   pwInput.value = '';
   const totpInput = $('auth-totp');
   if (totpInput) totpInput.value = '';
