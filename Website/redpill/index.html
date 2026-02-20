@@ -298,8 +298,8 @@
     <!-- LemonSqueezy checkout overlay -->
     <script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
     <script>
-        // Track page view to our own analytics
-        navigator.sendBeacon('/api/track?event=page_view');
+        // Track page view (skip if owner is logged into admin)
+        if (!sessionStorage.getItem('zion_session')) navigator.sendBeacon('/api/track?event=page_view');
 
         // Track buy button click
         var buyBtn = document.getElementById('buy-button');

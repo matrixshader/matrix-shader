@@ -420,8 +420,8 @@
 
     <script defer src="/_vercel/insights/script.js"></script>
     <script>
-        // Track page view
-        navigator.sendBeacon('/api/track?event=page_view');
+        // Track page view (skip if owner is logged into admin)
+        if (!sessionStorage.getItem('zion_session')) navigator.sendBeacon('/api/track?event=page_view');
 
         function showStep(id) {
             document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
