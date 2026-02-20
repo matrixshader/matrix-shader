@@ -164,11 +164,18 @@ function renderAll(data) {
     renderIntel();
     intelRendered = true;
   }
+  if (!emailRendered) {
+    renderEmailTab(data.subscribers);
+    emailRendered = true;
+  } else {
+    renderEmailSubscribers(data.subscribers);
+  }
   updateTimestamp();
 }
 let calendarRendered = false;
 let strategyRendered = false;
 let intelRendered = false;
+let emailRendered = false;
 
 // ── KPI Bar (with week-over-week deltas) ──
 function renderKpiBar(t, timeseries) {
@@ -691,6 +698,139 @@ function renderIntel() {
       ${INTEL.comparable}<br>
       MatrixShader is the developer-terminal version of that same idea, now going everywhere.
     </div>`;
+}
+
+// ── Email Tab ──
+const EMAIL_API = '/api/email';
+let allSubscribers = [];
+
+async function emailPost(action, body = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  const session = getSession();
+  const token = getToken();
+  if (session) headers['X-Session'] = session;
+  else if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(EMAIL_API, { method: 'POST', headers, body: JSON.stringify({ action, ...body }) });
+  return { ok: res.ok, data: await res.json() };
+}
+
+function renderEmailTab(subscribers) {
+  allSubscribers = subscribers || [];
+  renderEmailSubscribers(allSubscribers);
+  loadEmailConfig();
+  loadCampaignHistory();
+  wireEmailHandlers();
+}
+
+function renderEmailSubscribers(subscribers) {
+  allSubscribers = subscribers || [];
+  $('email-sub-count').textContent = allSubscribers.length;
+  const query = ($('email-search')?.value || '').toLowerCase();
+  const filtered = query ? allSubscribers.filter(s =>
+    (s.email || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query)
+  ) : allSubscribers;
+  const el = $('email-sub-table');
+  if (!filtered.length) { el.innerHTML = '<div class="empty-state">No subscribers</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Date</th><th></th></tr></thead>
+    <tbody>${filtered.map(s => `<tr>
+      <td>${esc(s.email)}</td>
+      <td>${esc(s.name || '-')}</td>
+      <td>${esc(s.source || '-')}</td>
+      <td>${fmtDate(s.subscribedAt)}</td>
+      <td><button class="sub-delete" data-email="${esc(s.email)}">x</button></td>
+    </tr>`).join('')}</tbody></table>`;
+  // Wire delete buttons
+  el.querySelectorAll('.sub-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`Remove ${btn.dataset.email}?`)) return;
+      const { ok } = await emailPost('delete-subscriber', { email: btn.dataset.email });
+      if (ok) {
+        allSubscribers = allSubscribers.filter(s => s.email !== btn.dataset.email);
+        renderEmailSubscribers(allSubscribers);
+      }
+    });
+  });
+}
+
+async function loadEmailConfig() {
+  const { ok, data } = await emailPost('config');
+  if (!ok) { $('email-config-status').innerHTML = '<div class="empty-state">Failed to load config</div>'; return; }
+  $('email-config-status').innerHTML = `
+    <div class="config-row"><span class="config-dot ${data.resend_configured ? 'ok' : 'missing'}"></span><span class="config-label">Resend API:</span><span class="config-value">${data.resend_configured ? 'Connected' : 'Not configured (set RESEND_API_KEY in Vercel)'}</span></div>
+    <div class="config-row"><span class="config-dot ${data.owner_email ? 'ok' : 'missing'}"></span><span class="config-label">Owner Email:</span><span class="config-value">${data.owner_email || 'Not set (set OWNER_EMAIL in Vercel)'}</span></div>
+    <div class="config-row"><span class="config-dot ${data.email_from ? 'ok' : 'missing'}"></span><span class="config-label">From Address:</span><span class="config-value">${esc(data.email_from)}</span></div>
+    <div class="config-row"><span class="config-dot ${data.lemonsqueezy_configured ? 'ok' : 'missing'}"></span><span class="config-label">LemonSqueezy Sync:</span><span class="config-value">${data.lemonsqueezy_configured ? 'Active' : 'Not configured'}</span></div>`;
+}
+
+async function loadCampaignHistory() {
+  const { ok, data } = await emailPost('campaigns');
+  const el = $('email-campaign-history');
+  if (!ok || !data.campaigns || !data.campaigns.length) {
+    el.innerHTML = '<div class="empty-state">No campaigns sent yet</div>';
+    return;
+  }
+  el.innerHTML = `<table><thead><tr><th>Subject</th><th>Sent</th><th>Delivered</th><th>Failed</th><th>Date</th></tr></thead>
+    <tbody>${data.campaigns.map(c => `<tr>
+      <td>${esc(c.subject)}</td>
+      <td>${c.total}</td>
+      <td class="green">${c.sent}</td>
+      <td class="${c.failed > 0 ? 'red' : ''}">${c.failed}</td>
+      <td>${fmtDate(c.sentAt)}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function wireEmailHandlers() {
+  // Search
+  $('email-search').addEventListener('input', () => renderEmailSubscribers(allSubscribers));
+
+  // Export CSV
+  $('btn-export-subs').addEventListener('click', () => {
+    if (!allSubscribers.length) return;
+    const csv = 'email,name,source,subscribedAt\n' +
+      allSubscribers.map(s => `${s.email},"${(s.name || '').replace(/"/g, '""')}",${s.source || ''},${s.subscribedAt || ''}`).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `matrixshader-subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  });
+
+  // Send test
+  $('btn-send-test').addEventListener('click', async () => {
+    const subject = $('email-subject').value.trim();
+    const body = $('email-body').value.trim();
+    const preview = $('email-preview').value.trim();
+    if (!subject || !body) { setEmailStatus('Subject and body required', 'error'); return; }
+    setEmailStatus('Sending test email...', 'sending');
+    const { ok, data } = await emailPost('send-test', { subject, body, preview });
+    if (ok) setEmailStatus('Test email sent! Check your inbox.', 'success');
+    else setEmailStatus(data.error || 'Failed to send', 'error');
+  });
+
+  // Send to all
+  $('btn-send-all').addEventListener('click', async () => {
+    const subject = $('email-subject').value.trim();
+    const body = $('email-body').value.trim();
+    const preview = $('email-preview').value.trim();
+    if (!subject || !body) { setEmailStatus('Subject and body required', 'error'); return; }
+    if (!confirm(`Send "${subject}" to ${allSubscribers.length} subscribers?`)) return;
+    setEmailStatus(`Sending to ${allSubscribers.length} subscribers...`, 'sending');
+    $('btn-send-all').disabled = true;
+    const { ok, data } = await emailPost('send-campaign', { subject, body, preview });
+    $('btn-send-all').disabled = false;
+    if (ok) {
+      setEmailStatus(`Campaign sent! ${data.sent} delivered, ${data.failed} failed.`, data.failed > 0 ? 'error' : 'success');
+      loadCampaignHistory();
+    } else {
+      setEmailStatus(data.error || 'Failed to send campaign', 'error');
+    }
+  });
+}
+
+function setEmailStatus(msg, type) {
+  const el = $('email-status');
+  el.textContent = msg;
+  el.className = 'email-status ' + (type || '');
 }
 
 // ── 2FA Management ──

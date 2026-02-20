@@ -57,6 +57,7 @@
     <button class="tab-btn active" data-tab="analytics">Analytics</button>
     <button class="tab-btn" data-tab="calendar">Calendar</button>
     <button class="tab-btn" data-tab="strategy">Strategy</button>
+    <button class="tab-btn" data-tab="email">Email</button>
     <button class="tab-btn" data-tab="intel">Intel</button>
   </div>
 
@@ -198,6 +199,64 @@
     <div class="card">
       <div class="card-title">Security Hardening Status</div>
       <div id="security-status"></div>
+    </div>
+  </div>
+
+  <!-- ═══ EMAIL TAB ═══ -->
+  <div class="tab-panel" id="tab-email">
+
+    <!-- Subscriber List -->
+    <div class="card mb-16">
+      <div class="card-title">
+        Subscribers <span class="email-count" id="email-sub-count">0</span>
+        <button class="btn-sm" id="btn-export-subs" style="margin-left:auto;float:right">Export CSV</button>
+      </div>
+      <div class="email-search-bar">
+        <input type="text" id="email-search" placeholder="Search subscribers...">
+      </div>
+      <div class="table-wrap" style="max-height:300px" id="email-sub-table">
+        <div class="empty-state">Loading subscribers...</div>
+      </div>
+    </div>
+
+    <!-- Compose Email -->
+    <div class="card mb-16">
+      <div class="card-title">Compose Campaign</div>
+      <div class="email-compose">
+        <div class="email-field">
+          <label>Subject</label>
+          <input type="text" id="email-subject" placeholder="Wake up, Neo...">
+        </div>
+        <div class="email-field">
+          <label>Preview Text</label>
+          <input type="text" id="email-preview" placeholder="Short preview shown in inbox">
+        </div>
+        <div class="email-field">
+          <label>Body (HTML supported)</label>
+          <textarea id="email-body" rows="12" placeholder="Write your email here. HTML tags work. Use {{name}} for subscriber name."></textarea>
+        </div>
+        <div class="email-actions">
+          <button class="btn-send-test" id="btn-send-test">Send Test to Me</button>
+          <button class="btn-send-all" id="btn-send-all">Send to All Subscribers</button>
+        </div>
+        <div class="email-status" id="email-status"></div>
+      </div>
+    </div>
+
+    <!-- Campaign History -->
+    <div class="card">
+      <div class="card-title">Campaign History</div>
+      <div class="table-wrap" style="max-height:300px" id="email-campaign-history">
+        <div class="empty-state">No campaigns sent yet</div>
+      </div>
+    </div>
+
+    <!-- Email Config -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Email Configuration</div>
+      <div id="email-config-status" class="email-config-status">
+        <div class="loading"><div class="spinner"></div><br>Checking...</div>
+      </div>
     </div>
   </div>
 
