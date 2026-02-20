@@ -6,6 +6,7 @@
   <title>Zion Mainframe | Matrix Shader Command Center</title>
   <meta name="robots" content="noindex, nofollow">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
   <link rel="stylesheet" href="/admin/style.css">
 </head>
 <body>
@@ -42,6 +43,7 @@
     </div>
     <div class="header-right">
       <div class="header-meta">Last updated: <span id="last-updated">--</span></div>
+      <button class="btn-2fa" id="btn-2fa" title="Two-Factor Authentication">2FA</button>
       <button class="btn-icon" id="btn-refresh">Refresh</button>
       <button class="btn-icon" id="btn-logout">Logout</button>
     </div>
@@ -216,6 +218,48 @@
       <div class="card">
         <div class="card-title">Comparable Product</div>
         <div id="intel-comparable"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2FA Setup Modal -->
+  <div class="modal-overlay hidden" id="totp-modal">
+    <div class="modal-box">
+      <button class="modal-close" id="totp-modal-close">x</button>
+
+      <!-- Setup state (TOTP not yet enabled) -->
+      <div id="totp-setup-view">
+        <div class="modal-title">SET UP TWO-FACTOR AUTHENTICATION</div>
+        <div class="modal-subtitle">Scan with Google Authenticator, Authy, or any TOTP app</div>
+
+        <div class="totp-qr-wrap">
+          <canvas id="totp-qr-canvas"></canvas>
+        </div>
+
+        <div class="totp-manual">
+          <span class="totp-manual-label">Manual key:</span>
+          <code id="totp-manual-secret">--</code>
+          <button class="totp-copy-btn" id="totp-copy-btn">Copy</button>
+        </div>
+
+        <div class="totp-verify-section">
+          <input type="text" id="totp-setup-code" placeholder="Enter 6-digit code to verify" maxlength="6" inputmode="numeric">
+          <button class="btn-verify" id="totp-verify-btn">VERIFY & ENABLE</button>
+        </div>
+        <div class="totp-error" id="totp-setup-error"></div>
+      </div>
+
+      <!-- Enabled state (TOTP active) -->
+      <div id="totp-enabled-view" class="hidden">
+        <div class="modal-title">TWO-FACTOR AUTHENTICATION</div>
+        <div class="totp-active-badge">2FA ACTIVE</div>
+        <div class="modal-subtitle">Your dashboard is protected with two-factor authentication.</div>
+
+        <div class="totp-disable-section">
+          <input type="text" id="totp-disable-code" placeholder="Enter current code to disable" maxlength="6" inputmode="numeric">
+          <button class="btn-danger" id="totp-disable-btn">DISABLE 2FA</button>
+        </div>
+        <div class="totp-error" id="totp-disable-error"></div>
       </div>
     </div>
   </div>
