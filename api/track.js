@@ -42,8 +42,18 @@ export default async function handler(req, res) {
     }
   }
 
-  // GET /api/track — return all stats
+  // GET /api/track — return all stats (or operator count)
   if (req.method === 'GET') {
+    // Read operator count for pre-checkout animation
+    if (req.query.event === 'operator_count' && req.query.read === '1') {
+      try {
+        const count = Number(await redis.get('stats:customer_number')) || 0;
+        return res.status(200).json({ count });
+      } catch (err) {
+        return res.status(200).json({ count: 0 });
+      }
+    }
+
     try {
       const keys = [
         'stats:download', 'stats:install', 'stats:activate',
