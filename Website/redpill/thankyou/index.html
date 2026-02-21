@@ -163,8 +163,8 @@
     <div class="container">
         <a href="/" class="back-link">&lt; matrixshader.com</a>
 
-        <h1>WELCOME TO THE REAL WORLD.</h1>
-        <p class="tagline">Your Red Pill license key is below.</p>
+        <h1 id="welcome-title">WELCOME TO THE REAL WORLD.</h1>
+        <p class="tagline" id="welcome-tagline">Your Red Pill license key is below.</p>
 
         <div id="result">
             <p class="loading">Generating your license key...</p>
@@ -239,6 +239,15 @@
         }
 
         function showKey(data) {
+            // Show operator number if available
+            if (data.customer_number) {
+                var num = String(data.customer_number).padStart(3, '0');
+                document.getElementById('welcome-title').textContent =
+                    'WELCOME, OPERATOR #' + num + '.';
+                document.getElementById('welcome-tagline').textContent =
+                    'You have been unplugged. Your Red Pill license key is below.';
+            }
+
             document.getElementById('result').innerHTML = `
                 <div class="key-card">
                     <div class="key-label">YOUR LICENSE KEY</div>

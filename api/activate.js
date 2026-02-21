@@ -103,23 +103,31 @@ export default async function handler(req, res) {
 
   // Store key metadata in KV for activation tracking
   const keyHash = crypto.createHash('sha256').update(key).digest('hex').slice(0, 32);
+  let customerNumber = null;
   try {
     const existing = await redis.get(`key:${keyHash}`);
     if (!existing) {
+      customerNumber = await redis.incr('stats:customer_number');
       await redis.set(`key:${keyHash}`, JSON.stringify({
         orderId: `LS-${orderId}`,
+        customerNumber,
         createdAt: new Date().toISOString(),
         activations: [],
       }));
+    } else {
+      const data = typeof existing === 'string' ? JSON.parse(existing) : existing;
+      customerNumber = data.customerNumber || null;
     }
   } catch (err) {
     // KV failure should not block key generation
     console.error('KV store error:', err);
   }
 
-  return res.status(200).json({
+  const response = {
     key,
     order_id: orderId,
     message: 'Run: redpill --activate ' + key,
-  });
+  };
+  if (customerNumber) response.customer_number = customerNumber;
+  return res.status(200).json(response);
 }

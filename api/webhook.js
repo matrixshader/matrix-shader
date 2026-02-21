@@ -92,10 +92,13 @@ export default async function handler(req, res) {
 
       const existing = await redis.get(`key:${keyHash}`);
       if (!existing) {
+        // Assign sequential customer number
+        const customerNumber = await redis.incr('stats:customer_number');
         await redis.set(`key:${keyHash}`, JSON.stringify({
           orderId: `LS-${orderId}`,
           email: buyerEmail,
           buyerName: buyerName,
+          customerNumber,
           createdAt: new Date().toISOString(),
           activations: [],
         }));

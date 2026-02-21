@@ -151,6 +151,49 @@
             margin-bottom: 0.75rem;
         }
 
+        /* Terminal pre-checkout overlay */
+        #terminal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .terminal-box {
+            background: rgba(0, 8, 0, 0.95);
+            border: 1px solid rgba(0, 255, 65, 0.3);
+            border-radius: 8px;
+            padding: 2rem 2.5rem;
+            max-width: 560px;
+            width: 90%;
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            box-shadow: 0 0 40px rgba(0, 255, 65, 0.1);
+        }
+        .term-line {
+            color: var(--matrix-green);
+            margin-bottom: 0.4rem;
+            opacity: 0;
+            animation: termFadeIn 0.15s forwards;
+        }
+        .term-line.dim { color: #3a6a3a; }
+        .term-line.gold { color: #ffd700; }
+        .term-line.red { color: #ff0040; }
+        .term-line.bright { color: #00ff41; text-shadow: 0 0 10px rgba(0,255,65,0.5); }
+        .term-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background: var(--matrix-green);
+            animation: blink 0.7s infinite;
+            vertical-align: middle;
+            margin-left: 2px;
+        }
+        @keyframes termFadeIn { to { opacity: 1; } }
+        @keyframes blink { 50% { opacity: 0; } }
+
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8rem; }
             .price { font-size: 2.5rem; }
@@ -182,7 +225,15 @@
             <div class="price-early">50% off | Founder's Edition | first 5,000 operators</div>
 
             <br>
-            <a href="https://redpill.matrixshader.com/checkout/buy/5ff37662-d64f-47f6-ba26-524ca25ebcff?embed=1&checkout[discount_code]=ORACLE1" class="lemonsqueezy-button buy-btn" id="buy-button">Take the Red Pill</a>
+            <button class="buy-btn" id="buy-button" onclick="startCheckout()">Take the Red Pill</button>
+            <a href="https://redpill.matrixshader.com/checkout/buy/5ff37662-d64f-47f6-ba26-524ca25ebcff?embed=1&checkout[discount_code]=ORACLE1" class="lemonsqueezy-button" id="ls-checkout-link" style="display:none"></a>
+        </div>
+
+        <!-- Terminal pre-checkout overlay -->
+        <div id="terminal-overlay" style="display:none">
+            <div class="terminal-box">
+                <div id="terminal-lines"></div>
+            </div>
         </div>
 
         <div class="comparison">
@@ -307,12 +358,53 @@
             }
         }
 
-        // Track buy button click
-        var buyBtn = document.getElementById('buy-button');
-        if (buyBtn) {
-            buyBtn.addEventListener('click', function() {
-                if (window.va) window.va.track('buy_click');
-            });
+        // Terminal pre-checkout animation
+        async function startCheckout() {
+            if (window.va) window.va.track('buy_click');
+            navigator.sendBeacon('/api/track?event=redpill_click');
+
+            var overlay = document.getElementById('terminal-overlay');
+            var lines = document.getElementById('terminal-lines');
+            overlay.style.display = 'flex';
+            lines.innerHTML = '';
+
+            // Fetch next operator number
+            var operatorNum = '???';
+            try {
+                var r = await fetch('/api/track?event=operator_count&read=1');
+                var d = await r.json();
+                if (d.count !== undefined) operatorNum = String(Number(d.count) + 1).padStart(3, '0');
+            } catch(e) {}
+
+            var script = [
+                { text: '> INITIATING SECURE UPLINK...', delay: 400, cls: '' },
+                { text: '> VERIFYING CLEARANCE LEVEL... RED PILL ACCESS', delay: 600, cls: '' },
+                { text: '> ESTABLISHING ENCRYPTED CHANNEL... OK', delay: 500, cls: '' },
+                { text: '> CHECKING OPERATOR REGISTRY...', delay: 400, cls: 'dim' },
+                { text: '> YOU WILL BE OPERATOR #' + operatorNum, delay: 600, cls: 'gold' },
+                { text: '>', delay: 300, cls: '' },
+                { text: '> PRICE: $4.99 (50% FOUNDER DISCOUNT)', delay: 400, cls: 'bright' },
+                { text: '> ONE-TIME. YOURS FOREVER. NO SUBSCRIPTION.', delay: 400, cls: 'dim' },
+                { text: '>', delay: 300, cls: '' },
+                { text: '> OPENING PAYMENT CHANNEL...', delay: 800, cls: 'red' },
+            ];
+
+            for (var i = 0; i < script.length; i++) {
+                var line = script[i];
+                await new Promise(function(resolve) { setTimeout(resolve, line.delay); });
+                var div = document.createElement('div');
+                div.className = 'term-line' + (line.cls ? ' ' + line.cls : '');
+                div.textContent = line.text;
+                if (i === script.length - 1) {
+                    div.innerHTML = line.text + ' <span class="term-cursor"></span>';
+                }
+                lines.appendChild(div);
+            }
+
+            // Open LemonSqueezy checkout after animation
+            await new Promise(function(resolve) { setTimeout(resolve, 600); });
+            overlay.style.display = 'none';
+            document.getElementById('ls-checkout-link').click();
         }
 
         // After successful checkout, redirect to thank-you page with order info
@@ -325,6 +417,13 @@
                 } else {
                     window.location.href = '/redpill/thankyou';
                 }
+            }
+        });
+
+        // Close overlay on Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.getElementById('terminal-overlay').style.display = 'none';
             }
         });
     </script>
