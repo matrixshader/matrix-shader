@@ -79,7 +79,7 @@ async function getTotpSecret() {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-TOTP, X-Session');
 
@@ -125,7 +125,10 @@ export default async function handler(req, res) {
 
     const auth = req.headers.authorization;
     const providedPw = auth ? auth.replace('Bearer ', '') : '';
-    if (!providedPw || !crypto.timingSafeEqual(Buffer.from(providedPw), Buffer.from(password))) {
+    // Hash both before comparing to prevent password-length timing leak
+    const providedHash = providedPw ? crypto.createHash('sha256').update(providedPw).digest() : Buffer.alloc(32);
+    const expectedHash = crypto.createHash('sha256').update(password).digest();
+    if (!providedPw || !crypto.timingSafeEqual(providedHash, expectedHash)) {
       try { await redis.incr(rlKey); await redis.expire(rlKey, 900); } catch { /* best effort */ }
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -137,8 +140,15 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Enter 2FA code', requires_totp: true });
       }
       if (!verifyTOTP(totpSecret, totpCode)) {
-        // Wrong TOTP code — count as failure
-        try { await redis.incr(rlKey); await redis.expire(rlKey, 900); } catch { /* best effort */ }
+        // Wrong TOTP code — count as failure + log breach attempt (password was correct!)
+        try {
+          await redis.incr(rlKey);
+          await redis.expire(rlKey, 900);
+          await redis.lpush('alert:totp_breach', JSON.stringify({
+            ip, timestamp: new Date().toISOString(), type: 'totp_fail',
+          }));
+          await redis.ltrim('alert:totp_breach', 0, 49); // keep last 50
+        } catch { /* best effort */ }
         return res.status(401).json({ error: 'Invalid 2FA code', requires_totp: true });
       }
     }
@@ -297,7 +307,14 @@ export default async function handler(req, res) {
       conversion_rate: conversionRate,
     };
 
-    const response = { totals, timeseries, subscribers, licenses, funnel, totp_enabled: !!totpSecret };
+    // 6. Security alerts (TOTP breach attempts)
+    let security_alerts = [];
+    try {
+      const raw = await redis.lrange('alert:totp_breach', 0, 9); // last 10
+      security_alerts = raw.map(r => typeof r === 'string' ? JSON.parse(r) : r);
+    } catch { /* best effort */ }
+
+    const response = { totals, timeseries, subscribers, licenses, funnel, totp_enabled: !!totpSecret, security_alerts };
     if (newSessionToken) response.session_token = newSessionToken;
     return res.status(200).json(response);
   } catch (err) {
