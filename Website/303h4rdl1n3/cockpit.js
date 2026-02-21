@@ -151,6 +151,7 @@ function renderAll(data) {
   renderChart(data.timeseries);
   renderSubscribers(data.subscribers);
   renderLicenses(data.licenses);
+  renderSecurityAlerts(data.security_alerts);
   // Static tabs (render once on first load)
   if (!calendarRendered) {
     renderCalendar();
@@ -313,6 +314,26 @@ function renderLicenses(lics) {
   if (!lics || !lics.length) { el.innerHTML = '<div class="empty-state">No licenses yet</div>'; return; }
   el.innerHTML = `<table><thead><tr><th>Order</th><th>Email</th><th>Name</th><th>Activations</th><th>Date</th></tr></thead>
     <tbody>${lics.map(l => `<tr><td>${esc(l.orderId)}</td><td>${esc(l.email || '-')}</td><td>${esc(l.buyerName || '-')}</td><td>${l.activationCount}</td><td>${fmtDate(l.createdAt)}</td></tr>`).join('')}</tbody></table>`;
+}
+
+// ── Security Alerts ──
+function renderSecurityAlerts(alerts) {
+  const el = $('security-alerts');
+  if (!el) return;
+  if (!alerts || !alerts.length) {
+    el.innerHTML = '<div class="alert-clear">No breach attempts detected</div>';
+    return;
+  }
+  el.innerHTML = `<div class="alert-banner">
+    <div class="alert-icon">!</div>
+    <div class="alert-title">${alerts.length} TOTP BREACH ATTEMPT${alerts.length > 1 ? 'S' : ''}</div>
+    <div class="alert-desc">Someone got the password right but failed 2FA</div>
+  </div>
+  <table><thead><tr><th>IP</th><th>Time</th></tr></thead>
+  <tbody>${alerts.map(a => `<tr>
+    <td style="color:#ff0040;font-family:var(--font-mono)">${esc(a.ip || '?')}</td>
+    <td>${a.timestamp ? a.timestamp.slice(0, 19).replace('T', ' ') : '?'}</td>
+  </tr>`).join('')}</tbody></table>`;
 }
 
 // ── Calendar Tab (Interactive) ──

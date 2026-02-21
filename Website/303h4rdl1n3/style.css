@@ -1336,6 +1336,60 @@ tr:hover td { background: rgba(var(--accent-rgb), 0.03); }
 }
 .sub-delete:hover { background: rgba(255, 0, 64, 0.2); }
 
+/* ── Security Alerts ── */
+.alert-clear {
+  color: var(--green);
+  font-size: 11px;
+  padding: 8px 0;
+  opacity: 0.6;
+}
+.alert-banner {
+  background: rgba(255, 0, 64, 0.08);
+  border: 1px solid rgba(255, 0, 64, 0.3);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.alert-icon {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  background: var(--red);
+  color: #000;
+  font-weight: bold;
+  font-size: 14px;
+  border-radius: 50%;
+  float: left;
+  margin-right: 10px;
+}
+.alert-title {
+  color: var(--red);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.alert-desc {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-top: 2px;
+}
+#security-alerts table {
+  width: 100%;
+  font-size: 11px;
+}
+#security-alerts th {
+  color: var(--text-dim);
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(255, 0, 64, 0.1);
+}
+#security-alerts td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
 /* ── Loading/Spinner ── */
 .loading {
   text-align: center;
