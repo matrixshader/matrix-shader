@@ -296,7 +296,7 @@ try {
     $UninstallCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"irm https://matrixshader.com/uninstall.ps1 | iex`""
 
     Set-ItemProperty -Path $UninstallKey -Name 'DisplayName' -Value 'Matrix Terminal Shader'
-    Set-ItemProperty -Path $UninstallKey -Name 'DisplayVersion' -Value '1.0.0'
+    Set-ItemProperty -Path $UninstallKey -Name 'DisplayVersion' -Value '1.0.1'
     Set-ItemProperty -Path $UninstallKey -Name 'Publisher' -Value 'MatrixShader'
     Set-ItemProperty -Path $UninstallKey -Name 'InstallLocation' -Value $InstallDir
     Set-ItemProperty -Path $UninstallKey -Name 'UninstallString' -Value $UninstallCmd
