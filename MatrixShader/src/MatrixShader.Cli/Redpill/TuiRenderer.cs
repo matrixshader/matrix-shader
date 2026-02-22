@@ -163,11 +163,9 @@ public static class TuiRenderer
             ? $"[ENTER] Deploy {launchCount} window(s)"
             : "[ENTER] (set count first)";
         var enterColor = launchCount > 0 ? YELLOW : GRAY;
-        AppendPaddedLine(sb, cw, $" {enterColor}{enterAction}{RESET}  {YELLOW}[P] Save shader{RESET}");
-        AppendPaddedLine(sb, cw, $" {GRAY}[0] Reset  [ESC] Quit{RESET}");
-        AppendPaddedLine(sb, cw, "");
+        AppendPaddedLine(sb, cw, $" {enterColor}{enterAction}{RESET}  {GRAY}[0] Reset  [ESC] Quit{RESET}");
         AppendPaddedLine(sb, cw, $" {GRAY}[Shift+H] Configure hotkeys  [?] Help{RESET}");
-        AppendPaddedLine(sb, cw, $" {GRAY}Shader changes apply automatically (hot-reload via WT){RESET}");
+        AppendPaddedLine(sb, cw, $" {GREEN}All changes apply instantly{RESET}");
     }
 
     #endregion

@@ -238,9 +238,6 @@ public static class KeyHandler
             // Reset
             '0' => KeyAction.Reset,
 
-            // Save shader (lowercase p, NOT PriorityToggle)
-            'p' => KeyAction.Save,
-
             // Windows on Primary controls (< and > keys = comma and period)
             ',' => KeyAction.PrimaryDecrease,
             '.' => KeyAction.PrimaryIncrease,
