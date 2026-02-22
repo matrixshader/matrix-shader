@@ -46,6 +46,9 @@ public sealed class MatrixWindowMonitor : IDisposable
     // Truth positions - where windows "should" be (updated on layout apply or user drag)
     private Dictionary<nint, WindowRect> _truthPositions = new();
 
+    // Static reference to the singleton instance for cross-class truth updates
+    private static MatrixWindowMonitor? _instance;
+
     // Threshold for detecting user drag (pixels)
     private const int UserDragThreshold = 100;
 
@@ -57,6 +60,18 @@ public sealed class MatrixWindowMonitor : IDisposable
     {
         _glitchPauseUntil = DateTime.Now + ManualActionPause;
         DiagnosticLogger.Debug("HOTKEYS", $"Glitch paused for {ManualActionPause.TotalSeconds}s");
+    }
+
+    /// <summary>
+    /// Updates truth position for a window after hotkey rotation/movement.
+    /// This prevents Glitch from snapping windows back to pre-rotation positions.
+    /// </summary>
+    public static void UpdateTruth(nint handle, WindowRect position)
+    {
+        if (_instance != null)
+        {
+            _instance._truthPositions[handle] = position;
+        }
     }
 
     /// <summary>
@@ -88,6 +103,7 @@ public sealed class MatrixWindowMonitor : IDisposable
         _configService = configService;
         _onNoWindows = onNoWindows ?? throw new ArgumentNullException(nameof(onNoWindows));
         _timer = new Timer(CheckWindows, null, Timeout.Infinite, Timeout.Infinite);
+        _instance = this;
     }
 
     /// <summary>

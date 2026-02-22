@@ -84,7 +84,10 @@ public enum IdentitySource
     UIAutomationTab = 6,
 
     /// <summary>Resolved via UI Automation Name (confidence 0.90)</summary>
-    UIAutomationName = 7
+    UIAutomationName = 7,
+
+    /// <summary>Resolved by elimination - only one unclaimed index matches (confidence 0.80)</summary>
+    Elimination = 8
 }
 
 /// <summary>
@@ -104,6 +107,7 @@ public static class IdentitySourceExtensions
         IdentitySource.UIAutomationTermControl => 0.95,
         IdentitySource.UIAutomationName => 0.90,
         IdentitySource.UIAutomationTab => 0.85,
+        IdentitySource.Elimination => 0.80,
         IdentitySource.Title => 0.70,
         _ => 0.0
     };

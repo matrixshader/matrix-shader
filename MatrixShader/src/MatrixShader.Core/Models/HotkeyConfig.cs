@@ -29,9 +29,9 @@ public record HotkeyConfig(
 
         // CycleShader REMOVED - corrupts shader parameters (BUG-SHADER04, BUG-SHADER05)
 
-        // Rain speed (up/down arrows)
-        [HotkeyAction.SpeedUp] = HotkeyBinding.CtrlShift(HotkeyAction.SpeedUp, HotkeyApi.VK_UP, "Up"),
-        [HotkeyAction.SpeedDown] = HotkeyBinding.CtrlShift(HotkeyAction.SpeedDown, HotkeyApi.VK_DOWN, "Down"),
+        // Rain speed (down = faster rain, up = slower — matches rain direction)
+        [HotkeyAction.SpeedUp] = HotkeyBinding.CtrlShift(HotkeyAction.SpeedUp, HotkeyApi.VK_DOWN, "Down"),
+        [HotkeyAction.SpeedDown] = HotkeyBinding.CtrlShift(HotkeyAction.SpeedDown, HotkeyApi.VK_UP, "Up"),
 
         // Layer toggles (number keys)
         [HotkeyAction.ToggleFar] = HotkeyBinding.CtrlShift(HotkeyAction.ToggleFar, HotkeyApi.VK_1, "1"),
@@ -39,7 +39,10 @@ public record HotkeyConfig(
         [HotkeyAction.ToggleNear] = HotkeyBinding.CtrlShift(HotkeyAction.ToggleNear, HotkeyApi.VK_3, "3"),
 
         // Help overlay
-        [HotkeyAction.ShowHelp] = HotkeyBinding.CtrlShift(HotkeyAction.ShowHelp, HotkeyApi.VK_H, "H")
+        [HotkeyAction.ShowHelp] = HotkeyBinding.CtrlShift(HotkeyAction.ShowHelp, HotkeyApi.VK_H, "H"),
+
+        // Manual reload (force WT to re-read shader files)
+        [HotkeyAction.ManualReload] = HotkeyBinding.CtrlShift(HotkeyAction.ManualReload, HotkeyApi.VK_F5, "F5")
     });
 
     /// <summary>

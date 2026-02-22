@@ -164,6 +164,7 @@ public sealed class HotkeyWindow : IDisposable
                 uint modifiers = HotkeyApi.GetHotkeyModifiers(lParam);
                 uint vk = HotkeyApi.GetHotkeyVirtualKey(lParam);
 
+                DiagnosticLogger.Debug("HOTKEYS", $"WM_HOTKEY received: id={hotkeyId}, key={HotkeyApi.GetHotkeyDisplayName(modifiers, vk)}");
                 HotkeyPressed?.Invoke(hotkeyId, modifiers, vk);
                 return nint.Zero;
 

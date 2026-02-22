@@ -136,8 +136,9 @@ public class LayoutService : ILayoutService
                 _ => CalculatePillarsLayout(group.Count, singleMonitor, config)
             };
 
-            // Sort windows in group by shader index for consistent ordering
-            var sortedGroup = group.OrderBy(w => w.ShaderIndex).ToList();
+            // Sort windows by current X position to preserve user's arrangement
+            // (e.g., after hotkey rotation, Matrix-3 may be leftmost)
+            var sortedGroup = group.OrderBy(w => w.Position.Left).ToList();
 
             for (int i = 0; i < Math.Min(sortedGroup.Count, positions.Count); i++)
             {
