@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ - MatrixShader</title>
+    <meta name="description" content="Frequently asked questions about MatrixShader - the Matrix rain effect for Windows Terminal.">
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="stylesheet" href="/shared.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            flex: 1;
+        }
+
+        .page-header {
+            margin-bottom: 2rem;
+        }
+
+        .page-header h1 {
+            margin-bottom: 0.25rem;
+        }
+
+        .page-header .subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Search */
+        .search-bar {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .search-bar input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 255, 65, 0.15);
+            border-radius: 8px;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            color: #fff;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+        }
+
+        .search-bar input:focus {
+            outline: none;
+            border-color: var(--matrix-green);
+        }
+
+        .search-bar input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-bar::before {
+            content: '>';
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--matrix-green);
+            font-family: var(--font-mono);
+            font-weight: bold;
+        }
+
+        /* Category sections */
+        .faq-category {
+            margin-bottom: 2rem;
+        }
+
+        .category-header {
+            font-family: var(--font-mono);
+            color: var(--matrix-green);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(0, 255, 65, 0.15);
+            margin-bottom: 0.75rem;
+        }
+
+        /* Accordion items */
+        .faq-item {
+            background: rgba(0, 20, 0, 0.7);
+            border: 1px solid rgba(0, 255, 65, 0.1);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            transition: border-color 0.2s;
+        }
+
+        .faq-item:hover {
+            border-color: rgba(0, 255, 65, 0.25);
+        }
+
+        .faq-question {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            user-select: none;
+        }
+
+        .faq-question:hover {
+            color: var(--matrix-green);
+        }
+
+        .faq-toggle {
+            color: var(--matrix-green);
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+            margin-left: 1rem;
+        }
+
+        .faq-item.open .faq-toggle {
+            transform: rotate(45deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .faq-answer-inner {
+            padding: 0 1.25rem 1.25rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.7;
+            border-top: 1px solid rgba(0, 255, 65, 0.08);
+            padding-top: 1rem;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state h2 {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state p {
+            margin-bottom: 1.5rem;
+        }
+
+        /* CTA */
+        .cta-bar {
+            text-align: center;
+            padding: 2rem;
+            margin-top: 1rem;
+            background: rgba(0, 20, 0, 0.5);
+            border: 1px solid rgba(0, 255, 65, 0.1);
+            border-radius: 12px;
+        }
+
+        .cta-bar p {
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+        }
+
+        .btn-green {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: rgba(0, 255, 65, 0.15);
+            border: 1px solid var(--matrix-green);
+            border-radius: 6px;
+            color: var(--matrix-green);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .btn-green:hover {
+            background: rgba(0, 255, 65, 0.3);
+            text-decoration: none;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 3rem;
+        }
+
+        .no-results {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 2rem;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            .faq-question { font-size: 0.88rem; padding: 0.85rem 1rem; }
+            .faq-answer-inner { padding: 0 1rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <video id="matrix-bg" autoplay muted loop playsinline>
+        <source src="../assets/shader-bg-cropped.mp4" type="video/mp4">
+    </video>
+
+    <div class="container">
+        <a href="/" class="back-link">&lt; matrixshader.com</a>
+
+        <div class="page-header">
+            <h1>Frequently Asked Questions</h1>
+            <p class="subtitle">Common questions from Matrix operators</p>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" id="faq-search" placeholder="Search questions...">
+        </div>
+
+        <div id="faq-content">
+            <div class="loading">Loading questions...</div>
+        </div>
+
+        <div class="cta-bar">
+            <p>Didn't find your answer?</p>
+            <a href="/redpill/support/" class="btn-green">Ask a question</a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <a href="/">&copy; MatrixShader</a> &middot; <a href="/privacy/">Privacy</a> &middot; <a href="/terms/">Terms</a>
+    </div>
+
+    <script defer src="/_vercel/insights/script.js"></script>
+    <script>
+        // Track page view
+        if (!sessionStorage.getItem('zion_session')) {
+            var today = new Date().toISOString().slice(0, 10);
+            if (localStorage.getItem('ms_last_view') !== today) {
+                navigator.sendBeacon('/api/track?event=page_view');
+                localStorage.setItem('ms_last_view', today);
+            }
+        }
+
+        const CATEGORY_LABELS = {
+            general: 'General',
+            installation: 'Installation',
+            usage: 'Usage',
+            licensing: 'Licensing',
+            compatibility: 'Compatibility',
+            troubleshooting: 'Troubleshooting',
+        };
+
+        const CATEGORY_ORDER = ['general', 'installation', 'usage', 'licensing', 'compatibility', 'troubleshooting'];
+
+        let allQuestions = [];
+
+        async function loadFAQ() {
+            try {
+                const res = await fetch('/api/faq');
+                if (!res.ok) throw new Error('Failed to load');
+                const data = await res.json();
+                allQuestions = data.questions || [];
+                renderFAQ(allQuestions);
+            } catch {
+                document.getElementById('faq-content').innerHTML =
+                    '<div class="empty-state"><h2>Could not load questions</h2><p>Try refreshing the page.</p></div>';
+            }
+        }
+
+        function renderFAQ(questions) {
+            const container = document.getElementById('faq-content');
+
+            if (!questions.length) {
+                container.innerHTML = `<div class="empty-state">
+                    <h2>No questions yet</h2>
+                    <p>Be the first to ask!</p>
+                    <a href="/redpill/support/" class="btn-green">Ask a question</a>
+                </div>`;
+                return;
+            }
+
+            // Group by category
+            const groups = {};
+            for (const q of questions) {
+                const cat = q.category || 'general';
+                if (!groups[cat]) groups[cat] = [];
+                groups[cat].push(q);
+            }
+
+            let html = '';
+            for (const cat of CATEGORY_ORDER) {
+                if (!groups[cat] || !groups[cat].length) continue;
+                html += `<div class="faq-category">
+                    <div class="category-header">${CATEGORY_LABELS[cat] || cat}</div>`;
+                for (const q of groups[cat]) {
+                    html += `<div class="faq-item" data-id="${q.id}">
+                        <div class="faq-question" onclick="toggleFaq(this)">
+                            <span>${escapeHtml(q.question)}</span>
+                            <span class="faq-toggle">+</span>
+                        </div>
+                        <div class="faq-answer">
+                            <div class="faq-answer-inner">${escapeHtml(q.answer || '')}</div>
+                        </div>
+                    </div>`;
+                }
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function toggleFaq(el) {
+            const item = el.closest('.faq-item');
+            const answer = item.querySelector('.faq-answer');
+            const isOpen = item.classList.contains('open');
+
+            if (isOpen) {
+                answer.style.maxHeight = '0';
+                item.classList.remove('open');
+            } else {
+                answer.style.maxHeight = answer.scrollHeight + 'px';
+                item.classList.add('open');
+            }
+        }
+
+        function escapeHtml(str) {
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        // Search
+        document.getElementById('faq-search').addEventListener('input', function () {
+            const q = this.value.toLowerCase().trim();
+            if (!q) {
+                renderFAQ(allQuestions);
+                return;
+            }
+            const filtered = allQuestions.filter(item =>
+                item.question.toLowerCase().includes(q) ||
+                (item.answer || '').toLowerCase().includes(q)
+            );
+            if (filtered.length) {
+                renderFAQ(filtered);
+            } else {
+                document.getElementById('faq-content').innerHTML =
+                    '<div class="no-results">No matching questions found.</div>';
+            }
+        });
+
+        loadFAQ();
+    </script>
+</body>
+</html>
