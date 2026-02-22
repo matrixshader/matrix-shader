@@ -146,13 +146,14 @@ public class TabManager
     public void UpdateConfig(ShaderConfig newConfig)
     {
         _currentConfig = newConfig.Clamp(); // Validate ranges
-        _dirty = true;
+        _dirty = false; // No need for manual save - auto-applied
 
-        // Write to shader file immediately for hot-reload
+        // Write to shader file and force WT to reload it
         if (_shaderService.ShaderExists(_currentSlot))
         {
             _shaderService.WriteConfig(_currentSlot, _currentConfig);
             SyncTabColorToShader(_currentSlot, _currentConfig);
+            _terminalSettingsService.ForceShaderReload();
         }
     }
 
