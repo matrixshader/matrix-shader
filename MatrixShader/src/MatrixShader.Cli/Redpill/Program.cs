@@ -568,7 +568,7 @@ public class ControlPanel
         ConsoleHelper.WriteLineDim("   [7/8/9]    Toggle layers (Far/Mid/Near)");
         ConsoleHelper.WriteLineDim("   [B]        Toggle transparency    [K/L] Opacity -/+");
         ConsoleHelper.WriteLineDim("   [-/+]      Deploy count -/+       [ENTER] Deploy windows");
-        ConsoleHelper.WriteLineDim("   [P]        Save shader            [0] Reset to defaults");
+        ConsoleHelper.WriteLineDim("   [0]        Reset to defaults       (all changes apply instantly)");
         ConsoleHelper.WriteLineDim("   [TAB]      Switch tabs            [ESC] Quit");
         Console.WriteLine();
 
@@ -729,10 +729,7 @@ public class ControlPanel
                 }
                 break;
 
-            // Save/Reset
-            case KeyAction.Save:
-                _tabManager.SaveCurrentShader();
-                break;
+            // Reset
             case KeyAction.Reset:
                 _tabManager.UpdateConfig(new ShaderConfig());
                 break;
