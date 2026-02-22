@@ -268,6 +268,7 @@
         const CATEGORY_ORDER = ['general', 'installation', 'usage', 'licensing', 'compatibility', 'troubleshooting'];
 
         let allQuestions = [];
+        const CACHE_KEY = 'ms_faq_cache';
 
         async function loadFAQ() {
             try {
@@ -275,14 +276,36 @@
                 if (!res.ok) throw new Error('Failed to load');
                 const data = await res.json();
                 allQuestions = data.questions || [];
-                renderFAQ(allQuestions);
+                // Cache successful response
+                try {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({
+                        questions: allQuestions,
+                        cachedAt: new Date().toISOString()
+                    }));
+                } catch { /* storage full or disabled — no big deal */ }
+                renderFAQ(allQuestions, false);
             } catch {
-                document.getElementById('faq-content').innerHTML =
-                    '<div class="empty-state"><h2>Could not load questions</h2><p>Try refreshing the page.</p></div>';
+                // Try localStorage fallback
+                const cached = loadFromCache();
+                if (cached) {
+                    allQuestions = cached.questions;
+                    renderFAQ(allQuestions, true, cached.cachedAt);
+                } else {
+                    document.getElementById('faq-content').innerHTML =
+                        '<div class="empty-state"><h2>Could not load questions</h2><p>Try refreshing the page.</p></div>';
+                }
             }
         }
 
-        function renderFAQ(questions) {
+        function loadFromCache() {
+            try {
+                const raw = localStorage.getItem(CACHE_KEY);
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch { return null; }
+        }
+
+        function renderFAQ(questions, isCached, cachedAt) {
             const container = document.getElementById('faq-content');
 
             if (!questions.length) {
@@ -303,6 +326,10 @@
             }
 
             let html = '';
+            if (isCached && cachedAt) {
+                const ago = timeSince(cachedAt);
+                html += `<div style="text-align:center;color:var(--text-muted);font-size:0.8rem;margin-bottom:1rem;font-family:var(--font-mono);">Showing cached answers from ${ago} ago</div>`;
+            }
             for (const cat of CATEGORY_ORDER) {
                 if (!groups[cat] || !groups[cat].length) continue;
                 html += `<div class="faq-category">
@@ -343,11 +370,20 @@
             return d.innerHTML;
         }
 
+        function timeSince(dateStr) {
+            const diff = Date.now() - new Date(dateStr).getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 60) return mins + 'm';
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return hrs + 'h';
+            return Math.floor(hrs / 24) + 'd';
+        }
+
         // Search
         document.getElementById('faq-search').addEventListener('input', function () {
             const q = this.value.toLowerCase().trim();
             if (!q) {
-                renderFAQ(allQuestions);
+                renderFAQ(allQuestions, false);
                 return;
             }
             const filtered = allQuestions.filter(item =>
@@ -355,7 +391,7 @@
                 (item.answer || '').toLowerCase().includes(q)
             );
             if (filtered.length) {
-                renderFAQ(filtered);
+                renderFAQ(filtered, false);
             } else {
                 document.getElementById('faq-content').innerHTML =
                     '<div class="no-results">No matching questions found.</div>';
