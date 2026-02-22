@@ -214,6 +214,9 @@ public static partial class HotkeyApi
     /// <summary>S key.</summary>
     public const uint VK_S = 0x53;
 
+    /// <summary>F5 key.</summary>
+    public const uint VK_F5 = 0x74;
+
     #endregion
 
     #region Window Constants
@@ -346,6 +349,7 @@ public static partial class HotkeyApi
         VK_K => "K",
         VK_L => "L",
         VK_S => "S",
+        VK_F5 => "F5",
         _ => $"0x{vk:X2}"
     };
 

@@ -31,4 +31,8 @@ public record TerminalProfile
 
     // Tab color (hex format like "#00FF4C")
     public string? TabColor { get; init; }
+
+    // Prevent shell from overriding profile name in tab title.
+    // Required for hotkey identity resolution (Layer 3: title pattern matching).
+    public bool SuppressApplicationTitle { get; init; } = true;
 }

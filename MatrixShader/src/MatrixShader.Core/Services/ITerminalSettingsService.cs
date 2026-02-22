@@ -102,4 +102,11 @@ public interface ITerminalSettingsService
     /// <param name="settings">Settings to check</param>
     /// <returns>True if at least one Matrix profile exists</returns>
     bool HasMatrixProfiles(TerminalSettings settings);
+
+    /// <summary>
+    /// Forces Windows Terminal to reload shaders by re-saving settings.json.
+    /// WT's file watcher doesn't reliably detect .hlsl file changes,
+    /// but it always detects settings.json writes.
+    /// </summary>
+    void ForceShaderReload();
 }

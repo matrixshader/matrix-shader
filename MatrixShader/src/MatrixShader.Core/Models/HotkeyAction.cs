@@ -43,5 +43,8 @@ public enum HotkeyAction
     ToggleNear,
 
     /// <summary>Show hotkey help overlay.</summary>
-    ShowHelp
+    ShowHelp,
+
+    /// <summary>Force reload all shaders by re-saving WT settings.</summary>
+    ManualReload
 }

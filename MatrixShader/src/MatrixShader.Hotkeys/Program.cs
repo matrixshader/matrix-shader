@@ -25,6 +25,9 @@ public static class Program
             return 0;
         }
 
+        // Initialize diagnostic logging (reads MATRIX_DEBUG env var or --debug flag)
+        DiagnosticLogger.Initialize(args.Contains("--debug"));
+
         // Top-level exception handler - ALWAYS log crashes (even without MATRIX_DEBUG)
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
         {
@@ -98,17 +101,23 @@ public static class Program
         // Wire up event handler to dispatch to correct action
         hotkeyWindow.HotkeyPressed += (id, modifiers, vk) =>
         {
+            DiagnosticLogger.Debug("HOTKEYS", $"Dispatching hotkey id={id}");
             if (hotkeyIdToHandler.TryGetValue(id, out var handler))
             {
                 try
                 {
                     handler();
+                    DiagnosticLogger.Debug("HOTKEYS", $"Handler completed for id={id}");
                 }
                 catch (Exception ex)
                 {
                     DiagnosticLogger.Warn("HOTKEYS", $"Action handler failed: {ex.Message}");
                     // Fail silently - keep running
                 }
+            }
+            else
+            {
+                DiagnosticLogger.Warn("HOTKEYS", $"No handler found for hotkey id={id}");
             }
         };
 
@@ -127,6 +136,14 @@ public static class Program
         var coreConfigService = provider.GetRequiredService<IConfigService>();
         using var monitor = new MatrixWindowMonitor(identityService, layoutService, coreConfigService, hotkeyWindow.Stop);
         monitor.StartMonitoring();
+
+        // Auto-show help overlay on first launch
+        var state = coreConfigService.LoadState();
+        if (!state.HelpShownOnce)
+        {
+            HotkeyHelpOverlay.SpawnOverlay();
+            coreConfigService.SaveState(state with { HelpShownOnce = true });
+        }
 
         // Subscribe to display changes for auto-repositioning
         hotkeyWindow.DisplayChanged += (bpp, width, height) =>
