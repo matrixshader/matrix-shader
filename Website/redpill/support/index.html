@@ -284,8 +284,12 @@
                         <span class="option-desc">Bug report, crash, shader not loading, install issue</span>
                     </button>
                     <button class="option-btn" onclick="showStep('step-feature')">
-                        <span class="option-label">Feature request / question</span>
-                        <span class="option-desc">Idea for a new feature, or need help with something</span>
+                        <span class="option-label">Feature request</span>
+                        <span class="option-desc">Idea for a new feature or improvement</span>
+                    </button>
+                    <button class="option-btn" onclick="showStep('step-question')">
+                        <span class="option-label">I have a question</span>
+                        <span class="option-desc">Need help or want to know something about MatrixShader</span>
                     </button>
                     <button class="option-btn red" onclick="showStep('step-retain')">
                         <span class="option-label">I want a refund</span>
@@ -344,6 +348,41 @@
                     <button class="btn btn-dim" onclick="showStep('step-1')">Back</button>
                 </div>
                 <p class="status" id="feature-status"></p>
+            </div>
+        </div>
+
+        <!-- STEP: Question -->
+        <div class="step" id="step-question">
+            <div class="support-card">
+                <div class="avatar">&#x2753;</div>
+                <h2>What do you want to know?</h2>
+                <p class="message">If this comes up a lot, we'll add it to the <a href="/faq/" style="color:var(--matrix-green)">FAQ</a>.</p>
+
+                <div class="form-group">
+                    <label>Your email</label>
+                    <input type="email" id="question-email" placeholder="neo@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Your question</label>
+                    <textarea id="question-desc" placeholder="What would you like to know about MatrixShader?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="question-category" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:0.75rem 1rem;color:#fff;font-family:var(--font-mono);font-size:0.9rem;">
+                        <option value="general">General</option>
+                        <option value="installation">Installation</option>
+                        <option value="usage">Usage</option>
+                        <option value="licensing">Licensing</option>
+                        <option value="compatibility">Compatibility</option>
+                        <option value="troubleshooting">Troubleshooting</option>
+                    </select>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-green" onclick="submitQuestion()">Send question</button>
+                    <button class="btn btn-dim" onclick="showStep('step-1')">Back</button>
+                </div>
+                <p class="status" id="question-status"></p>
             </div>
         </div>
 
@@ -438,6 +477,46 @@
         function updateSmithName(name) {
             const display = document.getElementById('smith-name');
             display.textContent = name.trim() || 'Reagan';
+        }
+
+        async function submitQuestion() {
+            const statusEl = document.getElementById('question-status');
+            const email = document.getElementById('question-email')?.value.trim();
+            const question = document.getElementById('question-desc')?.value.trim();
+            const category = document.getElementById('question-category')?.value || 'general';
+
+            if (!email) {
+                statusEl.textContent = 'Email required.';
+                statusEl.className = 'status error';
+                return;
+            }
+            if (!question || question.length < 10) {
+                statusEl.textContent = 'Please write at least 10 characters.';
+                statusEl.className = 'status error';
+                return;
+            }
+
+            statusEl.textContent = 'Sending...';
+            statusEl.className = 'status';
+
+            try {
+                const res = await fetch('/api/faq', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, question, category })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    statusEl.innerHTML = 'Got it. If this comes up a lot, we\'ll add it to the <a href="/faq/" style="color:var(--matrix-green)">FAQ</a>.';
+                    statusEl.className = 'status success';
+                } else {
+                    statusEl.textContent = data.error || 'Something went wrong.';
+                    statusEl.className = 'status error';
+                }
+            } catch {
+                statusEl.textContent = 'Connection error. Email us at neo@matrixshader.com instead.';
+                statusEl.className = 'status error';
+            }
         }
 
         async function submitForm(type) {

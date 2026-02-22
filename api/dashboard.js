@@ -314,7 +314,26 @@ export default async function handler(req, res) {
       security_alerts = raw.map(r => typeof r === 'string' ? JSON.parse(r) : r);
     } catch { /* best effort */ }
 
-    const response = { totals, timeseries, subscribers, licenses, funnel, totp_enabled: !!totpSecret, security_alerts };
+    // 7. FAQ questions (scan faq:q:* keys)
+    const faq_questions = [];
+    let faqCursor = 0;
+    do {
+      const [nextCursor, keys] = await redis.scan(faqCursor, { match: 'faq:q:*', count: 100 });
+      faqCursor = Number(nextCursor);
+      if (keys.length > 0) {
+        const values = await redis.mget(...keys);
+        for (const val of values) {
+          if (val) {
+            const data = typeof val === 'string' ? JSON.parse(val) : val;
+            faq_questions.push(data);
+          }
+        }
+      }
+    } while (faqCursor !== 0);
+
+    faq_questions.sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''));
+
+    const response = { totals, timeseries, subscribers, licenses, funnel, totp_enabled: !!totpSecret, security_alerts, faq_questions };
     if (newSessionToken) response.session_token = newSessionToken;
     return res.status(200).json(response);
   } catch (err) {

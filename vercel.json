@@ -10,5 +10,11 @@
       "source": "/uninstall.ps1",
       "destination": "https://raw.githubusercontent.com/matrixshader/matrix-shader/master/installer/uninstall.ps1"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/backup?auto=1",
+      "schedule": "0 6 * * *"
+    }
   ]
 }
