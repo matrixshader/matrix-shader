@@ -393,6 +393,47 @@ public class TerminalSettingsService : ITerminalSettingsService
         return GetMatrixProfileCount(settings) > 0;
     }
 
+    /// <inheritdoc/>
+    public void ForceShaderReload()
+    {
+        try
+        {
+            if (!SettingsExist) return;
+
+            var json = File.ReadAllText(SettingsPath);
+
+            string modified;
+            // Toggle path between "shaders\\X" and "shaders\\.\\X"
+            // Both resolve to the same file on disk, but WT sees different strings → triggers reload.
+            // Single atomic write — no delay, no passthrough shader, no freeze in other windows.
+            if (json.Contains("shaders\\\\.\\\\"))
+            {
+                // Currently has dot segment → remove it (restore clean paths)
+                modified = json.Replace("shaders\\\\.\\\\", "shaders\\\\");
+            }
+            else
+            {
+                // Currently clean → add dot segment to all shader paths
+                modified = json.Replace("shaders\\\\Matrix-", "shaders\\\\.\\\\Matrix-")
+                              .Replace("shaders\\\\Redpill-", "shaders\\\\.\\\\Redpill-")
+                              .Replace("shaders\\\\passthrough", "shaders\\\\.\\\\passthrough");
+            }
+
+            if (modified == json)
+            {
+                DiagnosticLogger.Debug("TERMINAL", "ForceShaderReload: no shader paths found to toggle");
+                return;
+            }
+
+            File.WriteAllText(SettingsPath, modified, new System.Text.UTF8Encoding(false));
+            DiagnosticLogger.Debug("TERMINAL", "Forced shader reload via path toggle");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("TERMINAL", $"ForceShaderReload failed: {ex.Message}");
+        }
+    }
+
     /// <summary>
     /// Checks if a profile name is a Matrix-related profile (Matrix-N or Redpill).
     /// </summary>

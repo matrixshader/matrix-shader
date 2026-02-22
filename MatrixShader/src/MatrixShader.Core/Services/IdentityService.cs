@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Management;
 using System.Text;
@@ -23,6 +24,13 @@ namespace MatrixShader.Core.Services;
 /// </summary>
 public class IdentityService : IIdentityService
 {
+    /// <summary>
+    /// Layer 0: Handle-based identity cache. Once a window is identified by ANY layer,
+    /// the result is cached here. Survives title changes because window handles don't
+    /// change when an agent modifies the terminal title.
+    /// </summary>
+    private readonly ConcurrentDictionary<nint, WindowInfo> _handleCache = new();
+
     /// <summary>
     /// In-memory launch registry for Layer 1 identity resolution.
     /// Keys are either window handle or process ID as string.
@@ -72,12 +80,124 @@ public class IdentityService : IIdentityService
         var pids = terminalWindows.Select(w => w.processId).Distinct();
         var commandLineCache = BatchQueryCommandLines(pids);
 
+        var unidentified = new List<(nint hwnd, string title, int processId)>();
+
         foreach (var (hwnd, title, processId) in terminalWindows)
         {
             var identity = ResolveIdentityWithCache(hwnd, title, processId, commandLineCache);
             if (identity != null)
             {
                 results.Add(identity);
+            }
+            else
+            {
+                unidentified.Add((hwnd, title, processId));
+            }
+        }
+
+        // Layer 5: Elimination - match unidentified WT windows to missing shader indices.
+        // Uses max(identified) for expected range (not profile count, since only some windows are open).
+        // When missing < unidentified (non-Matrix WT windows exist), uses position-based gap matching.
+        if (unidentified.Count > 0)
+        {
+            var identifiedIndices = results
+                .Where(w => w.ShaderIndex > 0 && !w.IsControlPanel)
+                .Select(w => w.ShaderIndex)
+                .ToHashSet();
+
+            // Expected range = 1..max(identified). This captures gaps without inflating from profiles not open.
+            var maxFromIdentified = identifiedIndices.Count > 0 ? identifiedIndices.Max() : 0;
+
+            if (maxFromIdentified > 0)
+            {
+                var expectedIndices = Enumerable.Range(1, maxFromIdentified).ToHashSet();
+                var missingIndices = expectedIndices.Except(identifiedIndices).OrderBy(x => x).ToList();
+
+                DiagnosticLogger.Debug("IDENTITY",
+                    $"Elimination check: identified=[{string.Join(",", identifiedIndices.OrderBy(x => x))}], " +
+                    $"expected=1..{maxFromIdentified}, " +
+                    $"missing=[{string.Join(",", missingIndices)}], unidentified={unidentified.Count}");
+
+                if (missingIndices.Count > 0 && missingIndices.Count == unidentified.Count)
+                {
+                    // Perfect match - assign deterministically by position (left-to-right)
+                    missingIndices.Sort();
+                    var sortedUnidentified = unidentified
+                        .OrderBy(w => WindowsApi.GetWindowPosition(w.hwnd)?.Left ?? 0)
+                        .ToList();
+
+                    for (int i = 0; i < missingIndices.Count; i++)
+                    {
+                        var idx = missingIndices[i];
+                        var (hwnd, title, processId) = sortedUnidentified[i];
+                        var windowInfo = CreateWindowInfo(hwnd, title, processId,
+                            $"Matrix-{idx}", idx, IdentitySource.Elimination);
+                        _handleCache[hwnd] = windowInfo;
+                        results.Add(windowInfo);
+                        DiagnosticLogger.Info("IDENTITY",
+                            $"Resolved {hwnd} as Matrix-{idx} by elimination (title: {title})");
+                    }
+                }
+                else if (missingIndices.Count > 0 && missingIndices.Count < unidentified.Count)
+                {
+                    // More unidentified windows than missing indices - non-Matrix WT windows exist.
+                    // Use position-based gap matching: for each missing index, interpolate expected
+                    // X position from identified neighbors and match closest unidentified window.
+                    DiagnosticLogger.Debug("IDENTITY",
+                        $"Position-based elimination: {missingIndices.Count} gaps, {unidentified.Count} unidentified");
+
+                    // Build position map from identified windows
+                    var positionMap = results
+                        .Where(w => w.ShaderIndex > 0 && !w.IsControlPanel)
+                        .ToDictionary(w => w.ShaderIndex, w => w.Position.Left);
+
+                    var remainingUnidentified = new List<(nint hwnd, string title, int processId, int left)>(
+                        unidentified.Select(w => (w.hwnd, w.title, w.processId,
+                            left: WindowsApi.GetWindowPosition(w.hwnd)?.Left ?? 0)));
+
+                    foreach (var missingIdx in missingIndices)
+                    {
+                        if (remainingUnidentified.Count == 0) break;
+
+                        // Find nearest identified neighbors (left and right)
+                        int? leftNeighborPos = null, rightNeighborPos = null;
+                        for (int n = missingIdx - 1; n >= 1; n--)
+                        {
+                            if (positionMap.TryGetValue(n, out var pos)) { leftNeighborPos = pos; break; }
+                        }
+                        for (int n = missingIdx + 1; n <= maxFromIdentified; n++)
+                        {
+                            if (positionMap.TryGetValue(n, out var pos)) { rightNeighborPos = pos; break; }
+                        }
+
+                        // Interpolate expected X position
+                        int expectedX;
+                        if (leftNeighborPos.HasValue && rightNeighborPos.HasValue)
+                            expectedX = (leftNeighborPos.Value + rightNeighborPos.Value) / 2;
+                        else if (leftNeighborPos.HasValue)
+                            expectedX = leftNeighborPos.Value + 500; // estimate rightward
+                        else if (rightNeighborPos.HasValue)
+                            expectedX = rightNeighborPos.Value - 500; // estimate leftward
+                        else
+                            continue; // no neighbors at all, can't estimate
+
+                        // Find closest unidentified window to expected position
+                        var closest = remainingUnidentified
+                            .OrderBy(w => Math.Abs(w.left - expectedX))
+                            .First();
+
+                        var windowInfo = CreateWindowInfo(closest.hwnd, closest.title, closest.processId,
+                            $"Matrix-{missingIdx}", missingIdx, IdentitySource.Elimination);
+                        _handleCache[closest.hwnd] = windowInfo;
+                        results.Add(windowInfo);
+                        remainingUnidentified.Remove(closest);
+                        positionMap[missingIdx] = closest.left;
+
+                        DiagnosticLogger.Info("IDENTITY",
+                            $"Resolved {closest.hwnd} as Matrix-{missingIdx} by position elimination " +
+                            $"(expectedX={expectedX}, actualX={closest.left}, title: {closest.title})");
+                    }
+                }
             }
         }
 
@@ -90,7 +210,10 @@ public class IdentityService : IIdentityService
     {
         // Validate handle first - BOTH IsWindow AND IsWindowVisible must pass
         if (!WindowsApi.IsHandleValid(hwnd))
+        {
+            _handleCache.TryRemove(hwnd, out _);
             return null;
+        }
 
         var title = WindowsApi.GetWindowTitle(hwnd);
         var processId = WindowsApi.GetWindowProcessId(hwnd);
@@ -101,25 +224,46 @@ public class IdentityService : IIdentityService
             return CreateWindowInfo(hwnd, title, processId, "ControlPanel", 0, IdentitySource.Title);
         }
 
+        // Layer 0: Handle cache (instant, survives title changes from agents)
+        if (_handleCache.TryGetValue(hwnd, out var cached))
+        {
+            var newPos = WindowsApi.GetWindowPosition(hwnd) ?? new WindowRect();
+            return cached with { Position = newPos, Title = title };
+        }
+
         // Layer 1: Launch Tracking (instant, 100% reliable for windows we launched)
-        var launchIdentity = GetLaunchRegistryIdentity(hwnd, processId);
-        if (launchIdentity != null)
-            return launchIdentity;
+        WindowInfo? result = GetLaunchRegistryIdentity(hwnd, processId);
+        if (result != null) { _handleCache[hwnd] = result; return result; }
 
         // Layer 2: Command Line Analysis (single process - batch used in FindMatrixWindows)
-        var cmdLineIdentity = GetCommandLineIdentity(hwnd, processId, title);
-        if (cmdLineIdentity != null)
-            return cmdLineIdentity;
+        result = GetCommandLineIdentity(hwnd, processId, title);
+        if (result != null) { _handleCache[hwnd] = result; return result; }
 
         // Layer 3: Title Pattern Matching (fast, ~5ms)
-        var titleIdentity = GetTitleIdentity(hwnd, processId, title);
-        if (titleIdentity != null)
-            return titleIdentity;
+        result = GetTitleIdentity(hwnd, processId, title);
+        if (result != null) { _handleCache[hwnd] = result; return result; }
 
         // Layer 4: UI Automation (slow fallback, 100-300ms)
-        var uiaIdentity = GetUIAutomationIdentity(hwnd, processId, title);
-        if (uiaIdentity != null)
-            return uiaIdentity;
+        result = GetUIAutomationIdentity(hwnd, processId, title);
+        if (result != null) { _handleCache[hwnd] = result; return result; }
+
+        // Layer 5: Elimination via FindMatrixWindows (for WT windows with changed titles)
+        try
+        {
+            using var proc = Process.GetProcessById(processId);
+            if (proc.ProcessName.Equals(WindowsTerminalProcessName, StringComparison.OrdinalIgnoreCase))
+            {
+                // Trigger full enumeration which includes elimination logic
+                FindMatrixWindows();
+                // Check if elimination resolved this window
+                if (_handleCache.TryGetValue(hwnd, out var resolved))
+                {
+                    var newPos = WindowsApi.GetWindowPosition(hwnd) ?? new WindowRect();
+                    return resolved with { Position = newPos, Title = title };
+                }
+            }
+        }
+        catch { /* Process may have exited */ }
 
         return null;
     }
@@ -180,6 +324,7 @@ public class IdentityService : IIdentityService
         {
             _launchRegistry.Clear();
             _recoveredKeys.Clear();
+            _handleCache.Clear();
             SaveRegistry();
         }
     }
@@ -638,7 +783,10 @@ public class IdentityService : IIdentityService
         Dictionary<int, string> commandLineCache)
     {
         if (!WindowsApi.IsHandleValid(hwnd))
+        {
+            _handleCache.TryRemove(hwnd, out _);
             return null;
+        }
 
         // Check if this is the control panel window
         if (title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase))
@@ -646,27 +794,33 @@ public class IdentityService : IIdentityService
             return CreateWindowInfo(hwnd, title, processId, "ControlPanel", 0, IdentitySource.Title);
         }
 
+        // Layer 0: Handle cache (instant, survives title changes from agents)
+        if (_handleCache.TryGetValue(hwnd, out var cached))
+        {
+            var newPos = WindowsApi.GetWindowPosition(hwnd) ?? new WindowRect();
+            return cached with { Position = newPos, Title = title };
+        }
+
         // Layer 1: Launch Tracking
-        var launchIdentity = GetLaunchRegistryIdentity(hwnd, processId);
-        if (launchIdentity != null)
-            return launchIdentity;
+        WindowInfo? result = GetLaunchRegistryIdentity(hwnd, processId);
+        if (result != null) { _handleCache[hwnd] = result; return result; }
 
         // Layer 2: Command Line (from cache)
         if (commandLineCache.TryGetValue(processId, out var cmdLine))
         {
-            var cmdIdentity = ParseCommandLineIdentity(hwnd, processId, title, cmdLine);
-            if (cmdIdentity != null)
-                return cmdIdentity;
+            result = ParseCommandLineIdentity(hwnd, processId, title, cmdLine);
+            if (result != null) { _handleCache[hwnd] = result; return result; }
         }
 
         // Layer 3: Title Pattern Matching
-        var titleIdentity = GetTitleIdentity(hwnd, processId, title);
-        if (titleIdentity != null)
-            return titleIdentity;
+        result = GetTitleIdentity(hwnd, processId, title);
+        if (result != null) { _handleCache[hwnd] = result; return result; }
 
         // Layer 4: UI Automation (slow fallback)
-        var uiaIdentity = GetUIAutomationIdentity(hwnd, processId, title);
-        return uiaIdentity;
+        result = GetUIAutomationIdentity(hwnd, processId, title);
+        if (result != null) { _handleCache[hwnd] = result; return result; }
+
+        return null;
     }
 
     /// <summary>
@@ -753,6 +907,18 @@ public class IdentityService : IIdentityService
             Confidence = source.GetConfidence(),
             IsControlPanel = isControlPanel
         };
+    }
+
+    /// <summary>
+    /// Tries to match an unidentified window to a specific Matrix index by checking
+    /// tab color via UI Automation. Returns true if the tab color matches the expected
+    /// color for the given shader index.
+    /// </summary>
+    private static bool TryMatchByTabColor(nint hwnd, int expectedIndex)
+    {
+        // Tab color matching not yet implemented - would need DWM color reading
+        // For now, return false to skip this heuristic
+        return false;
     }
 
     #endregion

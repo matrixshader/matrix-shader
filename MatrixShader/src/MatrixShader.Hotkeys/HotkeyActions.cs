@@ -18,7 +18,7 @@ public sealed class HotkeyActions
     private readonly ITerminalSettingsService _terminalSettingsService;
 
     // Speed adjustment constants
-    private const float SpeedDelta = 0.1f;
+    private const float SpeedDelta = 0.5f;
     private const float MinSpeed = 0.1f;
     private const float MaxSpeed = 5.0f;
 
@@ -60,6 +60,7 @@ public sealed class HotkeyActions
         HotkeyAction.ToggleMid => ToggleMid,
         HotkeyAction.ToggleNear => ToggleNear,
         HotkeyAction.ShowHelp => ShowHelpOverlay,
+        HotkeyAction.ManualReload => ManualReload,
         _ => () => { } // Unknown action - do nothing
     };
 
@@ -104,6 +105,7 @@ public sealed class HotkeyActions
 
             // Move focused window to target position
             WindowsApi.PositionWindowExact(windows[currentIdx].Handle, targetPos);
+            MatrixWindowMonitor.UpdateTruth(windows[currentIdx].Handle, targetPos);
 
             // Shift windows between target and current
             for (int i = targetIdx; i != currentIdx; i = (i + 1) % windows.Count)
@@ -113,9 +115,11 @@ public sealed class HotkeyActions
                 {
                     // Last window in chain moves to original current position
                     WindowsApi.PositionWindowExact(windows[i].Handle, currentPos);
+                    MatrixWindowMonitor.UpdateTruth(windows[i].Handle, currentPos);
                     break;
                 }
                 WindowsApi.PositionWindowExact(windows[i].Handle, windows[nextIdx].Position);
+                MatrixWindowMonitor.UpdateTruth(windows[i].Handle, windows[nextIdx].Position);
             }
         }
         catch (Exception ex)
@@ -159,6 +163,7 @@ public sealed class HotkeyActions
 
             // Move focused window to target position
             WindowsApi.PositionWindowExact(windows[currentIdx].Handle, targetPos);
+            MatrixWindowMonitor.UpdateTruth(windows[currentIdx].Handle, targetPos);
 
             // Shift windows between current and target to the left
             for (int i = targetIdx; i != currentIdx; i = (i - 1 + windows.Count) % windows.Count)
@@ -167,9 +172,11 @@ public sealed class HotkeyActions
                 if (prevIdx == currentIdx)
                 {
                     WindowsApi.PositionWindowExact(windows[i].Handle, currentPos);
+                    MatrixWindowMonitor.UpdateTruth(windows[i].Handle, currentPos);
                     break;
                 }
                 WindowsApi.PositionWindowExact(windows[prevIdx].Handle, windows[i].Position);
+                MatrixWindowMonitor.UpdateTruth(windows[prevIdx].Handle, windows[i].Position);
             }
         }
         catch (Exception ex)
@@ -289,6 +296,7 @@ public sealed class HotkeyActions
     private void AdjustOpacity(int delta)
     {
         var focusedWindow = GetFocusedMatrixWindow();
+        DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity({delta}): focused = {(focusedWindow == null ? "null" : $"shader={focusedWindow.ShaderIndex}, profile={focusedWindow.ProfileName}")}");
         if (focusedWindow == null || string.IsNullOrEmpty(focusedWindow.ProfileName))
             return;
 
@@ -296,7 +304,10 @@ public sealed class HotkeyActions
         var profile = _terminalSettingsService.GetProfile(settings, focusedWindow.ProfileName);
 
         if (profile == null)
+        {
+            DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity: profile '{focusedWindow.ProfileName}' not found");
             return;
+        }
 
         // Clamp opacity to valid range
         var newOpacity = Math.Clamp(profile.Opacity + delta, MinOpacity, MaxOpacity);
@@ -304,6 +315,7 @@ public sealed class HotkeyActions
 
         _terminalSettingsService.UpsertProfile(settings, updatedProfile);
         _terminalSettingsService.SaveSettings(settings);
+        DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity: {profile.Opacity}% -> {newOpacity}% for {focusedWindow.ProfileName}");
     }
 
     // CycleShader and GetNextShaderIndex REMOVED
@@ -352,6 +364,7 @@ public sealed class HotkeyActions
     private void AdjustSpeed(float delta)
     {
         var focusedWindow = GetFocusedMatrixWindow();
+        DiagnosticLogger.Debug("HOTKEYS", $"AdjustSpeed({delta}): focused window = {(focusedWindow == null ? "null" : $"shader={focusedWindow.ShaderIndex}, profile={focusedWindow.ProfileName}")}");
         if (focusedWindow == null || focusedWindow.ShaderIndex < 1)
             return;
 
@@ -363,6 +376,7 @@ public sealed class HotkeyActions
         var updatedConfig = config with { Speed = newSpeed };
 
         _shaderService.WriteConfig(shaderIndex, updatedConfig);
+        _terminalSettingsService.ForceShaderReload();
 
         // Also update state for persistence
         var state = _configService.LoadState();
@@ -443,6 +457,7 @@ public sealed class HotkeyActions
 
         DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer: Writing config for shader {shaderIndex}, Layer1={updatedConfig.Layer1}, Layer2={updatedConfig.Layer2}, Layer3={updatedConfig.Layer3}");
         _shaderService.WriteConfig(shaderIndex, updatedConfig);
+        _terminalSettingsService.ForceShaderReload();
 
         // Also update state for persistence
         var state = _configService.LoadState();
@@ -470,6 +485,27 @@ public sealed class HotkeyActions
         catch (Exception ex)
         {
             DiagnosticLogger.ProductionError("HOTKEYS", $"ShowHelp failed: {ex.Message}");
+        }
+    }
+
+    #endregion
+
+    #region Manual Reload
+
+    /// <summary>
+    /// Forces Windows Terminal to reload all shaders by re-saving settings.json.
+    /// Backup for when WT's shader file watcher doesn't detect changes.
+    /// </summary>
+    private void ManualReload()
+    {
+        try
+        {
+            _terminalSettingsService.ForceShaderReload();
+            DiagnosticLogger.Debug("HOTKEYS", "Manual shader reload triggered");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.ProductionError("HOTKEYS", $"ManualReload failed: {ex.Message}");
         }
     }
 

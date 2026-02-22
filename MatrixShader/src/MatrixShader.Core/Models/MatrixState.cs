@@ -35,6 +35,9 @@ public record MatrixState
 
     /// <summary>Window slot assignments for layout persistence</summary>
     public Dictionary<string, WindowSlot> WindowSlots { get; init; } = new();
+
+    /// <summary>Whether the hotkey help overlay has been auto-shown at least once</summary>
+    public bool HelpShownOnce { get; init; }
 }
 
 /// <summary>
