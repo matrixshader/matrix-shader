@@ -156,12 +156,10 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error('KV error in /api/validate:', err);
     captureError(err, { endpoint: 'validate' });
-    // If KV is down, allow activation (graceful degradation on server side too)
-    return res.status(200).json({
-      activated: true,
-      message: 'Activation accepted (offline)',
-      activationCount: -1,
-      limit: MAX_ACTIVATIONS,
+    return res.status(503).json({
+      activated: false,
+      error: 'service_unavailable',
+      message: 'Activation server temporarily unavailable. Please try again in a minute.',
     });
   }
 }

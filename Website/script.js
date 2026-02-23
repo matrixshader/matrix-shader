@@ -326,13 +326,29 @@ class MatrixWebsite {
       });
     }
 
-    // Close modal
-    closeBtn.addEventListener('click', () => overlay.classList.remove('active'));
+    // Skip link — download without email, track it
+    const skipLink = document.getElementById('gate-skip');
+    if (skipLink) {
+      skipLink.addEventListener('click', () => {
+        sessionStorage.setItem('matrixshader_gate_cleared', '1');
+        navigator.sendBeacon('/api/track?event=gate_skip');
+        overlay.classList.remove('active');
+      });
+    }
+
+    // Close modal — track bounce
+    const closeGate = () => {
+      if (overlay.classList.contains('active')) {
+        navigator.sendBeacon('/api/track?event=gate_close');
+      }
+      overlay.classList.remove('active');
+    };
+    closeBtn.addEventListener('click', closeGate);
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) overlay.classList.remove('active');
+      if (e.target === overlay) closeGate();
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') overlay.classList.remove('active');
+      if (e.key === 'Escape') closeGate();
     });
 
     // Form submit
@@ -360,6 +376,7 @@ class MatrixWebsite {
           form.style.display = 'none';
           downloads.style.display = 'block';
           navigator.sendBeacon('/api/track?event=download');
+          navigator.sendBeacon('/api/track?event=gate_email');
           this.track('email_gate_complete', { email: email });
         } else {
           status.textContent = data.error || 'Something went wrong.';

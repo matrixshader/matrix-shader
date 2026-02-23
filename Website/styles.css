@@ -1385,6 +1385,19 @@ html {
   min-height: 1.2em;
 }
 
+.gate-skip-link {
+  display: block;
+  color: #444;
+  font-size: 0.8rem;
+  text-decoration: none;
+  margin-top: 1rem;
+  transition: color 0.2s ease;
+}
+
+.gate-skip-link:hover {
+  color: var(--text-muted);
+}
+
 .email-gate-fine-print {
   color: #555;
   font-size: 0.75rem;
