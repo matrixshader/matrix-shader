@@ -190,6 +190,17 @@ class MatrixWebsite {
     // Skip all tracking if owner is logged into admin (same browser)
     if (sessionStorage.getItem('zion_session')) return;
 
+    // Capture UTM source on arrival (which platform sent this visitor?)
+    var params = new URLSearchParams(window.location.search);
+    var utmSource = params.get('utm_source');
+    var utmContent = params.get('utm_content');
+    if (utmSource) {
+      localStorage.setItem('ms_utm_source', utmSource);
+      if (utmContent) localStorage.setItem('ms_utm_content', utmContent);
+      var tag = utmContent ? utmSource + ':' + utmContent : utmSource;
+      navigator.sendBeacon('/api/track?event=visit_' + tag);
+    }
+
     // Page view (once per visitor per day — dedup via localStorage)
     const today = new Date().toISOString().slice(0, 10);
     const lastView = localStorage.getItem('ms_last_view');
