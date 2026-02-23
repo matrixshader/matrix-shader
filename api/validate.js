@@ -11,8 +11,17 @@ function hashKey(key) {
   return crypto.createHash('sha256').update(key.trim().toUpperCase()).digest('hex').slice(0, 32);
 }
 
+async function rateLimit(ip, prefix, limit, windowSec) {
+  const key = `rl:${prefix}:${ip}`;
+  try {
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, windowSec);
+    return count > limit;
+  } catch { return false; }
+}
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -22,6 +31,11 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+  if (await rateLimit(ip, 'validate', 10, 60)) {
+    return res.status(429).json({ error: 'Too many requests. Try again later.' });
   }
 
   const { key, fingerprint } = req.body || {};
