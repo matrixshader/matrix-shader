@@ -42,8 +42,9 @@ export default async function handler(req, res) {
     }
 
     const allowed = ['download', 'install', 'activate', 'page_view', 'redpill_click', 'github_click'];
-    if (!allowed.includes(event)) {
-      return res.status(400).json({ error: `Unknown event. Allowed: ${allowed.join(', ')}` });
+    const isUtmVisit = event.startsWith('visit_') && event.length <= 48;
+    if (!allowed.includes(event) && !isUtmVisit) {
+      return res.status(400).json({ error: `Unknown event. Allowed: ${allowed.join(', ')}, visit_*` });
     }
 
     try {
