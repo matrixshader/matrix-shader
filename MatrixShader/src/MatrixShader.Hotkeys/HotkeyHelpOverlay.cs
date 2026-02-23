@@ -84,8 +84,8 @@ public static class HotkeyHelpOverlay
             // Visual Controls
             sb.AppendLine(BoxLine($"{GREEN}{BOLD}  VISUAL CONTROLS{RESET}"));
             sb.AppendLine(BoxLine(""));
-            sb.AppendLine(HotkeyLine("Ctrl+Shift+B", "Toggle transparency"));
-            sb.AppendLine(HotkeyLine("Ctrl+Shift+J / K", "Opacity down / up"));
+            sb.AppendLine(HotkeyLine("Ctrl+Shift+B", "Cycle: Off / Custom / Full transparent"));
+            sb.AppendLine(HotkeyLine("Ctrl+Shift+J / K", "Opacity down / up (sets custom level)"));
             sb.AppendLine(HotkeyLine("Ctrl+Shift+Down/Up", "Speed up / down"));
             sb.AppendLine(BoxLine(""));
 

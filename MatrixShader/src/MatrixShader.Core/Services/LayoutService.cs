@@ -363,46 +363,34 @@ public class LayoutService : ILayoutService
 
             // Calculate grid dimensions - Pillars mode always uses single row
             int columns = windowsOnScreen;
-            int rows = 1;
 
-            // Calculate initial dimensions
+            // Gaps ONLY between pillars — flush to screen edges, full height
             int adjustedGapSize = gapSize;
-            int totalHGaps = (columns + 1) * adjustedGapSize;
-            int totalVGaps = (rows + 1) * adjustedGapSize;
+            int betweenGaps = Math.Max(0, columns - 1);
+            int totalHGaps = betweenGaps * adjustedGapSize;
             int cellWidth = (workArea.Width - totalHGaps) / columns;
-            int cellHeight = (workArea.Height - totalVGaps) / rows;
+            int cellHeight = workArea.Height;
 
-            // If width below minimum and we have gaps, reduce gaps first
+            // If width below minimum, reduce gaps first
             while (cellWidth < MinWindowWidth && adjustedGapSize > 0 && columns > 1)
             {
-                // Reduce gap size by 5px increments
                 adjustedGapSize = Math.Max(0, adjustedGapSize - 5);
-                totalHGaps = (columns + 1) * adjustedGapSize;
+                totalHGaps = betweenGaps * adjustedGapSize;
                 cellWidth = (workArea.Width - totalHGaps) / columns;
             }
 
-            // If still too narrow after removing all gaps, use zero gaps
             if (cellWidth < MinWindowWidth)
             {
                 adjustedGapSize = 0;
-                totalHGaps = 0;
                 cellWidth = workArea.Width / columns;
             }
 
-            // Recalculate height with adjusted gap
-            totalVGaps = (rows + 1) * adjustedGapSize;
-            cellHeight = (workArea.Height - totalVGaps) / rows;
-
-            // Place each window in grid (column-major order)
+            // Place windows flush to edges, gaps only between
             for (int i = 0; i < windowsOnScreen; i++)
             {
-                int col = i % columns;
-                int row = i / columns;
-
-                // Calculate pixel position using adjusted gap size
-                // Formula: edge gap + (cell_index * (cell_size + gap))
-                int x = workArea.Left + adjustedGapSize + (col * (cellWidth + adjustedGapSize));
-                int y = workArea.Top + adjustedGapSize + (row * (cellHeight + adjustedGapSize));
+                int col = i;
+                int x = workArea.Left + (col * (cellWidth + adjustedGapSize));
+                int y = workArea.Top;
 
                 positions.Add(new CalculatedPosition
                 {
@@ -461,20 +449,18 @@ public class LayoutService : ILayoutService
 
             var workArea = monitor.WorkArea;
 
-            // Plus-gap calculation:
-            // Each dimension has 3 gaps: edge + center + edge
-            // Two quadrants share the remaining space equally
-            // Formula: (total - 3*gap) / 2
-            int halfWidth = (workArea.Width - (3 * gapSize)) / 2;
-            int halfHeight = (workArea.Height - (3 * gapSize)) / 2;
+            // Gaps only between quadrants, flush to screen edges
+            // 1 gap horizontally (between left and right columns), 1 gap vertically (between top and bottom rows)
+            int halfWidth = (workArea.Width - gapSize) / 2;
+            int halfHeight = (workArea.Height - gapSize) / 2;
 
-            // Define quad positions: TL, TR, BL, BR
+            // Define quad positions: TL, TR, BL, BR — flush to edges
             var quadPositions = new[]
             {
-                (X: workArea.Left + gapSize, Y: workArea.Top + gapSize),                                           // TL
-                (X: workArea.Left + (2 * gapSize) + halfWidth, Y: workArea.Top + gapSize),                        // TR
-                (X: workArea.Left + gapSize, Y: workArea.Top + (2 * gapSize) + halfHeight),                       // BL
-                (X: workArea.Left + (2 * gapSize) + halfWidth, Y: workArea.Top + (2 * gapSize) + halfHeight)      // BR
+                (X: workArea.Left, Y: workArea.Top),                                          // TL
+                (X: workArea.Left + halfWidth + gapSize, Y: workArea.Top),                    // TR
+                (X: workArea.Left, Y: workArea.Top + halfHeight + gapSize),                   // BL
+                (X: workArea.Left + halfWidth + gapSize, Y: workArea.Top + halfHeight + gapSize) // BR
             };
 
             // Place windows in order: TL, TR, BL, BR
@@ -526,9 +512,9 @@ public class LayoutService : ILayoutService
             cols = Math.Max(cols, 2); // At least 2 columns for quad-like appearance
             int rows = (int)Math.Ceiling((double)windowsOnThisScreen / cols);
 
-            // Calculate cell dimensions with gaps
-            int totalHGaps = (cols + 1) * gapSize;
-            int totalVGaps = (rows + 1) * gapSize;
+            // Gaps only between cells, flush to screen edges
+            int totalHGaps = Math.Max(0, cols - 1) * gapSize;
+            int totalVGaps = Math.Max(0, rows - 1) * gapSize;
             int cellWidth = (workArea.Width - totalHGaps) / cols;
             int cellHeight = (workArea.Height - totalVGaps) / rows;
 
@@ -538,8 +524,8 @@ public class LayoutService : ILayoutService
                 int col = i % cols;
                 int row = i / cols;
 
-                int x = workArea.Left + gapSize + (col * (cellWidth + gapSize));
-                int y = workArea.Top + gapSize + (row * (cellHeight + gapSize));
+                int x = workArea.Left + (col * (cellWidth + gapSize));
+                int y = workArea.Top + (row * (cellHeight + gapSize));
 
                 positions.Add(new CalculatedPosition
                 {
@@ -584,10 +570,10 @@ public class LayoutService : ILayoutService
         // Calculate overlap offset
         int overlapOffset = (int)(workArea.Width * overlapPercent / 100.0);
 
-        // Calculate window size (each window slightly overlaps the next)
-        int windowWidth = (workArea.Width - gapSize * 2 + overlapOffset * (windowCount - 1)) / windowCount;
+        // Calculate window size — full height, flush to edges
+        int windowWidth = (workArea.Width + overlapOffset * (windowCount - 1)) / windowCount;
         windowWidth = Math.Max(windowWidth, MinWindowWidth);
-        int windowHeight = workArea.Height - gapSize * 2;
+        int windowHeight = workArea.Height;
 
         // Calculate starting X to center the group
         int totalWidth = windowWidth * windowCount - overlapOffset * (windowCount - 1);
@@ -596,7 +582,7 @@ public class LayoutService : ILayoutService
         for (int i = 0; i < windowCount; i++)
         {
             int x = startX + i * (windowWidth - overlapOffset);
-            int y = workArea.Top + gapSize;
+            int y = workArea.Top;
 
             positions.Add(new CalculatedPosition
             {
@@ -673,7 +659,7 @@ public class LayoutService : ILayoutService
     /// <summary>
     /// Calculates scaled gap size based on window count.
     /// More windows = proportionally smaller gaps, but never below 20px minimum.
-    /// Formula: 1-2 windows: 100%, 3 windows: 80%, 4+ windows: 60% of base gap
+    /// Formula: 1-2 windows: 100%, 3 windows: 90%, 4+ windows: 80% of base gap
     /// </summary>
     private static int CalculateScaledGap(int baseGap, int windowCount)
     {
