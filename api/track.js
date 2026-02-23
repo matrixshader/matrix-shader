@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing or invalid event name' });
     }
 
-    const allowed = ['download', 'install', 'activate', 'page_view', 'redpill_click', 'github_click'];
+    const allowed = ['download', 'install', 'activate', 'page_view', 'redpill_click', 'github_click', 'gate_email', 'gate_skip', 'gate_close'];
     const isUtmVisit = event.startsWith('visit_') && event.length <= 48;
     if (!allowed.includes(event) && !isUtmVisit) {
       return res.status(400).json({ error: `Unknown event. Allowed: ${allowed.join(', ')}, visit_*` });
