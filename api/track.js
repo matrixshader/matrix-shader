@@ -9,8 +9,17 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+async function rateLimit(ip, prefix, limit, windowSec) {
+  const key = `rl:${prefix}:${ip}`;
+  try {
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, windowSec);
+    return count > limit;
+  } catch { return false; }
+}
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -20,6 +29,11 @@ export default async function handler(req, res) {
 
   // POST /api/track?event=download — increment a counter + daily time-series
   if (req.method === 'POST') {
+    const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+    if (await rateLimit(ip, 'track', 30, 60)) {
+      return res.status(429).json({ error: 'Too many requests' });
+    }
+
     const event = req.query.event || req.body?.event;
     if (!event || typeof event !== 'string' || event.length > 32) {
       return res.status(400).json({ error: 'Missing or invalid event name' });

@@ -20,6 +20,15 @@ function validEmail(e) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
 
+async function rateLimit(ip, prefix, limit, windowSec) {
+  const key = `rl:${prefix}:${ip}`;
+  try {
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, windowSec);
+    return count > limit;
+  } catch { return false; }
+}
+
 async function authenticate(req) {
   // Session-based auth
   const sessionHeader = req.headers['x-session'];
@@ -42,7 +51,7 @@ async function authenticate(req) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session');
 
@@ -50,8 +59,13 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // ── POST: Submit a question (public) ──
+  // ── POST: Submit a question (public, rate-limited) ──
   if (req.method === 'POST') {
+    const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+    if (await rateLimit(ip, 'faq', 5, 3600)) {
+      return res.status(429).json({ error: 'Too many questions. Try again later.' });
+    }
+
     const { email, question, category } = req.body || {};
 
     if (!email || !validEmail(email)) {
