@@ -85,7 +85,9 @@ PowerShell requires CRLF line endings. Always use Windows-native tools.
 - [x] 14-06: E2E Round 1 - Fixed transparency toggle, Glitch cooldown, auto-continue, feedback
 
 ### Next Steps:
-- [ ] Verify DASHBOARD_PASSWORD env var is set in Vercel and dashboard is accessible at /admin
+- [ ] Build campaign folder: per-platform post drafts, UTM tracking links, launch calendar
+- [ ] Wire UTM source tracking into script.js so dashboard shows which platform drives sales
+- [ ] Add white rabbit cursor Easter egg on /redpill page
 - [ ] E2E Round 2: verify Glitch, opacity toggle, Glitch cooldown, and auto-continue in Windows Sandbox
 - [ ] Implement hotkey help popup (Matrix-styled) - user requested feature
 - [ ] Test Glitch in Blue Pill path (wakeupneo and bluepill.exe)
@@ -318,3 +320,69 @@ PowerShell requires CRLF line endings. Always use Windows-native tools.
 - Dashboard URL: `https://matrixshader.com/admin` (noindex - not linked from site)
 - Redis keys used: `stats:<event>` (all-time) and `ts:<event>:<YYYY-MM-DD>` (daily)
 - All 4 commits pushed to `origin/master` before this session close
+
+### Session 2026-02-23: Security Hardening, Sentry Integration & Launch Strategy
+**Phase:** Post-v1.0 - Security, Observability, and Go-to-Market
+
+**Accomplishments:**
+1. Sentry Error Monitoring Integration:
+   - Created shared `api/_sentry.js` helper module for consistent error capture
+   - Integrated Sentry across all 8 API endpoints: validate, webhook, faq, dashboard, backup, track, unsubscribe
+   - Captures errors with endpoint context, graceful degradation if Sentry unavailable
+   - Free tier sufficient for current traffic levels
+
+2. Security Hardening - License Key Validation:
+   - **Fake key bypass closed**: Added HMAC signature verification to `api/validate.js` - keys are now cryptographically validated, not just format-checked
+   - **Refund key revocation**: `api/webhook.js` now marks refunded keys as revoked in Redis, preventing continued use after refund
+
+3. Launch Strategy Research:
+   - Comprehensive research compiled at `.planning/research/LAUNCH-STRATEGY.md` (30+ sources)
+   - Channel priority established: Hacker News #1, Reddit #2, Twitter/X #3, Product Hunt #5
+   - Reddit needs 4-6 weeks account seasoning for new accounts (user has older personal account)
+   - Target subreddits ranked by subscriber count and cultural fit
+   - Competitor landscape analysis: no paid Matrix rain product exists
+   - Wallpaper Engine cited as market proof ($3.99, 20-50M owners)
+   - Timing: Feb-March seasonal sweet spot, Matrix 5 coming, DEF CON August 2026
+   - Recommended 6-phase launch sequence over 7+ weeks
+
+4. Business Strategy Decision:
+   - Chose Strategy C: spend $0, launch this week with free channels
+   - LemonSqueezy is merchant of record - no LLC needed to start selling
+   - Order: launch -> sales -> Traveling Mailbox -> LLC -> bank account
+   - Let product revenue fund its own infrastructure
+
+5. Updated `.planning/UNIFIED-ROADMAP.md` with launch-first priorities
+
+**Key Decisions:**
+- Strategy C ($0 launch budget) - cash-strapped, let sales fund infrastructure
+- Use personal Reddit account (older, with history) instead of new u/matrixshader - bypasses seasoning period
+- LemonSqueezy as merchant of record eliminates need for LLC before first sale
+- HMAC verification for license keys - cryptographic validation, not just format check
+- Sentry free tier for error monitoring - catches API errors without cost
+
+**Lesson Learned:**
+- **Never dismiss subagent results.** When parallel research agents return, always review their findings properly, call out what is new or different, and integrate honestly. The point of parallel agents is getting different perspectives. Dismissing one agent's work with "already incorporated" without proper review is lazy and disrespectful to the research process.
+
+**Pending Items:**
+- Campaign folder: per-platform post drafts, UTM tracking links, launch calendar (user explicitly requested)
+- White rabbit cursor: custom cursor Easter egg on /redpill page
+- UTM source tracking: wire into script.js so dashboard shows which platform drives sales
+
+**Files Modified:**
+- `api/_sentry.js` (created - shared Sentry helper)
+- `api/validate.js` (HMAC key verification)
+- `api/webhook.js` (refund key revocation)
+- `api/faq.js` (Sentry integration)
+- `api/dashboard.js` (Sentry integration)
+- `api/backup.js` (Sentry integration)
+- `api/track.js` (Sentry integration)
+- `api/unsubscribe.js` (Sentry integration)
+- `.planning/UNIFIED-ROADMAP.md` (updated priorities)
+- `.planning/research/LAUNCH-STRATEGY.md` (created - comprehensive launch research)
+
+**Technical Notes:**
+- Sentry DSN configured via `SENTRY_DSN` env var in Vercel
+- HMAC uses `LEMON_SQUEEZY_SIGNING_SECRET` for key validation
+- Revoked keys stored in Redis as `revoked:<key>` with TTL
+- User has older personal Reddit account - 1-2 weeks of genuine comments in target subreddits recommended before promotional posts
+- User context: fighting flu + dental infection, doing Amazon Flex gig work, every dollar counts
