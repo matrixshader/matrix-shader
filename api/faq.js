@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
 import crypto from 'crypto';
+import { initSentry, captureError } from './_sentry.js';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -55,6 +56,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session');
 
+  initSentry();
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -101,6 +104,7 @@ export default async function handler(req, res) {
       return res.status(201).json({ id, message: 'Question received' });
     } catch (err) {
       console.error('FAQ submit error:', err);
+      captureError(err, { endpoint: 'faq', action: 'submit' });
       return res.status(500).json({ error: 'Failed to save question' });
     }
   }
@@ -163,6 +167,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ questions: filtered, counts });
     } catch (err) {
       console.error('FAQ list error:', err);
+      captureError(err, { endpoint: 'faq', action: 'list' });
       return res.status(500).json({ error: 'Failed to load questions' });
     }
   }
@@ -223,6 +228,7 @@ export default async function handler(req, res) {
       return res.status(200).json(record);
     } catch (err) {
       console.error('FAQ update error:', err);
+      captureError(err, { endpoint: 'faq', action: 'update' });
       return res.status(500).json({ error: 'Failed to update question' });
     }
   }
@@ -241,6 +247,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ deleted: true, id });
     } catch (err) {
       console.error('FAQ delete error:', err);
+      captureError(err, { endpoint: 'faq', action: 'delete' });
       return res.status(500).json({ error: 'Failed to delete question' });
     }
   }

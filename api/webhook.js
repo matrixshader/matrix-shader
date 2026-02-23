@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { Redis } from '@upstash/redis';
+import { initSentry, captureError } from './_sentry.js';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -49,6 +50,7 @@ function getRawBody(req) {
 }
 
 export default async function handler(req, res) {
+  initSentry();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -106,6 +108,7 @@ export default async function handler(req, res) {
       await redis.incr('stats:purchase');
     } catch (err) {
       console.error('Redis error in webhook:', err);
+      captureError(err, { endpoint: 'webhook', orderId });
     }
 
     return res.status(200).json({ received: true, event: eventName });

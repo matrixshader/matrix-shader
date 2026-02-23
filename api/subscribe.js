@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { initSentry, captureError } from './_sentry.js';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -52,6 +53,7 @@ async function rateLimit(ip, prefix, limit, windowSec) {
 }
 
 export default async function handler(req, res) {
+  initSentry();
   res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -98,6 +100,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ subscribed: true, message: 'Welcome to MatrixShader' });
   } catch (err) {
     console.error('Subscribe error:', err);
+    captureError(err, { endpoint: 'subscribe' });
     return res.status(500).json({ error: 'Server error' });
   }
 }

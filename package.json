@@ -42,6 +42,7 @@
     "LICENSE"
   ],
   "dependencies": {
+    "@sentry/node": "^9.20.0",
     "@upstash/redis": "^1.36.2"
   }
 }

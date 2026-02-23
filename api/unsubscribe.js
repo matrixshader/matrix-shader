@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { initSentry, captureError } from './_sentry.js';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -10,6 +11,7 @@ function isValidEmail(email) {
 }
 
 export default async function handler(req, res) {
+  initSentry();
   res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -47,6 +49,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('Unsubscribe error:', err);
+    captureError(err, { endpoint: 'unsubscribe' });
     if (req.method === 'GET') {
       return res.status(200).send(unsubscribePage('Something went wrong. Please try again or email matrixshader@protonmail.com.'));
     }
