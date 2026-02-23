@@ -8,6 +8,32 @@ const redis = new Redis({
 });
 const MAX_ACTIVATIONS = 3;
 
+const CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function toBase36(bytes, offset, length) {
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    const idx = (offset + i < bytes.length) ? bytes[offset + i] % 36 : 0;
+    result += CHARS[idx];
+  }
+  return result;
+}
+
+function verifyKey(key) {
+  const secret = process.env.LICENSE_SECRET;
+  if (!secret) return false;
+  const trimmed = key.trim().toUpperCase();
+  // Format: REDPILL-XXXX-XXXX-XXXX-XXXX
+  const parts = trimmed.split('-');
+  if (parts.length !== 5 || parts[0] !== 'REDPILL') return false;
+  // Reconstruct payload (first 4 parts) and verify HMAC signature (5th part)
+  const payload = parts.slice(0, 4).join('-');
+  const providedSig = parts[4];
+  const hmac = crypto.createHmac('sha256', secret).update(payload).digest();
+  const expectedSig = toBase36(hmac, 0, 4);
+  return providedSig === expectedSig;
+}
+
 function hashKey(key) {
   return crypto.createHash('sha256').update(key.trim().toUpperCase()).digest('hex').slice(0, 32);
 }
@@ -50,20 +76,38 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid fingerprint' });
   }
 
+  // Verify key signature before hitting Redis
+  if (!verifyKey(key)) {
+    return res.status(403).json({
+      activated: false,
+      error: 'invalid_key',
+      message: 'Invalid license key. Check your key and try again.',
+    });
+  }
+
   const kvKey = `key:${hashKey(key)}`;
 
   try {
     let raw = await redis.get(kvKey);
     let record = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
-    // Key not in KV — could be a pre-existing key activated before this system.
-    // Allow it through (backward compatibility).
+    // Key has valid signature but not in Redis (webhook race condition or Redis data loss).
+    // Create a record so the customer isn't blocked.
     if (!record) {
       record = {
-        orderId: 'legacy',
+        orderId: 'verified-offline',
         createdAt: new Date().toISOString(),
         activations: [],
       };
+    }
+
+    // Check if key has been revoked (refund)
+    if (record.revoked) {
+      return res.status(403).json({
+        activated: false,
+        error: 'key_revoked',
+        message: 'This license key has been revoked. Contact support if you believe this is an error.',
+      });
     }
 
     const activations = record.activations || [];
