@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Left ear -->
+  <ellipse cx="10" cy="7" rx="3" ry="6" fill="white"/>
+  <ellipse cx="10" cy="7" rx="1.5" ry="4" fill="#ffb8cc"/>
+  <!-- Right ear -->
+  <ellipse cx="20" cy="7" rx="3" ry="6" fill="white"/>
+  <ellipse cx="20" cy="7" rx="1.5" ry="4" fill="#ffb8cc"/>
+  <!-- Head -->
+  <ellipse cx="15" cy="19" rx="10" ry="9" fill="white"/>
+  <!-- Eyes (Matrix red) -->
+  <circle cx="11" cy="17" r="2" fill="#ff0040"/>
+  <circle cx="19" cy="17" r="2" fill="#ff0040"/>
+  <circle cx="11.6" cy="16.3" r="0.7" fill="white"/>
+  <circle cx="19.6" cy="16.3" r="0.7" fill="white"/>
+  <!-- Nose -->
+  <ellipse cx="15" cy="21" rx="1.5" ry="1" fill="#ffb8cc"/>
+  <!-- Whiskers -->
+  <line x1="2" y1="20" x2="10" y2="19" stroke="white" stroke-width="0.5" opacity="0.5"/>
+  <line x1="2" y1="22" x2="10" y2="21" stroke="white" stroke-width="0.5" opacity="0.5"/>
+  <line x1="28" y1="20" x2="20" y2="19" stroke="white" stroke-width="0.5" opacity="0.5"/>
+  <line x1="28" y1="22" x2="20" y2="21" stroke="white" stroke-width="0.5" opacity="0.5"/>
+</svg>
