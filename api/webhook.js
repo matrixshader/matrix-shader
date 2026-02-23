@@ -115,8 +115,28 @@ export default async function handler(req, res) {
   }
 
   if (eventName === 'order_refunded') {
-    // Log refund — key revocation could be added later
     console.log(`Refund for order ${orderId}`);
+
+    // Revoke the license key
+    const seed = `LS-${orderId}`;
+    const key = generateKey(seed, licenseSecret);
+    const keyHash = crypto.createHash('sha256').update(key).digest('hex').slice(0, 32);
+
+    try {
+      const raw = await redis.get(`key:${keyHash}`);
+      if (raw) {
+        const record = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        record.revoked = true;
+        record.revokedAt = new Date().toISOString();
+        record.revokeReason = 'refund';
+        await redis.set(`key:${keyHash}`, JSON.stringify(record));
+        console.log(`Key revoked for order ${orderId}`);
+      }
+    } catch (err) {
+      console.error('Redis error revoking key:', err);
+      captureError(err, { endpoint: 'webhook', orderId, action: 'revoke' });
+    }
+
     return res.status(200).json({ received: true, event: eventName });
   }
 
