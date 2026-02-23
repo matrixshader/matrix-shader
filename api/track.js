@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { initSentry, captureError } from './_sentry.js';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -19,6 +20,7 @@ async function rateLimit(ip, prefix, limit, windowSec) {
 }
 
 export default async function handler(req, res) {
+  initSentry();
   res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -52,6 +54,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ event, count });
     } catch (err) {
       console.error('Track error:', err);
+      captureError(err, { endpoint: 'track', event });
       return res.status(200).json({ event, count: -1 });
     }
   }
@@ -88,6 +91,7 @@ export default async function handler(req, res) {
       });
     } catch (err) {
       console.error('Stats error:', err);
+      captureError(err, { endpoint: 'track', action: 'stats' });
       return res.status(200).json({ downloads: 0, installs: 0, activations: 0 });
     }
   }

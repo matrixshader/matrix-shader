@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { Redis } from '@upstash/redis';
+import { initSentry, captureError } from './_sentry.js';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -21,6 +22,7 @@ async function rateLimit(ip, prefix, limit, windowSec) {
 }
 
 export default async function handler(req, res) {
+  initSentry();
   res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -109,6 +111,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('KV error in /api/validate:', err);
+    captureError(err, { endpoint: 'validate' });
     // If KV is down, allow activation (graceful degradation on server side too)
     return res.status(200).json({
       activated: true,

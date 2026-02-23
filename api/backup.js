@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
 import crypto from 'crypto';
+import { initSentry, captureError } from './_sentry.js';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -52,6 +53,7 @@ async function exportAllKeys() {
 }
 
 export default async function handler(req, res) {
+  initSentry();
   res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session');
@@ -101,6 +103,7 @@ export default async function handler(req, res) {
     return res.status(200).json(backup);
   } catch (err) {
     console.error('Backup error:', err);
+    captureError(err, { endpoint: 'backup' });
     return res.status(500).json({ error: 'Backup failed' });
   }
 }
