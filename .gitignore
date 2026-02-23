@@ -75,6 +75,9 @@ ffmpeg.exe
 /matrix_state.json
 /MatrixShader/README.md
 
+# Planning docs (private — launch strategy, campaigns, session state)
+.planning/
+
 # Dev docs at root
 /AGENTS.md
 /AGENTS/
