@@ -26,6 +26,27 @@ public sealed class HotkeyActions
     private const int OpacityDelta = 5;
     private const int MinOpacity = 0;
     private const int MaxOpacity = 100;
+    private const int DefaultCustomOpacity = 85;
+
+    // Transparency cycle: Off (100%) → Custom (slider value) → Full (0%)
+    private enum TransparencyState { Off, Custom, Full }
+    private readonly Dictionary<string, TransparencyState> _transparencyStates = new();
+    private readonly Dictionary<string, int> _customOpacity = new();
+
+    // Cache FindMatrixWindows result — identity resolution is expensive
+    private IReadOnlyList<WindowInfo>? _cachedMatrixWindows;
+    private DateTime _cacheExpiry = DateTime.MinValue;
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(3);
+
+    private IReadOnlyList<WindowInfo> GetMatrixWindowsCached()
+    {
+        if (_cachedMatrixWindows != null && DateTime.UtcNow < _cacheExpiry)
+            return _cachedMatrixWindows;
+
+        _cachedMatrixWindows = _identityService.FindMatrixWindows();
+        _cacheExpiry = DateTime.UtcNow + CacheTtl;
+        return _cachedMatrixWindows;
+    }
 
     public HotkeyActions(
         IIdentityService identityService,
@@ -224,33 +245,86 @@ public sealed class HotkeyActions
     #region Terminal Settings Actions (ToggleTransparency, OpacityUp/Down)
 
     /// <summary>
-    /// Toggles transparency on the focused Matrix window's profile.
-    /// Switches between opaque (100%) and transparent (85%).
-    /// Uses TerminalSettingsService to modify terminal settings.
+    /// Cycles transparency on ALL Matrix windows through 3 states:
+    /// Off (100%) → Custom (slider %) → Full transparent (0%).
     /// </summary>
     private void ToggleTransparency()
     {
         try
         {
-            var focusedWindow = GetFocusedMatrixWindow();
-            if (focusedWindow == null || string.IsNullOrEmpty(focusedWindow.ProfileName))
+            var matrixWindows = GetMatrixWindowsCached();
+            if (matrixWindows.Count == 0)
                 return;
 
-            var settings = _terminalSettingsService.LoadSettings();
-            var profile = _terminalSettingsService.GetProfile(settings, focusedWindow.ProfileName);
-
-            if (profile == null)
+            // Use first window's profile to determine current state
+            var firstProfile = matrixWindows[0].ProfileName;
+            if (string.IsNullOrEmpty(firstProfile))
                 return;
 
-            // Toggle between opaque (100) and transparent (85)
-            // Keep UseAcrylic = false to avoid frosted glass effect
-            var currentOpacity = profile.Opacity;
-            var newOpacity = currentOpacity >= 100 ? 85 : 100;
-            var updatedProfile = profile with { Opacity = newOpacity, UseAcrylic = false };
-            _terminalSettingsService.UpsertProfile(settings, updatedProfile);
-            _terminalSettingsService.SaveSettings(settings);
+            // Determine current state from first window
+            if (!_transparencyStates.TryGetValue(firstProfile, out var currentState))
+            {
+                // First use — read from terminal to figure out where we are
+                var settings = _terminalSettingsService.LoadSettings();
+                var profile = _terminalSettingsService.GetProfile(settings, firstProfile);
+                if (profile == null) return;
 
-            DiagnosticLogger.Debug("HOTKEYS", $"Toggled transparency: {currentOpacity}% -> {newOpacity}%");
+                if (profile.Opacity >= 100)
+                    currentState = TransparencyState.Off;
+                else if (profile.Opacity <= 0)
+                    currentState = TransparencyState.Full;
+                else
+                {
+                    currentState = TransparencyState.Custom;
+                    _customOpacity[firstProfile] = profile.Opacity;
+                }
+            }
+
+            // Advance to next state
+            var nextState = currentState switch
+            {
+                TransparencyState.Off => TransparencyState.Custom,
+                TransparencyState.Custom => TransparencyState.Full,
+                TransparencyState.Full => TransparencyState.Off,
+                _ => TransparencyState.Off
+            };
+
+            // Determine target opacity
+            int targetOpacity = nextState switch
+            {
+                TransparencyState.Off => 100,
+                TransparencyState.Custom => _customOpacity.TryGetValue(firstProfile, out var c) ? c : DefaultCustomOpacity,
+                TransparencyState.Full => 0,
+                _ => 100
+            };
+
+            // Apply to ALL Matrix windows
+            var allSettings = _terminalSettingsService.LoadSettings();
+            foreach (var window in matrixWindows)
+            {
+                if (string.IsNullOrEmpty(window.ProfileName)) continue;
+
+                var profile = _terminalSettingsService.GetProfile(allSettings, window.ProfileName);
+                if (profile == null) continue;
+
+                var updatedProfile = profile with { Opacity = targetOpacity, UseAcrylic = false };
+                _terminalSettingsService.UpsertProfile(allSettings, updatedProfile);
+
+                // Track state per profile
+                _transparencyStates[window.ProfileName] = nextState;
+                if (nextState == TransparencyState.Custom && !_customOpacity.ContainsKey(window.ProfileName))
+                    _customOpacity[window.ProfileName] = DefaultCustomOpacity;
+            }
+            _terminalSettingsService.SaveSettings(allSettings);
+
+            var label = nextState switch
+            {
+                TransparencyState.Off => "OFF (100%)",
+                TransparencyState.Custom => $"CUSTOM ({targetOpacity}%)",
+                TransparencyState.Full => "FULL (0%)",
+                _ => "?"
+            };
+            DiagnosticLogger.Debug("HOTKEYS", $"Transparency cycled to {label} on {matrixWindows.Count} windows");
         }
         catch (Exception ex)
         {
@@ -291,7 +365,8 @@ public sealed class HotkeyActions
     }
 
     /// <summary>
-    /// Adjusts opacity by the specified delta.
+    /// Adjusts opacity by the specified delta. Also remembers the value as the custom opacity
+    /// so the transparency toggle cycle (Off → Custom → Full) uses whatever the user set.
     /// </summary>
     private void AdjustOpacity(int delta)
     {
@@ -315,6 +390,11 @@ public sealed class HotkeyActions
 
         _terminalSettingsService.UpsertProfile(settings, updatedProfile);
         _terminalSettingsService.SaveSettings(settings);
+
+        // Remember as custom opacity for the toggle cycle
+        _customOpacity[focusedWindow.ProfileName] = newOpacity;
+        _transparencyStates[focusedWindow.ProfileName] = TransparencyState.Custom;
+
         DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity: {profile.Opacity}% -> {newOpacity}% for {focusedWindow.ProfileName}");
     }
 
@@ -517,16 +597,32 @@ public sealed class HotkeyActions
     /// Gets the currently focused Matrix window (excluding control panel).
     /// Returns null if no Matrix window is focused.
     /// </summary>
+    // Cache resolved identities per window handle to avoid repeated identity resolution
+    private nint _cachedFocusedHandle;
+    private WindowInfo? _cachedFocusedIdentity;
+    private DateTime _focusedCacheExpiry = DateTime.MinValue;
+
     private WindowInfo? GetFocusedMatrixWindow()
     {
         var foreground = WindowsApi.GetForegroundWindow();
         if (foreground == nint.Zero)
             return null;
 
+        // Reuse cached identity if same handle and cache is fresh
+        if (foreground == _cachedFocusedHandle && DateTime.UtcNow < _focusedCacheExpiry && _cachedFocusedIdentity != null)
+            return _cachedFocusedIdentity;
+
         var identity = _identityService.ResolveIdentity(foreground);
         if (identity == null || identity.IsControlPanel)
+        {
+            _cachedFocusedHandle = nint.Zero;
+            _cachedFocusedIdentity = null;
             return null;
+        }
 
+        _cachedFocusedHandle = foreground;
+        _cachedFocusedIdentity = identity;
+        _focusedCacheExpiry = DateTime.UtcNow + CacheTtl;
         return identity;
     }
 

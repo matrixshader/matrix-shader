@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<!--
+  PRODUCT UPDATE / NEW VERSION EMAIL
+  ===================================
+  Use: Send to full subscriber list when a new version ships.
+  When: After pushing a new release to GitHub.
+  Tone: Operator broadcast. Professional but Matrix-flavored.
+  Variables: {{version}}, {{changelog_items}} (fill in manually each release)
+-->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MatrixShader - New Transmission</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0a0a0a; font-family: 'Courier New', Courier, monospace;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0a0a0a;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width: 600px; width: 100%;">
+
+                    <!-- Header -->
+                    <tr>
+                        <td style="text-align: center; padding-bottom: 30px;">
+                            <span style="font-size: 32px; color: #00ff41; font-weight: bold; letter-spacing: 3px;">MATRIXSHADER</span>
+                        </td>
+                    </tr>
+
+                    <!-- Main Card -->
+                    <tr>
+                        <td style="background: #0d1a0d; border: 1px solid #1a3a1a; border-radius: 12px; padding: 32px;">
+
+                            <!-- Greeting -->
+                            <p style="color: #00ff41; font-size: 20px; margin: 0 0 8px 0;">
+                                New transmission from the Resistance.
+                            </p>
+                            <p style="color: #8a9a8a; font-size: 14px; margin: 0 0 24px 0;">
+                                MatrixShader {{version}} is live.
+                            </p>
+
+                            <!-- Divider -->
+                            <hr style="border: none; border-top: 1px solid #1a3a1a; margin: 24px 0;">
+
+                            <!-- Changelog -->
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="background: rgba(0,0,0,0.3); border: 1px solid #1a3a1a; border-radius: 8px; padding: 20px;">
+                                        <p style="color: #00ff41; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 12px 0;">What's new</p>
+                                        <p style="color: #a0a0a0; font-size: 14px; line-height: 1.8; margin: 0;">
+                                            <!-- REPLACE THESE WITH ACTUAL CHANGELOG ITEMS -->
+                                            &bull; <span style="color: #fff;">New feature name</span> &mdash; Description of what it does<br>
+                                            &bull; <span style="color: #fff;">Another improvement</span> &mdash; What changed and why it matters<br>
+                                            &bull; <span style="color: #fff;">Bug fix</span> &mdash; What was broken and how it's fixed<br>
+                                            &bull; Performance improvements and stability fixes
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Divider -->
+                            <hr style="border: none; border-top: 1px solid #1a3a1a; margin: 24px 0;">
+
+                            <!-- Update instructions -->
+                            <p style="color: #c0c0c0; font-size: 15px; line-height: 1.7; margin: 0 0 16px 0;">
+                                To update, download the latest installer or run the one-liner:
+                            </p>
+                            <p style="color: #00ff41; font-size: 14px; background: rgba(0,0,0,0.4); padding: 12px 16px; border-radius: 6px; border: 1px solid #1a3a1a; margin: 0 0 20px 0;">
+                                irm https://matrixshader.com/install.ps1 | iex
+                            </p>
+
+                            <!-- CTAs -->
+                            <table role="presentation" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="border-radius: 6px; background: #0d2a0d; border: 1px solid #00ff41; margin-right: 8px;">
+                                        <a href="https://github.com/matrixshader/matrix-shader/releases/latest" target="_blank" style="display: inline-block; padding: 12px 28px; color: #00ff41; font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold; text-decoration: none;">View release notes</a>
+                                    </td>
+                                    <td width="12"></td>
+                                    <td style="border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid #333;">
+                                        <a href="https://github.com/matrixshader/matrix-shader/releases/latest/download/MatrixShaderSetup.exe" target="_blank" style="display: inline-block; padding: 12px 28px; color: #ccc; font-family: 'Courier New', monospace; font-size: 14px; text-decoration: none;">Download installer</a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="text-align: center; padding-top: 30px;">
+                            <p style="color: #4a4a4a; font-size: 12px; margin: 0 0 8px 0;">
+                                MatrixShader | matrixshader.com
+                            </p>
+                            <p style="color: #3a3a3a; font-size: 11px; margin: 0;">
+                                You received this because you're a MatrixShader subscriber.
+                                <a href="{{unsubscribe_url}}" style="color: #3a3a3a;">Unsubscribe</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<!--
+  COMMUNITY MILESTONE EMAIL
+  ==========================
+  Use: Send to full subscriber list when a milestone is reached.
+  When: At key milestones: 100, 500, 1000, 5000 operators.
+  Tone: Celebratory Operator. Social proof + community feeling.
+  Variables: {{milestone_count}}, {{milestone_word}} (e.g., "one thousand")
+  Note: After 5,000 milestone, announce price increase to $10.
+-->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MatrixShader - Milestone Reached</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0a0a0a; font-family: 'Courier New', Courier, monospace;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0a0a0a;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width: 600px; width: 100%;">
+
+                    <!-- Header -->
+                    <tr>
+                        <td style="text-align: center; padding-bottom: 30px;">
+                            <span style="font-size: 32px; color: #00ff41; font-weight: bold; letter-spacing: 3px;">MATRIXSHADER</span>
+                        </td>
+                    </tr>
+
+                    <!-- Main Card -->
+                    <tr>
+                        <td style="background: #0d1a0d; border: 1px solid #1a3a1a; border-radius: 12px; padding: 32px;">
+
+                            <!-- Big Number -->
+                            <div style="text-align: center; margin-bottom: 24px;">
+                                <p style="color: #ffd700; font-size: 48px; font-weight: bold; margin: 0; text-shadow: 0 0 20px rgba(255, 215, 0, 0.3);">
+                                    {{milestone_count}}
+                                </p>
+                                <p style="color: #8a9a8a; font-size: 16px; margin: 4px 0 0 0;">
+                                    operators have entered MatrixShader
+                                </p>
+                            </div>
+
+                            <!-- Divider -->
+                            <hr style="border: none; border-top: 1px solid #1a3a1a; margin: 24px 0;">
+
+                            <!-- Body -->
+                            <p style="color: #c0c0c0; font-size: 15px; line-height: 1.7; margin: 0 0 16px 0;">
+                                What started as one person searching for a better terminal experience has grown into a community of {{milestone_word}} operators.
+                            </p>
+
+                            <p style="color: #c0c0c0; font-size: 15px; line-height: 1.7; margin: 0 0 16px 0;">
+                                Every operator who runs MatrixShader is proof that terminals don't have to be boring. That the tools we stare at all day should look like something worth staring at.
+                            </p>
+
+                            <!-- Social proof box -->
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="background: rgba(0,0,0,0.3); border: 1px solid #1a3a1a; border-radius: 8px; padding: 20px; text-align: center;">
+                                        <p style="color: #00ff41; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 12px 0;">The resistance grows</p>
+                                        <p style="color: #a0a0a0; font-size: 14px; line-height: 1.8; margin: 0;">
+                                            &bull; {{milestone_count}} operators and counting<br>
+                                            &bull; Terminals transformed across 6 continents<br>
+                                            &bull; New features shipping every month
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Divider -->
+                            <hr style="border: none; border-top: 1px solid #1a3a1a; margin: 24px 0;">
+
+                            <!-- CTA for non-purchasers -->
+                            <p style="color: #8a9a8a; font-size: 14px; line-height: 1.7; margin: 0 0 16px 0;">
+                                Still running the free version? The Red Pill is <span style="color: #ffd700;">$5</span> during Founder's Edition pricing. Join the operators who've already unlocked full control.
+                            </p>
+
+                            <table role="presentation" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="border-radius: 6px; background: #1a0d0d; border: 1px solid #ff0040;">
+                                        <a href="https://matrixshader.com/redpill" target="_blank" style="display: inline-block; padding: 12px 28px; color: #ff0040; font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold; text-decoration: none;">Take the Red Pill</a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="color: #c0c0c0; font-size: 15px; line-height: 1.7; margin: 20px 0 0 0;">
+                                Thanks for being part of this.
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="text-align: center; padding-top: 30px;">
+                            <p style="color: #4a4a4a; font-size: 12px; margin: 0 0 8px 0;">
+                                MatrixShader | matrixshader.com
+                            </p>
+                            <p style="color: #3a3a3a; font-size: 11px; margin: 0;">
+                                You received this because you're a MatrixShader subscriber.
+                                <a href="{{unsubscribe_url}}" style="color: #3a3a3a;">Unsubscribe</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
