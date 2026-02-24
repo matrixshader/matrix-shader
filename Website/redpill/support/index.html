@@ -542,15 +542,23 @@
             try {
                 const system = document.getElementById('bug-system')?.value.trim() || '';
 
-                await fetch('/api/subscribe', {
+                const res = await fetch('/api/support', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         email: email,
-                        name: type + ': ' + desc.slice(0, 100) + (system ? ' [' + system + ']' : ''),
-                        source: 'support-' + type,
+                        type: type,
+                        description: desc,
+                        system: system,
                     })
                 });
+
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    statusEl.textContent = data.error || 'Something went wrong.';
+                    statusEl.className = 'status error';
+                    return;
+                }
 
                 if (type === 'retain') {
                     statusEl.textContent = 'Thanks for giving us a chance. We\'ll look into this.';
