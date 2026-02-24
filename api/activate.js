@@ -1,10 +1,20 @@
 import crypto from 'crypto';
 import { Redis } from '@upstash/redis';
+import { initSentry, captureError } from './_sentry.js';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN,
 });
+
+async function rateLimit(ip, prefix, limit, windowSec) {
+  const key = `rl:${prefix}:${ip}`;
+  try {
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, windowSec);
+    return count > limit;
+  } catch { return false; }
+}
 
 const CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -61,6 +71,7 @@ async function validateOrder(orderId, apiKey) {
 }
 
 export default async function handler(req, res) {
+  initSentry();
   // CORS headers for the thank-you page
   res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -71,6 +82,11 @@ export default async function handler(req, res) {
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+  if (await rateLimit(ip, 'activate', 10, 60)) {
+    return res.status(429).json({ error: 'Too many requests. Try again later.' });
   }
 
   const orderId = req.query.order_id;
@@ -121,6 +137,7 @@ export default async function handler(req, res) {
   } catch (err) {
     // KV failure should not block key generation
     console.error('KV store error:', err);
+    captureError(err, { endpoint: 'activate', orderId });
   }
 
   const response = {

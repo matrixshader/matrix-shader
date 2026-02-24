@@ -89,10 +89,38 @@ export default async function handler(req, res) {
     const backup = { exportedAt, keyCount, data };
 
     if (isAuto) {
-      // Store compressed backup in Redis with 7-day TTL
+      // Store backup in Redis with 7-day TTL
       const dateKey = exportedAt.slice(0, 10);
       await redis.set(`backup:${dateKey}`, JSON.stringify(backup), { ex: 604800 }); // 7 days
       await redis.set('backup:latest', exportedAt);
+
+      // Email backup offsite so it survives Redis data loss
+      const resendKey = process.env.RESEND_API_KEY;
+      const ownerEmail = process.env.OWNER_EMAIL;
+      const fromAddr = process.env.EMAIL_FROM || 'Matrix Shader <noreply@matrixshader.com>';
+      if (resendKey && ownerEmail) {
+        try {
+          const jsonStr = JSON.stringify(backup, null, 2);
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: fromAddr,
+              to: [ownerEmail],
+              subject: `MatrixShader backup ${dateKey} — ${keyCount} keys`,
+              html: `<pre style="background:#000;color:#00ff41;padding:1rem;font-size:12px;max-height:600px;overflow:auto">${jsonStr.length > 50000 ? jsonStr.slice(0, 50000) + '\n... truncated ...' : jsonStr}</pre>`,
+              attachments: [{
+                filename: `matrixshader-backup-${dateKey}.json`,
+                content: Buffer.from(jsonStr).toString('base64'),
+              }],
+            }),
+          });
+        } catch (emailErr) {
+          console.error('Backup email failed:', emailErr);
+          captureError(emailErr, { endpoint: 'backup', action: 'email' });
+        }
+      }
+
       return res.status(200).json({ success: true, exportedAt, keyCount });
     }
 
