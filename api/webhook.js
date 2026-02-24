@@ -129,7 +129,10 @@ export default async function handler(req, res) {
         record.revoked = true;
         record.revokedAt = new Date().toISOString();
         record.revokeReason = 'refund';
-        await redis.set(`key:${keyHash}`, JSON.stringify(record));
+        await Promise.all([
+          redis.set(`key:${keyHash}`, JSON.stringify(record)),
+          redis.decr('stats:purchase'),
+        ]);
         console.log(`Key revoked for order ${orderId}`);
       }
     } catch (err) {

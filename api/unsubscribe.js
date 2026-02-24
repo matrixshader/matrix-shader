@@ -10,6 +10,15 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
 }
 
+async function rateLimit(ip, prefix, limit, windowSec) {
+  const key = `rl:${prefix}:${ip}`;
+  try {
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, windowSec);
+    return count > limit;
+  } catch { return false; }
+}
+
 export default async function handler(req, res) {
   initSentry();
   res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
@@ -18,6 +27,14 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+  if (await rateLimit(ip, 'unsub', 5, 3600)) {
+    if (req.method === 'GET') {
+      return res.status(200).send(unsubscribePage('Too many requests. Try again later.'));
+    }
+    return res.status(429).json({ error: 'Too many requests. Try again later.' });
   }
 
   // GET /api/unsubscribe?email=xxx — one-click unsubscribe from email links

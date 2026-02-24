@@ -42,9 +42,10 @@ export default async function handler(req, res) {
     }
 
     const allowed = ['download', 'install', 'activate', 'page_view', 'redpill_click', 'github_click', 'gate_email', 'gate_skip', 'gate_close'];
-    const isUtmVisit = event.startsWith('visit_') && event.length <= 48;
+    const utmSources = ['hackernews', 'reddit', 'twitter', 'producthunt', 'youtube', 'linkedin', 'discord', 'email', 'blog', 'referral', 'direct'];
+    const isUtmVisit = event.startsWith('visit_') && utmSources.some(s => event === `visit_${s}` || event.startsWith(`visit_${s}:`));
     if (!allowed.includes(event) && !isUtmVisit) {
-      return res.status(400).json({ error: `Unknown event. Allowed: ${allowed.join(', ')}, visit_*` });
+      return res.status(400).json({ error: `Unknown event` });
     }
 
     try {
