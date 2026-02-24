@@ -38,6 +38,7 @@ export default async function handler(req, res) {
 
   try {
     const existed = await redis.del(emailKey);
+    if (existed) await redis.decr('stats:subscribe');
     if (req.method === 'GET') {
       return res.status(200).send(unsubscribePage(
         existed ? 'You have been unsubscribed.' : 'Email not found in our list.'

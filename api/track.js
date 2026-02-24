@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // GET /api/track — return all stats (or operator count)
+  // GET /api/track — operator count only (public), full stats moved to /api/dashboard
   if (req.method === 'GET') {
     // Read operator count for pre-checkout animation
     if (req.query.event === 'operator_count' && req.query.read === '1') {
@@ -72,29 +72,8 @@ export default async function handler(req, res) {
       }
     }
 
-    try {
-      const keys = [
-        'stats:download', 'stats:install', 'stats:activate',
-        'stats:subscribe', 'stats:purchase',
-        'stats:page_view', 'stats:redpill_click', 'stats:github_click',
-      ];
-      const values = await redis.mget(...keys);
-
-      return res.status(200).json({
-        downloads: Number(values[0]) || 0,
-        installs: Number(values[1]) || 0,
-        activations: Number(values[2]) || 0,
-        subscribers: Number(values[3]) || 0,
-        purchases: Number(values[4]) || 0,
-        page_views: Number(values[5]) || 0,
-        redpill_clicks: Number(values[6]) || 0,
-        github_clicks: Number(values[7]) || 0,
-      });
-    } catch (err) {
-      console.error('Stats error:', err);
-      captureError(err, { endpoint: 'track', action: 'stats' });
-      return res.status(200).json({ downloads: 0, installs: 0, activations: 0 });
-    }
+    // All other stats require the authenticated /api/dashboard endpoint
+    return res.status(401).json({ error: 'Stats available via /api/dashboard (authenticated)' });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
