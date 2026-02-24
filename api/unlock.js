@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Redis } from '@upstash/redis';
 
 const redis = new Redis({
@@ -8,8 +9,14 @@ const redis = new Redis({
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
-  const secret = req.headers.authorization?.replace('Bearer ', '');
-  if (!secret || secret !== process.env.DASHBOARD_PASSWORD) {
+  const password = process.env.DASHBOARD_PASSWORD;
+  const provided = req.headers.authorization?.replace('Bearer ', '') || '';
+  if (!password || !provided) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const providedHash = crypto.createHash('sha256').update(provided).digest();
+  const expectedHash = crypto.createHash('sha256').update(password).digest();
+  if (!crypto.timingSafeEqual(providedHash, expectedHash)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

@@ -22,9 +22,9 @@ async function authenticate(req) {
   const auth = req.headers.authorization;
   const providedPw = auth ? auth.replace('Bearer ', '') : '';
   if (!providedPw) return false;
-  try {
-    return crypto.timingSafeEqual(Buffer.from(providedPw), Buffer.from(password));
-  } catch { return false; }
+  const providedHash = crypto.createHash('sha256').update(providedPw).digest();
+  const expectedHash = crypto.createHash('sha256').update(password).digest();
+  return crypto.timingSafeEqual(providedHash, expectedHash);
 }
 
 // Send email via Resend API
