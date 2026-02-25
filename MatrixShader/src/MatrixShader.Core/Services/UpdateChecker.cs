@@ -42,7 +42,7 @@ public static class UpdateChecker
             {
                 Console.WriteLine();
                 Console.Write($" \x1b[33m UPDATE: v{latestVersion} available");
-                Console.WriteLine($" \x1b[90m— run: irm matrixshader.com/install.ps1 | iex\x1b[0m");
+                Console.WriteLine($" \x1b[90m— run: irm https://matrixshader.com/install.ps1 | iex\x1b[0m");
                 Console.WriteLine();
             }
         }

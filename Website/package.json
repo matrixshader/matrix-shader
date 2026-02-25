@@ -1,6 +1,6 @@
 {
   "name": "matrix-terminal-shader-website",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Official website for Matrix Terminal Shader - Real-time GPU shaders for Windows Terminal",
   "main": "index.html",
   "scripts": {

@@ -299,9 +299,9 @@ public class TerminalSettingsService : ITerminalSettingsService
             Guid = existing?.Guid ?? $"{{{Guid.NewGuid()}}}",
             Commandline = $"\"{effectivePath}\"",
             Hidden = true,
-            Opacity = 85,  // 85% opacity for Matrix windows only
-            UseAcrylic = false,  // Plain transparency (no blur) - desktop shows clearly
-            PixelShaderPath = Path.Combine(shadersDirectory, "Redpill-Neo.hlsl")
+            Opacity = 100,  // No transparency for Redpill — city shader is the background
+            UseAcrylic = false,
+            PixelShaderPath = Path.Combine(shadersDirectory, "MatrixCodeVision.hlsl")
         };
 
         UpsertProfile(settings, profile);

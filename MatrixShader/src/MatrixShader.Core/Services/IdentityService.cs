@@ -57,6 +57,7 @@ public class IdentityService : IIdentityService
     private static readonly Regex MatrixProfileRegex = new(@"Matrix-(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private const string WindowsTerminalProcessName = "WindowsTerminal";
     private const string ControlPanelTitle = "Matrix Control Panel";
+    private const string RedpillProfileName = "Redpill";
 
     public IdentityService()
     {
@@ -218,10 +219,14 @@ public class IdentityService : IIdentityService
         var title = WindowsApi.GetWindowTitle(hwnd);
         var processId = WindowsApi.GetWindowProcessId(hwnd);
 
-        // Check if this is the control panel window
+        // Check if this is the control panel or Redpill window
         if (title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, "ControlPanel", 0, IdentitySource.Title);
+        }
+        if (title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWindowInfo(hwnd, title, processId, RedpillProfileName, 0, IdentitySource.Title);
         }
 
         // Layer 0: Handle cache (instant, survives title changes from agents)
@@ -594,6 +599,13 @@ public class IdentityService : IIdentityService
             if (profileMatch.Success)
             {
                 var profileArg = profileMatch.Groups[1].Value;
+
+                // Detect Redpill profile — mark as control panel, not a shader window
+                if (profileArg.Equals(RedpillProfileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return CreateWindowInfo(hwnd, title, processId, RedpillProfileName, 0, IdentitySource.CommandLine);
+                }
+
                 var matrixMatch = MatrixProfileRegex.Match(profileArg);
                 if (matrixMatch.Success)
                 {
@@ -788,10 +800,14 @@ public class IdentityService : IIdentityService
             return null;
         }
 
-        // Check if this is the control panel window
+        // Check if this is the control panel or Redpill window
         if (title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, "ControlPanel", 0, IdentitySource.Title);
+        }
+        if (title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWindowInfo(hwnd, title, processId, RedpillProfileName, 0, IdentitySource.Title);
         }
 
         // Layer 0: Handle cache (instant, survives title changes from agents)
@@ -837,6 +853,13 @@ public class IdentityService : IIdentityService
         if (profileMatch.Success)
         {
             var profileArg = profileMatch.Groups[1].Value;
+
+            // Detect Redpill profile — mark as control panel, not a shader window
+            if (profileArg.Equals(RedpillProfileName, StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateWindowInfo(hwnd, title, processId, RedpillProfileName, 0, IdentitySource.CommandLine);
+            }
+
             if (TryParseMatrixProfile(profileArg, out var shaderIndex))
             {
                 return CreateWindowInfo(hwnd, title, processId, $"Matrix-{shaderIndex}", shaderIndex, IdentitySource.CommandLine);
@@ -893,7 +916,10 @@ public class IdentityService : IIdentityService
         IdentitySource source)
     {
         var position = WindowsApi.GetWindowPosition(hwnd) ?? new WindowRect();
-        var isControlPanel = profileName == "ControlPanel" || title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase);
+        var isControlPanel = profileName == "ControlPanel"
+            || profileName.Equals(RedpillProfileName, StringComparison.OrdinalIgnoreCase)
+            || title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase)
+            || title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase);
 
         return new WindowInfo
         {
