@@ -203,6 +203,22 @@ export default async function handler(req, res) {
       return res.status(200).json(response);
     }
 
+    if (action === 'unlock') {
+      let cleared = 0;
+      let cursor = 0;
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, { match: 'ratelimit:*', count: 100 });
+        cursor = Number(nextCursor);
+        for (const key of keys) {
+          await redis.del(key);
+          cleared++;
+        }
+      } while (cursor !== 0);
+      const response = { success: true, cleared };
+      if (newSessionToken) response.session_token = newSessionToken;
+      return res.status(200).json(response);
+    }
+
     return res.status(400).json({ error: 'Unknown action' });
   }
 
