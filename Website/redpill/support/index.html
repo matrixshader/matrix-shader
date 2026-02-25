@@ -542,10 +542,11 @@
             try {
                 const system = document.getElementById('bug-system')?.value.trim() || '';
 
-                const res = await fetch('/api/support', {
+                const res = await fetch('/api/email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        action: 'support',
                         email: email,
                         type: type,
                         description: desc,
