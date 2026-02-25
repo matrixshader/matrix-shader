@@ -725,7 +725,7 @@ function renderIntel() {
 }
 
 // ── Email Tab ──
-const EMAIL_API = '/api/email';
+const EMAIL_API = '/api/email-support';
 let allSubscribers = [];
 
 async function emailPost(action, body = {}) {
