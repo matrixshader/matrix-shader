@@ -134,7 +134,7 @@ gh release create "v{NEW}" \
 
 **One-liner (recommended):**
 ```powershell
-irm matrixshader.com/install.ps1 | iex
+irm https://matrixshader.com/install.ps1 | iex
 ```
 
 **Or download:**
@@ -196,5 +196,5 @@ All should show the same version. Report any mismatches.
 
 After a successful release, remind the user:
 1. Update `.planning/UNIFIED-ROADMAP.md` release history table
-2. Test the install script: `irm matrixshader.com/install.ps1 | iex` (in a clean environment)
+2. Test the install script: `irm https://matrixshader.com/install.ps1 | iex` (in a clean environment)
 3. Verify UpdateChecker will detect the new version (it checks GitHub releases API)
