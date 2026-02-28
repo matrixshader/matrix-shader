@@ -1,0 +1,392 @@
+#!/bin/bash
+# Matrix Shader - WakeupNeo (Linux/Ghostty)
+# Exact port of Windows WakeupNeo setup wizard
+
+SCRIPT_PATH="$(realpath "$0")"
+SHADER_DIR="$(dirname "$SCRIPT_PATH")/../shaders-glsl"
+GHOSTTY_BIN="/home/neo/ghostty-build/zig-out/bin/ghostty"
+CONFIG_DIR="$HOME/.config/ghostty"
+STATE_DIR="$HOME/.config/matrix-shader"
+STATE_FILE="$STATE_DIR/state.json"
+HOTKEY_HELP="$HOME/.local/bin/matrix-hotkey-help.sh"
+
+# Self-relaunch inside Ghostty if not already there
+# Uses --in-ghostty flag (not env var) to avoid leaking through child processes
+if [ "$1" != "--in-ghostty" ]; then
+    setup_conf="/tmp/ghostty-wakeupneo.conf"
+    cat > "$setup_conf" <<'SETUPEOF'
+background = #000000
+foreground = #00ff00
+font-family = JetBrains Mono
+background-opacity = 1
+gtk-titlebar = true
+window-decoration = client
+SETUPEOF
+    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$setup_conf" -e "$SCRIPT_PATH" --in-ghostty >/dev/null 2>&1 &
+    disown
+    exit 0
+fi
+
+# Colors for terminal output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+GOLD='\033[0;33m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+DIM='\033[2m'
+RESET='\033[0m'
+
+# Preset definitions: name:R:G:B:foreground_hex
+PRESETS=(
+    "Classic Green:0.0:1.0:0.3:#00ff4d"
+    "Cyber Blue:0.0:0.6:1.0:#0099ff"
+    "Blood Red:1.0:0.1:0.1:#ff1a1a"
+    "Purple:0.7:0.0:1.0:#b300ff"
+    "Gold:1.0:0.7:0.0:#ffb300"
+    "Teal:0.0:0.9:0.9:#00e6e6"
+)
+
+PRESET_COLORS=("$GREEN" "$BLUE" "$RED" "$PURPLE" "$GOLD" "$CYAN")
+PRESET_FILES=("matrix-green-ghostty.glsl" "matrix-blue-ghostty.glsl" "matrix-red-ghostty.glsl" "matrix-purple-ghostty.glsl" "matrix-gold-ghostty.glsl" "matrix-teal-ghostty.glsl")
+
+# Color swatch using ANSI 24-bit color
+color_swatch() {
+    local r=$1 g=$2 b=$3
+    # Convert 0.0-1.0 to 0-255
+    local ri=$(awk "BEGIN {printf \"%d\", $r * 255}")
+    local gi=$(awk "BEGIN {printf \"%d\", $g * 255}")
+    local bi=$(awk "BEGIN {printf \"%d\", $b * 255}")
+    printf "\033[48;2;%d;%d;%dm   \033[0m" "$ri" "$gi" "$bi"
+}
+
+# --- Functions ---
+
+# Detect which Matrix slots have running Ghostty processes
+# Returns space-separated list of open slot numbers
+get_open_slots() {
+    local open=()
+    for conf in /tmp/ghostty-matrix-*.conf; do
+        [ -f "$conf" ] || continue
+        local slot=$(echo "$conf" | grep -oP 'ghostty-matrix-\K\d+')
+        if pgrep -f "config-file=$conf" >/dev/null 2>&1; then
+            open+=("$slot")
+        fi
+    done
+    echo "${open[*]}"
+}
+
+typewriter() {
+    local text="$1" delay="${2:-0.04}"
+    for ((i=0; i<${#text}; i++)); do
+        printf "%s" "${text:$i:1}"
+        sleep "$delay"
+    done
+    echo
+}
+
+launch_window() {
+    local preset_idx=$1
+    local slot=$2
+    IFS=':' read -r name r g b fg <<< "${PRESETS[$preset_idx]}"
+    local shader_file="${SHADER_DIR}/${PRESET_FILES[$preset_idx]}"
+    local conf="/tmp/ghostty-matrix-${slot}.conf"
+
+    cat > "$conf" <<EOF
+custom-shader = ${shader_file}
+background = #000000
+foreground = ${fg}
+font-family = JetBrains Mono
+background-opacity = 0.85
+gtk-titlebar = true
+window-decoration = client
+custom-shader-animation = always
+EOF
+
+    # Update main config to match slot 1 (for hotkey reload)
+    if [ "$slot" -eq 1 ]; then
+        mkdir -p "$CONFIG_DIR"
+        cp "$conf" "$CONFIG_DIR/config"
+    fi
+
+    echo -ne "   Waiting for Matrix-${slot}..."
+    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+    sleep 0.5
+    local swatch=$(color_swatch "$r" "$g" "$b")
+    echo -e " ${swatch} ${PRESET_COLORS[$preset_idx]}${name}${RESET} ${GREEN}OK${RESET}"
+}
+
+# Turn wizard window 100% transparent (glass pane)
+go_transparent() {
+    setup_conf="/tmp/ghostty-wakeupneo.conf"
+    cat > "$setup_conf" <<TRANSEOF
+background = #000000
+foreground = #00ff00
+font-family = JetBrains Mono
+background-opacity = 0
+gtk-titlebar = true
+window-decoration = client
+TRANSEOF
+    # Signal ALL Ghostty instances to reload
+    for busname in $(busctl --user list 2>/dev/null | awk '/ghostty/{print $1}'); do
+        gdbus call --session --dest "$busname" \
+            --object-path /com/mitchellh/ghostty \
+            --method org.gtk.Actions.Activate \
+            'reload-config' '[]' '{}' >/dev/null 2>&1
+    done
+    sleep 0.3
+}
+
+# Post-launch display (shown on transparent glass background)
+show_post_launch() {
+    local is_redpill=$1
+
+    echo
+    echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
+
+    # Spawn hotkey help overlay as separate popup window
+    if [ -x "$HOTKEY_HELP" ]; then
+        "$HOTKEY_HELP" &
+    fi
+
+    # Final message
+    echo
+    if [ "$is_redpill" -eq 1 ]; then
+        echo -e "${GREEN} THE MATRIX HAS YOU.${RESET}"
+        echo -e "${DIM} Control panel ready for live adjustments.${RESET}"
+    else
+        echo -e "${GREEN} FOLLOW THE WHITE RABBIT.${RESET}"
+        echo
+        echo -e "${DIM} Unlock the Red Pill control panel:${RESET}"
+        echo -e "${CYAN} matrixshader.com/redpill${RESET}"
+    fi
+
+    # Hotkey summary
+    echo
+    echo -e "${DIM} ----------------------------------------${RESET}"
+    echo -e " ${CYAN}GLOBAL HOTKEYS${RESET} ${DIM}(Ctrl+Shift+H for full reference)${RESET}"
+    echo
+    echo -e "${DIM}   Ctrl+Shift+B            Toggle transparency${RESET}"
+    echo -e "${DIM}   Ctrl+Shift+J / K        Opacity down / up${RESET}"
+    echo -e "${DIM}   Ctrl+Shift+H            Hotkey help overlay${RESET}"
+
+    echo
+    echo -e "${DIM} Enjoying Matrix Shader? Buy me a coffee:${RESET}"
+    echo -e "${GOLD} https://buymeacoffee.com/IKnowKungFu${RESET}"
+    echo
+
+    sleep infinity
+}
+
+# --- Main ---
+
+clear
+echo
+
+# Dramatic intro - matches Windows version timing
+typewriter " Wake up, Neo..." 0.10
+sleep 1
+
+typewriter " The Matrix has you..." 0.08
+sleep 1
+
+typewriter " Follow the white rabbit." 0.08
+sleep 0.5
+
+# Clear and show header
+clear
+echo
+echo -e "${GREEN} WAKE UP, NEO...${RESET}"
+echo -e "${DIM} ----------------------------------------${RESET}"
+echo
+
+# Check Ghostty
+if [ ! -f "$GHOSTTY_BIN" ]; then
+    echo -e "${RED} Ghostty not found at $GHOSTTY_BIN${RESET}"
+    echo -e "${DIM} Build it first: cd ~/ghostty-build && zig build -Doptimize=ReleaseFast -Dapp-runtime=gtk${RESET}"
+    echo
+    sleep 3
+    exit 1
+fi
+
+# Check for previous session
+mkdir -p "$STATE_DIR" "$CONFIG_DIR"
+
+if [ -f "$STATE_FILE" ]; then
+    num_prev=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(len(d['windows']))" 2>/dev/null || echo 0)
+    if [ "$num_prev" -gt 0 ]; then
+        prev_slots=$(python3 -c "
+import json
+d=json.load(open('$STATE_FILE'))
+print(', '.join(str(w['slot']) for w in d['windows']))
+" 2>/dev/null)
+        echo -e "${GREEN} Previous session found:${RESET}"
+        echo
+        echo -e "${DIM}   ${num_prev} windows, slots: [${prev_slots}]${RESET}"
+        echo
+        echo -ne " Restore previous? (y/n): "
+        read -rsn1 restore
+        echo
+
+        if [[ "$restore" == "y" || "$restore" == "Y" ]]; then
+            # Detect already-open Matrix windows
+            open_slots=($(get_open_slots))
+
+            # Turn wizard transparent, then show restore on glass background
+            go_transparent
+            clear
+            echo
+            echo -e "${GREEN} Restoring session...${RESET}"
+            echo
+
+            local launched=0
+            local skipped=0
+            for i in $(seq 0 $((num_prev - 1))); do
+                preset_idx=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d['windows'][$i]['preset'])")
+                slot=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d['windows'][$i]['slot'])")
+
+                # Skip if this slot is already running
+                if [[ " ${open_slots[*]} " == *" $slot "* ]]; then
+                    IFS=':' read -r name r g b fg <<< "${PRESETS[$preset_idx]}"
+                    local swatch=$(color_swatch "$r" "$g" "$b")
+                    echo -e "   Matrix-${slot} ${swatch} ${PRESET_COLORS[$preset_idx]}${name}${RESET} ${DIM}already open${RESET}"
+                    ((skipped++))
+                    continue
+                fi
+
+                launch_window "$preset_idx" "$slot"
+                ((launched++))
+                sleep 0.3
+            done
+
+            if [ "$skipped" -gt 0 ]; then
+                echo
+                echo -e "${DIM}   Skipped ${skipped} already-open window(s)${RESET}"
+            fi
+
+            show_post_launch 0
+            exit 0
+        fi
+        echo
+    fi
+fi
+
+# Detect currently open Matrix windows (matches Windows FindMatrixWindows)
+open_slots=($(get_open_slots))
+if [ "${#open_slots[@]}" -gt 0 ] && [ -n "${open_slots[0]}" ]; then
+    echo -e "${DIM} Detected ${#open_slots[@]} open Matrix window(s): slots [${open_slots[*]}]${RESET}"
+    echo
+fi
+
+# Calculate available slots (1-8 minus occupied)
+declare -a available_slots
+for s in $(seq 1 8); do
+    if [[ " ${open_slots[*]} " != *" $s "* ]]; then
+        available_slots+=("$s")
+    fi
+done
+max_new=${#available_slots[@]}
+
+if [ "$max_new" -eq 0 ]; then
+    echo -e "${GREEN} All 8 Matrix slots are in use!${RESET}"
+    echo -e "${DIM} Close some Matrix windows first, or use the control panel.${RESET}"
+    sleep 3
+    exit 0
+fi
+
+echo -ne " How many NEW Matrix tabs? (1-${max_new}): "
+read -r num_windows
+
+if ! [[ "$num_windows" =~ ^[0-9]+$ ]] || [ "$num_windows" -lt 1 ]; then
+    num_windows=1
+fi
+[ "$num_windows" -gt "$max_new" ] && num_windows=$max_new
+
+# Configure each tab
+declare -a selected_presets
+declare -a selected_slots
+slot_idx=0
+
+for w in $(seq 1 "$num_windows"); do
+    clear
+    echo
+    echo -e "${GREEN} TAB $w OF $num_windows${RESET}"
+    echo -e "${DIM} ----------------------------------------${RESET}"
+    echo
+
+    # Show color presets with swatches
+    for i in "${!PRESETS[@]}"; do
+        IFS=':' read -r name r g b fg <<< "${PRESETS[$i]}"
+        local_swatch=$(color_swatch "$r" "$g" "$b")
+        echo -e "   [$((i+1))] ${local_swatch} ${PRESET_COLORS[$i]}${name}${RESET}"
+    done
+
+    echo
+    echo -ne " Color (1-6): "
+    read -r choice
+
+    if ! [[ "$choice" =~ ^[1-6]$ ]]; then
+        choice=1
+    fi
+    selected_presets+=($((choice - 1)))
+    selected_slots+=("${available_slots[$slot_idx]}")
+    ((slot_idx++))
+done
+
+# Summary and pill choice
+clear
+echo
+echo -e "${GREEN} THE MATRIX HAS YOU...${RESET}"
+echo -e "${DIM} ----------------------------------------${RESET}"
+echo
+
+for i in "${!selected_presets[@]}"; do
+    idx=${selected_presets[$i]}
+    IFS=':' read -r name r g b fg <<< "${PRESETS[$idx]}"
+    local_swatch=$(color_swatch "$r" "$g" "$b")
+    echo -e "   Tab ${selected_slots[$i]}: ${local_swatch} ${PRESET_COLORS[$idx]}${name}${RESET}"
+done
+
+echo
+echo -e "${DIM} ----------------------------------------${RESET}"
+echo
+echo -e "${DIM} This is your last chance. After this, there is no turning back.${RESET}"
+echo
+echo -e "   ${BLUE}[1]${RESET} BLUE PILL - Enter the Matrix"
+echo -e "   ${RED}[2]${RESET} RED PILL  - Full Customization (control panel)"
+echo
+echo -ne " > "
+read -r pill_choice
+
+if [[ "$pill_choice" == "2" ]]; then
+    is_redpill=1
+else
+    is_redpill=0
+fi
+
+# === AFTER CHOICE: Glass pane + launch + display ===
+
+go_transparent
+clear
+echo
+echo -e "${GREEN} Opening windows...${RESET}"
+echo
+
+for i in "${!selected_presets[@]}"; do
+    launch_window "${selected_presets[$i]}" "${selected_slots[$i]}"
+    sleep 0.3
+done
+
+# Save state with slot info
+{
+    echo '{"windows":['
+    for i in "${!selected_presets[@]}"; do
+        [ "$i" -gt 0 ] && echo ','
+        echo -n "  {\"preset\": ${selected_presets[$i]}, \"slot\": ${selected_slots[$i]}}"
+    done
+    echo
+    echo ']}'
+} > "$STATE_FILE"
+
+show_post_launch "$is_redpill"
