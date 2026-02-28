@@ -597,6 +597,51 @@ section + section {
 .color-dot.blue { background: var(--matrix-cyan); box-shadow: 0 0 6px var(--matrix-cyan); }
 .color-dot.gold { background: var(--matrix-gold); box-shadow: 0 0 6px var(--matrix-gold); }
 
+/* Platform Tabs */
+.platform-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+.platform-tab {
+  background: rgba(0, 20, 0, 0.6);
+  border: 1px solid rgba(0, 255, 65, 0.2);
+  color: rgba(255, 255, 255, 0.6);
+  padding: 0.6rem 1.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  border-radius: 4px;
+}
+
+.platform-tab:hover:not(.disabled) {
+  border-color: var(--matrix-green);
+  color: var(--matrix-green);
+}
+
+.platform-tab.active {
+  background: rgba(0, 255, 65, 0.1);
+  border-color: var(--matrix-green);
+  color: var(--matrix-green);
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+}
+
+.platform-tab.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.platform-content {
+  display: none;
+}
+
+.platform-content.active {
+  display: block;
+}
+
 /* Get Started Section (merged Installation + Download) */
 .get-started {
   background: linear-gradient(135deg, rgba(0, 255, 65, 0.02), rgba(0, 20, 0, 0.05));

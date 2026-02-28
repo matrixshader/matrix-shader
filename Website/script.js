@@ -16,6 +16,7 @@ class MatrixWebsite {
     this.initSmithForm();
     this.initGitHubStars();
     this.initEmailGate();
+    this.initPlatformTabs();
   }
 
   // Vercel Analytics helper
@@ -390,6 +391,29 @@ class MatrixWebsite {
       .finally(() => {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Download Free';
+      });
+    });
+  }
+
+  // Platform tabs (Windows / Linux / macOS)
+  initPlatformTabs() {
+    const tabs = document.querySelectorAll('.platform-tab');
+    const contents = document.querySelectorAll('.platform-content');
+    if (!tabs.length) return;
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        if (tab.classList.contains('disabled')) return;
+        const platform = tab.dataset.platform;
+
+        tabs.forEach(t => t.classList.remove('active'));
+        contents.forEach(c => c.classList.remove('active'));
+
+        tab.classList.add('active');
+        const target = document.getElementById(`platform-${platform}`);
+        if (target) target.classList.add('active');
+
+        navigator.sendBeacon?.(`/api/track?event=platform_tab_${platform}`);
       });
     });
   }

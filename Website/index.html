@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matrix Terminal Shader - Real-time GPU Shaders for Windows Terminal</title>
-    <meta name="description" content="Transform your Windows Terminal with real-time Matrix rain effects. Perfect for multi-agent AI workflows with color-coded terminal differentiation.">
-    <meta name="keywords" content="matrix, terminal, shader, windows terminal, gpu, real-time, ai, coding, productivity">
+    <title>Matrix Terminal Shader - Real-time GPU Shaders for Your Terminal</title>
+    <meta name="description" content="Transform your terminal with real-time Matrix rain effects. Available for Windows Terminal and Linux (Ghostty). Perfect for multi-agent AI workflows.">
+    <meta name="keywords" content="matrix, terminal, shader, windows terminal, ghostty, linux, gpu, real-time, ai, coding, productivity">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
@@ -257,6 +257,15 @@
                 <p class="section-subtitle">Download, install, enter MatrixShader.</p>
             </div>
 
+            <!-- Platform Tabs -->
+            <div class="platform-tabs">
+                <button class="platform-tab active" data-platform="windows">Windows</button>
+                <button class="platform-tab" data-platform="linux">Linux <span style="font-size:0.7em;opacity:0.7">Preview</span></button>
+                <button class="platform-tab disabled" data-platform="mac">macOS <span style="font-size:0.7em;opacity:0.5">Soon</span></button>
+            </div>
+
+            <!-- Windows Platform -->
+            <div class="platform-content active" id="platform-windows">
             <div class="get-started-layout">
                 <div class="get-started-steps">
                     <div class="step">
@@ -325,6 +334,91 @@
                         </a>
                     </div>
                 </div>
+            </div>
+            </div>
+
+            <!-- Linux Platform -->
+            <div class="platform-content" id="platform-linux">
+            <div class="get-started-layout">
+                <div class="get-started-steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Install</h3>
+                            <p>One command installs everything: patched Ghostty, shaders, and hotkeys.</p>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>Choose Your Path</h3>
+                            <p>Open a new terminal and type <code class="inline-code">wakeupneo</code></p>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>Enter MatrixShader</h3>
+                            <p>Pick your colors, choose your pill, and the Matrix takes over.</p>
+                        </div>
+                    </div>
+
+                    <div class="get-started-requirements">
+                        <h4>System Requirements</h4>
+                        <ul class="requirements-list">
+                            <li>Linux x86_64 (Fedora, Ubuntu, Arch, etc.)</li>
+                            <li>GNOME desktop (for hotkeys)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="download-options">
+                    <div class="download-card featured">
+                        <div class="download-badge">One Command</div>
+                        <div class="download-icon"><img src="./assets/icons/bolt.svg" alt="" class="icon-svg icon-svg-lg"></div>
+                        <h3>One-Liner Install</h3>
+                        <p>Paste in any terminal - downloads and installs everything</p>
+                        <div class="code-block">
+                            <pre><code>curl -sL https://raw.githubusercontent.com/matrixshader/matrix-shader/master/linux/i.sh | bash</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="download-card">
+                        <div class="download-icon"><img src="./assets/icons/package.svg" alt="" class="icon-svg icon-svg-lg"></div>
+                        <h3>Manual Download</h3>
+                        <p>Download tarball with patched Ghostty + shaders</p>
+                        <div class="download-info">
+                            <span class="version">v1.1.0-linux</span>
+                            <span class="size">21 MB</span>
+                        </div>
+                        <a href="https://github.com/matrixshader/matrix-shader/releases/download/v1.1.0-linux/matrixshader-linux-x86_64.tar.gz?utm_source=website&utm_medium=download&utm_campaign=linux-launch" class="btn btn-green btn-download" data-umami-event="Linux Download Click">
+                            Download .tar.gz
+                        </a>
+                    </div>
+
+                    <div class="download-card">
+                        <div class="download-icon"><img src="./assets/icons/github.svg" alt="" class="icon-svg icon-svg-lg"></div>
+                        <h3>GitHub</h3>
+                        <p>Source code, shaders, and scripts</p>
+                        <a href="https://github.com/matrixshader/matrix-shader" target="_blank" class="btn btn-secondary btn-download">
+                            View on GitHub
+                        </a>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- macOS Platform (Coming Soon) -->
+            <div class="platform-content" id="platform-mac">
+            <div class="get-started-layout" style="justify-content:center">
+                <div class="get-started-steps" style="max-width:600px;text-align:center">
+                    <h3 style="color:#00ff41;margin-bottom:1rem">macOS Support Coming Soon</h3>
+                    <p style="color:rgba(255,255,255,0.6)">We're porting the Ghostty transparency fix to the Metal renderer. Same Matrix rain, same hotkeys, native macOS experience.</p>
+                    <p style="color:rgba(255,255,255,0.4);margin-top:1rem">Want to be notified? Drop your email in the Mr. Anderson section below.</p>
+                </div>
+            </div>
             </div>
         </div>
     </section>
