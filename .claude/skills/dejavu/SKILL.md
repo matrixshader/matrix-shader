@@ -61,7 +61,7 @@ Update version in ALL of these files (use Edit tool for each):
 Run the publish script to rebuild all executables:
 
 ```bash
-cd /c/Users/ehome/Documents/MATRIX && powershell.exe -NoProfile -ExecutionPolicy Bypass -File installer/publish-all.ps1
+cd "$PROJECT_ROOT" && powershell.exe -NoProfile -ExecutionPolicy Bypass -File installer/publish-all.ps1
 ```
 
 This publishes all 7 C# projects (wakeupneo, bluepill, redpill, matrixlite, matrix-hotkeys, matrix-monitor, matrixlite-standalone).
@@ -73,7 +73,7 @@ This publishes all 7 C# projects (wakeupneo, bluepill, redpill, matrixlite, matr
 Use the `copy-fresh-build.ps1` script to gather all publish outputs into `installer/publish/`. This handles the varying TFM paths (`net8.0-windows`, `net8.0-windows10.0.17763.0`, etc.) automatically.
 
 ```bash
-cd /c/Users/ehome/Documents/MATRIX && powershell.exe -NoProfile -ExecutionPolicy Bypass -File installer/copy-fresh-build.ps1
+cd "$PROJECT_ROOT" && powershell.exe -NoProfile -ExecutionPolicy Bypass -File installer/copy-fresh-build.ps1
 ```
 
 The script copies all executables, DLLs, and shaders, then verifies key executables exist:
@@ -89,7 +89,7 @@ The script copies all executables, DLLs, and shaders, then verifies key executab
 ### Step 5: Create ZIP Archive
 
 ```bash
-cd /c/Users/ehome/Documents/MATRIX/installer && mkdir -p output && powershell.exe -NoProfile -Command "Compress-Archive -Path 'publish\*' -DestinationPath 'output\MatrixShader.zip' -Force"
+cd "$PROJECT_ROOT"/installer && mkdir -p output && powershell.exe -NoProfile -Command "Compress-Archive -Path 'publish\*' -DestinationPath 'output\MatrixShader.zip' -Force"
 ```
 
 **Note**: Use PowerShell `Compress-Archive` — the `zip` command may not be available in MSYS/Git Bash.
@@ -97,7 +97,7 @@ cd /c/Users/ehome/Documents/MATRIX/installer && mkdir -p output && powershell.ex
 ### Step 6: Build Inno Setup Installer
 
 ```bash
-ISCC "C:\Users\ehome\Documents\MATRIX\installer\MatrixShaderSetup.iss"
+ISCC "{PROJECT_ROOT}\installer\MatrixShaderSetup.iss"
 ```
 
 ISCC is available via Chocolatey (`C:\ProgramData\chocolatey\bin\ISCC.exe`). This creates `installer/output/MatrixShaderSetup.exe`.
@@ -107,7 +107,7 @@ ISCC is available via Chocolatey (`C:\ProgramData\chocolatey\bin\ISCC.exe`). Thi
 ### Step 7: Commit Version Bump
 
 ```bash
-cd /c/Users/ehome/Documents/MATRIX
+cd "$PROJECT_ROOT"
 git add MatrixShader/Directory.Build.props installer/MatrixShaderSetup.iss installer/install.ps1 Website/index.html package.json Website/package.json Website/admin/emails/onboarding/welcome-operator.html Website/303h4rdl1n3/emails/onboarding/welcome-operator.html
 git commit -m "release: v{NEW}
 
@@ -120,7 +120,7 @@ git push
 ### Step 8: Create GitHub Release
 
 ```bash
-cd /c/Users/ehome/Documents/MATRIX
+cd "$PROJECT_ROOT"
 gh release create "v{NEW}" \
   installer/output/MatrixShader.zip \
   installer/output/MatrixShaderSetup.exe \
