@@ -90,3 +90,4 @@ ffmpeg.exe
 .vercel
 .env*.local
 .env.backup
+a.out
