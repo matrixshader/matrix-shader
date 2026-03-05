@@ -330,3 +330,80 @@ def reload_ghostty(bus_name: str) -> bool:
         return True
     except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
         return False
+
+
+# ---------------------------------------------------------------------------
+# CLI interface
+# ---------------------------------------------------------------------------
+
+def _cli():
+    """Command-line interface for shader_service.py.
+
+    Supports: create, write, read, reload subcommands.
+    Called from bash scripts (wakeupneo.sh) without Python import machinery.
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Shader parameter service for Matrix Shader (Linux/Ghostty)"
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    # --- create ---
+    p_create = sub.add_parser("create", help="Create a per-slot shader file from template")
+    p_create.add_argument("--slot", type=int, required=True, help="Window slot number (1-8)")
+    p_create.add_argument("--preset", type=int, default=None, help="Preset index (0-5)")
+    p_create.add_argument("--r", type=float, default=0.0, help="Red component (0.0-1.0)")
+    p_create.add_argument("--g", type=float, default=1.0, help="Green component (0.0-1.0)")
+    p_create.add_argument("--b", type=float, default=0.3, help="Blue component (0.0-1.0)")
+
+    # --- write ---
+    p_write = sub.add_parser("write", help="Modify a single shader parameter and trigger reload")
+    p_write.add_argument("--slot", type=int, required=True, help="Window slot number (1-8)")
+    p_write.add_argument("--param", type=str, required=True, help="Parameter name (e.g. RAIN_SPEED)")
+    p_write.add_argument("--value", type=float, required=True, help="New float value")
+
+    # --- read ---
+    p_read = sub.add_parser("read", help="Read current config from a slot's shader file")
+    p_read.add_argument("--slot", type=int, required=True, help="Window slot number (1-8)")
+
+    # --- reload ---
+    p_reload = sub.add_parser("reload", help="Trigger D-Bus reload for a specific slot")
+    p_reload.add_argument("--slot", type=int, required=True, help="Window slot number (1-8)")
+
+    args = parser.parse_args()
+
+    if args.command == "create":
+        path = create_slot_shader(
+            slot=args.slot,
+            r=args.r,
+            g=args.g,
+            b=args.b,
+            preset_idx=args.preset,
+        )
+        print(path)
+
+    elif args.command == "write":
+        if args.param not in PARAM_DEFAULTS:
+            print(f"Error: unknown parameter '{args.param}'", file=__import__('sys').stderr)
+            raise SystemExit(1)
+        write_shader_param(slot=args.slot, param=args.param, value=args.value)
+
+    elif args.command == "read":
+        config = read_shader_config(slot=args.slot)
+        print(json.dumps(config, indent=2))
+
+    elif args.command == "reload":
+        mapping = get_ghostty_bus_names()
+        if args.slot in mapping:
+            ok = reload_ghostty(mapping[args.slot]["bus_name"])
+            if not ok:
+                print(f"Error: reload failed for slot {args.slot}", file=__import__('sys').stderr)
+                raise SystemExit(1)
+        else:
+            print(f"Warning: no Ghostty instance found for slot {args.slot}", file=__import__('sys').stderr)
+            raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    _cli()

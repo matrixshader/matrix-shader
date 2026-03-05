@@ -9,6 +9,8 @@ CONFIG_DIR="$HOME/.config/ghostty"
 STATE_DIR="$HOME/.config/matrix-shader"
 STATE_FILE="$STATE_DIR/state.json"
 HOTKEY_HELP="$HOME/.local/bin/matrix-hotkey-help.sh"
+MATRIX_KEYS="$(dirname "$SCRIPT_PATH")/matrix-keys.py"
+MATRIX_KEYS_PID="/tmp/matrix-keys.pid"
 
 # Self-relaunch inside Ghostty if not already there
 # Uses --in-ghostty flag (not env var) to avoid leaking through child processes
@@ -90,7 +92,14 @@ launch_window() {
     local preset_idx=$1
     local slot=$2
     IFS=':' read -r name r g b fg <<< "${PRESETS[$preset_idx]}"
-    local shader_file="${SHADER_DIR}/${PRESET_FILES[$preset_idx]}"
+    # Create per-slot shader from template with preset colors
+    local shader_file
+    shader_file=$(python3 "$(dirname "$SCRIPT_PATH")/shader_service.py" create --slot "$slot" --preset "$preset_idx" 2>/dev/null)
+    if [ -z "$shader_file" ] || [ ! -f "$shader_file" ]; then
+        # Fallback to direct preset file if shader_service fails
+        shader_file="${SHADER_DIR}/${PRESET_FILES[$preset_idx]}"
+        echo -e "   ${DIM}(using preset file fallback)${RESET}"
+    fi
     local conf="/tmp/ghostty-matrix-${slot}.conf"
 
     cat > "$conf" <<EOF
@@ -104,11 +113,8 @@ window-decoration = client
 custom-shader-animation = always
 EOF
 
-    # Update main config to match slot 1 (for hotkey reload)
-    if [ "$slot" -eq 1 ]; then
-        mkdir -p "$CONFIG_DIR"
-        cp "$conf" "$CONFIG_DIR/config"
-    fi
+    # NOTE: Do NOT overwrite default config - matrix windows use their own config files
+    # Default ~/.config/ghostty/config stays clean so normal Ghostty opens are normal
 
     echo -ne "   Waiting for Matrix-${slot}..."
     nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
@@ -143,7 +149,19 @@ show_post_launch() {
     local is_redpill=$1
 
     echo
-    echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
+    # Kill any existing hotkey listener, then start fresh
+    if [ -f "$MATRIX_KEYS_PID" ]; then
+        kill "$(cat "$MATRIX_KEYS_PID")" 2>/dev/null
+        rm -f "$MATRIX_KEYS_PID"
+    fi
+
+    if [ -f "$MATRIX_KEYS" ]; then
+        nohup python3 "$MATRIX_KEYS" > /tmp/matrix-keys.log 2>&1 &
+        disown
+        echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
+    else
+        echo -e "${GREEN} Starting hotkeys...${RESET} ${RED}MISSING (${MATRIX_KEYS})${RESET}"
+    fi
 
     # Spawn hotkey help overlay as separate popup window
     if [ -x "$HOTKEY_HELP" ]; then
