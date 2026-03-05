@@ -195,7 +195,7 @@ try {
 
     # Copy executables and DLLs to install directory
     Write-Host "  Copying executables to $InstallDir..." -ForegroundColor Gray
-    $ExeFiles = @('wakeupneo.exe', 'bluepill.exe', 'redpill.exe', 'matrixlite.exe', 'matrix-hotkeys.exe', 'matrix-monitor.exe')
+    $ExeFiles = @('wakeupneo.exe', 'bluepill.exe', 'redpill.exe', 'matrix.exe', 'matrixlite.exe', 'matrix-hotkeys.exe', 'matrix-monitor.exe')
 
     # Copy all files (runtime, DLLs, etc.)
     Get-ChildItem -Path $SourceDir -Recurse | ForEach-Object {
@@ -325,6 +325,7 @@ Write-Host ""
 Write-Host "  Commands available:" -ForegroundColor Cyan
 Write-Host "    wakeupneo  - Setup wizard (start here!)"
 Write-Host "    bluepill   - Quick launch Matrix"
+Write-Host "    matrix red - Launch a window with a specific color"
 Write-Host "    redpill    - Control panel"
 Write-Host "    matrixlite - Text-only fallback"
 Write-Host ""
