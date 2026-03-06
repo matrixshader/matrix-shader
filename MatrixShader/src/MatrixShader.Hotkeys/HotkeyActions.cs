@@ -36,6 +36,15 @@ public sealed class HotkeyActions
     private readonly Dictionary<string, int> _underflowCounters = new();
     private readonly Dictionary<string, int> _baseOpacity = new();
 
+    // OSD overlay for opacity toast (set after message loop thread creation)
+    private OsdOverlay? _osdOverlay;
+
+    /// <summary>
+    /// Sets the OSD overlay for displaying opacity toast messages.
+    /// Must be called after OsdOverlay is created on the message loop thread.
+    /// </summary>
+    public void SetOsd(OsdOverlay osd) => _osdOverlay = osd;
+
     // Cache FindMatrixWindows result — identity resolution is expensive
     private IReadOnlyList<WindowInfo>? _cachedMatrixWindows;
     private DateTime _cacheExpiry = DateTime.MinValue;
@@ -517,6 +526,24 @@ public sealed class HotkeyActions
         }
 
         DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity: representative opacity = {representativeOpacity}%");
+
+        // Show OSD toast if enabled (gated by OsdToastEnabled setting)
+        if (representativeOpacity != null)
+        {
+            try
+            {
+                var state = _configService.LoadState();
+                if (state.OsdToastEnabled)
+                {
+                    _osdOverlay?.ShowToast($"{representativeOpacity}%");
+                }
+            }
+            catch
+            {
+                // Fail silently -- OSD is non-critical
+            }
+        }
+
         return representativeOpacity;
     }
 

@@ -78,6 +78,11 @@ public static class Program
             return 1; // Failed to create window
         }
 
+        // Create OSD overlay on message loop thread (same thread as HotkeyWindow)
+        using var osdOverlay = new OsdOverlay();
+        osdOverlay.Create();
+        actions.SetOsd(osdOverlay);
+
         // Create hotkey manager
         using var hotkeyManager = new HotkeyManager(hotkeyWindow.Handle);
 
