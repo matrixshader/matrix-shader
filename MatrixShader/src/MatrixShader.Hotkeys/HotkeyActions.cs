@@ -292,17 +292,21 @@ public sealed class HotkeyActions
                 _ => TransparencyState.Off
             };
 
-            // Determine target opacity
-            int targetOpacity = nextState switch
+            // Determine uniform target opacity for Off and Full states.
+            // Custom state uses per-window values (see below).
+            int? uniformTarget = nextState switch
             {
                 TransparencyState.Off => 100,
-                TransparencyState.Custom => _customOpacity.TryGetValue(firstProfile, out var c) ? c : DefaultCustomOpacity,
                 TransparencyState.Full => 0,
-                _ => 100
+                _ => null // Custom: per-window
             };
 
             // Apply to ALL Matrix windows
+            // NOTE: Overflow/underflow counters are intentionally NOT reset here.
+            // User decision: counters are preserved across toggle cycles.
             var allSettings = _terminalSettingsService.LoadSettings();
+            string logLabel = "?";
+
             foreach (var window in matrixWindows)
             {
                 if (string.IsNullOrEmpty(window.ProfileName)) continue;
@@ -310,24 +314,40 @@ public sealed class HotkeyActions
                 var profile = _terminalSettingsService.GetProfile(allSettings, window.ProfileName);
                 if (profile == null) continue;
 
-                var updatedProfile = profile with { Opacity = targetOpacity, UseAcrylic = false };
+                int perWindowOpacity;
+                if (nextState == TransparencyState.Custom)
+                {
+                    // Per-window Custom restoration: each window returns to its own
+                    // last-known custom opacity (mix+offset preserved)
+                    perWindowOpacity = _customOpacity.TryGetValue(window.ProfileName, out var c) ? c : DefaultCustomOpacity;
+                }
+                else
+                {
+                    perWindowOpacity = uniformTarget!.Value;
+                }
+
+                var updatedProfile = profile with { Opacity = perWindowOpacity, UseAcrylic = false };
                 _terminalSettingsService.UpsertProfile(allSettings, updatedProfile);
 
                 // Track state per profile
                 _transparencyStates[window.ProfileName] = nextState;
+
+                // Update base opacity so AdjustOpacity knows what we set
+                _baseOpacity[window.ProfileName] = perWindowOpacity;
+
                 if (nextState == TransparencyState.Custom && !_customOpacity.ContainsKey(window.ProfileName))
                     _customOpacity[window.ProfileName] = DefaultCustomOpacity;
             }
             _terminalSettingsService.SaveSettings(allSettings);
 
-            var label = nextState switch
+            logLabel = nextState switch
             {
                 TransparencyState.Off => "OFF (100%)",
-                TransparencyState.Custom => $"CUSTOM ({targetOpacity}%)",
+                TransparencyState.Custom => "CUSTOM (per-window)",
                 TransparencyState.Full => "FULL (0%)",
                 _ => "?"
             };
-            DiagnosticLogger.Debug("HOTKEYS", $"Transparency cycled to {label} on {matrixWindows.Count} windows");
+            DiagnosticLogger.Debug("HOTKEYS", $"Transparency cycled to {logLabel} on {matrixWindows.Count} windows");
         }
         catch (Exception ex)
         {
