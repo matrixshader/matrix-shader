@@ -88,7 +88,7 @@ Write-Host "  Admin mode:       $IsAdmin"
 Write-Host ""
 
 # Kill running Matrix processes before install (DLLs are locked while running)
-$MatrixProcesses = @('matrix-hotkeys', 'matrix-monitor', 'redpill', 'bluepill', 'wakeupneo', 'matrixlite')
+$MatrixProcesses = @('matrix-hotkeys', 'matrix-monitor', 'redpill', 'bluepill', 'wakeupneo', 'matrixlite', 'construct')
 $Killed = @()
 foreach ($proc in $MatrixProcesses) {
     $running = Get-Process -Name $proc -ErrorAction SilentlyContinue
@@ -195,7 +195,7 @@ try {
 
     # Copy executables and DLLs to install directory
     Write-Host "  Copying executables to $InstallDir..." -ForegroundColor Gray
-    $ExeFiles = @('wakeupneo.exe', 'bluepill.exe', 'redpill.exe', 'matrix.exe', 'matrixlite.exe', 'matrix-hotkeys.exe', 'matrix-monitor.exe')
+    $ExeFiles = @('wakeupneo.exe', 'bluepill.exe', 'redpill.exe', 'construct.exe', 'matrixlite.exe', 'matrix-hotkeys.exe', 'matrix-monitor.exe')
 
     # Copy all files (runtime, DLLs, etc.)
     Get-ChildItem -Path $SourceDir -Recurse | ForEach-Object {
@@ -325,7 +325,7 @@ Write-Host ""
 Write-Host "  Commands available:" -ForegroundColor Cyan
 Write-Host "    wakeupneo  - Setup wizard (start here!)"
 Write-Host "    bluepill   - Quick launch Matrix"
-Write-Host "    matrix red - Launch a window with a specific color"
+Write-Host "    construct   - Enter the Construct (pick your reality)"
 Write-Host "    redpill    - Control panel"
 Write-Host "    matrixlite - Text-only fallback"
 Write-Host ""

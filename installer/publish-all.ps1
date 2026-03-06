@@ -7,7 +7,7 @@ $projects = @(
     'MatrixShader.Cli\Bluepill\MatrixShader.Cli.Bluepill.csproj',
     'MatrixShader.Cli\Redpill\MatrixShader.Cli.Redpill.csproj',
     'MatrixShader.Cli\MatrixLite\MatrixShader.Cli.MatrixLite.csproj',
-    'MatrixShader.Cli\Matrix\MatrixShader.Cli.Matrix.csproj',
+    'MatrixShader.Cli\Construct\MatrixShader.Cli.Construct.csproj',
     'MatrixShader.Hotkeys\MatrixShader.Hotkeys.csproj',
     'MatrixShader.Monitor\MatrixShader.Monitor.csproj',
     'MatrixShader.Lite\MatrixShader.Lite.csproj'

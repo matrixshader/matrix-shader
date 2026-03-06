@@ -13,7 +13,7 @@ $projects = @(
     @{ Path = "$Root\MatrixShader.Cli\Bluepill\bin\Release\net8.0-windows\win-x64\publish" },
     @{ Path = "$Root\MatrixShader.Cli\Redpill\bin\Release\net8.0-windows\win-x64\publish" },
     @{ Path = "$Root\MatrixShader.Cli\MatrixLite\bin\Release\net8.0-windows\win-x64\publish" },
-    @{ Path = "$Root\MatrixShader.Cli\Matrix\bin\Release\net8.0-windows\win-x64\publish" },
+    @{ Path = "$Root\MatrixShader.Cli\Construct\bin\Release\net8.0-windows\win-x64\publish" },
     @{ Path = "$Root\MatrixShader.Hotkeys\bin\Release\net8.0-windows10.0.17763.0\win-x64\publish" },
     @{ Path = "$Root\MatrixShader.Monitor\bin\Release\net8.0-windows\win-x64\publish" },
     @{ Path = "$Root\MatrixShader.Lite\bin\Release\net8.0-windows\win-x64\publish" }
@@ -50,7 +50,7 @@ Get-ChildItem -Path $shadersDir -Filter "*.hlsl" | ForEach-Object {
 }
 
 # Verify key executables
-$exes = @('wakeupneo.exe', 'bluepill.exe', 'redpill.exe', 'matrix.exe', 'matrixlite.exe', 'matrix-hotkeys.exe', 'matrix-monitor.exe')
+$exes = @('wakeupneo.exe', 'bluepill.exe', 'redpill.exe', 'construct.exe', 'matrixlite.exe', 'matrix-hotkeys.exe', 'matrix-monitor.exe')
 Write-Host ""
 Write-Host "=== Verification ===" -ForegroundColor Yellow
 foreach ($exe in $exes) {

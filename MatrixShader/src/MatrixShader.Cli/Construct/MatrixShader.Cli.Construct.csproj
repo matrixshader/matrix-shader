@@ -6,8 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>12</LangVersion>
-    <RootNamespace>MatrixShader.Cli.Matrix</RootNamespace>
-    <AssemblyName>matrix</AssemblyName>
+    <RootNamespace>MatrixShader.Cli.Construct</RootNamespace>
+    <AssemblyName>construct</AssemblyName>
 
     <!-- Native AOT Configuration -->
     <PublishAot>true</PublishAot>

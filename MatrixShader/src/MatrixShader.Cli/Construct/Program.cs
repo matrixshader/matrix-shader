@@ -5,12 +5,13 @@ using MatrixShader.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace MatrixShader.Cli.Matrix;
+namespace MatrixShader.Cli.Construct;
 
 /// <summary>
-/// matrix - Quick-launch a Matrix shader window with a specific color.
-/// Usage: matrix [color]  or  matrix --color
+/// construct - Enter the Construct. Pick your reality.
+/// Usage: construct [color]  or  construct --color
 /// Colors: green, blue, red, purple, gold, teal (default: green)
+/// No args = default green (white room picker coming soon)
 /// </summary>
 public static class Program
 {
@@ -103,7 +104,7 @@ public static class Program
     private static MatrixColor? ParseColor(string[] args)
     {
         if (args.Length == 0)
-            return ColorPresets.Green;
+            return ColorPresets.Green; // TODO: white room picker
 
         if (args.Contains("--help") || args.Contains("-h") || args.Contains("/?"))
             return null;
@@ -123,32 +124,27 @@ public static class Program
 
     private static int FindAvailableSlot(MatrixState state, IShaderService shaderService)
     {
-        // Prefer slots that don't have active windows
-        // First pass: find a slot with no shader file (never used)
         for (int i = 1; i <= 8; i++)
         {
             if (!shaderService.ShaderExists(i))
                 return i;
         }
 
-        // Second pass: find the lowest slot number that exists but isn't tracked in active state
-        // (This handles the case where all 8 shaders exist but some windows are closed)
         for (int i = 1; i <= 8; i++)
         {
             if (!state.ShaderConfigs.ContainsKey(i))
                 return i;
         }
 
-        // All 8 slots are tracked — reuse slot 8 (least likely to be the "primary" window)
         return 8;
     }
 
     private static void ShowHelp()
     {
         Console.WriteLine();
-        Console.WriteLine("\x1b[32m MATRIX\x1b[0m - Launch a Matrix shader window");
+        Console.WriteLine("\x1b[32m CONSTRUCT\x1b[0m \u2014 Enter the Construct. Pick your reality.");
         Console.WriteLine();
-        Console.WriteLine(" Usage: matrix [color]");
+        Console.WriteLine(" Usage: construct [color]");
         Console.WriteLine();
         Console.WriteLine(" Colors:");
         foreach (var preset in ColorPresets.All)
@@ -158,10 +154,10 @@ public static class Program
         }
         Console.WriteLine();
         Console.WriteLine(" Examples:");
-        Console.WriteLine("   matrix          Launch with green (default)");
-        Console.WriteLine("   matrix red      Launch with red");
-        Console.WriteLine("   matrix --blue   Launch with blue");
-        Console.WriteLine("   matrix gold     Launch with gold");
+        Console.WriteLine("   construct          Launch with green (default)");
+        Console.WriteLine("   construct red      Jack in with red");
+        Console.WriteLine("   construct --blue   Jack in with blue");
+        Console.WriteLine("   construct gold     Jack in with gold");
         Console.WriteLine();
     }
 }

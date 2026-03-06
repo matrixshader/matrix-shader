@@ -25,7 +25,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Cli.MatrixLite
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Hotkeys", "src\MatrixShader.Hotkeys\MatrixShader.Hotkeys.csproj", "{930401F1-F7C5-4A1B-B617-2EBEC5E33CD9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Cli.Matrix", "src\MatrixShader.Cli\Matrix\MatrixShader.Cli.Matrix.csproj", "{A0B1C2D3-E4F5-6789-A0B1-C2D3E4F56789}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MatrixShader.Cli.Construct", "src\MatrixShader.Cli\Construct\MatrixShader.Cli.Construct.csproj", "{A0B1C2D3-E4F5-6789-A0B1-C2D3E4F56789}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
