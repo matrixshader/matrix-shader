@@ -132,6 +132,8 @@ public static class Program
             ConsoleHelper.WriteLineDim("   Ctrl+Shift+1/2/3        Toggle Far/Mid/Near layers");
             ConsoleHelper.WriteLineDim("   Ctrl+Shift+H            Hotkey help overlay");
 
+            ConsoleHelper.ShowCommandBanner();
+
             Console.WriteLine();
             ConsoleHelper.WriteLineDim(" Enjoying Matrix Shader? Buy me a coffee:");
             Console.WriteLine(" \x1b]8;;https://buymeacoffee.com/IKnowKungFu\x07\x1b[33mhttps://buymeacoffee.com/IKnowKungFu\x1b[0m\x1b]8;;\x07");

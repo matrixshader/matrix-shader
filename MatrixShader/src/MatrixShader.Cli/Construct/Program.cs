@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using MatrixShader.Core.Constants;
+using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -91,6 +92,7 @@ public static class Program
 
             var (r, g, b) = color.Value.ToRgb();
             Console.WriteLine($"\x1b[38;2;{r};{g};{b}m{color.Value.Name}\x1b[0m Matrix window launched (slot {slot}).");
+            ConsoleHelper.ShowCommandBanner();
         }
         catch (Exception ex)
         {
@@ -111,8 +113,9 @@ public static class Program
 
         foreach (var arg in args)
         {
-            // Support both "red" and "--red"
-            var name = arg.TrimStart('-');
+            if (!arg.StartsWith("--"))
+                continue;
+            var name = arg.Substring(2);
             if (ColorMap.TryGetValue(name, out var color))
                 return color;
         }
@@ -144,20 +147,20 @@ public static class Program
         Console.WriteLine();
         Console.WriteLine("\x1b[32m CONSTRUCT\x1b[0m \u2014 Enter the Construct. Pick your reality.");
         Console.WriteLine();
-        Console.WriteLine(" Usage: construct [color]");
+        Console.WriteLine(" Usage: construct --[color]");
         Console.WriteLine();
         Console.WriteLine(" Colors:");
         foreach (var preset in ColorPresets.All)
         {
             var (r, g, b) = preset.ToRgb();
-            Console.WriteLine($"   \x1b[38;2;{r};{g};{b}m{preset.Name,-10}\x1b[0m {preset.Description}");
+            Console.WriteLine($"   \x1b[38;2;{r};{g};{b}m--{preset.Name.ToLower(),-12}\x1b[0m {preset.Description}");
         }
         Console.WriteLine();
         Console.WriteLine(" Examples:");
         Console.WriteLine("   construct          Launch with green (default)");
-        Console.WriteLine("   construct red      Jack in with red");
+        Console.WriteLine("   construct --red    Jack in with red");
         Console.WriteLine("   construct --blue   Jack in with blue");
-        Console.WriteLine("   construct gold     Jack in with gold");
+        Console.WriteLine("   construct --gold   Jack in with gold");
         Console.WriteLine();
     }
 }

@@ -322,12 +322,12 @@ Write-Host "  Installation complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "  IMPORTANT: Open a NEW terminal window for commands to work." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "  Commands available:" -ForegroundColor Cyan
-Write-Host "    wakeupneo  - Setup wizard (start here!)"
-Write-Host "    bluepill   - Quick launch Matrix"
-Write-Host "    construct   - Enter the Construct (pick your reality)"
-Write-Host "    redpill    - Control panel"
-Write-Host "    matrixlite - Text-only fallback"
+Write-Host "  COMMANDS" -ForegroundColor Cyan
+Write-Host "    wakeupneo  - Start here"
+Write-Host "    construct  - Launch individual Matrix terminal (--help for colors)"
+Write-Host "    bluepill   - Quickly relaunch last saved settings"
+Write-Host "    redpill    - Full control panel (fine tuning)"
+Write-Host "    matrixlite - Visual effect only"
 Write-Host ""
 
 Write-Host "  Enjoying Matrix Shader? Buy me a coffee:" -ForegroundColor DarkGray

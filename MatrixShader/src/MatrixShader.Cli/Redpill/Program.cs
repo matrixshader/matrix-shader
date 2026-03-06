@@ -437,6 +437,8 @@ public class ControlPanel
 
             Console.CursorVisible = true;
             Console.Clear();
+            ConsoleHelper.ShowCommandBanner();
+            Console.WriteLine();
         }
 
         return Task.CompletedTask;
