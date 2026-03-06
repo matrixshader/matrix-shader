@@ -386,6 +386,7 @@ public static partial class HotkeyApi
     public static partial bool SetLayeredWindowAttributes(nint hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
     public const uint LWA_ALPHA = 0x02;
+    public const uint LWA_COLORKEY = 0x01;
 
     // Timer
     [LibraryImport("user32.dll", SetLastError = true)]

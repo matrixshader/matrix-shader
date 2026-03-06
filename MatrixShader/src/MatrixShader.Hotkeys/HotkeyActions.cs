@@ -357,6 +357,25 @@ public sealed class HotkeyActions
                 _ => "?"
             };
             DiagnosticLogger.Debug("HOTKEYS", $"Transparency cycled to {logLabel} on {matrixWindows.Count} windows");
+
+            // Show OSD toast for toggle state — Custom shows the actual per-window value
+            var toastText = nextState switch
+            {
+                TransparencyState.Off => "100%",
+                TransparencyState.Full => "0%",
+                TransparencyState.Custom => $"{(_customOpacity.TryGetValue(firstProfile, out var cv) ? cv : DefaultCustomOpacity)}%",
+                _ => null
+            };
+            if (toastText != null)
+            {
+                try
+                {
+                    var state = _configService.LoadState();
+                    if (state.OsdToastEnabled)
+                        _osdOverlay?.ShowToast(toastText);
+                }
+                catch { }
+            }
         }
         catch (Exception ex)
         {

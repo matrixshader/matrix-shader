@@ -13,13 +13,18 @@ namespace MatrixShader.Hotkeys;
 public sealed class OsdOverlay : IDisposable
 {
     private const string ClassName = "MatrixOsdWindow";
-    private const int WindowWidth = 120;
-    private const int WindowHeight = 50;
+    private const int WindowWidth = 160;
+    private const int WindowHeight = 60;
     private const int BottomMargin = 80;
-    private const byte InitialAlpha = 220;
-    private const byte AlphaDecrement = 22;
+    private const byte InitialAlpha = 230;
+    private const byte AlphaDecrement = 23;
     private const uint DisplayTimerMs = 1200;
     private const uint FadeTimerMs = 30;
+
+    // Transparent background via color key — text floats with no visible box
+    private const uint TransparentKeyColor = 0x00010101; // Near-black key (COLORREF)
+    // Text color: #2c6e49 → COLORREF 0x00496E2C (BBGGRR)
+    private const uint TextColor = 0x00496E2C;
 
     // Timer IDs
     private static readonly nint DisplayTimerId = new(1);
@@ -57,9 +62,11 @@ public sealed class OsdOverlay : IDisposable
             wc.hInstance = _hInstance;
             wc.lpszClassName = ClassName;
 
-            if (HotkeyApi.RegisterClassExW(ref wc) == 0)
+            var atom = HotkeyApi.RegisterClassExW(ref wc);
+            if (atom == 0)
             {
                 int error = Marshal.GetLastWin32Error();
+                DiagnosticLogger.Warn("OSD", $"RegisterClassExW failed: error={error}");
                 // 1410 = ERROR_CLASS_ALREADY_EXISTS - this is OK
                 if (error != 1410)
                     return false;
@@ -69,6 +76,7 @@ public sealed class OsdOverlay : IDisposable
 
         // Get primary monitor work area for positioning
         var (x, y) = CalculatePosition();
+        DiagnosticLogger.Debug("OSD", $"Create: position=({x},{y}), size={WindowWidth}x{WindowHeight}");
 
         // Create layered popup window
         uint exStyle = HotkeyApi.WS_EX_LAYERED | HotkeyApi.WS_EX_TOPMOST
@@ -88,11 +96,16 @@ public sealed class OsdOverlay : IDisposable
             nint.Zero);
 
         if (_hWnd == nint.Zero)
+        {
+            DiagnosticLogger.Warn("OSD", $"CreateWindowExW failed: error={Marshal.GetLastWin32Error()}");
             return false;
+        }
 
-        // Set initial layered window alpha
-        HotkeyApi.SetLayeredWindowAttributes(_hWnd, 0, InitialAlpha, HotkeyApi.LWA_ALPHA);
+        // Color key for transparent background + alpha for fade
+        HotkeyApi.SetLayeredWindowAttributes(_hWnd, TransparentKeyColor, InitialAlpha,
+            HotkeyApi.LWA_COLORKEY | HotkeyApi.LWA_ALPHA);
 
+        DiagnosticLogger.Debug("OSD", $"OSD window created: hWnd=0x{_hWnd:X}");
         return true;
     }
 
@@ -101,6 +114,7 @@ public sealed class OsdOverlay : IDisposable
     /// </summary>
     public void ShowToast(string text)
     {
+        DiagnosticLogger.Debug("OSD", $"ShowToast('{text}'): hWnd=0x{_hWnd:X}");
         if (_hWnd == nint.Zero)
             return;
 
@@ -111,7 +125,8 @@ public sealed class OsdOverlay : IDisposable
         // Update text and reset alpha
         _text = text;
         _currentAlpha = InitialAlpha;
-        HotkeyApi.SetLayeredWindowAttributes(_hWnd, 0, InitialAlpha, HotkeyApi.LWA_ALPHA);
+        HotkeyApi.SetLayeredWindowAttributes(_hWnd, TransparentKeyColor, InitialAlpha,
+            HotkeyApi.LWA_COLORKEY | HotkeyApi.LWA_ALPHA);
 
         // Repaint
         HotkeyApi.InvalidateRect(_hWnd, nint.Zero, true);
@@ -158,7 +173,7 @@ public sealed class OsdOverlay : IDisposable
     }
 
     /// <summary>
-    /// Handles WM_PAINT: draws dark background with centered white bold text.
+    /// Handles WM_PAINT: fills with color key (becomes transparent), draws floating green text.
     /// </summary>
     private void OnPaint(nint hWnd)
     {
@@ -168,42 +183,38 @@ public sealed class OsdOverlay : IDisposable
 
         try
         {
-            // Get client rect
             HotkeyApi.GetClientRect(hWnd, out var clientRect);
 
-            // Fill background with dark color
-            var hBrush = HotkeyApi.CreateSolidBrush(0x001A1A1A); // Dark gray (COLORREF: 0x00BBGGRR)
+            // Fill with color key — this area becomes fully transparent
+            var hBrush = HotkeyApi.CreateSolidBrush(TransparentKeyColor);
             HotkeyApi.FillRect(hdc, ref clientRect, hBrush);
             HotkeyApi.DeleteObject(hBrush);
 
-            // Create bold font (~24px, Segoe UI for modern Windows look)
+            // Nimbus Mono PS, 28px, bold
             var hFont = HotkeyApi.CreateFontW(
-                -24,            // Height (negative = character height, not cell height)
-                0,              // Width (0 = default)
+                -28,            // Height
+                0,              // Width (default)
                 0, 0,           // Escapement, Orientation
-                700,            // Weight (700 = bold)
+                700,            // Weight (bold)
                 0, 0, 0,        // Italic, Underline, StrikeOut
                 0,              // CharSet (ANSI_CHARSET)
                 0, 0,           // OutPrecision, ClipPrecision
                 5,              // Quality (CLEARTYPE_QUALITY)
                 0,              // PitchAndFamily
-                "Segoe UI");
+                "Nimbus Mono PS");
 
             var oldFont = HotkeyApi.SelectObject(hdc, hFont);
 
-            // Set transparent background and white text
             HotkeyApi.SetBkMode(hdc, HotkeyApi.TRANSPARENT);
-            HotkeyApi.SetTextColor(hdc, 0x00FFFFFF); // White (COLORREF: 0x00BBGGRR)
+            HotkeyApi.SetTextColor(hdc, TextColor); // #2c6e49 green
 
-            // Calculate centered position
-            // Simple centering: estimate text width (~12px per char at this size)
-            int textWidth = _text.Length * 12;
+            // Center text
+            int textWidth = _text.Length * 14;
             int x = Math.Max(0, (clientRect.Right - clientRect.Left - textWidth) / 2);
-            int y = Math.Max(0, (clientRect.Bottom - clientRect.Top - 24) / 2);
+            int y = Math.Max(0, (clientRect.Bottom - clientRect.Top - 28) / 2);
 
             HotkeyApi.ExtTextOutW(hdc, x, y, 0, nint.Zero, _text, (uint)_text.Length, nint.Zero);
 
-            // Cleanup GDI objects
             HotkeyApi.SelectObject(hdc, oldFont);
             HotkeyApi.DeleteObject(hFont);
         }
@@ -233,13 +244,14 @@ public sealed class OsdOverlay : IDisposable
                 HotkeyApi.KillTimer(hWnd, FadeTimerId);
                 _currentAlpha = InitialAlpha;
                 WindowsApi.ShowWindow(hWnd, WindowsApi.SW_HIDE);
-                // Reset alpha for next show
-                HotkeyApi.SetLayeredWindowAttributes(hWnd, 0, InitialAlpha, HotkeyApi.LWA_ALPHA);
+                HotkeyApi.SetLayeredWindowAttributes(hWnd, TransparentKeyColor, InitialAlpha,
+                    HotkeyApi.LWA_COLORKEY | HotkeyApi.LWA_ALPHA);
             }
             else
             {
                 _currentAlpha -= AlphaDecrement;
-                HotkeyApi.SetLayeredWindowAttributes(hWnd, 0, _currentAlpha, HotkeyApi.LWA_ALPHA);
+                HotkeyApi.SetLayeredWindowAttributes(hWnd, TransparentKeyColor, _currentAlpha,
+                    HotkeyApi.LWA_COLORKEY | HotkeyApi.LWA_ALPHA);
             }
         }
     }
