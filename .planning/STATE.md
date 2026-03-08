@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-08T17:25:17.841Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-03-08T17:26:36.828Z"
 last_activity: 2026-03-08 — Completed hotkey action handlers (plan 02-02)
 progress:
   total_phases: 10
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
   percent: 67
 ---
 
@@ -52,6 +52,7 @@ Progress: [███████░░░] 67%
 *Updated after each plan completion*
 | Phase 01 P01 | 16min | 2 tasks | 1 files |
 | Phase 02 P02 | 8min | 1 tasks | 2 files |
+| Phase 02 P01 | 10min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [02-02]: CycleLayout writes state.json only -- actual positioning deferred to Phase 6 per user decision
 - [02-02]: Shader rotation reads all contents first then writes all -- prevents data loss during swap
 - [Phase 02]: Opacity ported from matrix-opacity.sh to Python -- eliminates subprocess overhead
+- [Phase 02]: Red Pill status via file existence (~/.config/matrix-shader/redpill.json) -- simple, mockable, licensing deferred
+- [Phase 02]: InotifyWatcher watches directory not file for atomic write compatibility
 
 ### Pending Todos
 
@@ -87,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-08T17:25:17.832Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-03-08T17:26:36.821Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None

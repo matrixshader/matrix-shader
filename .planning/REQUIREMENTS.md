@@ -36,8 +36,8 @@
 - [x] **HKEY-04**: Cycle layout (Ctrl+Shift+L)
 - [x] **HKEY-05**: Rotate windows left/right (Ctrl+Shift+Left/Right)
 - [x] **HKEY-06**: Force shader reload (Ctrl+Shift+F5)
-- [ ] **HKEY-07**: Hotkey configuration and persistence (JSON config file)
-- [ ] **HKEY-08**: Conflict detection and notification
+- [x] **HKEY-07**: Hotkey configuration and persistence (JSON config file)
+- [x] **HKEY-08**: Conflict detection and notification
 
 ### Layout Engine
 
@@ -140,8 +140,8 @@
 | HKEY-04 | Phase 2 | Complete |
 | HKEY-05 | Phase 2 | Complete |
 | HKEY-06 | Phase 2 | Complete |
-| HKEY-07 | Phase 2 | Pending |
-| HKEY-08 | Phase 2 | Pending |
+| HKEY-07 | Phase 2 | Complete |
+| HKEY-08 | Phase 2 | Complete |
 | LAYO-01 | Phase 6 | Pending |
 | LAYO-02 | Phase 6 | Pending |
 | LAYO-03 | Phase 6 | Pending |
