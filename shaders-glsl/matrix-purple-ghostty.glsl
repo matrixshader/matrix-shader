@@ -57,7 +57,7 @@ vec3 DrawLayer(vec2 uv, float depth, float speed_mult, float brightness, float s
     vec2 grid_uv = layer_uv * grid_dims;
     vec2 cell_id = floor(grid_uv);
     vec2 local_uv = fract(grid_uv);
-    float char_seed = random(cell_id + floor(iTime * 4.0) + depth);
+    float char_seed = random(cell_id + floor(mod(iTime, 1000.0) * 4.0) + depth);
     int glyph_idx = int(char_seed * 16.0);
     vec2 padded_uv = (local_uv - 0.1) / 0.8;
     padded_uv = clamp(padded_uv, 0.0, 1.0);
