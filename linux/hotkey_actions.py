@@ -1,21 +1,20 @@
 """Hotkey action handlers for Matrix Shader (Linux).
 
 All 13 hotkey actions implemented as standalone functions, consumed by
-matrix-keys.py via the ACTION_MAP dispatch table.
+matrix_keys.py via the ACTION_MAP dispatch table.
 
 Each action broadcasts to ALL active Matrix windows (via get_ghostty_bus_names).
-Opacity actions modify Ghostty config files (not shader #defines).
-Toast notifications fire via notify-send with dunst stack tag for replacement.
+Opacity actions delegate to matrix-opacity.sh (proven fast, correct 3-state cycle).
+Opacity changes show a custom OSD toast (matrix_toast.py) with the new percentage.
 
-Consumed by: matrix-keys.py event loop (Phase 2 Plan 03).
+Consumed by: matrix_keys.py event loop (Phase 2 Plan 03).
 Dependencies: shader_service.py (Phase 1), Python 3 stdlib only.
 """
 
-import glob
 import json
 import os
-import re
 import subprocess
+import sys
 import tempfile
 
 from shader_service import (
@@ -34,13 +33,15 @@ SPEED_DELTA = 0.5   # Matches Windows SpeedDelta = 0.5f
 SPEED_MIN = 0.1     # From PARAM_RANGES
 SPEED_MAX = 5.0     # From PARAM_RANGES
 
-OPACITY_STEP = 5          # Matches Windows OpacityDelta=5, matrix-opacity.sh STEP=5
-CUSTOM_DEFAULT = 85        # Matches matrix-opacity.sh CUSTOM_DEFAULT=85
-
 LAYOUT_MODES = ["pillars", "quads", "overlap", "auto"]
 
 STATE_PATH = os.path.expanduser("~/.config/matrix-shader/state.json")
-GHOSTTY_CONFIG = os.path.expanduser("~/.config/ghostty/config")
+
+# Path to the proven-working opacity bash script
+OPACITY_SCRIPT = os.path.expanduser("~/.local/bin/matrix-opacity.sh")
+
+# Path to the OSD toast script (lives alongside this file)
+TOAST_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "matrix_toast.py")
 
 # Import from shader_service (already imported above)
 from shader_service import SLOT_SHADER_DIR
@@ -88,8 +89,7 @@ def action_speed_up() -> None:
         config = read_shader_config(slot)
         new_speed = min(config["RAIN_SPEED"] + SPEED_DELTA, SPEED_MAX)
         write_shader_param(slot, "RAIN_SPEED", new_speed)
-    if new_speed is not None:
-        show_toast(f"Speed: {new_speed:.1f}")
+
 
 
 def action_speed_down() -> None:
@@ -97,13 +97,10 @@ def action_speed_down() -> None:
     mapping = get_ghostty_bus_names()
     if not mapping:
         return
-    new_speed = None
     for slot in mapping:
         config = read_shader_config(slot)
         new_speed = max(config["RAIN_SPEED"] - SPEED_DELTA, SPEED_MIN)
         write_shader_param(slot, "RAIN_SPEED", new_speed)
-    if new_speed is not None:
-        show_toast(f"Speed: {new_speed:.1f}")
 
 
 def _toggle_layer(param: str, label: str) -> None:
@@ -121,8 +118,7 @@ def _toggle_layer(param: str, label: str) -> None:
         config = read_shader_config(slot)
         new_val = 0.0 if config[param] >= 0.5 else 1.0
         write_shader_param(slot, param, new_val)
-    if new_val is not None:
-        show_toast(f"{label}: {'ON' if new_val > 0 else 'OFF'}")
+    pass  # No toast for layer toggles — visual change is the feedback
 
 
 def action_toggle_far() -> None:
@@ -147,103 +143,83 @@ def action_manual_reload() -> None:
         return
     for slot_info in mapping.values():
         reload_ghostty(slot_info["bus_name"])
-    show_toast("Shaders reloaded")
 
 
 # ---------------------------------------------------------------------------
-# Opacity actions (modify Ghostty config files, not shader #defines)
+# Opacity actions — delegate to proven matrix-opacity.sh
 # ---------------------------------------------------------------------------
 
-def get_current_opacity() -> int:
-    """Read current opacity from first /tmp/ghostty-matrix-*.conf file.
+def _read_current_opacity() -> int:
+    """Read the current background-opacity from the first matrix config.
 
-    Returns:
-        Opacity as integer percentage (0-100). Default 100 if no files.
+    Returns opacity as an integer percentage (0-100).
     """
-    configs = sorted(glob.glob("/tmp/ghostty-matrix-*.conf"))
+    import glob as _glob
+    configs = sorted(_glob.glob("/tmp/ghostty-matrix-*.conf"))
     if not configs:
-        return 100
-    try:
-        with open(configs[0]) as f:
-            match = re.search(r"background-opacity\s*=\s*([\d.]+)", f.read())
-        if match:
-            return int(float(match.group(1)) * 100)
-    except (OSError, ValueError):
-        pass
-    return 100
-
-
-def set_opacity(percent: int) -> None:
-    """Write opacity to ALL matrix config files + default config, then reload.
-
-    Args:
-        percent: Opacity as integer percentage (0-100).
-    """
-    # Format opacity value
-    if percent <= 0:
-        value = "0"
-    elif percent >= 100:
-        value = "1"
-    else:
-        value = f"{percent / 100:.2f}"
-
-    # Update all /tmp/ghostty-matrix-*.conf files
-    for conf in glob.glob("/tmp/ghostty-matrix-*.conf"):
+        configs = [os.path.expanduser("~/.config/ghostty/config")]
+    for conf in configs:
         try:
             with open(conf) as f:
-                content = f.read()
-            content = re.sub(
-                r"background-opacity\s*=\s*[\d.]+",
-                f"background-opacity = {value}",
-                content,
-            )
-            with open(conf, "w") as f:
-                f.write(content)
-        except OSError:
+                for line in f:
+                    if "background-opacity" in line:
+                        val = line.split("=", 1)[1].strip()
+                        return round(float(val) * 100)
+        except (FileNotFoundError, ValueError, IndexError):
             continue
+    return 100  # Default: fully opaque
 
-    # Also update default Ghostty config
-    if os.path.exists(GHOSTTY_CONFIG):
-        try:
-            with open(GHOSTTY_CONFIG) as f:
-                content = f.read()
-            content = re.sub(
-                r"background-opacity\s*=\s*[\d.]+",
-                f"background-opacity = {value}",
-                content,
-            )
-            with open(GHOSTTY_CONFIG, "w") as f:
-                f.write(content)
-        except OSError:
-            pass
 
-    # Reload ALL Ghostty instances
-    mapping = get_ghostty_bus_names()
-    for slot_info in mapping.values():
-        reload_ghostty(slot_info["bus_name"])
+def _fire_toast(opacity_pct: int) -> None:
+    """Launch the OSD toast showing the opacity percentage.
 
-    show_toast(f"Opacity: {percent}%")
+    Fire-and-forget via subprocess.Popen. Silently ignores errors.
+    """
+    try:
+        subprocess.Popen(
+            [sys.executable, TOAST_SCRIPT, f"{opacity_pct}%"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (FileNotFoundError, OSError):
+        pass
+
+
+def _run_opacity(mode: str) -> None:
+    """Call the working matrix-opacity.sh script directly.
+
+    This is the original fast implementation — sed + busctl + gdbus.
+    3-state toggle cycle: Off (100%) -> Custom (85%) -> Full (0%) -> Off.
+    After the script runs, reads the new opacity and shows an OSD toast.
+    """
+    try:
+        subprocess.run(
+            [OPACITY_SCRIPT, mode],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return
+
+    # Read the new opacity and show toast
+    opacity = _read_current_opacity()
+    _fire_toast(opacity)
 
 
 def action_toggle_transparency() -> None:
-    """Toggle between 0% opacity and CUSTOM_DEFAULT (85%)."""
-    current = get_current_opacity()
-    if current > 0:
-        set_opacity(0)
-    else:
-        set_opacity(CUSTOM_DEFAULT)
+    """Cycle: Off (100%) -> Custom (85%) -> Full transparent (0%) -> Off."""
+    _run_opacity("toggle")
 
 
 def action_opacity_down() -> None:
-    """Decrease opacity by OPACITY_STEP%, minimum 0%."""
-    current = get_current_opacity()
-    set_opacity(max(current - OPACITY_STEP, 0))
+    """Decrease opacity by 5%."""
+    _run_opacity("down")
 
 
 def action_opacity_up() -> None:
-    """Increase opacity by OPACITY_STEP%, maximum 100%."""
-    current = get_current_opacity()
-    set_opacity(min(current + OPACITY_STEP, 100))
+    """Increase opacity by 5%."""
+    _run_opacity("up")
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +263,7 @@ def action_cycle_layout() -> None:
             pass
         raise
 
-    show_toast(f"Layout: {next_mode}")
+    pass  # Layout mode written; actual repositioning deferred to Phase 6
 
 
 def _rotate_shaders(direction: str) -> None:
@@ -336,7 +312,7 @@ def _rotate_shaders(direction: str) -> None:
     for slot_info in mapping.values():
         reload_ghostty(slot_info["bus_name"])
 
-    show_toast(f"Slots rotated {direction}")
+    pass  # Visual change is the feedback
 
 
 def action_swap_left() -> None:
