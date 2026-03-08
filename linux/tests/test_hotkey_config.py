@@ -197,7 +197,7 @@ class TestBuildHotkeyTable:
     def test_skips_disabled_bindings(self):
         config = dict(hotkey_config.DEFAULT_BINDINGS)
         config["SpeedUp"] = {"key": "Down", "modifiers": ["Ctrl", "Shift"], "enabled": False}
-        table = hotkey_config.build_hotkey_table(config)
+        table = hotkey_config.build_hotkey_table(config, is_redpill=True)
         assert len(table) == 12
         assert "SpeedUp" not in table.values()
 
