@@ -9,7 +9,7 @@
 #define FONT_SCALE     1.0
 #define CHAR_WIDTH     10.0
 #define TRAIL_POWER    8.0
-#define RAIN_DENSITY   0.4
+#define RAIN_DENSITY     0.2
 #define SHOW_L1        1.0
 #define SHOW_L2        1.0
 #define SHOW_L3        1.0
@@ -64,14 +64,15 @@ vec3 DrawLayer(vec2 uv, float depth, float speed_mult, float brightness, float s
     float glyph = getGlyphPixel(glyph_idx, padded_uv);
     float border = step(0.1, local_uv.x) * step(local_uv.x, 0.9) * step(0.05, local_uv.y) * step(local_uv.y, 0.95);
     float shape = glyph * border;
-    float col_rnd = random(vec2(cell_id.x, seed_shift));
+    float col_rnd = fract(sin(cell_id.x * 78.233 + seed_shift * 45.164) * 43758.5453);
     if (col_rnd > RAIN_DENSITY) return vec3(0, 0, 0);
 
     // HIGH VARIATION: unique phase per column prevents breathing sync
     float col_hash = fract(sin(cell_id.x * 127.1 + seed_shift * 311.7) * 43758.5453);
-    float phase_offset = col_hash * grid_dims.y * 2.5;
+    float speed_hash = fract(sin(cell_id.x * 269.5 + seed_shift * 183.3) * 28461.7231);
+    float phase_offset = col_hash * grid_dims.y * 4.0;
 
-    float final_speed = ((col_rnd * 0.5 + 0.2) * 10.0 * RAIN_SPEED * speed_mult) / depth;
+    float final_speed = ((speed_hash * 0.7 + 0.15) * 10.0 * RAIN_SPEED * speed_mult) / depth;
     float rain_pos = cell_id.y - (iTime * final_speed) + phase_offset;
     float cycle = fract(rain_pos / grid_dims.y * 1.5);
     float trail = pow(cycle, TRAIL_POWER);
