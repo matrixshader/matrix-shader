@@ -58,7 +58,7 @@ else
 fi
 
 # Kill any running matrix processes
-for proc in ghostty-matrix matrix-hotkey; do
+for proc in ghostty-matrix matrix-hotkey matrix_keys; do
     pkill -f "$proc" 2>/dev/null || true
 done
 
@@ -79,11 +79,13 @@ echo -e "${DIM}  Installing commands...${RESET}"
 cp "$SOURCE_DIR/scripts/wakeupneo.sh" "$BIN_DIR/wakeupneo"
 cp "$SOURCE_DIR/scripts/matrix-opacity.sh" "$BIN_DIR/matrix-opacity.sh"
 cp "$SOURCE_DIR/scripts/matrix-hotkey-help.sh" "$BIN_DIR/matrix-hotkey-help.sh"
-chmod +x "$BIN_DIR/wakeupneo" "$BIN_DIR/matrix-opacity.sh" "$BIN_DIR/matrix-hotkey-help.sh"
+cp "$SOURCE_DIR/scripts/matrix_keys.py" "$BIN_DIR/matrix_keys.py"
+chmod +x "$BIN_DIR/wakeupneo" "$BIN_DIR/matrix-opacity.sh" "$BIN_DIR/matrix-hotkey-help.sh" "$BIN_DIR/matrix_keys.py"
 
 # Patch script paths to use installed locations
 sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/wakeupneo"
 sed -i "s|SHADER_DIR=.*|SHADER_DIR=\"$SHADER_DIR\"|" "$BIN_DIR/wakeupneo"
+sed -i "s|MATRIX_KEYS=.*|MATRIX_KEYS=\"$BIN_DIR/matrix_keys.py\"|" "$BIN_DIR/wakeupneo"
 
 # Ensure ~/.local/bin is in PATH
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
@@ -100,9 +102,40 @@ if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
-# Register GNOME hotkeys (if on GNOME)
+# Install evdev hotkey listener dependency
+echo -e "${DIM}  Setting up hotkey listener...${RESET}"
+if python3 -c "import evdev" 2>/dev/null; then
+    echo -e "${DIM}  python3-evdev: OK${RESET}"
+else
+    echo -e "${DIM}  Installing python3-evdev...${RESET}"
+    if command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y python3-evdev >/dev/null 2>&1 || pip3 install --user evdev 2>/dev/null
+    elif command -v apt >/dev/null 2>&1; then
+        sudo apt install -y python3-evdev >/dev/null 2>&1 || pip3 install --user evdev 2>/dev/null
+    elif command -v pacman >/dev/null 2>&1; then
+        sudo pacman -S --noconfirm python-evdev >/dev/null 2>&1 || pip3 install --user evdev 2>/dev/null
+    else
+        pip3 install --user evdev 2>/dev/null
+    fi
+
+    if python3 -c "import evdev" 2>/dev/null; then
+        echo -e "${DIM}  python3-evdev: installed${RESET}"
+    else
+        echo -e "${RED}  python3-evdev: FAILED - hotkeys will use GNOME fallback${RESET}"
+    fi
+fi
+
+# Ensure user can read /dev/input (needed for evdev hotkeys)
+if ! groups | grep -qw input; then
+    echo -e "${DIM}  Adding $USER to input group (for global hotkeys)...${RESET}"
+    sudo usermod -aG input "$USER" 2>/dev/null && \
+        echo -e "${DIM}  Added - log out and back in to take effect${RESET}" || \
+        echo -e "${RED}  Could not add to input group - hotkeys may need sudo${RESET}"
+fi
+
+# Register GNOME hotkeys as fallback (if on GNOME)
 if command -v gsettings >/dev/null 2>&1; then
-    echo -e "${DIM}  Registering hotkeys...${RESET}"
+    echo -e "${DIM}  Registering GNOME hotkey fallbacks...${RESET}"
 
     KEYS=$(gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings 2>/dev/null || echo "[]")
 

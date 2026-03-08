@@ -9,7 +9,7 @@ CONFIG_DIR="$HOME/.config/ghostty"
 STATE_DIR="$HOME/.config/matrix-shader"
 STATE_FILE="$STATE_DIR/state.json"
 HOTKEY_HELP="$HOME/.local/bin/matrix-hotkey-help.sh"
-MATRIX_KEYS="$(dirname "$SCRIPT_PATH")/matrix-keys.py"
+MATRIX_KEYS="$(dirname "$SCRIPT_PATH")/matrix_keys.py"
 MATRIX_KEYS_PID="/tmp/matrix-keys.pid"
 
 # Self-relaunch inside Ghostty if not already there
