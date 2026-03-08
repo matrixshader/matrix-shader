@@ -258,8 +258,8 @@ print(', '.join(str(w['slot']) for w in d['windows']))
             echo -e "${GREEN} Restoring session...${RESET}"
             echo
 
-            local launched=0
-            local skipped=0
+            launched=0
+            skipped=0
             for i in $(seq 0 $((num_prev - 1))); do
                 preset_idx=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d['windows'][$i]['preset'])")
                 slot=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d['windows'][$i]['slot'])")
@@ -267,7 +267,7 @@ print(', '.join(str(w['slot']) for w in d['windows']))
                 # Skip if this slot is already running
                 if [[ " ${open_slots[*]} " == *" $slot "* ]]; then
                     IFS=':' read -r name r g b fg <<< "${PRESETS[$preset_idx]}"
-                    local swatch=$(color_swatch "$r" "$g" "$b")
+                    swatch=$(color_swatch "$r" "$g" "$b")
                     echo -e "   Matrix-${slot} ${swatch} ${PRESET_COLORS[$preset_idx]}${name}${RESET} ${DIM}already open${RESET}"
                     ((skipped++))
                     continue
