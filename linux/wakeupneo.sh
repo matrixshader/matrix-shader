@@ -18,8 +18,9 @@ if [ "$1" != "--in-ghostty" ]; then
     setup_conf="/tmp/ghostty-wakeupneo.conf"
     cat > "$setup_conf" <<'SETUPEOF'
 background = #000000
-foreground = #35B381
+foreground = #6EDCAA
 font-family = Nimbus Mono PS
+font-style = Bold
 font-size = 16
 background-opacity = 1
 gtk-titlebar = true
@@ -108,6 +109,7 @@ custom-shader = ${shader_file}
 background = #000000
 foreground = ${fg}
 font-family = Nimbus Mono PS
+font-style = Bold
 background-opacity = 0.85
 gtk-titlebar = true
 window-decoration = client
@@ -142,8 +144,9 @@ go_transparent() {
     setup_conf="/tmp/ghostty-wakeupneo.conf"
     cat > "$setup_conf" <<TRANSEOF
 background = #000000
-foreground = #35B381
+foreground = #6EDCAA
 font-family = Nimbus Mono PS
+font-style = Bold
 font-size = 16
 background-opacity = 0
 gtk-titlebar = true
