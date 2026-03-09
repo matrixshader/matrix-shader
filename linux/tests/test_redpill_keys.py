@@ -54,8 +54,25 @@ class TestShiftCombinations:
     def test_lowercase_r_speed_increase(self):
         assert process_key(ord('r')) == "SpeedIncrease"
 
+    def test_shift_p_priority_toggle(self):
+        assert process_key(ord('P')) == "PriorityToggle"
+
+    def test_shift_m_monitor_change(self):
+        assert process_key(ord('M')) == "MonitorChange"
+
     def test_question_mark_help(self):
         assert process_key(ord('?')) == "Help"
+
+
+class TestPrimaryMonitorKeys:
+    def test_comma_primary_decrease(self):
+        assert process_key(ord(',')) == "PrimaryDecrease"
+
+    def test_period_primary_increase(self):
+        assert process_key(ord('.')) == "PrimaryIncrease"
+
+    def test_shift_zero_primary_reset(self):
+        assert process_key(ord(')')) == "PrimaryReset"
 
 
 class TestColorPresets:

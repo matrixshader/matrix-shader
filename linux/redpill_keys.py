@@ -30,6 +30,8 @@ def process_key(key):
     if key == ord('R'):  return "SnapbackRestore"
     if key == ord('G'):  return "GlitchToggle"
     if key == ord('H'):  return "HotkeyConfig"
+    if key == ord('P'):  return "PriorityToggle"
+    if key == ord('M'):  return "MonitorChange"
     if key == ord('?'):  return "Help"
 
     # Color presets (1-6)
@@ -73,6 +75,11 @@ def process_key(key):
     # Deploy count controls
     if key == ord('-'):  return "LaunchDecrease"
     if key == ord('+') or key == ord('='):  return "LaunchIncrease"
+
+    # Primary monitor window count
+    if key == ord(','):  return "PrimaryDecrease"
+    if key == ord('.'):  return "PrimaryIncrease"
+    if key == ord(')'):  return "PrimaryReset"     # Shift+0
 
     # Reset
     if key == ord('0'):  return "Reset"

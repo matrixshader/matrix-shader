@@ -9,10 +9,12 @@ Launch via `redpill` command (shell wrapper with Ghostty self-relaunch).
 
 import curses
 import glob as _glob
+import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
 
 # Ensure linux/ directory is in sys.path for sibling imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -65,6 +67,20 @@ LAYER_ACTIONS = {
     "Layer3Toggle": "SHOW_L3",
 }
 
+# Layout modes -- cycles Pillars -> Quads -> Overlap -> Auto -> Pillars
+LAYOUT_MODES = ["Pillars", "Quads", "Overlap", "Auto"]
+
+# State file path (matches hotkey_actions.py STATE_PATH)
+STATE_PATH = os.path.expanduser("~/.config/matrix-shader/state.json")
+
+# Default layout state
+DEFAULT_LAYOUT = {
+    "mode": "Pillars",
+    "glitch_enabled": False,
+    "priority_lock": False,
+    "primary_window_count": 0,
+}
+
 
 # ---------------------------------------------------------------------------
 # Rendering helpers
@@ -100,6 +116,41 @@ def _safe_addstr(stdscr, row, col, text, attr=0):
 # TUI Application
 # ---------------------------------------------------------------------------
 
+def load_state():
+    """Load application state from state.json."""
+    try:
+        with open(STATE_PATH) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_state(state):
+    """Atomic write application state to state.json."""
+    dir_path = os.path.dirname(STATE_PATH)
+    os.makedirs(dir_path, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(state, f, indent=2)
+        os.replace(tmp_path, STATE_PATH)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+def cycle_layout_mode(current_mode):
+    """Cycle through layout modes: Pillars -> Quads -> Overlap -> Auto -> Pillars."""
+    try:
+        idx = LAYOUT_MODES.index(current_mode)
+    except ValueError:
+        idx = -1
+    return LAYOUT_MODES[(idx + 1) % len(LAYOUT_MODES)]
+
+
 class RedpillTUI:
     def __init__(self):
         self.active_slot = None
@@ -109,6 +160,10 @@ class RedpillTUI:
         self.transparency = False
         self.opacity = 100
         self.running = True
+        self.dirty = False
+        self.layout = dict(DEFAULT_LAYOUT)
+        self.snapback_positions = {}
+        self._load_layout()
 
     def refresh_tabs(self):
         """Discover open Matrix windows and their colors."""
@@ -146,6 +201,35 @@ class RedpillTUI:
             except (FileNotFoundError, ValueError, IndexError):
                 continue
 
+    def _load_layout(self):
+        """Load layout state from state.json."""
+        state = load_state()
+        layout = state.get("layout", {})
+        self.layout = {
+            "mode": layout.get("mode", DEFAULT_LAYOUT["mode"]),
+            "glitch_enabled": layout.get("glitch_enabled", DEFAULT_LAYOUT["glitch_enabled"]),
+            "priority_lock": layout.get("priority_lock", DEFAULT_LAYOUT["priority_lock"]),
+            "primary_window_count": layout.get("primary_window_count", DEFAULT_LAYOUT["primary_window_count"]),
+        }
+        self.snapback_positions = state.get("window_slots", {})
+
+    def _save_layout(self):
+        """Persist layout state to state.json."""
+        state = load_state()
+        state["layout"] = dict(self.layout)
+        if self.snapback_positions:
+            state["window_slots"] = self.snapback_positions
+        save_state(state)
+
+    def save_full_state(self):
+        """Save full application state (layout + active tab + configs)."""
+        state = load_state()
+        state["layout"] = dict(self.layout)
+        state["active_tab"] = self.active_slot
+        if self.snapback_positions:
+            state["window_slots"] = self.snapback_positions
+        save_state(state)
+
     def switch_tab(self, direction=1):
         """Cycle active tab. direction=1 forward, -1 backward."""
         if not self.tabs:
@@ -179,8 +263,9 @@ class RedpillTUI:
         # Header
         row += 1
         _safe_addstr(stdscr, row, 1, "RED PILL", curses.color_pair(CP_RED) | curses.A_BOLD)
-        slot_str = f" - Tab {self.active_slot}" if self.active_slot else " - No windows"
-        _safe_addstr(stdscr, row, 10, slot_str)
+        dirty_mark = "*" if self.dirty else " "
+        slot_str = f"{dirty_mark}- Tab {self.active_slot}" if self.active_slot else " - No windows"
+        _safe_addstr(stdscr, row, 9, slot_str)
         row += 2
 
         # Tab bar
@@ -273,6 +358,23 @@ class RedpillTUI:
         _safe_addstr(stdscr, row, 1, f"[K/L] Opacity: {self.opacity:3d}% {bar}", curses.A_DIM)
         row += 2
 
+        # Combat Training
+        _safe_addstr(stdscr, row, 1, "COMBAT TRAINING", curses.color_pair(CP_WHITE) | curses.A_BOLD)
+        row += 1
+        glitch_on = self.layout.get("glitch_enabled", False)
+        glitch_status = "ON " if glitch_on else "off"
+        glitch_attr = curses.color_pair(CP_CYAN) if glitch_on else curses.A_DIM
+        _safe_addstr(stdscr, row, 1, " [Shift+G] Glitch:  ")
+        _safe_addstr(stdscr, row, 21, glitch_status, glitch_attr)
+        _safe_addstr(stdscr, row, 25, "(windows auto-snap to formation)", curses.A_DIM)
+        row += 1
+        layout_mode = self.layout.get("mode", "Pillars")
+        layout_attr = curses.color_pair(CP_YELLOW) if layout_mode == "Pillars" else curses.color_pair(CP_MAGENTA)
+        _safe_addstr(stdscr, row, 1, " [Shift+L] Layout:  ")
+        _safe_addstr(stdscr, row, 21, layout_mode, layout_attr)
+        _safe_addstr(stdscr, row, 21 + len(layout_mode) + 1, "(Pillars=columns, Quads=2x2)", curses.A_DIM)
+        row += 2
+
         # Deploy
         _safe_addstr(stdscr, row, 1, "DEPLOY", curses.color_pair(CP_MAGENTA) | curses.A_BOLD)
         row += 1
@@ -294,7 +396,7 @@ class RedpillTUI:
         _safe_addstr(stdscr, row, 1, "[ENTER] Deploy", enter_attr)
         _safe_addstr(stdscr, row, 17, "  [0] Reset  [ESC] Quit", curses.A_DIM)
         row += 1
-        _safe_addstr(stdscr, row, 1, "[?] Help", curses.A_DIM)
+        _safe_addstr(stdscr, row, 1, "[?] Help  [Shift+H] Hotkeys  [Shift+S] Save pos  [Shift+R] Restore", curses.A_DIM)
         row += 1
         _safe_addstr(stdscr, row, 1, "All changes apply instantly", curses.color_pair(CP_GREEN))
 
@@ -404,9 +506,51 @@ class RedpillTUI:
             self._update_tab_color()
             return
 
-        # Phase 4 stubs (layout, help, hotkey config, etc.)
-        # LayoutCycle, SnapbackSave, SnapbackRestore, GlitchToggle,
-        # HotkeyConfig, Help -- handled in Phase 4
+        # Layout controls
+        if action == "LayoutCycle":
+            self.layout["mode"] = cycle_layout_mode(self.layout.get("mode", "Pillars"))
+            self._save_layout()
+            return
+        if action == "GlitchToggle":
+            self.layout["glitch_enabled"] = not self.layout.get("glitch_enabled", False)
+            self._save_layout()
+            return
+        if action == "SnapbackSave":
+            self.snapback_positions = {str(t[0]): True for t in self.tabs}
+            self._save_layout()
+            return
+        if action == "SnapbackRestore":
+            # Restore is a no-op if nothing saved; actual repositioning deferred to Phase 6
+            return
+        if action == "PriorityToggle":
+            self.layout["priority_lock"] = not self.layout.get("priority_lock", False)
+            self._save_layout()
+            return
+        if action == "MonitorChange":
+            # Re-apply layout -- actual repositioning deferred to Phase 6
+            return
+        if action == "PrimaryDecrease":
+            self.layout["primary_window_count"] = max(0, self.layout.get("primary_window_count", 0) - 1)
+            self._save_layout()
+            return
+        if action == "PrimaryIncrease":
+            self.layout["primary_window_count"] = min(8, self.layout.get("primary_window_count", 0) + 1)
+            self._save_layout()
+            return
+        if action == "PrimaryReset":
+            self.layout["primary_window_count"] = 0
+            self._save_layout()
+            return
+
+        # Help screen
+        if action == "Help":
+            self._show_help(self._stdscr)
+            return
+
+        # Hotkey config screen
+        if action == "HotkeyConfig":
+            self._show_hotkey_config(self._stdscr)
+            return
 
     def _update_tab_color(self):
         """Update the active tab's color in the tabs list after RGB change."""
@@ -518,8 +662,80 @@ keybind = ctrl+shift+f5=unbind
     # Main loop
     # -------------------------------------------------------------------
 
+    def _show_help(self, stdscr):
+        """Show full help screen, wait for any keypress to return."""
+        if stdscr is None:
+            return
+        stdscr.erase()
+        row = 0
+        _safe_addstr(stdscr, row, 1, "HOTKEY HELP", curses.color_pair(CP_GREEN) | curses.A_BOLD)
+        row += 2
+        _safe_addstr(stdscr, row, 1, "CONTROL PANEL KEYS (local):", curses.A_DIM)
+        row += 2
+        help_lines = [
+            "  [1-6]      Agent colors (Green/Blue/Red/Purple/Gold/Teal)",
+            "  [Q/W]      Red -/+          [A/S] Green -/+    [Z/X] Blue -/+",
+            "  [E/R]      Speed -/+        [D/F] Glow -/+",
+            "  [C/V]      Width -/+        [T/Y] Trail -/+    [G/H] Density -/+",
+            "  [7/8/9]    Toggle layers (Far/Mid/Near)",
+            "  [B]        Toggle transparency    [K/L] Opacity -/+",
+            "  [-/+]      Deploy count -/+       [ENTER] Deploy windows",
+            "  [0]        Reset to defaults       (all changes apply instantly)",
+            "  [TAB]      Switch tabs            [ESC] Quit",
+        ]
+        for line in help_lines:
+            _safe_addstr(stdscr, row, 0, line)
+            row += 1
+        row += 1
+        _safe_addstr(stdscr, row, 1, "SHIFT KEYS (local):", curses.A_DIM)
+        row += 2
+        shift_lines = [
+            "  [Shift+G]  Toggle Glitch (auto-snap to formation)",
+            "  [Shift+L]  Cycle layout mode (Pillars/Quads/Overlap)",
+            "  [Shift+H]  Configure global hotkey bindings",
+            "  [Shift+S]  Save snapback position",
+            "  [Shift+R]  Restore snapback position",
+        ]
+        for line in shift_lines:
+            _safe_addstr(stdscr, row, 0, line)
+            row += 1
+        row += 1
+        _safe_addstr(stdscr, row, 1, "GLOBAL HOTKEYS (active when Matrix windows exist):", curses.color_pair(CP_GREEN))
+        row += 2
+        global_lines = [
+            "  Ctrl+Shift+L       Cycle layout mode",
+            "  Ctrl+Shift+B       Toggle background transparency",
+            "  Ctrl+Shift+J/K     Decrease/Increase opacity",
+            "  Ctrl+Shift+Up/Down Decrease/Increase rain speed",
+            "  Ctrl+Shift+1/2/3   Toggle FAR/MID/NEAR layers",
+            "  Ctrl+Shift+H       Show help overlay",
+            "  Ctrl+Shift+F5      Force reload all shaders",
+        ]
+        for line in global_lines:
+            _safe_addstr(stdscr, row, 0, line)
+            row += 1
+        row += 2
+        _safe_addstr(stdscr, row, 1, "Press [Shift+H] to customize global hotkey bindings.", curses.A_DIM)
+        row += 2
+        _safe_addstr(stdscr, row, 1, "Press any key to return...", curses.color_pair(CP_GREEN))
+        stdscr.refresh()
+        stdscr.getch()
+
+    def _show_hotkey_config(self, stdscr):
+        """Launch the hotkey config screen (if available)."""
+        try:
+            from hotkey_config_screen import HotkeyConfigScreen
+            screen = HotkeyConfigScreen()
+            screen.run(stdscr)
+        except ImportError:
+            if stdscr:
+                _safe_addstr(stdscr, 0, 0, "Hotkey config screen not available.", curses.A_BOLD)
+                stdscr.refresh()
+                stdscr.getch()
+
     def run(self, stdscr):
         """Main curses loop: render -> getch -> dispatch -> repeat."""
+        self._stdscr = stdscr
         curses.curs_set(0)
         stdscr.keypad(True)
         curses.start_color()
@@ -534,12 +750,15 @@ keybind = ctrl+shift+f5=unbind
 
         self.refresh_tabs()
 
-        while self.running:
-            self.render(stdscr)
-            key = stdscr.getch()
-            action = process_key(key)
-            if action:
-                self.handle_action(action)
+        try:
+            while self.running:
+                self.render(stdscr)
+                key = stdscr.getch()
+                action = process_key(key)
+                if action:
+                    self.handle_action(action)
+        finally:
+            self.save_full_state()
 
 
 def main():
