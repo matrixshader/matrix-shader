@@ -1,6 +1,61 @@
 """Shared test fixtures for shader_service tests."""
 import os
+import sys
 import pytest
+
+
+# ---------------------------------------------------------------------------
+# Guard against module poisoning across test files.
+#
+# Some test files (test_redpill_tui, test_layout_controls, test_control_panel_polish)
+# replace shader_service functions with MagicMock or inject a fake module into
+# sys.modules.  This fixture ensures the real shader_service module and its
+# original attributes are restored before each test so later test files
+# (test_shader_service, test_hotkey_dispatch, etc.) are not affected.
+# ---------------------------------------------------------------------------
+
+# Ensure linux/ is on path so we can import the real shader_service
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+import shader_service as _real_shader_service
+import hotkey_config as _real_hotkey_config
+import matrix_keys as _real_matrix_keys
+
+# Snapshot original callable attributes once at import time
+_ORIGINAL_ATTRS = {}
+for _attr in dir(_real_shader_service):
+    _obj = getattr(_real_shader_service, _attr)
+    if callable(_obj) and not _attr.startswith("_"):
+        _ORIGINAL_ATTRS[_attr] = _obj
+
+_HOTKEY_CONFIG_ATTRS = {}
+for _attr in dir(_real_hotkey_config):
+    _obj = getattr(_real_hotkey_config, _attr)
+    if callable(_obj) and not _attr.startswith("_"):
+        _HOTKEY_CONFIG_ATTRS[_attr] = _obj
+
+_MATRIX_KEYS_ATTRS = {}
+for _attr in dir(_real_matrix_keys):
+    _obj = getattr(_real_matrix_keys, _attr)
+    if callable(_obj) and not _attr.startswith("_"):
+        _MATRIX_KEYS_ATTRS[_attr] = _obj
+
+
+@pytest.fixture(autouse=True)
+def _restore_shader_service():
+    """Restore the real shader_service and hotkey_config modules after each test."""
+    yield
+    # Ensure sys.modules points to the real modules
+    sys.modules["shader_service"] = _real_shader_service
+    sys.modules["hotkey_config"] = _real_hotkey_config
+    # Restore any functions that were replaced with mocks
+    for attr, original in _ORIGINAL_ATTRS.items():
+        setattr(_real_shader_service, attr, original)
+    for attr, original in _HOTKEY_CONFIG_ATTRS.items():
+        setattr(_real_hotkey_config, attr, original)
+    sys.modules["matrix_keys"] = _real_matrix_keys
+    for attr, original in _MATRIX_KEYS_ATTRS.items():
+        setattr(_real_matrix_keys, attr, original)
 
 
 SAMPLE_SHADER = """\

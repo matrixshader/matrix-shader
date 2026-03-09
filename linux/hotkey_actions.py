@@ -108,6 +108,8 @@ def action_speed_up() -> None:
         config = read_shader_config(slot)
         new_speed = min(config["RAIN_SPEED"] + SPEED_DELTA, SPEED_MAX)
         write_shader_param(slot, "RAIN_SPEED", new_speed)
+    if new_speed is not None:
+        show_toast(f"Speed: {new_speed}")
     svc = _get_state_service()
     if svc:
         svc.mark_dirty()
@@ -118,10 +120,13 @@ def action_speed_down() -> None:
     mapping = get_ghostty_bus_names()
     if not mapping:
         return
+    new_speed = None
     for slot in mapping:
         config = read_shader_config(slot)
         new_speed = max(config["RAIN_SPEED"] - SPEED_DELTA, SPEED_MIN)
         write_shader_param(slot, "RAIN_SPEED", new_speed)
+    if new_speed is not None:
+        show_toast(f"Speed: {new_speed}")
     svc = _get_state_service()
     if svc:
         svc.mark_dirty()
@@ -142,6 +147,9 @@ def _toggle_layer(param: str, label: str) -> None:
         config = read_shader_config(slot)
         new_val = 0.0 if config[param] >= 0.5 else 1.0
         write_shader_param(slot, param, new_val)
+    if new_val is not None:
+        state_str = "ON" if new_val >= 0.5 else "OFF"
+        show_toast(f"{label}: {state_str}")
     svc = _get_state_service()
     if svc:
         svc.mark_dirty()
@@ -169,6 +177,7 @@ def action_manual_reload() -> None:
         return
     for slot_info in mapping.values():
         reload_ghostty(slot_info["bus_name"])
+    show_toast("Shaders reloaded")
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +288,7 @@ def action_cycle_layout() -> None:
     except ValueError:
         idx = 0
     next_mode = LAYOUT_MODES[(idx + 1) % len(LAYOUT_MODES)]
+    show_toast(f"Layout: {next_mode}")
 
     if svc:
         svc.update_layout({"mode": next_mode})
@@ -353,6 +363,7 @@ def _rotate_shaders(direction: str) -> None:
     for slot_info in mapping.values():
         reload_ghostty(slot_info["bus_name"])
 
+    show_toast(f"Slots rotated {direction}")
     svc = _get_state_service()
     if svc:
         svc.mark_dirty()

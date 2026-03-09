@@ -6,47 +6,35 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-# Mock shader_service before importing redpill_tui
-import types
-
-if "shader_service" not in sys.modules:
-    _mock_ss = types.ModuleType("shader_service")
-    _mock_ss.PARAM_DEFAULTS = {
-        "RAIN_R": 0.0, "RAIN_G": 1.0, "RAIN_B": 0.3,
-        "RAIN_SPEED": 0.8, "GLOW_STRENGTH": 0.8, "CHAR_WIDTH": 10.0,
-        "TRAIL_POWER": 8.0, "RAIN_DENSITY": 0.4,
-        "SHOW_L1": 1.0, "SHOW_L2": 1.0, "SHOW_L3": 1.0,
-    }
-    _mock_ss.PARAM_RANGES = {
-        "RAIN_R": (0.0, 1.0), "RAIN_G": (0.0, 1.0), "RAIN_B": (0.0, 1.0),
-        "RAIN_SPEED": (0.1, 5.0), "GLOW_STRENGTH": (0.2, 3.0),
-        "CHAR_WIDTH": (6.0, 20.0), "TRAIL_POWER": (4.0, 15.0),
-        "RAIN_DENSITY": (0.2, 1.0),
-        "SHOW_L1": (0.0, 1.0), "SHOW_L2": (0.0, 1.0), "SHOW_L3": (0.0, 1.0),
-    }
-    _mock_ss.PRESET_COLORS = [
-        (0.0, 1.0, 0.3), (0.0, 0.6, 1.0), (1.0, 0.1, 0.1),
-        (0.7, 0.0, 1.0), (1.0, 0.7, 0.0), (0.0, 0.9, 0.9),
-    ]
-    _mock_ss.SLOT_SHADER_DIR = "/tmp/test-shaders"
-    _mock_ss.write_shader_param = MagicMock()
-    _mock_ss.write_shader_params = MagicMock()
-    _mock_ss.read_shader_config = MagicMock(return_value=dict(_mock_ss.PARAM_DEFAULTS))
-    _mock_ss.get_ghostty_bus_names = MagicMock(return_value={})
-    _mock_ss.reload_ghostty = MagicMock()
-    _mock_ss.create_slot_shader = MagicMock()
-
-    def _real_clamp(param, value):
-        lo, hi = _mock_ss.PARAM_RANGES.get(param, (0.0, 1.0))
-        return max(lo, min(hi, value))
-
-    _mock_ss.clamp_value = _real_clamp
-    sys.modules["shader_service"] = _mock_ss
-
+# Import the real shader_service for constants, then mock I/O functions
+# on the redpill_tui namespace (where `from shader_service import ...` bound them).
+import shader_service as _real_ss
+import redpill_tui as _rt
 from redpill_tui import RedpillTUI, save_state
+
+_write_shader_param = MagicMock()
+_write_shader_params = MagicMock()
+_read_shader_config = MagicMock(return_value=dict(_real_ss.PARAM_DEFAULTS))
+_get_ghostty_bus_names = MagicMock(return_value={})
+_reload_ghostty = MagicMock()
+_create_slot_shader = MagicMock()
+
+
+def _install_mocks():
+    """Install mocks on redpill_tui namespace (re-run after conftest restores)."""
+    _rt.write_shader_param = _write_shader_param
+    _rt.write_shader_params = _write_shader_params
+    _rt.read_shader_config = _read_shader_config
+    _rt.get_ghostty_bus_names = _get_ghostty_bus_names
+    _rt.reload_ghostty = _reload_ghostty
+    _rt.create_slot_shader = _create_slot_shader
+
+
+_install_mocks()
 
 
 def _make_tui():
+    _install_mocks()
     tui = RedpillTUI()
     tui.active_slot = 1
     tui.tabs = [(1, 0, 1, 0.3)]
@@ -98,17 +86,17 @@ class TestReset:
     def test_reset_writes_defaults(self):
         tui = _make_tui()
         tui.config["RAIN_SPEED"] = 3.0
-        sys.modules["shader_service"].write_shader_params.reset_mock()
+        _write_shader_params.reset_mock()
         tui.handle_action("Reset")
-        sys.modules["shader_service"].write_shader_params.assert_called_once()
-        assert tui.config == sys.modules["shader_service"].PARAM_DEFAULTS
+        _write_shader_params.assert_called_once()
+        assert tui.config == _real_ss.PARAM_DEFAULTS
 
     def test_reset_no_active_slot(self):
         tui = _make_tui()
         tui.active_slot = None
-        sys.modules["shader_service"].write_shader_params.reset_mock()
+        _write_shader_params.reset_mock()
         tui.handle_action("Reset")
-        sys.modules["shader_service"].write_shader_params.assert_not_called()
+        _write_shader_params.assert_not_called()
 
 
 # -----------------------------------------------------------------------

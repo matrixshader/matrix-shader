@@ -8,42 +8,34 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-# Mock shader_service before importing redpill_tui
-import types
+# Import real shader_service, then mock only I/O functions
+import shader_service as _real_ss
 
-if "shader_service" not in sys.modules:
-    _mock_ss = types.ModuleType("shader_service")
-    _mock_ss.PARAM_DEFAULTS = {
-        "RAIN_R": 0.0, "RAIN_G": 1.0, "RAIN_B": 0.3,
-        "RAIN_SPEED": 0.8, "GLOW_STRENGTH": 0.8, "CHAR_WIDTH": 10.0,
-        "TRAIL_POWER": 8.0, "RAIN_DENSITY": 0.4,
-        "SHOW_L1": 1.0, "SHOW_L2": 1.0, "SHOW_L3": 1.0,
+_io_patches = []
+
+
+def setup_module():
+    """Mock I/O functions on the real shader_service module."""
+    _io_funcs = {
+        "write_shader_param": MagicMock(),
+        "write_shader_params": MagicMock(),
+        "read_shader_config": MagicMock(return_value=dict(_real_ss.PARAM_DEFAULTS)),
+        "get_ghostty_bus_names": MagicMock(return_value={}),
+        "reload_ghostty": MagicMock(),
+        "create_slot_shader": MagicMock(),
     }
-    _mock_ss.PARAM_RANGES = {
-        "RAIN_R": (0.0, 1.0), "RAIN_G": (0.0, 1.0), "RAIN_B": (0.0, 1.0),
-        "RAIN_SPEED": (0.1, 5.0), "GLOW_STRENGTH": (0.2, 3.0),
-        "CHAR_WIDTH": (6.0, 20.0), "TRAIL_POWER": (4.0, 15.0),
-        "RAIN_DENSITY": (0.2, 1.0),
-        "SHOW_L1": (0.0, 1.0), "SHOW_L2": (0.0, 1.0), "SHOW_L3": (0.0, 1.0),
-    }
-    _mock_ss.PRESET_COLORS = [
-        (0.0, 1.0, 0.3), (0.0, 0.6, 1.0), (1.0, 0.1, 0.1),
-        (0.7, 0.0, 1.0), (1.0, 0.7, 0.0), (0.0, 0.9, 0.9),
-    ]
-    _mock_ss.SLOT_SHADER_DIR = "/tmp/test-shaders"
-    _mock_ss.write_shader_param = MagicMock()
-    _mock_ss.write_shader_params = MagicMock()
-    _mock_ss.read_shader_config = MagicMock(return_value=dict(_mock_ss.PARAM_DEFAULTS))
-    _mock_ss.get_ghostty_bus_names = MagicMock(return_value={})
-    _mock_ss.reload_ghostty = MagicMock()
-    _mock_ss.create_slot_shader = MagicMock()
+    for name, mock in _io_funcs.items():
+        p = patch.object(_real_ss, name, mock)
+        p.start()
+        _io_patches.append(p)
 
-    def _real_clamp(param, value):
-        lo, hi = _mock_ss.PARAM_RANGES.get(param, (0.0, 1.0))
-        return max(lo, min(hi, value))
 
-    _mock_ss.clamp_value = _real_clamp
-    sys.modules["shader_service"] = _mock_ss
+def teardown_module():
+    """Restore real shader_service functions."""
+    for p in _io_patches:
+        p.stop()
+    _io_patches.clear()
+
 
 from redpill_tui import (
     RedpillTUI, cycle_layout_mode, load_state, save_state,
@@ -232,8 +224,9 @@ class TestDirtyTracking:
         tui = _make_tui()
         assert tui.dirty is False
 
-    def test_layout_default_state(self):
-        tui = _make_tui()
+    def test_layout_default_state(self, tmp_path):
+        with patch("redpill_tui.STATE_PATH", str(tmp_path / "missing.json")):
+            tui = _make_tui()
         assert tui.layout["mode"] == "Pillars"
         assert tui.layout["glitch_enabled"] is False
         assert tui.layout["priority_lock"] is False

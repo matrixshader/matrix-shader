@@ -11,47 +11,27 @@ from pytest import approx
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-# We need to mock shader_service before importing redpill_tui,
-# because redpill_tui does `from shader_service import ...` at module level.
-# Patch the entire module first, then import.
-import types
-
-_mock_shader_service = types.ModuleType("shader_service")
-_mock_shader_service.PARAM_DEFAULTS = {
-    "RAIN_R": 0.0, "RAIN_G": 1.0, "RAIN_B": 0.3,
-    "RAIN_SPEED": 0.8, "GLOW_STRENGTH": 0.8, "CHAR_WIDTH": 10.0,
-    "TRAIL_POWER": 8.0, "RAIN_DENSITY": 0.4,
-    "SHOW_L1": 1.0, "SHOW_L2": 1.0, "SHOW_L3": 1.0,
-}
-_mock_shader_service.PARAM_RANGES = {
-    "RAIN_R": (0.0, 1.0), "RAIN_G": (0.0, 1.0), "RAIN_B": (0.0, 1.0),
-    "RAIN_SPEED": (0.1, 5.0), "GLOW_STRENGTH": (0.2, 3.0),
-    "CHAR_WIDTH": (6.0, 20.0), "TRAIL_POWER": (4.0, 15.0),
-    "RAIN_DENSITY": (0.2, 1.0),
-    "SHOW_L1": (0.0, 1.0), "SHOW_L2": (0.0, 1.0), "SHOW_L3": (0.0, 1.0),
-}
-_mock_shader_service.PRESET_COLORS = [
-    (0.0, 1.0, 0.3), (0.0, 0.6, 1.0), (1.0, 0.1, 0.1),
-    (0.7, 0.0, 1.0), (1.0, 0.7, 0.0), (0.0, 0.9, 0.9),
-]
-_mock_shader_service.SLOT_SHADER_DIR = "/tmp/test-shaders"
-_mock_shader_service.write_shader_param = MagicMock()
-_mock_shader_service.write_shader_params = MagicMock()
-_mock_shader_service.read_shader_config = MagicMock(return_value=dict(_mock_shader_service.PARAM_DEFAULTS))
-_mock_shader_service.get_ghostty_bus_names = MagicMock(return_value={})
-_mock_shader_service.reload_ghostty = MagicMock()
-_mock_shader_service.create_slot_shader = MagicMock()
-
-def _real_clamp(param, value):
-    lo, hi = _mock_shader_service.PARAM_RANGES.get(param, (0.0, 1.0))
-    return max(lo, min(hi, value))
-
-_mock_shader_service.clamp_value = _real_clamp
-
-sys.modules["shader_service"] = _mock_shader_service
-
+# Import real shader_service for constants, then import redpill_tui.
+import shader_service
+import redpill_tui
 from redpill_tui import RedpillTUI, color_swatch, progress_bar, PRESET_ACTIONS, LAYER_ACTIONS
 from redpill_keys import PARAM_DELTAS
+
+# Create mock objects and patch them onto the redpill_tui module namespace
+# (where `from shader_service import ...` bound them).
+_write_shader_param = MagicMock()
+_write_shader_params = MagicMock()
+_read_shader_config = MagicMock(return_value=dict(shader_service.PARAM_DEFAULTS))
+_get_ghostty_bus_names = MagicMock(return_value={})
+_reload_ghostty = MagicMock()
+_create_slot_shader = MagicMock()
+
+redpill_tui.write_shader_param = _write_shader_param
+redpill_tui.write_shader_params = _write_shader_params
+redpill_tui.read_shader_config = _read_shader_config
+redpill_tui.get_ghostty_bus_names = _get_ghostty_bus_names
+redpill_tui.reload_ghostty = _reload_ghostty
+redpill_tui.create_slot_shader = _create_slot_shader
 
 
 def _make_tui(slot=1, config=None):
@@ -62,17 +42,26 @@ def _make_tui(slot=1, config=None):
     if config:
         tui.config = config
     else:
-        tui.config = dict(_mock_shader_service.PARAM_DEFAULTS)
+        tui.config = dict(shader_service.PARAM_DEFAULTS)
     return tui
 
 
 def _reset_mocks():
-    _mock_shader_service.write_shader_param.reset_mock()
-    _mock_shader_service.write_shader_params.reset_mock()
-    _mock_shader_service.read_shader_config.reset_mock()
-    _mock_shader_service.get_ghostty_bus_names.reset_mock()
-    _mock_shader_service.reload_ghostty.reset_mock()
-    _mock_shader_service.create_slot_shader.reset_mock()
+    _write_shader_param.reset_mock()
+    _write_shader_params.reset_mock()
+    _read_shader_config.reset_mock()
+    _read_shader_config.return_value = dict(shader_service.PARAM_DEFAULTS)
+    _get_ghostty_bus_names.reset_mock()
+    _get_ghostty_bus_names.return_value = {}
+    _reload_ghostty.reset_mock()
+    _create_slot_shader.reset_mock()
+    # Re-install mocks on redpill_tui in case conftest restored originals
+    redpill_tui.write_shader_param = _write_shader_param
+    redpill_tui.write_shader_params = _write_shader_params
+    redpill_tui.read_shader_config = _read_shader_config
+    redpill_tui.get_ghostty_bus_names = _get_ghostty_bus_names
+    redpill_tui.reload_ghostty = _reload_ghostty
+    redpill_tui.create_slot_shader = _create_slot_shader
 
 
 # -----------------------------------------------------------------------
@@ -121,7 +110,7 @@ class TestPresetActions:
     def test_preset_green(self):
         tui = _make_tui()
         tui.handle_action("PresetGreen")
-        _mock_shader_service.write_shader_params.assert_called_once_with(
+        _write_shader_params.assert_called_once_with(
             1, {"RAIN_R": 0.0, "RAIN_G": 1.0, "RAIN_B": 0.3}
         )
         assert tui.config["RAIN_R"] == 0.0
@@ -131,35 +120,35 @@ class TestPresetActions:
     def test_preset_blue(self):
         tui = _make_tui()
         tui.handle_action("PresetBlue")
-        _mock_shader_service.write_shader_params.assert_called_once_with(
+        _write_shader_params.assert_called_once_with(
             1, {"RAIN_R": 0.0, "RAIN_G": 0.6, "RAIN_B": 1.0}
         )
 
     def test_preset_red(self):
         tui = _make_tui()
         tui.handle_action("PresetRed")
-        _mock_shader_service.write_shader_params.assert_called_once_with(
+        _write_shader_params.assert_called_once_with(
             1, {"RAIN_R": 1.0, "RAIN_G": 0.1, "RAIN_B": 0.1}
         )
 
     def test_preset_purple(self):
         tui = _make_tui()
         tui.handle_action("PresetPurple")
-        _mock_shader_service.write_shader_params.assert_called_once_with(
+        _write_shader_params.assert_called_once_with(
             1, {"RAIN_R": 0.7, "RAIN_G": 0.0, "RAIN_B": 1.0}
         )
 
     def test_preset_gold(self):
         tui = _make_tui()
         tui.handle_action("PresetGold")
-        _mock_shader_service.write_shader_params.assert_called_once_with(
+        _write_shader_params.assert_called_once_with(
             1, {"RAIN_R": 1.0, "RAIN_G": 0.7, "RAIN_B": 0.0}
         )
 
     def test_preset_teal(self):
         tui = _make_tui()
         tui.handle_action("PresetTeal")
-        _mock_shader_service.write_shader_params.assert_called_once_with(
+        _write_shader_params.assert_called_once_with(
             1, {"RAIN_R": 0.0, "RAIN_G": 0.9, "RAIN_B": 0.9}
         )
 
@@ -186,105 +175,105 @@ class TestParameterActions:
     def test_speed_increase(self):
         tui = _make_tui()
         tui.handle_action("SpeedIncrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_SPEED"] == approx(0.9)
 
     def test_speed_decrease(self):
         tui = _make_tui()
         tui.handle_action("SpeedDecrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_SPEED"] == approx(0.7)
 
     def test_glow_increase(self):
         tui = _make_tui()
         tui.handle_action("GlowIncrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["GLOW_STRENGTH"] == approx(0.9)
 
     def test_glow_decrease(self):
         tui = _make_tui()
         tui.handle_action("GlowDecrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["GLOW_STRENGTH"] == approx(0.7)
 
     def test_width_increase(self):
         tui = _make_tui()
         tui.handle_action("WidthIncrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["CHAR_WIDTH"] == approx(11.0)
 
     def test_width_decrease(self):
         tui = _make_tui()
         tui.handle_action("WidthDecrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["CHAR_WIDTH"] == approx(9.0)
 
     def test_trail_increase(self):
         tui = _make_tui()
         tui.handle_action("TrailIncrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["TRAIL_POWER"] == approx(8.5)
 
     def test_trail_decrease(self):
         tui = _make_tui()
         tui.handle_action("TrailDecrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["TRAIL_POWER"] == approx(7.5)
 
     def test_density_increase(self):
         tui = _make_tui()
         tui.handle_action("DensityIncrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_DENSITY"] == approx(0.5)
 
     def test_density_decrease(self):
         tui = _make_tui()
         tui.handle_action("DensityDecrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_DENSITY"] == approx(0.3)
 
     def test_red_increase(self):
         tui = _make_tui()
         tui.handle_action("RedIncrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_R"] == approx(0.05)
 
     def test_red_decrease_clamped(self):
         """RAIN_R starts at 0.0, decrease should clamp to 0.0."""
         tui = _make_tui()
         tui.handle_action("RedDecrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_R"] == approx(0.0)
 
     def test_green_increase(self):
         tui = _make_tui()
         tui.handle_action("GreenIncrease")
         # 1.0 + 0.05 = 1.05, clamped to 1.0
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_G"] == approx(1.0)
 
     def test_blue_decrease(self):
         tui = _make_tui()
         tui.handle_action("BlueDecrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_B"] == approx(0.25)
 
     def test_blue_increase(self):
         tui = _make_tui()
         tui.handle_action("BlueIncrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_B"] == approx(0.35)
 
     def test_speed_clamps_at_max(self):
-        tui = _make_tui(config={**_mock_shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 5.0})
+        tui = _make_tui(config={**shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 5.0})
         tui.handle_action("SpeedIncrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_SPEED"] == approx(5.0)
 
     def test_speed_clamps_at_min(self):
-        tui = _make_tui(config={**_mock_shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 0.1})
+        tui = _make_tui(config={**shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 0.1})
         tui.handle_action("SpeedDecrease")
-        _mock_shader_service.write_shader_param.assert_called_once()
+        _write_shader_param.assert_called_once()
         assert tui.config["RAIN_SPEED"] == approx(0.1)
 
     def test_rgb_change_updates_tab_color(self):
@@ -298,7 +287,7 @@ class TestParameterActions:
             _reset_mocks()
             tui = _make_tui()
             tui.handle_action(action)
-            assert _mock_shader_service.write_shader_param.called, f"{action} did not call write_shader_param"
+            assert _write_shader_param.called, f"{action} did not call write_shader_param"
 
 
 # -----------------------------------------------------------------------
@@ -313,25 +302,25 @@ class TestLayerActions:
         """SHOW_L1 starts at 1.0, toggle should set to 0.0."""
         tui = _make_tui()
         tui.handle_action("Layer1Toggle")
-        _mock_shader_service.write_shader_param.assert_called_once_with(1, "SHOW_L1", 0.0)
+        _write_shader_param.assert_called_once_with(1, "SHOW_L1", 0.0)
         assert tui.config["SHOW_L1"] == 0.0
 
     def test_layer1_toggle_on(self):
         """SHOW_L1 at 0.0, toggle should set to 1.0."""
-        tui = _make_tui(config={**_mock_shader_service.PARAM_DEFAULTS, "SHOW_L1": 0.0})
+        tui = _make_tui(config={**shader_service.PARAM_DEFAULTS, "SHOW_L1": 0.0})
         tui.handle_action("Layer1Toggle")
-        _mock_shader_service.write_shader_param.assert_called_once_with(1, "SHOW_L1", 1.0)
+        _write_shader_param.assert_called_once_with(1, "SHOW_L1", 1.0)
         assert tui.config["SHOW_L1"] == 1.0
 
     def test_layer2_toggle(self):
         tui = _make_tui()
         tui.handle_action("Layer2Toggle")
-        _mock_shader_service.write_shader_param.assert_called_once_with(1, "SHOW_L2", 0.0)
+        _write_shader_param.assert_called_once_with(1, "SHOW_L2", 0.0)
 
     def test_layer3_toggle(self):
         tui = _make_tui()
         tui.handle_action("Layer3Toggle")
-        _mock_shader_service.write_shader_param.assert_called_once_with(1, "SHOW_L3", 0.0)
+        _write_shader_param.assert_called_once_with(1, "SHOW_L3", 0.0)
 
     def test_all_layers_covered(self):
         assert len(LAYER_ACTIONS) == 3
@@ -356,22 +345,22 @@ class TestNoActiveSlot:
     def test_preset_no_crash(self):
         tui = self._make_empty_tui()
         tui.handle_action("PresetGreen")
-        _mock_shader_service.write_shader_params.assert_not_called()
+        _write_shader_params.assert_not_called()
 
     def test_param_no_crash(self):
         tui = self._make_empty_tui()
         tui.handle_action("SpeedIncrease")
-        _mock_shader_service.write_shader_param.assert_not_called()
+        _write_shader_param.assert_not_called()
 
     def test_layer_no_crash(self):
         tui = self._make_empty_tui()
         tui.handle_action("Layer1Toggle")
-        _mock_shader_service.write_shader_param.assert_not_called()
+        _write_shader_param.assert_not_called()
 
     def test_reset_no_crash(self):
         tui = self._make_empty_tui()
         tui.handle_action("Reset")
-        _mock_shader_service.write_shader_params.assert_not_called()
+        _write_shader_params.assert_not_called()
 
 
 # -----------------------------------------------------------------------
@@ -484,22 +473,22 @@ class TestDeployActions:
             mock_deploy.assert_called_once_with(2)
 
     def test_deploy_finds_available_slots(self):
-        _mock_shader_service.get_ghostty_bus_names.return_value = {
+        _get_ghostty_bus_names.return_value = {
             1: {"pid": "1", "bus_name": "a"},
             3: {"pid": "3", "bus_name": "c"},
         }
-        _mock_shader_service.read_shader_config.return_value = dict(_mock_shader_service.PARAM_DEFAULTS)
+        _read_shader_config.return_value = dict(shader_service.PARAM_DEFAULTS)
         tui = _make_tui()
         with patch.object(tui, "_launch_ghostty_window"):
             tui._deploy_windows(2)
         # Should pick slots 2 and 4 (skipping 1 and 3)
-        calls = _mock_shader_service.create_slot_shader.call_args_list
+        calls = _create_slot_shader.call_args_list
         assert calls[0] == call(2, preset_idx=0)
         assert calls[1] == call(4, preset_idx=0)
 
     def test_deploy_resets_count(self):
-        _mock_shader_service.get_ghostty_bus_names.return_value = {}
-        _mock_shader_service.read_shader_config.return_value = dict(_mock_shader_service.PARAM_DEFAULTS)
+        _get_ghostty_bus_names.return_value = {}
+        _read_shader_config.return_value = dict(shader_service.PARAM_DEFAULTS)
         tui = _make_tui()
         tui.launch_count = 3
         with patch.object(tui, "_launch_ghostty_window"):
@@ -514,7 +503,7 @@ class TestDeployActions:
 class TestTabNavigation:
     def setup_method(self):
         _reset_mocks()
-        _mock_shader_service.read_shader_config.return_value = dict(_mock_shader_service.PARAM_DEFAULTS)
+        _read_shader_config.return_value = dict(shader_service.PARAM_DEFAULTS)
 
     def test_tab_forward(self):
         tui = RedpillTUI()
@@ -554,14 +543,14 @@ class TestResetAction:
         _reset_mocks()
 
     def test_reset_writes_defaults(self):
-        tui = _make_tui(config={**_mock_shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 3.0})
+        tui = _make_tui(config={**shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 3.0})
         tui.handle_action("Reset")
-        _mock_shader_service.write_shader_params.assert_called_once()
-        params = _mock_shader_service.write_shader_params.call_args[0][1]
-        assert params == _mock_shader_service.PARAM_DEFAULTS
+        _write_shader_params.assert_called_once()
+        params = _write_shader_params.call_args[0][1]
+        assert params == shader_service.PARAM_DEFAULTS
 
     def test_reset_restores_config(self):
-        tui = _make_tui(config={**_mock_shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 5.0})
+        tui = _make_tui(config={**shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 5.0})
         tui.handle_action("Reset")
         assert tui.config["RAIN_SPEED"] == 0.8
 

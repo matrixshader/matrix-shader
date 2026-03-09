@@ -4,7 +4,7 @@ Linux equivalent of MatrixShader.Core/Models/HotkeyConfig.cs +
 MatrixShader.Core/Services/HotkeyConfigService.cs.
 
 Provides:
-  - DEFAULT_BINDINGS: all 13 default hotkeys (action-keyed dict)
+  - DEFAULT_BINDINGS: all 16 default hotkeys (action-keyed dict)
   - KEY_NAME_TO_EVDEV / MODIFIER_NAME_TO_EVDEV: config key names -> evdev codes
   - load_config / save_config: JSON persistence with atomic write
   - build_hotkey_table: convert config to evdev runtime lookup table
@@ -53,6 +53,9 @@ DEFAULT_BINDINGS = {
     "ToggleNear":         {"key": "3",     "modifiers": ["Ctrl", "Shift"], "enabled": True},
     "ShowHelp":           {"key": "H",     "modifiers": ["Ctrl", "Shift"], "enabled": True},
     "ManualReload":       {"key": "F5",    "modifiers": ["Ctrl", "Shift"], "enabled": True},
+    "SnapbackSave":       {"key": "S",     "modifiers": ["Ctrl", "Shift"], "enabled": True},
+    "SnapbackRestore":    {"key": "R",     "modifiers": ["Ctrl", "Shift"], "enabled": True},
+    "GlitchToggle":       {"key": "G",     "modifiers": ["Ctrl", "Shift"], "enabled": True},
 }
 
 # Map config key names to evdev key codes
@@ -70,6 +73,9 @@ KEY_NAME_TO_EVDEV = {
     "2":     ecodes.KEY_2,       # 3
     "3":     ecodes.KEY_3,       # 4
     "F5":    ecodes.KEY_F5,      # 63
+    "S":     ecodes.KEY_S,       # 31
+    "R":     ecodes.KEY_R,       # 19
+    "G":     ecodes.KEY_G,       # 34
 }
 
 # Map modifier names to sets of left + right evdev codes

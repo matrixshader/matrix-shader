@@ -341,23 +341,24 @@ class TestKeyboardReconnect:
 # ---------------------------------------------------------------------------
 
 class TestAllDefaultHotkeys:
-    """All 13 default hotkeys are in the dispatch table."""
+    """All 16 default hotkeys are in the dispatch table."""
 
-    def test_all_13_hotkeys_in_table(self):
-        """build_hotkey_table with DEFAULT_BINDINGS returns 13 entries."""
+    def test_all_16_hotkeys_in_table(self):
+        """build_hotkey_table with DEFAULT_BINDINGS returns 16 entries."""
         from hotkey_config import DEFAULT_BINDINGS, build_hotkey_table
         table = build_hotkey_table(DEFAULT_BINDINGS)
-        assert len(table) == 13
+        assert len(table) == 16
         actions = set(table.values())
         expected = {
             "SwapLeft", "SwapRight", "CycleLayout", "ToggleTransparency",
             "OpacityDown", "OpacityUp", "SpeedUp", "SpeedDown",
             "ToggleFar", "ToggleMid", "ToggleNear", "ShowHelp", "ManualReload",
+            "SnapbackSave", "SnapbackRestore", "GlitchToggle",
         }
         assert actions == expected
 
-    def test_startup_init_produces_table_with_13(self):
-        """startup_init() returns a hotkey table with 13 entries for default config."""
+    def test_startup_init_produces_table_with_16(self):
+        """startup_init() returns a hotkey table with 16 entries for default config."""
         import matrix_keys
         from hotkey_config import DEFAULT_BINDINGS
 
@@ -366,7 +367,7 @@ class TestAllDefaultHotkeys:
              patch("matrix_keys.detect_conflicts", return_value=[]), \
              patch("matrix_keys.notify_conflicts"):
             result = matrix_keys.startup_init()
-            assert len(result["hotkey_table"]) == 13
+            assert len(result["hotkey_table"]) == 16
 
 
 # ---------------------------------------------------------------------------
@@ -384,7 +385,7 @@ class TestDisabledHotkey:
         config["SpeedUp"] = dict(config["SpeedUp"])
         config["SpeedUp"]["enabled"] = False
         table = build_hotkey_table(config, is_redpill=True)
-        assert len(table) == 12
+        assert len(table) == 15
         assert "SpeedUp" not in table.values()
 
 
