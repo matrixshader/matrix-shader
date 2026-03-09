@@ -18,8 +18,9 @@ if [ "$1" != "--in-ghostty" ]; then
     setup_conf="/tmp/ghostty-wakeupneo.conf"
     cat > "$setup_conf" <<'SETUPEOF'
 background = #000000
-foreground = #00ff00
-font-family = JetBrains Mono
+foreground = #35B381
+font-family = Nimbus Mono PS
+font-size = 16
 background-opacity = 1
 gtk-titlebar = true
 window-decoration = client
@@ -106,11 +107,24 @@ launch_window() {
 custom-shader = ${shader_file}
 background = #000000
 foreground = ${fg}
-font-family = JetBrains Mono
+font-family = Nimbus Mono PS
 background-opacity = 0.85
 gtk-titlebar = true
 window-decoration = client
 custom-shader-animation = always
+keybind = ctrl+shift+j=unbind
+keybind = ctrl+shift+k=unbind
+keybind = ctrl+shift+b=unbind
+keybind = ctrl+shift+h=unbind
+keybind = ctrl+shift+l=unbind
+keybind = ctrl+shift+one=unbind
+keybind = ctrl+shift+two=unbind
+keybind = ctrl+shift+three=unbind
+keybind = ctrl+shift+up=unbind
+keybind = ctrl+shift+down=unbind
+keybind = ctrl+shift+left=unbind
+keybind = ctrl+shift+right=unbind
+keybind = ctrl+shift+f5=unbind
 EOF
 
     # NOTE: Do NOT overwrite default config - matrix windows use their own config files
@@ -128,8 +142,9 @@ go_transparent() {
     setup_conf="/tmp/ghostty-wakeupneo.conf"
     cat > "$setup_conf" <<TRANSEOF
 background = #000000
-foreground = #00ff00
-font-family = JetBrains Mono
+foreground = #35B381
+font-family = Nimbus Mono PS
+font-size = 16
 background-opacity = 0
 gtk-titlebar = true
 window-decoration = client
@@ -215,7 +230,7 @@ sleep 0.5
 # Clear and show header
 clear
 echo
-echo -e "${GREEN} WAKE UP, NEO...${RESET}"
+echo " WAKE UP, NEO..."
 echo -e "${DIM} ----------------------------------------${RESET}"
 echo
 

@@ -329,35 +329,52 @@ def action_swap_right() -> None:
 # Help action
 # ---------------------------------------------------------------------------
 
-HELP_TEXT = """\
-Ctrl+Shift+Down  Speed Up
-Ctrl+Shift+Up    Speed Down
-Ctrl+Shift+1     Toggle Far Layer
-Ctrl+Shift+2     Toggle Mid Layer
-Ctrl+Shift+3     Toggle Near Layer
-Ctrl+Shift+L     Cycle Layout
-Ctrl+Shift+Left  Swap Left
-Ctrl+Shift+Right Swap Right
-Ctrl+Shift+B     Toggle Transparency
-Ctrl+Shift+J     Opacity Down
-Ctrl+Shift+K     Opacity Up
-Ctrl+Shift+H     Show Help
-Ctrl+Shift+F5    Reload Shaders"""
+# Human-readable labels for action names
+_ACTION_LABELS = {
+    "SpeedUp": "Speed Up",
+    "SpeedDown": "Speed Down",
+    "ToggleFar": "Toggle Far Layer",
+    "ToggleMid": "Toggle Mid Layer",
+    "ToggleNear": "Toggle Near Layer",
+    "CycleLayout": "Cycle Layout",
+    "SwapLeft": "Swap Left",
+    "SwapRight": "Swap Right",
+    "ToggleTransparency": "Toggle Transparency",
+    "OpacityDown": "Opacity Down",
+    "OpacityUp": "Opacity Up",
+    "ShowHelp": "Show Help",
+    "ManualReload": "Reload Shaders",
+}
+
+
+def _build_help_text() -> str:
+    """Build help text from the current hotkey config."""
+    from hotkey_config import load_config
+    config = load_config()
+    lines = []
+    for action, binding in config.items():
+        if not binding.get("enabled", True):
+            continue
+        mods = "+".join(binding.get("modifiers", []))
+        key = binding.get("key", "?")
+        combo = f"{mods}+{key}" if mods else key
+        label = _ACTION_LABELS.get(action, action)
+        lines.append(f"{combo:<20s} {label}")
+    return "\n".join(lines)
+
+
+HELP_SCRIPT = os.path.expanduser("~/.local/bin/matrix-hotkey-help.sh")
 
 
 def action_show_help() -> None:
-    """Send a desktop notification listing all 13 hotkey bindings."""
-    cmd = [
-        "notify-send",
-        "--app-name=Matrix Shader",
-        "--expire-time=10000",
-        "--hint=string:x-dunst-stack-tag:matrix-shader",
-        "Matrix Shader Hotkeys",
-        HELP_TEXT,
-    ]
+    """Launch the Ghostty-window help overlay showing all hotkey bindings."""
     try:
-        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except FileNotFoundError:
+        subprocess.Popen(
+            [HELP_SCRIPT],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (FileNotFoundError, OSError):
         pass
 
 

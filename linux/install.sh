@@ -133,29 +133,21 @@ if ! groups | grep -qw input; then
         echo -e "${RED}  Could not add to input group - hotkeys may need sudo${RESET}"
 fi
 
-# Register GNOME hotkeys as fallback (if on GNOME)
+# Remove legacy GNOME hotkeys (evdev-based matrix-keys handles all hotkeys now)
 if command -v gsettings >/dev/null 2>&1; then
-    echo -e "${DIM}  Registering GNOME hotkey fallbacks...${RESET}"
-
     KEYS=$(gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings 2>/dev/null || echo "[]")
-
-    register_hotkey() {
-        local name="$1" cmd="$2" binding="$3" slug="$4"
-        local path="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/${slug}/"
-        if [[ "$KEYS" != *"$slug"* ]]; then
-            KEYS=$(echo "$KEYS" | sed "s/]/, '$path']/; s/\[, /[/")
-        fi
-        gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$path" name "$name" 2>/dev/null
-        gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$path" command "$cmd" 2>/dev/null
-        gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$path" binding "$binding" 2>/dev/null
-    }
-
-    register_hotkey "Matrix Toggle" "$BIN_DIR/matrix-opacity.sh toggle" "<Ctrl><Shift>b" "matrix-toggle"
-    register_hotkey "Matrix Opacity Up" "$BIN_DIR/matrix-opacity.sh up" "<Ctrl><Shift>k" "matrix-up"
-    register_hotkey "Matrix Opacity Down" "$BIN_DIR/matrix-opacity.sh down" "<Ctrl><Shift>j" "matrix-down"
-    register_hotkey "Matrix Help" "$BIN_DIR/matrix-hotkey-help.sh" "<Ctrl><Shift>h" "matrix-help"
-
-    gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "$KEYS" 2>/dev/null
+    if [[ "$KEYS" == *"matrix-"* ]]; then
+        echo -e "${DIM}  Removing legacy GNOME hotkeys (matrix-keys handles these now)...${RESET}"
+        for slug in matrix-toggle matrix-up matrix-down matrix-help; do
+            local_path="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/${slug}/"
+            gsettings reset "$local_path" name 2>/dev/null
+            gsettings reset "$local_path" command 2>/dev/null
+            gsettings reset "$local_path" binding 2>/dev/null
+        done
+        # Remove matrix entries from the keybindings list
+        NEW_KEYS=$(echo "$KEYS" | sed "s|, '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/matrix-[^']*/'||g; s|'/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/matrix-[^']*/', ||g; s|'/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/matrix-[^']*/'||g")
+        gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "$NEW_KEYS" 2>/dev/null
+    fi
 fi
 
 echo
