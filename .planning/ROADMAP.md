@@ -81,7 +81,11 @@ Plans:
   3. Pressing ? shows a full help screen listing every keybinding
   4. Pressing 0 resets the active window's shader parameters to defaults
   5. An asterisk or indicator appears when a tab has unsaved changes; switching tabs auto-saves
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 04-01-PLAN.md — Layout controls integration + COMBAT TRAINING TUI section (CTRL-07)
+- [ ] 04-02-PLAN.md — Hotkey configuration screen (CTRL-08)
+- [ ] 04-03-PLAN.md — Help screen, reset, dirty tracking, auto-save (CTRL-09, CTRL-10)
 
 ### Phase 5: Window Positioning
 **Goal**: Matrix windows can be programmatically moved and sized to exact pixel coordinates on Linux — achieved by patching Ghostty or using compositor IPC
@@ -92,7 +96,11 @@ Plans:
   2. Window identity is tracked by slot number — the system knows which PID/window corresponds to slot 1, slot 2, etc.
   3. Border/decoration offsets are measured and compensated so windows are pixel-perfect flush to edges
   4. Positioning works on at least GNOME Wayland; X11/XWayland also supported as fallback
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 05-01-PLAN.md — GNOME Shell Extension with D-Bus window management API (LAYO-05, WNDW-01)
+- [ ] 05-02-PLAN.md — Python window_service.py client with slot mapping + XWayland fallback (LAYO-05, LAYO-11, WNDW-01)
+- [ ] 05-03-PLAN.md — Wire into wakeupneo.sh + install.sh + end-to-end verification (all reqs)
 
 ### Phase 6: Layout Engine
 **Goal**: Users can arrange Matrix windows into Pillars, Quads, Overlap, or Auto layouts across one or more monitors, with glitch auto-correction and snapback save/restore
@@ -118,7 +126,11 @@ Plans:
   3. state.json contains full shader configs (all 9 parameters), layout config, and active tab — not just color presets
   4. The watchdog detects a crashed hotkey listener and restarts it within 5 seconds
   5. Running `matrix-keys.py` a second time exits cleanly without creating a duplicate listener
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 07-01-PLAN.md — State persistence module (state_service.py) with full schema, migration, debounced saves (WNDW-02, WNDW-03, SESS-02, SESS-03)
+- [ ] 07-02-PLAN.md — bluepill session restore command (SESS-01, SESS-02)
+- [ ] 07-03-PLAN.md — Single-instance guard + watchdog process (WNDW-04, WNDW-05)
 
 ### Phase 8: Mac Port
 **Goal**: Matrix Shader runs on macOS — shaders render in a terminal, all 13 hotkeys work system-wide, WakeupNeo wizard launches windows, and installation is available via Homebrew or DMG
@@ -167,10 +179,10 @@ Phases execute in numeric order. Phase 8 (Mac) can begin in parallel with Phase 
 | 1. Shader Hot-Reload | 0/3 | Planning complete | - |
 | 2. Full Hotkey System | 0/3 | Planning complete | - |
 | 3. Control Panel Core | 0/TBD | Not started | - |
-| 4. Control Panel Polish | 0/TBD | Not started | - |
-| 5. Window Positioning | 0/TBD | Not started | - |
+| 4. Control Panel Polish | 0/3 | Planning complete | - |
+| 5. Window Positioning | 0/3 | Planning complete | - |
 | 6. Layout Engine | 0/TBD | Not started | - |
-| 7. Window & Session Management | 0/TBD | Not started | - |
+| 7. Window & Session Management | 0/3 | Planning complete | - |
 | 8. Mac Port | 0/TBD | Not started | - |
 | 9. Wizard Polish & Easter Eggs | 0/TBD | Not started | - |
 | 10. MatrixLite & Installer Completion | 0/TBD | Not started | - |

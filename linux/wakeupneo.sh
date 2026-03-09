@@ -134,6 +134,9 @@ EOF
 
     echo -ne "   Waiting for Matrix-${slot}..."
     nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+    local ghostty_pid=$!
+    # Register PID with window service for positioning (Phase 5)
+    python3 "$(dirname "$SCRIPT_PATH")/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
     sleep 0.5
     local swatch=$(color_swatch "$r" "$g" "$b")
     echo -e " ${swatch} ${PRESET_COLORS[$preset_idx]}${name}${RESET} ${GREEN}OK${RESET}"

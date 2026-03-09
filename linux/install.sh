@@ -133,6 +133,19 @@ if ! groups | grep -qw input; then
         echo -e "${RED}  Could not add to input group - hotkeys may need sudo${RESET}"
 fi
 
+# Deploy GNOME Shell extension for window positioning (GNOME Wayland only)
+if command -v gnome-extensions &>/dev/null; then
+    EXTENSION_SRC="$SOURCE_DIR/gnome-extension/matrix-window-manager@custom"
+    EXTENSION_DST="$HOME/.local/share/gnome-shell/extensions/matrix-window-manager@custom"
+    if [ -d "$EXTENSION_SRC" ]; then
+        echo -e "${DIM}  Installing GNOME Shell extension for window positioning...${RESET}"
+        mkdir -p "$(dirname "$EXTENSION_DST")"
+        cp -r "$EXTENSION_SRC" "$EXTENSION_DST"
+        gnome-extensions enable matrix-window-manager@custom 2>/dev/null || true
+        echo -e "${DIM}  GNOME extension installed (logout/login may be needed to activate)${RESET}"
+    fi
+fi
+
 # Remove legacy GNOME hotkeys (evdev-based matrix-keys handles all hotkeys now)
 if command -v gsettings >/dev/null 2>&1; then
     KEYS=$(gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings 2>/dev/null || echo "[]")
