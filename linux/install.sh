@@ -80,12 +80,19 @@ cp "$SOURCE_DIR/scripts/wakeupneo.sh" "$BIN_DIR/wakeupneo"
 cp "$SOURCE_DIR/scripts/matrix-opacity.sh" "$BIN_DIR/matrix-opacity.sh"
 cp "$SOURCE_DIR/scripts/matrix-hotkey-help.sh" "$BIN_DIR/matrix-hotkey-help.sh"
 cp "$SOURCE_DIR/scripts/matrix_keys.py" "$BIN_DIR/matrix_keys.py"
-chmod +x "$BIN_DIR/wakeupneo" "$BIN_DIR/matrix-opacity.sh" "$BIN_DIR/matrix-hotkey-help.sh" "$BIN_DIR/matrix_keys.py"
+cp "$SOURCE_DIR/scripts/bluepill.sh" "$BIN_DIR/bluepill"
+cp "$SOURCE_DIR/scripts/matrix_watchdog.py" "$BIN_DIR/matrix_watchdog.py"
+chmod +x "$BIN_DIR/wakeupneo" "$BIN_DIR/matrix-opacity.sh" "$BIN_DIR/matrix-hotkey-help.sh" "$BIN_DIR/matrix_keys.py" "$BIN_DIR/bluepill" "$BIN_DIR/matrix_watchdog.py"
 
 # Patch script paths to use installed locations
 sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/wakeupneo"
 sed -i "s|SHADER_DIR=.*|SHADER_DIR=\"$SHADER_DIR\"|" "$BIN_DIR/wakeupneo"
 sed -i "s|MATRIX_KEYS=.*|MATRIX_KEYS=\"$BIN_DIR/matrix_keys.py\"|" "$BIN_DIR/wakeupneo"
+
+# Patch bluepill paths
+sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/bluepill"
+sed -i "s|MATRIX_KEYS=.*|MATRIX_KEYS=\"$BIN_DIR/matrix_keys.py\"|" "$BIN_DIR/bluepill"
+sed -i "s|WATCHDOG_SCRIPT=.*|WATCHDOG_SCRIPT=\"$BIN_DIR/matrix_watchdog.py\"|" "$BIN_DIR/bluepill"
 
 # Ensure ~/.local/bin is in PATH
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
@@ -170,6 +177,7 @@ echo -e "${GREEN}  ================================${RESET}"
 echo
 echo -e "  Commands available:"
 echo -e "    ${CYAN}wakeupneo${RESET}  - Setup wizard (start here!)"
+echo -e "    ${CYAN}bluepill${RESET}   - Fast session restore"
 echo
 echo -e "  Hotkeys:"
 echo -e "    ${DIM}Ctrl+Shift+B   Toggle transparency${RESET}"

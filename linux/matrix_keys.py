@@ -6,6 +6,7 @@ and inotify config-watch fd via select.select(). Auto-reconnects on
 keyboard disconnect. Runs as a background daemon.
 """
 
+import fcntl
 import os
 import select
 import signal
@@ -27,6 +28,49 @@ from hotkey_conflicts import detect_conflicts, notify_conflicts
 
 
 PIDFILE = "/tmp/matrix-keys.pid"
+
+# Single-instance lock file descriptor (kept open for lifetime of process)
+_lock_fd = None
+
+
+def acquire_single_instance():
+    """Acquire single-instance lock via fcntl.flock on PID file.
+
+    Uses LOCK_EX | LOCK_NB (exclusive, non-blocking).
+    If another instance holds the lock, returns False.
+    On success, writes our PID to the file and returns True.
+
+    The kernel automatically releases advisory locks on process death,
+    including kill -9, making this crash-safe.
+    """
+    global _lock_fd
+    try:
+        _lock_fd = open(PIDFILE, "w")
+        fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        _lock_fd.write(str(os.getpid()))
+        _lock_fd.flush()
+        return True
+    except (IOError, OSError):
+        if _lock_fd is not None:
+            _lock_fd.close()
+            _lock_fd = None
+        return False
+
+
+def release_single_instance():
+    """Release the single-instance lock and clean up PID file."""
+    global _lock_fd
+    if _lock_fd is not None:
+        try:
+            fcntl.flock(_lock_fd, fcntl.LOCK_UN)
+            _lock_fd.close()
+        except OSError:
+            pass
+        _lock_fd = None
+    try:
+        os.unlink(PIDFILE)
+    except OSError:
+        pass
 
 # Modifier keys used for matching — any left/right variant counts
 MODIFIER_KEYS = {
@@ -219,17 +263,14 @@ def event_loop(kbd, hotkey_table, watcher):
 
 def main():
     """Main entry point: PID file, signal handlers, startup, event loop."""
-    # Write PID file
-    with open(PIDFILE, "w") as f:
-        f.write(str(os.getpid()))
+    if not acquire_single_instance():
+        print("matrix-keys: another instance is already running, exiting", flush=True)
+        sys.exit(0)
 
     watcher = None
 
     def cleanup(sig=None, frame=None):
-        try:
-            os.unlink(PIDFILE)
-        except OSError:
-            pass
+        release_single_instance()
         if watcher is not None:
             try:
                 watcher.close()

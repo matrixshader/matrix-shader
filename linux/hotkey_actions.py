@@ -48,6 +48,25 @@ from shader_service import SLOT_SHADER_DIR
 
 
 # ---------------------------------------------------------------------------
+# Lazy state service (debounced persistence)
+# ---------------------------------------------------------------------------
+
+_state_svc = None
+
+
+def _get_state_service():
+    """Get or create the global StateService instance (lazy init)."""
+    global _state_svc
+    if _state_svc is None:
+        try:
+            from state_service import StateService
+            _state_svc = StateService()
+        except Exception:
+            pass  # state_service not available
+    return _state_svc
+
+
+# ---------------------------------------------------------------------------
 # Toast helper
 # ---------------------------------------------------------------------------
 
@@ -89,7 +108,9 @@ def action_speed_up() -> None:
         config = read_shader_config(slot)
         new_speed = min(config["RAIN_SPEED"] + SPEED_DELTA, SPEED_MAX)
         write_shader_param(slot, "RAIN_SPEED", new_speed)
-
+    svc = _get_state_service()
+    if svc:
+        svc.mark_dirty()
 
 
 def action_speed_down() -> None:
@@ -101,6 +122,9 @@ def action_speed_down() -> None:
         config = read_shader_config(slot)
         new_speed = max(config["RAIN_SPEED"] - SPEED_DELTA, SPEED_MIN)
         write_shader_param(slot, "RAIN_SPEED", new_speed)
+    svc = _get_state_service()
+    if svc:
+        svc.mark_dirty()
 
 
 def _toggle_layer(param: str, label: str) -> None:
@@ -118,7 +142,9 @@ def _toggle_layer(param: str, label: str) -> None:
         config = read_shader_config(slot)
         new_val = 0.0 if config[param] >= 0.5 else 1.0
         write_shader_param(slot, param, new_val)
-    pass  # No toast for layer toggles — visual change is the feedback
+    svc = _get_state_service()
+    if svc:
+        svc.mark_dirty()
 
 
 def action_toggle_far() -> None:
@@ -206,6 +232,10 @@ def _run_opacity(mode: str) -> None:
     opacity = _read_current_opacity()
     _fire_toast(opacity)
 
+    svc = _get_state_service()
+    if svc:
+        svc.update_opacity(opacity)
+
 
 def action_toggle_transparency() -> None:
     """Cycle: Off (100%) -> Custom (85%) -> Full transparent (0%) -> Off."""
@@ -231,36 +261,43 @@ def action_cycle_layout() -> None:
 
     Cycles: pillars -> quads -> overlap -> auto -> pillars ...
     """
-    # Read current state
-    state = {}
-    try:
-        with open(STATE_PATH) as f:
-            state = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
+    svc = _get_state_service()
+    if svc:
+        current = svc.state.get("layout", {}).get("mode", "pillars")
+    else:
+        # Fallback: read from file
+        state = {}
+        try:
+            with open(STATE_PATH) as f:
+                state = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+        current = state.get("layout_mode", state.get("layout", {}).get("mode", "pillars"))
 
-    current = state.get("layout_mode", "pillars")
     try:
         idx = LAYOUT_MODES.index(current)
     except ValueError:
         idx = 0
     next_mode = LAYOUT_MODES[(idx + 1) % len(LAYOUT_MODES)]
-    state["layout_mode"] = next_mode
 
-    # Atomic write to state.json
-    dir_path = os.path.dirname(STATE_PATH)
-    os.makedirs(dir_path, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(state, f, indent=2)
-        os.replace(tmp_path, STATE_PATH)
-    except Exception:
+    if svc:
+        svc.update_layout({"mode": next_mode})
+    else:
+        # Fallback: manual write
+        state["layout_mode"] = next_mode
+        dir_path = os.path.dirname(STATE_PATH)
+        os.makedirs(dir_path, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix=".tmp")
         try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
+            with os.fdopen(fd, "w") as f:
+                json.dump(state, f, indent=2)
+            os.replace(tmp_path, STATE_PATH)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     # Apply the new layout to reposition windows (Phase 6)
     try:
@@ -316,7 +353,9 @@ def _rotate_shaders(direction: str) -> None:
     for slot_info in mapping.values():
         reload_ghostty(slot_info["bus_name"])
 
-    pass  # Visual change is the feedback
+    svc = _get_state_service()
+    if svc:
+        svc.mark_dirty()
 
 
 def action_swap_left() -> None:
