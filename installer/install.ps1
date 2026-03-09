@@ -110,20 +110,21 @@ if (-not (Test-Path $ShadersDir)) { New-Item -ItemType Directory -Path $ShadersD
 # Get latest release URL from GitHub API
 Write-Host "[2/6] Finding latest release..." -ForegroundColor Cyan
 try {
-    $ApiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases/latest"
+    # Find latest Windows release (skip linux-tagged releases)
+    $ApiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases"
     $Headers = @{ 'User-Agent' = 'MatrixShader-Installer' }
 
     # Use different methods for PS 5.1 vs 7+
-    if ($PSVersionTable.PSVersion.Major -ge 6) {
-        $Release = Invoke-RestMethod -Uri $ApiUrl -Headers $Headers
-    } else {
-        # PowerShell 5.1 - disable certificate validation warning
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $Release = Invoke-RestMethod -Uri $ApiUrl -Headers $Headers
-    }
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $AllReleases = Invoke-RestMethod -Uri $ApiUrl -Headers $Headers
 
-    # Find the zip asset
-    $ZipAsset = $Release.assets | Where-Object { $_.name -like '*.zip' } | Select-Object -First 1
+    # Find first release that has a .zip asset (skip linux-only releases)
+    $Release = $null
+    $ZipAsset = $null
+    foreach ($r in $AllReleases) {
+        $ZipAsset = $r.assets | Where-Object { $_.name -like '*.zip' } | Select-Object -First 1
+        if ($ZipAsset) { $Release = $r; break }
+    }
     if (-not $ZipAsset) {
         throw "No zip file found in latest release"
     }
