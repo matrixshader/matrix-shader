@@ -227,10 +227,9 @@ def action_opacity_up() -> None:
 # ---------------------------------------------------------------------------
 
 def action_cycle_layout() -> None:
-    """Cycle through layout modes and write to state.json.
+    """Cycle through layout modes, write to state.json, and reposition windows.
 
     Cycles: pillars -> quads -> overlap -> auto -> pillars ...
-    NOTE: Actual window repositioning is deferred to Phase 6.
     """
     # Read current state
     state = {}
@@ -263,7 +262,12 @@ def action_cycle_layout() -> None:
             pass
         raise
 
-    pass  # Layout mode written; actual repositioning deferred to Phase 6
+    # Apply the new layout to reposition windows (Phase 6)
+    try:
+        from layout_engine import apply_current_layout
+        apply_current_layout()
+    except Exception:
+        pass  # Layout engine may not be available yet
 
 
 def _rotate_shaders(direction: str) -> None:
@@ -379,6 +383,45 @@ def action_show_help() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Layout engine actions (Phase 6)
+# ---------------------------------------------------------------------------
+
+def action_snapback_save() -> None:
+    """Save current window positions for later restoration."""
+    try:
+        from layout_engine import snapback_save
+        count = snapback_save()
+        if count > 0:
+            show_toast(f"Saved {count} window position(s)")
+    except Exception:
+        pass
+
+
+def action_snapback_restore() -> None:
+    """Restore previously saved window positions."""
+    try:
+        from layout_engine import snapback_restore
+        count = snapback_restore()
+        if count > 0:
+            show_toast(f"Restored {count} window position(s)")
+    except Exception:
+        pass
+
+
+def action_glitch_toggle() -> None:
+    """Toggle glitch mode (auto-snap windows back to formation)."""
+    try:
+        from layout_engine import load_layout_config, save_layout_config
+        config = load_layout_config()
+        config["glitch_enabled"] = not config["glitch_enabled"]
+        save_layout_config(config)
+        state_str = "ON" if config["glitch_enabled"] else "OFF"
+        show_toast(f"Glitch mode: {state_str}")
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table
 # ---------------------------------------------------------------------------
 
@@ -396,4 +439,7 @@ ACTION_MAP = {
     "OpacityUp": action_opacity_up,
     "ShowHelp": action_show_help,
     "ManualReload": action_manual_reload,
+    "SnapbackSave": action_snapback_save,
+    "SnapbackRestore": action_snapback_restore,
+    "GlitchToggle": action_glitch_toggle,
 }
