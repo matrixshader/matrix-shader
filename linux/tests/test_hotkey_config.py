@@ -131,7 +131,11 @@ class TestLoadConfig:
         with open(config_path, "w") as f:
             json.dump(custom, f)
         config = hotkey_config.load_config(path=config_path)
-        assert config == custom
+        # Custom entry preserved, plus new defaults forward-merged
+        assert config["SpeedUp"] == custom["SpeedUp"]
+        # All default actions should be present (forward-merge)
+        for action in hotkey_config.DEFAULT_BINDINGS:
+            assert action in config
 
     def test_corrupted_json_returns_defaults(self, tmp_path):
         config_path = str(tmp_path / "hotkeys.json")

@@ -1,0 +1,19 @@
+--- a/src/renderer/Metal.zig
++++ b/src/renderer/Metal.zig
+@@ -2215,11 +2215,13 @@
+
+-    // We reinitialize our shaders if our
+-    // blending or custom shaders changed.
+-    if (old_blending != config.blending or
+-        !old_custom_shaders.equal(config.custom_shaders))
+-    {
++    // Matrix Shader: Always reinitialize shaders on config reload.
++    // Stock Ghostty only reloads when the config PATH changes, but Matrix Shader
++    // rewrites shader file CONTENT in-place (same path, new #define values).
++    // Cost is ~10-50ms for SPIR-V->MSL compilation -- negligible for user-triggered reloads.
++    if (true) {
++        _ = old_custom_shaders;
++        _ = old_blending;
+         self.deinitShaders();
+         try self.initShaders();
+         // We call setScreenSize to reinitialize

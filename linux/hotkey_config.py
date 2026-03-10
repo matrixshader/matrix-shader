@@ -126,10 +126,21 @@ def load_config(path=None):
     try:
         with open(path) as f:
             config = json.load(f)
-        return config
     except (json.JSONDecodeError, ValueError) as e:
         logger.warning("Corrupt hotkeys.json, using defaults: %s", e)
         return dict(DEFAULT_BINDINGS)
+
+    # Forward-merge: add any new default bindings missing from saved config.
+    # This handles hotkeys added in later phases (e.g. SnapbackSave, GlitchToggle).
+    updated = False
+    for action, binding in DEFAULT_BINDINGS.items():
+        if action not in config:
+            config[action] = dict(binding)
+            updated = True
+    if updated:
+        save_config(config, path=path)
+
+    return config
 
 
 def save_config(config, path=None):

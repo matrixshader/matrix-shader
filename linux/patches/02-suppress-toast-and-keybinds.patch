@@ -1,0 +1,40 @@
+diff --git a/src/apprt/gtk/Window.zig b/src/apprt/gtk/Window.zig
+index 25c06e8..68ea683 100644
+--- a/src/apprt/gtk/Window.zig
++++ b/src/apprt/gtk/Window.zig
+@@ -603,7 +603,9 @@ pub fn focusCurrentTab(self: *Window) void {
+ }
+ 
+ pub fn onConfigReloaded(self: *Window) void {
+-    self.sendToast("Reloaded the configuration");
++    // Suppressed: Matrix Shader uses D-Bus reload-config for live shader/opacity
++    // changes — the toast is disruptive when firing on every hotkey press.
++    _ = self;
+ }
+ 
+ pub fn sendToast(self: *Window, title: [:0]const u8) void {
+diff --git a/src/config/Config.zig b/src/config/Config.zig
+index 2c48366..11e94d0 100644
+--- a/src/config/Config.zig
++++ b/src/config/Config.zig
+@@ -2388,11 +2388,15 @@ pub fn default(alloc_gpa: Allocator) Allocator.Error!Config {
+         .{ .reset_font_size = {} },
+     );
+ 
+-    try result.keybind.set.put(
+-        alloc,
+-        .{ .key = .{ .translated = .j }, .mods = inputpkg.ctrlOrSuper(.{ .shift = true }) },
+-        .{ .write_screen_file = .paste },
+-    );
++    // Matrix Shader: ctrl+shift+j/k/b/h/l/1/2/3/arrows/f5 are used by
++    // matrix-keys evdev listener. Removed write_screen_file binding to
++    // prevent conflict (was ctrl+shift+j = paste screen to clipboard).
++    //
++    // try result.keybind.set.put(
++    //     alloc,
++    //     .{ .key = .{ .translated = .j }, .mods = inputpkg.ctrlOrSuper(.{ .shift = true }) },
++    //     .{ .write_screen_file = .paste },
++    // );
+ 
+     try result.keybind.set.put(
+         alloc,

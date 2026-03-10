@@ -401,20 +401,26 @@ class TestGlitchMode(unittest.TestCase):
         with open(self.state_path, "w") as f:
             json.dump({"layout": config}, f)
 
-        # Set cached positions
+        # Set cached positions (two non-overlapping windows)
         layout_engine._last_applied = {
             1: {"x": 0, "y": 0, "width": 960, "height": 1080},
+            2: {"x": 960, "y": 0, "width": 960, "height": 1080},
         }
 
-        # Current position is drifted
-        mock_ws.get_position.return_value = {
-            "x": 50, "y": 0, "width": 960, "height": 1080
-        }
+        # Current positions: window 1 drifted right, causing overlap with window 2
+        def fake_get_position(slot):
+            if slot == 1:
+                return {"x": 500, "y": 0, "width": 960, "height": 1080}
+            elif slot == 2:
+                return {"x": 960, "y": 0, "width": 960, "height": 1080}
+            return None
+        mock_ws.get_position.side_effect = fake_get_position
         mock_ws.position_window.return_value = True
 
         result = layout_engine.check_and_snap()
-        assert result == 1
-        mock_ws.position_window.assert_called_once_with(1, 0, 0, 960, 1080)
+        assert result == 2
+        mock_ws.position_window.assert_any_call(1, 0, 0, 960, 1080)
+        mock_ws.position_window.assert_any_call(2, 960, 0, 960, 1080)
 
     @patch("layout_engine.window_service")
     def test_glitch_no_drift_no_snap(self, mock_ws):

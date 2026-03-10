@@ -266,16 +266,14 @@ def detect_conflicts(our_bindings):
 # ---------------------------------------------------------------------------
 
 def notify_conflicts(conflicts):
-    """Send a single desktop notification summarizing detected conflicts.
-
-    If conflicts is empty, does nothing.
-    Handles missing notify-send gracefully.
-
-    Args:
-        conflicts: List of conflict dicts from detect_conflicts().
-    """
+    """Disabled — no popups in Matrix Shader. Conflicts logged to stderr only."""
     if not conflicts:
         return
+    import logging
+    logger = logging.getLogger(__name__)
+    for c in conflicts:
+        logger.warning("Hotkey conflict: %s", c)
+    return
 
     count = len(conflicts)
     combos = []

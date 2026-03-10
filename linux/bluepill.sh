@@ -5,6 +5,7 @@
 
 SCRIPT_PATH="$(realpath "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+PYMOD_DIR="$SCRIPT_DIR"
 SHADER_DIR="$(dirname "$SCRIPT_PATH")/../shaders-glsl"
 GHOSTTY_BIN="/home/neo/ghostty-build/zig-out/bin/ghostty"
 CONFIG_DIR="$HOME/.config/ghostty"
@@ -92,7 +93,7 @@ launch_window_from_state() {
     # Read shader config for this slot from state.json
     local shader_config
     shader_config=$(python3 -c "
-import sys; sys.path.insert(0, '$SCRIPT_DIR')
+import sys; sys.path.insert(0, '$PYMOD_DIR')
 from state_service import load_state
 import json
 state = load_state()
@@ -103,18 +104,18 @@ print(json.dumps(config))
     local shader_file
     if [ -z "$shader_config" ] || [ "$shader_config" = "{}" ]; then
         # Fallback: use green preset
-        shader_file=$(python3 "$SCRIPT_DIR/shader_service.py" create --slot "$slot" --preset 0 2>/dev/null)
+        shader_file=$(python3 "$PYMOD_DIR/shader_service.py" create --slot "$slot" --preset 0 2>/dev/null)
     else
         # Create shader with saved RGB
         local r g b
         r=$(echo "$shader_config" | python3 -c "import sys,json; c=json.load(sys.stdin); print(c.get('RAIN_R', 0.0))")
         g=$(echo "$shader_config" | python3 -c "import sys,json; c=json.load(sys.stdin); print(c.get('RAIN_G', 1.0))")
         b=$(echo "$shader_config" | python3 -c "import sys,json; c=json.load(sys.stdin); print(c.get('RAIN_B', 0.3))")
-        shader_file=$(python3 "$SCRIPT_DIR/shader_service.py" create --slot "$slot" --r "$r" --g "$g" --b "$b" 2>/dev/null)
+        shader_file=$(python3 "$PYMOD_DIR/shader_service.py" create --slot "$slot" --r "$r" --g "$g" --b "$b" 2>/dev/null)
 
         # Write all non-RGB params to restore full config
         python3 -c "
-import sys; sys.path.insert(0, '$SCRIPT_DIR')
+import sys; sys.path.insert(0, '$PYMOD_DIR')
 import json
 from shader_service import write_shader_params
 config = json.loads('''$shader_config''')
@@ -132,7 +133,7 @@ if params:
     # Read opacity from state
     local opacity
     opacity=$(python3 -c "
-import sys; sys.path.insert(0, '$SCRIPT_DIR')
+import sys; sys.path.insert(0, '$PYMOD_DIR')
 from state_service import load_state
 state = load_state()
 print(state.get('opacity', 85))
@@ -163,6 +164,7 @@ background-opacity = ${opacity_val}
 gtk-titlebar = true
 window-decoration = client
 custom-shader-animation = always
+desktop-notifications = false
 keybind = ctrl+shift+j=unbind
 keybind = ctrl+shift+k=unbind
 keybind = ctrl+shift+b=unbind
@@ -176,10 +178,16 @@ keybind = ctrl+shift+down=unbind
 keybind = ctrl+shift+left=unbind
 keybind = ctrl+shift+right=unbind
 keybind = ctrl+shift+f5=unbind
+keybind = ctrl+shift+s=unbind
+keybind = ctrl+shift+r=unbind
+keybind = ctrl+shift+g=unbind
 EOF
 
     echo -ne "   Waiting for Matrix-${slot}..."
     nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+    local ghostty_pid=$!
+    # Register PID with window service for positioning (Phase 5/6)
+    python3 "$PYMOD_DIR/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
     sleep 0.3
     echo -e " ${GREEN}OK${RESET}"
 }
@@ -201,7 +209,7 @@ fi
 
 # Load saved slots from state.json
 saved_slots=$(python3 -c "
-import sys; sys.path.insert(0, '$SCRIPT_DIR')
+import sys; sys.path.insert(0, '$PYMOD_DIR')
 from state_service import load_state
 state = load_state()
 slots = sorted(state.get('shader_configs', {}).keys())
@@ -249,6 +257,16 @@ if [ "$skipped" -gt 0 ]; then
     echo
     echo -e "${DIM}   Skipped ${skipped} already-open window(s)${RESET}"
 fi
+
+# Apply layout to position windows with proper gaps
+sleep 0.5
+python3 -c "
+import sys; sys.path.insert(0, '$PYMOD_DIR')
+from layout_engine import apply_current_layout
+n = apply_current_layout()
+if n > 0:
+    print(f'   Positioned {n} window(s) in layout')
+" 2>/dev/null || true
 
 # Start hotkey listener if not running
 echo

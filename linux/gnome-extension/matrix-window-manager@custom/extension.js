@@ -78,6 +78,13 @@ class MatrixWindowManager {
         return windows;
     }
 
+    _isMaximized(win) {
+        // GNOME 49+ removed get_maximized() — use maximized_horizontally/vertically
+        if (typeof win.get_maximized === 'function')
+            return win.get_maximized() !== 0;
+        return !!(win.maximizedHorizontally || win.maximizedVertically);
+    }
+
     _windowToJson(win) {
         const rect = win.get_frame_rect();
         return {
@@ -86,7 +93,7 @@ class MatrixWindowManager {
             y: rect.y,
             width: rect.width,
             height: rect.height,
-            maximized: win.get_maximized() !== 0,
+            maximized: this._isMaximized(win),
             title: win.get_title() || '',
             wm_class: win.get_wm_class() || '',
         };
@@ -99,7 +106,7 @@ class MatrixWindowManager {
                 const win = this._findWindowByPid(pid);
                 if (win) {
                     // Unmaximize before repositioning
-                    if (win.get_maximized())
+                    if (this._isMaximized(win))
                         win.unmaximize(Meta.MaximizeFlags.BOTH);
                     win.move_resize_frame(false, x, y, width, height);
                     invocation.return_value(new GLib.Variant('(b)', [true]));

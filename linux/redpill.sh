@@ -40,6 +40,9 @@ keybind = ctrl+shift+down=unbind
 keybind = ctrl+shift+left=unbind
 keybind = ctrl+shift+right=unbind
 keybind = ctrl+shift+f5=unbind
+keybind = ctrl+shift+s=unbind
+keybind = ctrl+shift+r=unbind
+keybind = ctrl+shift+g=unbind
 EOF
 
     nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" \

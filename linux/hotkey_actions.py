@@ -43,8 +43,6 @@ OPACITY_SCRIPT = os.path.expanduser("~/.local/bin/matrix-opacity.sh")
 # Path to the OSD toast script (lives alongside this file)
 TOAST_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "matrix_toast.py")
 
-# Import from shader_service (already imported above)
-from shader_service import SLOT_SHADER_DIR
 
 
 # ---------------------------------------------------------------------------
@@ -71,27 +69,8 @@ def _get_state_service():
 # ---------------------------------------------------------------------------
 
 def show_toast(message: str, title: str = "Matrix Shader") -> None:
-    """Show a desktop notification that replaces the previous one.
-
-    Fire-and-forget via subprocess.Popen. Uses dunst stack tag for
-    replacement on rapid keypresses. Silently handles missing notify-send.
-
-    Args:
-        message: Notification body text.
-        title: Notification title (default "Matrix Shader").
-    """
-    cmd = [
-        "notify-send",
-        "--app-name=Matrix Shader",
-        "--expire-time=1500",
-        "--hint=string:x-dunst-stack-tag:matrix-shader",
-        title,
-        message,
-    ]
-    try:
-        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except FileNotFoundError:
-        pass  # notify-send not installed
+    """Disabled — no popups in Matrix Shader."""
+    return
 
 
 # ---------------------------------------------------------------------------
@@ -317,66 +296,71 @@ def action_cycle_layout() -> None:
         pass  # Layout engine may not be available yet
 
 
-def _rotate_shaders(direction: str) -> None:
-    """Rotate shader files between active slots.
+def _rotate_positions(direction: str) -> None:
+    """Rotate window positions in the current layout formation.
+
+    Reads CURRENT window positions and rotates them. E.g. with 2 windows
+    at positions [A|B], SwapLeft produces [B|A], and another SwapLeft
+    produces [A|B] again.
 
     Args:
         direction: "left" or "right".
     """
-    mapping = get_ghostty_bus_names()
-    if len(mapping) < 2:
+    try:
+        from layout_engine import _update_applied_cache
+        import window_service
+    except ImportError:
         return
 
-    slots = sorted(mapping.keys())
+    mapping = window_service.load_mapping()
+    live_slots = [
+        int(s) for s in mapping.keys()
+        if window_service.get_pid_for_slot(int(s)) is not None
+    ]
+    if len(live_slots) < 2:
+        return
 
-    # Read all shader contents
-    contents = {}
-    for slot in slots:
-        path = os.path.join(SLOT_SHADER_DIR, f"matrix-{slot}.glsl")
-        try:
-            with open(path) as f:
-                contents[slot] = f.read()
-        except FileNotFoundError:
-            contents[slot] = ""
+    # Read current positions and sort by X (left-to-right visual order)
+    slot_geos = []
+    for slot in live_slots:
+        geo = window_service.get_position(slot)
+        if not geo:
+            return
+        slot_geos.append((slot, geo))
+    slot_geos.sort(key=lambda sg: sg[1]["x"])
 
-    # Rotate contents
+    # Fixed positions (the physical spots on screen)
+    positions = [
+        {"x": g["x"], "y": g["y"], "width": g["width"], "height": g["height"]}
+        for _, g in slot_geos
+    ]
+    # Window order (which slot sits in which position)
+    window_order = [s for s, _ in slot_geos]
+
+    # Rotate windows: LEFT = each window slides left, leftmost wraps right
     if direction == "left":
-        # Left: slot N gets content from slot N+1 (wrapping)
-        rotated = {}
-        for i, slot in enumerate(slots):
-            src_slot = slots[(i + 1) % len(slots)]
-            rotated[slot] = contents[src_slot]
+        rotated_windows = window_order[1:] + window_order[:1]
     else:
-        # Right: slot N gets content from slot N-1 (wrapping)
-        rotated = {}
-        for i, slot in enumerate(slots):
-            src_slot = slots[(i - 1) % len(slots)]
-            rotated[slot] = contents[src_slot]
+        rotated_windows = window_order[-1:] + window_order[:-1]
 
-    # Write rotated contents
-    for slot, content in rotated.items():
-        path = os.path.join(SLOT_SHADER_DIR, f"matrix-{slot}.glsl")
-        with open(path, "w") as f:
-            f.write(content)
+    # Apply: each rotated window gets the fixed position at that index
+    result_layout = list(zip(rotated_windows, positions))
+    _update_applied_cache(result_layout)
 
-    # Reload all affected slots
-    for slot_info in mapping.values():
-        reload_ghostty(slot_info["bus_name"])
-
-    show_toast(f"Slots rotated {direction}")
-    svc = _get_state_service()
-    if svc:
-        svc.mark_dirty()
+    for slot, pos in result_layout:
+        window_service.position_window(
+            slot, pos["x"], pos["y"], pos["width"], pos["height"]
+        )
 
 
 def action_swap_left() -> None:
-    """Rotate slot shader assignments left (1->2->3->1)."""
-    _rotate_shaders("left")
+    """Rotate window positions left in the layout formation."""
+    _rotate_positions("left")
 
 
 def action_swap_right() -> None:
-    """Rotate slot shader assignments right (3->2->1->3)."""
-    _rotate_shaders("right")
+    """Rotate window positions right in the layout formation."""
+    _rotate_positions("right")
 
 
 # ---------------------------------------------------------------------------

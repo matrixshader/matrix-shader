@@ -334,7 +334,7 @@ class TestGetGhosttyBusNames:
                     read=lambda: mock_cmdline(int(f.split("/")[2])),
                     __enter__=lambda s: s,
                     __exit__=lambda s, *a: None,
-                ) if f.startswith("/proc/") else open.__call__(f, *a, **kw)
+                ) if f.startswith("/proc/") else (_ for _ in ()).throw(FileNotFoundError(f))
             ):
                 mapping = shader_service.get_ghostty_bus_names()
 
@@ -363,7 +363,7 @@ class TestGetGhosttyBusNames:
                     read=lambda: mock_cmdline(int(f.split("/")[2])),
                     __enter__=lambda s: s,
                     __exit__=lambda s, *a: None,
-                ) if f.startswith("/proc/") else open.__call__(f, *a, **kw)
+                ) if f.startswith("/proc/") else (_ for _ in ()).throw(FileNotFoundError(f))
             ):
                 mapping = shader_service.get_ghostty_bus_names()
 

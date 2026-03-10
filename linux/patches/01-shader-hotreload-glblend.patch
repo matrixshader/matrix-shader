@@ -1,0 +1,147 @@
+diff --git a/pkg/opengl/draw.zig b/pkg/opengl/draw.zig
+index 866511c..7f610ea 100644
+--- a/pkg/opengl/draw.zig
++++ b/pkg/opengl/draw.zig
+@@ -36,6 +36,11 @@ pub fn enable(cap: c.GLenum) !void {
+     try errors.getError();
+ }
+ 
++pub fn disable(cap: c.GLenum) !void {
++    glad.context.Disable.?(cap);
++    try errors.getError();
++}
++
+ pub fn frontFace(mode: c.GLenum) !void {
+     glad.context.FrontFace.?(mode);
+     try errors.getError();
+diff --git a/pkg/opengl/main.zig b/pkg/opengl/main.zig
+index 19cd750..fc15b12 100644
+--- a/pkg/opengl/main.zig
++++ b/pkg/opengl/main.zig
+@@ -29,6 +29,7 @@ pub const clearColor = draw.clearColor;
+ pub const drawArrays = draw.drawArrays;
+ pub const drawElements = draw.drawElements;
+ pub const drawElementsInstanced = draw.drawElementsInstanced;
++pub const disable = draw.disable;
+ pub const enable = draw.enable;
+ pub const frontFace = draw.frontFace;
+ pub const pixelStore = draw.pixelStore;
+diff --git a/src/renderer/OpenGL.zig b/src/renderer/OpenGL.zig
+index 3e674c7..29117e1 100644
+--- a/src/renderer/OpenGL.zig
++++ b/src/renderer/OpenGL.zig
+@@ -127,6 +127,7 @@ surface_mailbox: apprt.surface.Mailbox,
+ deferred_screen_size: ?SetScreenSize = null,
+ deferred_font_size: ?SetFontSize = null,
+ deferred_config: ?SetConfig = null,
++deferred_shader_reload: bool = false,
+ 
+ /// If we're drawing with single threaded operations
+ draw_mutex: DrawMutex = drawMutexZero,
+@@ -2179,6 +2180,11 @@ pub fn changeConfig(self: *OpenGL, config: *DerivedConfig) !void {
+     // Update our uniforms
+     self.deferred_config = .{};
+ 
++    // Defer shader reload to drawFrame where the GL context is current.
++    // On GTK, changeConfig runs on the renderer thread but GL calls must
++    // happen on the main thread during the draw callback.
++    self.deferred_shader_reload = true;
++
+     self.config.deinit();
+     self.config = config.*;
+ }
+@@ -2363,6 +2369,13 @@ fn drawCustomPrograms(self: *OpenGL, custom_state: *custom.State) !void {
+     // Setup the new frame
+     try custom_state.newFrame();
+ 
++    // Disable blending for custom shader pass. The shader output should
++    // directly replace the framebuffer contents (matching Windows Terminal
++    // behavior). With blending enabled, old frame data persists at pixels
++    // where shader alpha < 1, causing visual accumulation.
++    try gl.disable(gl.c.GL_BLEND);
++    defer gl.enable(gl.c.GL_BLEND) catch {};
++
+     // Go through each custom shader and draw it.
+     for (custom_state.programs) |program| {
+         const bind = try program.bind();
+@@ -2411,7 +2424,48 @@ fn drawCellProgram(
+         try v.apply(self);
+         self.deferred_config = null;
+     }
++    if (self.deferred_shader_reload) {
++        self.deferred_shader_reload = false;
++        if (self.gl_state) |*gs| reload_shaders: {
++            var arena = ArenaAllocator.init(self.alloc);
++            defer arena.deinit();
++            const arena_alloc = arena.allocator();
++
++            const shaders: []const [:0]const u8 = shadertoy.loadFromFiles(
++                arena_alloc,
++                self.config.custom_shaders,
++                .glsl,
++            ) catch |err| {
++                log.warn("error loading custom shaders for hot-reload err={}", .{err});
++                break :reload_shaders;
++            };
++
++            if (shaders.len == 0) {
++                if (gs.custom) |v| {
++                    v.deinit(self.alloc);
++                    gs.custom = null;
++                }
++                break :reload_shaders;
++            }
+ 
++            const new_custom = custom.State.init(
++                self.alloc,
++                shaders,
++            ) catch |err| {
++                log.warn("error initializing custom shaders for hot-reload err={}", .{err});
++                break :reload_shaders;
++            };
++
++            if (gs.custom) |v| v.deinit(self.alloc);
++            gs.custom = new_custom;
++
++            if (gs.custom) |*cs| {
++                cs.setScreenSize(self.size) catch |err| {
++                    log.warn("error setting screen size on reloaded shaders err={}", .{err});
++                };
++            }
++        }
++    }
+     // Apply our padding extension fields
+     {
+         const program = gl_state.cell_program;
+diff --git a/src/renderer/opengl/custom.zig b/src/renderer/opengl/custom.zig
+index 859277c..35eb7e5 100644
+--- a/src/renderer/opengl/custom.zig
++++ b/src/renderer/opengl/custom.zig
+@@ -78,11 +78,11 @@ pub const State = struct {
+             try texbind.parameter(.MagFilter, gl.c.GL_LINEAR);
+             try texbind.image2D(
+                 0,
+-                .rgb,
++                .rgba,
+                 1,
+                 1,
+                 0,
+-                .rgb,
++                .rgba,
+                 .UnsignedByte,
+                 null,
+             );
+@@ -167,11 +167,11 @@ pub const State = struct {
+         const texbind = try self.fb_texture.bind(.@"2D");
+         try texbind.image2D(
+             0,
+-            .rgb,
++            .rgba,
+             @intCast(size.screen.width),
+             @intCast(size.screen.height),
+             0,
+-            .rgb,
++            .rgba,
+             .UnsignedByte,
+             null,
+         );

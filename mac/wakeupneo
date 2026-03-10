@@ -1,0 +1,18 @@
+#!/bin/bash
+# Matrix Shader - WakeupNeo (Universal Entry Point)
+# Detects platform and delegates to platform-specific wizard
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+case "$(uname -s)" in
+    Darwin)
+        exec "$SCRIPT_DIR/wakeupneo_mac.sh" "$@"
+        ;;
+    Linux)
+        exec "$SCRIPT_DIR/../linux/wakeupneo.sh" "$@"
+        ;;
+    *)
+        echo "Unsupported platform: $(uname -s)"
+        exit 1
+        ;;
+esac

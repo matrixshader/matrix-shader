@@ -77,22 +77,71 @@ cp "$SOURCE_DIR/shaders/"*.glsl "$SHADER_DIR/"
 # Install scripts
 echo -e "${DIM}  Installing commands...${RESET}"
 cp "$SOURCE_DIR/scripts/wakeupneo.sh" "$BIN_DIR/wakeupneo"
-cp "$SOURCE_DIR/scripts/matrix-opacity.sh" "$BIN_DIR/matrix-opacity.sh"
-cp "$SOURCE_DIR/scripts/matrix-hotkey-help.sh" "$BIN_DIR/matrix-hotkey-help.sh"
 cp "$SOURCE_DIR/scripts/matrix_keys.py" "$BIN_DIR/matrix_keys.py"
 cp "$SOURCE_DIR/scripts/bluepill.sh" "$BIN_DIR/bluepill"
 cp "$SOURCE_DIR/scripts/matrix_watchdog.py" "$BIN_DIR/matrix_watchdog.py"
-chmod +x "$BIN_DIR/wakeupneo" "$BIN_DIR/matrix-opacity.sh" "$BIN_DIR/matrix-hotkey-help.sh" "$BIN_DIR/matrix_keys.py" "$BIN_DIR/bluepill" "$BIN_DIR/matrix_watchdog.py"
+
+# Optional scripts (may not exist in all builds)
+for script in matrix-opacity.sh matrix-hotkey-help.sh; do
+    [ -f "$SOURCE_DIR/scripts/$script" ] && cp "$SOURCE_DIR/scripts/$script" "$BIN_DIR/$script"
+done
+
+# Install redpill command (without .sh extension for clean CLI)
+if [ -f "$SOURCE_DIR/scripts/redpill.sh" ]; then
+    cp "$SOURCE_DIR/scripts/redpill.sh" "$BIN_DIR/redpill"
+    chmod +x "$BIN_DIR/redpill"
+fi
+
+# Python modules (TUI, services, layout engine)
+PYMOD_DIR="$INSTALL_DIR/pylib"
+mkdir -p "$PYMOD_DIR"
+for pymod in shader_service.py state_service.py hotkey_actions.py hotkey_config.py \
+             hotkey_config_screen.py hotkey_conflicts.py layout_engine.py \
+             matrix_toast.py redpill_tui.py redpill_keys.py window_service.py; do
+    [ -f "$SOURCE_DIR/scripts/$pymod" ] && cp "$SOURCE_DIR/scripts/$pymod" "$PYMOD_DIR/"
+done
+
+chmod +x "$BIN_DIR/wakeupneo" "$BIN_DIR/matrix_keys.py" "$BIN_DIR/bluepill" "$BIN_DIR/matrix_watchdog.py"
+chmod +x "$BIN_DIR/"*.sh 2>/dev/null || true
 
 # Patch script paths to use installed locations
+sed -i "s|^PYMOD_DIR=.*|PYMOD_DIR=\"$PYMOD_DIR\"|" "$BIN_DIR/wakeupneo"
 sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/wakeupneo"
 sed -i "s|SHADER_DIR=.*|SHADER_DIR=\"$SHADER_DIR\"|" "$BIN_DIR/wakeupneo"
 sed -i "s|MATRIX_KEYS=.*|MATRIX_KEYS=\"$BIN_DIR/matrix_keys.py\"|" "$BIN_DIR/wakeupneo"
 
 # Patch bluepill paths
+sed -i "s|^PYMOD_DIR=.*|PYMOD_DIR=\"$PYMOD_DIR\"|" "$BIN_DIR/bluepill"
 sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/bluepill"
 sed -i "s|MATRIX_KEYS=.*|MATRIX_KEYS=\"$BIN_DIR/matrix_keys.py\"|" "$BIN_DIR/bluepill"
 sed -i "s|WATCHDOG_SCRIPT=.*|WATCHDOG_SCRIPT=\"$BIN_DIR/matrix_watchdog.py\"|" "$BIN_DIR/bluepill"
+
+# Patch redpill paths
+if [ -f "$BIN_DIR/redpill" ]; then
+    sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/redpill"
+    sed -i "s|TUI_SCRIPT=.*|TUI_SCRIPT=\"$PYMOD_DIR/redpill_tui.py\"|" "$BIN_DIR/redpill"
+fi
+
+# Inject PYTHONPATH into Python scripts so they can find modules in PYMOD_DIR.
+# matrix_keys.py and matrix_watchdog.py import from hotkey_actions, hotkey_config, etc.
+# which live in PYMOD_DIR after install.
+for pyscript in "$BIN_DIR/matrix_keys.py" "$BIN_DIR/matrix_watchdog.py"; do
+    if [ -f "$pyscript" ]; then
+        # Add sys.path.insert right after the shebang/docstring imports
+        if ! grep -q "PYMOD_DIR" "$pyscript"; then
+            sed -i "1a\\
+import sys as _sys; _sys.path.insert(0, '$PYMOD_DIR')  # Added by install.sh" "$pyscript"
+        fi
+    fi
+done
+
+# Inject PYTHONPATH into shell scripts that run inline python3 -c
+for shscript in "$BIN_DIR/wakeupneo" "$BIN_DIR/bluepill"; do
+    if [ -f "$shscript" ]; then
+        sed -i "2a\\
+export PYTHONPATH=\"$PYMOD_DIR:\$PYTHONPATH\"  # Added by install.sh" "$shscript"
+    fi
+done
 
 # Ensure ~/.local/bin is in PATH
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
@@ -178,6 +227,7 @@ echo
 echo -e "  Commands available:"
 echo -e "    ${CYAN}wakeupneo${RESET}  - Setup wizard (start here!)"
 echo -e "    ${CYAN}bluepill${RESET}   - Fast session restore"
+echo -e "    ${CYAN}redpill${RESET}    - Control panel (advanced)"
 echo
 echo -e "  Hotkeys:"
 echo -e "    ${DIM}Ctrl+Shift+B   Toggle transparency${RESET}"

@@ -237,44 +237,47 @@ class TestNotifyConflicts:
     """notify_conflicts() sends desktop notification."""
 
     def test_sends_notification_when_conflicts(self):
-        """Calls notify-send with summary message."""
+        """Logs conflict warnings to stderr."""
+        import logging
         conflicts = [
             {"action": "ShowHelp", "key": "H", "modifiers": ["Ctrl", "Shift"],
              "system_source": "gnome"},
         ]
-        with patch("hotkey_conflicts.subprocess.Popen") as mock_popen:
+        with patch("logging.getLogger") as mock_get_logger:
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
             hotkey_conflicts.notify_conflicts(conflicts)
-            mock_popen.assert_called_once()
-            cmd = mock_popen.call_args[0][0]
-            assert "notify-send" in cmd[0]
-            # Should mention conflict count or key combo
-            full_cmd = " ".join(cmd)
-            assert "1" in full_cmd or "conflict" in full_cmd.lower()
+            mock_logger.warning.assert_called_once()
+            assert "conflict" in mock_logger.warning.call_args[0][0].lower() or \
+                   "Hotkey" in mock_logger.warning.call_args[0][0]
 
     def test_does_nothing_when_no_conflicts(self):
-        """Does not call notify-send with empty conflicts list."""
-        with patch("hotkey_conflicts.subprocess.Popen") as mock_popen:
+        """Does not log with empty conflicts list."""
+        with patch("logging.getLogger") as mock_get_logger:
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
             hotkey_conflicts.notify_conflicts([])
-            mock_popen.assert_not_called()
+            mock_logger.warning.assert_not_called()
 
-    def test_handles_missing_notify_send(self):
-        """Silently handles FileNotFoundError when notify-send not installed."""
+    def test_handles_logging_gracefully(self):
+        """Logging conflicts does not raise."""
         conflicts = [
             {"action": "ShowHelp", "key": "H", "modifiers": ["Ctrl", "Shift"],
              "system_source": "gnome"},
         ]
-        with patch("hotkey_conflicts.subprocess.Popen", side_effect=FileNotFoundError):
-            # Should not raise
-            hotkey_conflicts.notify_conflicts(conflicts)
+        # Should not raise
+        hotkey_conflicts.notify_conflicts(conflicts)
 
     def test_sends_single_notification_for_multiple_conflicts(self):
-        """Multiple conflicts produce one notification, not one per conflict."""
+        """Multiple conflicts produce one log warning per conflict."""
         conflicts = [
             {"action": "ShowHelp", "key": "H", "modifiers": ["Ctrl", "Shift"],
              "system_source": "gnome"},
             {"action": "SpeedDown", "key": "Up", "modifiers": ["Ctrl", "Shift"],
              "system_source": "gnome"},
         ]
-        with patch("hotkey_conflicts.subprocess.Popen") as mock_popen:
+        with patch("logging.getLogger") as mock_get_logger:
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
             hotkey_conflicts.notify_conflicts(conflicts)
-            assert mock_popen.call_count == 1
+            assert mock_logger.warning.call_count == 2

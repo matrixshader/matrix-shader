@@ -522,34 +522,60 @@ def check_and_snap():
     _last_glitch_check = now
 
     if not _last_applied:
-        # No cached positions — do a fresh layout to populate cache
+        # No cached positions — seed from CURRENT actual window positions
         mapping = window_service.load_mapping()
         slots = [int(s) for s in mapping.keys()
                  if window_service.get_pid_for_slot(int(s)) is not None]
-        if slots:
-            layout = calculate_layout(slots, config)
+        layout = []
+        for s in slots:
+            geo = window_service.get_position(s)
+            if geo:
+                layout.append((s, {"x": geo["x"], "y": geo["y"],
+                                   "width": geo["width"], "height": geo["height"]}))
+        if layout:
             _update_applied_cache(layout)
         return 0
 
+    # Only snap when windows overlap (skip if in overlap layout)
+    if config.get("mode") == "overlap":
+        return 0
+
+    current_geos = {}
+    for slot in _last_applied:
+        geo = window_service.get_position(slot)
+        if geo:
+            current_geos[slot] = geo
+
+    if len(current_geos) < 2:
+        return 0
+
+    # Detect overlap between any pair
+    has_overlap = False
+    slots_list = list(current_geos.keys())
+    for i in range(len(slots_list)):
+        for j in range(i + 1, len(slots_list)):
+            a, b = current_geos[slots_list[i]], current_geos[slots_list[j]]
+            if (a["x"] < b["x"] + b["width"] and a["x"] + a["width"] > b["x"] and
+                a["y"] < b["y"] + b["height"] and a["y"] + a["height"] > b["y"]):
+                has_overlap = True
+                break
+        if has_overlap:
+            break
+
+    if not has_overlap:
+        return 0
+
+    # Overlapping — snap positions back, keep current sizes
     snapped = 0
     for slot, target in _last_applied.items():
-        current = window_service.get_position(slot)
-        if current is None:
-            continue
-
-        dx = abs(current["x"] - target["x"])
-        dy = abs(current["y"] - target["y"])
-        dw = abs(current["width"] - target["width"])
-        dh = abs(current["height"] - target["height"])
-
-        if dx > GLITCH_DRIFT_THRESHOLD or dy > GLITCH_DRIFT_THRESHOLD or \
-           dw > GLITCH_DRIFT_THRESHOLD or dh > GLITCH_DRIFT_THRESHOLD:
-            ok = window_service.position_window(
-                slot, target["x"], target["y"],
-                target["width"], target["height"]
-            )
-            if ok:
-                snapped += 1
+        cur = current_geos.get(slot)
+        w = cur["width"] if cur else target["width"]
+        h = cur["height"] if cur else target["height"]
+        ok = window_service.position_window(
+            slot, target["x"], target["y"], w, h
+        )
+        if ok:
+            snapped += 1
 
     return snapped
 

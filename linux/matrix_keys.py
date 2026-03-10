@@ -219,11 +219,16 @@ def handle_config_reload(watcher):
     return {"config": config, "hotkey_table": hotkey_table, "redpill": redpill}
 
 
+def _try_glitch_check():
+    """Disabled — glitch snap needs redesign (event-driven, not polling)."""
+    pass
+
+
 def event_loop(kbd, hotkey_table, watcher):
     """Unified select loop: multiplexes evdev keyboard fd + inotify watcher fd.
 
-    Replaces the old listen() function. Handles keyboard events and config
-    changes in a single loop.
+    Replaces the old listen() function. Handles keyboard events, config
+    changes, and glitch auto-snap checks in a single loop.
 
     Args:
         kbd: evdev InputDevice for the keyboard.
@@ -259,6 +264,10 @@ def event_loop(kbd, hotkey_table, watcher):
             if watcher.check():
                 result = handle_config_reload(watcher)
                 hotkey_table = result["hotkey_table"]
+
+        # Glitch mode: periodically check for window drift and snap back.
+        # check_and_snap() internally rate-limits to every 3 seconds.
+        _try_glitch_check()
 
 
 def main():

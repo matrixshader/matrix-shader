@@ -300,6 +300,21 @@ def get_ghostty_bus_names() -> dict:
         except (FileNotFoundError, PermissionError):
             continue
 
+    # Fall back to window_service mapping for slots not found via cmdline
+    try:
+        win_map_path = "/tmp/matrix-window-map.json"
+        with open(win_map_path) as f:
+            win_map = json.load(f)
+        for slot_str, entry in win_map.items():
+            slot = int(slot_str)
+            if slot in mapping:
+                continue
+            pid = entry.get("pid")
+            if pid and pid in bus_entries:
+                mapping[slot] = {"pid": pid, "bus_name": bus_entries[pid]}
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        pass
+
     return mapping
 
 

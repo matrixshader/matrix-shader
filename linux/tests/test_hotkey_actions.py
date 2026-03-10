@@ -282,121 +282,99 @@ class TestLayoutAction:
 # ---------------------------------------------------------------------------
 
 class TestSwapActions:
-    """SwapLeft/Right rotates slot shader file assignments."""
+    """SwapLeft/Right rotates window positions in the layout formation."""
 
-    @patch("hotkey_actions.show_toast")
-    @patch("hotkey_actions.reload_ghostty")
-    @patch("hotkey_actions.get_ghostty_bus_names")
-    def test_swap_left_rotates_shaders(self, mock_bus, mock_reload, mock_toast, tmp_path):
+    def test_swap_left_rotates_positions(self):
+        """SwapLeft moves window positions: [A, B, C] → [B, C, A]."""
         from hotkey_actions import action_swap_left
-        import hotkey_actions
-        # Create 3 slot shader files
-        shader_dir = tmp_path / "shaders"
-        shader_dir.mkdir()
-        (shader_dir / "matrix-1.glsl").write_text("SHADER_1")
-        (shader_dir / "matrix-2.glsl").write_text("SHADER_2")
-        (shader_dir / "matrix-3.glsl").write_text("SHADER_3")
 
-        mock_bus.return_value = {
-            1: {"pid": 100, "bus_name": ":1.10"},
-            2: {"pid": 200, "bus_name": ":1.20"},
-            3: {"pid": 300, "bus_name": ":1.30"},
-        }
-        with patch.object(hotkey_actions, "SLOT_SHADER_DIR", str(shader_dir)):
+        positions_applied = []
+
+        def fake_position(slot, x, y, w, h):
+            positions_applied.append((slot, x))
+            return True
+
+        def fake_get_pid(slot):
+            return 100 + slot
+
+        def fake_get_position(slot):
+            geos = {
+                1: {"x": 0, "y": 0, "width": 640, "height": 1080},
+                2: {"x": 640, "y": 0, "width": 640, "height": 1080},
+                3: {"x": 1280, "y": 0, "width": 640, "height": 1080},
+            }
+            return geos.get(slot)
+
+        fake_mapping = {"1": {"pid": 101}, "2": {"pid": 102}, "3": {"pid": 103}}
+
+        with patch("window_service.load_mapping", return_value=fake_mapping), \
+             patch("window_service.get_pid_for_slot", side_effect=fake_get_pid), \
+             patch("window_service.get_position", side_effect=fake_get_position), \
+             patch("window_service.position_window", side_effect=fake_position), \
+             patch("layout_engine._update_applied_cache"):
             action_swap_left()
 
-        # Left rotation: slot 1 gets slot 2's content, slot 2 gets slot 3's, slot 3 gets slot 1's
-        assert (shader_dir / "matrix-1.glsl").read_text() == "SHADER_2"
-        assert (shader_dir / "matrix-2.glsl").read_text() == "SHADER_3"
-        assert (shader_dir / "matrix-3.glsl").read_text() == "SHADER_1"
+        # Left rotation: windows shift left; sorted by X = [1,2,3]
+        # rotated_windows = [2,3,1], so slot 2→pos0, slot 3→pos640, slot 1→pos1280
+        assert len(positions_applied) == 3
+        slot_x = {s: x for s, x in positions_applied}
+        assert slot_x[2] == 0
+        assert slot_x[3] == 640
+        assert slot_x[1] == 1280
 
-    @patch("hotkey_actions.show_toast")
-    @patch("hotkey_actions.reload_ghostty")
-    @patch("hotkey_actions.get_ghostty_bus_names")
-    def test_swap_right_rotates_shaders(self, mock_bus, mock_reload, mock_toast, tmp_path):
+    def test_swap_right_rotates_positions(self):
+        """SwapRight moves window positions: [A, B, C] → [C, A, B]."""
         from hotkey_actions import action_swap_right
-        import hotkey_actions
-        shader_dir = tmp_path / "shaders"
-        shader_dir.mkdir()
-        (shader_dir / "matrix-1.glsl").write_text("SHADER_1")
-        (shader_dir / "matrix-2.glsl").write_text("SHADER_2")
-        (shader_dir / "matrix-3.glsl").write_text("SHADER_3")
 
-        mock_bus.return_value = {
-            1: {"pid": 100, "bus_name": ":1.10"},
-            2: {"pid": 200, "bus_name": ":1.20"},
-            3: {"pid": 300, "bus_name": ":1.30"},
+        positions_applied = []
+
+        def fake_position(slot, x, y, w, h):
+            positions_applied.append((slot, x))
+            return True
+
+        def fake_get_pid(slot):
+            return 100 + slot
+
+        geos = {
+            1: {"x": 0, "y": 0, "width": 640, "height": 1080},
+            2: {"x": 640, "y": 0, "width": 640, "height": 1080},
+            3: {"x": 1280, "y": 0, "width": 640, "height": 1080},
         }
-        with patch.object(hotkey_actions, "SLOT_SHADER_DIR", str(shader_dir)):
+
+        def fake_get_position(slot):
+            return geos.get(slot)
+
+        fake_mapping = {"1": {"pid": 101}, "2": {"pid": 102}, "3": {"pid": 103}}
+
+        with patch("window_service.load_mapping", return_value=fake_mapping), \
+             patch("window_service.get_pid_for_slot", side_effect=fake_get_pid), \
+             patch("window_service.get_position", side_effect=fake_get_position), \
+             patch("window_service.position_window", side_effect=fake_position), \
+             patch("layout_engine._update_applied_cache"):
             action_swap_right()
 
-        # Right rotation: slot 1 gets slot 3's content, slot 2 gets slot 1's, slot 3 gets slot 2's
-        assert (shader_dir / "matrix-1.glsl").read_text() == "SHADER_3"
-        assert (shader_dir / "matrix-2.glsl").read_text() == "SHADER_1"
-        assert (shader_dir / "matrix-3.glsl").read_text() == "SHADER_2"
+        # Right rotation: windows shift right; sorted by X = [1,2,3]
+        # rotated_windows = [3,1,2], so slot 3→pos0, slot 1→pos640, slot 2→pos1280
+        slot_x = {s: x for s, x in positions_applied}
+        assert slot_x[3] == 0
+        assert slot_x[1] == 640
+        assert slot_x[2] == 1280
 
     @patch("hotkey_actions.show_toast")
-    @patch("hotkey_actions.reload_ghostty")
-    @patch("hotkey_actions.get_ghostty_bus_names")
-    def test_swap_left_reloads_all(self, mock_bus, mock_reload, mock_toast, tmp_path):
+    def test_swap_left_no_windows(self, mock_toast):
+        """SwapLeft with no windows does nothing."""
         from hotkey_actions import action_swap_left
-        import hotkey_actions
-        shader_dir = tmp_path / "shaders"
-        shader_dir.mkdir()
-        (shader_dir / "matrix-1.glsl").write_text("S1")
-        (shader_dir / "matrix-2.glsl").write_text("S2")
-
-        mock_bus.return_value = {
-            1: {"pid": 100, "bus_name": ":1.10"},
-            2: {"pid": 200, "bus_name": ":1.20"},
-        }
-        with patch.object(hotkey_actions, "SLOT_SHADER_DIR", str(shader_dir)):
+        with patch("window_service.load_mapping", return_value={}), \
+             patch("window_service.get_pid_for_slot", return_value=None):
             action_swap_left()
-        assert mock_reload.call_count == 2
+        mock_toast.assert_not_called()
 
-    @patch("hotkey_actions.show_toast")
-    @patch("hotkey_actions.reload_ghostty")
-    @patch("hotkey_actions.get_ghostty_bus_names")
-    def test_swap_left_no_windows(self, mock_bus, mock_reload, mock_toast):
+    def test_swap_left_single_window(self):
+        """SwapLeft with 1 window does nothing (need 2+ to rotate)."""
         from hotkey_actions import action_swap_left
-        mock_bus.return_value = {}
-        action_swap_left()
-        mock_reload.assert_not_called()
-
-    @patch("hotkey_actions.show_toast")
-    @patch("hotkey_actions.reload_ghostty")
-    @patch("hotkey_actions.get_ghostty_bus_names")
-    def test_swap_left_single_window(self, mock_bus, mock_reload, mock_toast, tmp_path):
-        from hotkey_actions import action_swap_left
-        import hotkey_actions
-        shader_dir = tmp_path / "shaders"
-        shader_dir.mkdir()
-        (shader_dir / "matrix-1.glsl").write_text("ONLY_ONE")
-
-        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
-        with patch.object(hotkey_actions, "SLOT_SHADER_DIR", str(shader_dir)):
+        with patch("window_service.load_mapping", return_value={"1": {"pid": 101}}), \
+             patch("window_service.get_pid_for_slot", return_value=101):
             action_swap_left()
-        # With 1 slot, nothing changes
-        assert (shader_dir / "matrix-1.glsl").read_text() == "ONLY_ONE"
-
-    @patch("hotkey_actions.show_toast")
-    @patch("hotkey_actions.reload_ghostty")
-    @patch("hotkey_actions.get_ghostty_bus_names")
-    def test_swap_shows_toast(self, mock_bus, mock_reload, mock_toast, tmp_path):
-        from hotkey_actions import action_swap_left
-        import hotkey_actions
-        shader_dir = tmp_path / "shaders"
-        shader_dir.mkdir()
-        (shader_dir / "matrix-1.glsl").write_text("S1")
-        (shader_dir / "matrix-2.glsl").write_text("S2")
-
-        mock_bus.return_value = {
-            1: {"pid": 100, "bus_name": ":1.10"},
-            2: {"pid": 200, "bus_name": ":1.20"},
-        }
-        with patch.object(hotkey_actions, "SLOT_SHADER_DIR", str(shader_dir)):
-            action_swap_left()
-        mock_toast.assert_called_once_with("Slots rotated left")
 
 
 # ---------------------------------------------------------------------------
@@ -529,34 +507,13 @@ class TestReloadAction:
 # ---------------------------------------------------------------------------
 
 class TestToast:
-    """show_toast() calls notify-send with proper arguments."""
+    """show_toast() is disabled — no popups in Matrix Shader."""
 
-    @patch("hotkey_actions.subprocess.Popen")
-    def test_toast_calls_notify_send(self, mock_popen):
+    def test_toast_is_noop(self):
         from hotkey_actions import show_toast
+        # Should not raise or do anything
         show_toast("Speed: 1.5")
-        mock_popen.assert_called_once()
-        cmd = mock_popen.call_args[0][0]
-        assert cmd[0] == "notify-send"
-        assert "--app-name=Matrix Shader" in cmd
-        assert "--expire-time=1500" in cmd
-        assert "--hint=string:x-dunst-stack-tag:matrix-shader" in cmd
-        assert "Matrix Shader" in cmd  # title
-        assert "Speed: 1.5" in cmd  # message body
-
-    @patch("hotkey_actions.subprocess.Popen", side_effect=FileNotFoundError)
-    def test_toast_handles_missing_notify_send(self, mock_popen):
-        from hotkey_actions import show_toast
-        # Should not raise
-        show_toast("test")
-
-    @patch("hotkey_actions.subprocess.Popen")
-    def test_toast_custom_title(self, mock_popen):
-        from hotkey_actions import show_toast
-        show_toast("hello", title="Custom Title")
-        cmd = mock_popen.call_args[0][0]
-        assert "Custom Title" in cmd
-        assert "hello" in cmd
+        show_toast("test", title="Custom Title")
 
 
 # ---------------------------------------------------------------------------

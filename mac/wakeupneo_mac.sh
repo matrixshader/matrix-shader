@@ -1,34 +1,55 @@
 #!/bin/bash
-# Matrix Shader - WakeupNeo (Linux/Ghostty)
-# Exact port of Windows WakeupNeo setup wizard
+# Matrix Shader - WakeupNeo (macOS/Ghostty)
+# macOS port of linux/wakeupneo.sh
 
-SCRIPT_PATH="$(realpath "$0")"
-PYMOD_DIR="$(dirname "$SCRIPT_PATH")"
-SHADER_DIR="$(dirname "$SCRIPT_PATH")/../shaders-glsl"
-GHOSTTY_BIN="/home/neo/ghostty-build/zig-out/bin/ghostty"
-CONFIG_DIR="$HOME/.config/ghostty"
+SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+SHADER_DIR="$SCRIPT_DIR/../shaders-glsl"
+SHADER_SERVICE="$SCRIPT_DIR/shader_service_mac.py"
 STATE_DIR="$HOME/.config/matrix-shader"
 STATE_FILE="$STATE_DIR/state.json"
-HOTKEY_HELP="$HOME/.local/bin/matrix-hotkey-help.sh"
-MATRIX_KEYS="$(dirname "$SCRIPT_PATH")/matrix_keys.py"
+MATRIX_KEYS="$SCRIPT_DIR/matrix_keys_mac.py"
 MATRIX_KEYS_PID="/tmp/matrix-keys.pid"
 
+# Detect Ghostty binary
+if [ -x "/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
+    GHOSTTY_BIN="/Applications/Ghostty.app/Contents/MacOS/ghostty"
+elif [ -x "$HOME/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
+    GHOSTTY_BIN="$HOME/Applications/Ghostty.app/Contents/MacOS/ghostty"
+elif command -v ghostty &>/dev/null; then
+    GHOSTTY_BIN="$(command -v ghostty)"
+else
+    GHOSTTY_BIN=""
+fi
+
+# Detect font (macOS may not have Nimbus Mono PS)
+if system_profiler SPFontsDataType 2>/dev/null | grep -qi "Nimbus Mono PS"; then
+    FONT="Nimbus Mono PS"
+elif system_profiler SPFontsDataType 2>/dev/null | grep -qi "SF Mono"; then
+    FONT="SF Mono"
+else
+    FONT="Menlo"
+fi
+
 # Self-relaunch inside Ghostty if not already there
-# Uses --in-ghostty flag (not env var) to avoid leaking through child processes
 if [ "$1" != "--in-ghostty" ]; then
     setup_conf="/tmp/ghostty-wakeupneo.conf"
-    cat > "$setup_conf" <<'SETUPEOF'
+    cat > "$setup_conf" <<SETUPEOF
 background = #000000
 foreground = #6EDCAA
-font-family = Nimbus Mono PS
+font-family = ${FONT}
 font-style = Bold
 font-size = 16
 background-opacity = 1
-gtk-titlebar = true
-window-decoration = client
+macos-titlebar-style = hidden
 SETUPEOF
-    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$setup_conf" -e "$SCRIPT_PATH" --in-ghostty >/dev/null 2>&1 &
-    disown
+    if [ -n "$GHOSTTY_BIN" ]; then
+        nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$setup_conf" -e "$SCRIPT_PATH" --in-ghostty >/dev/null 2>&1 &
+        disown
+    else
+        # Fallback: try open -a
+        open -na Ghostty --args --config-default-files=false --config-file="$setup_conf" -e "$SCRIPT_PATH" --in-ghostty 2>/dev/null &
+    fi
     exit 0
 fi
 
@@ -54,28 +75,25 @@ PRESETS=(
 )
 
 PRESET_COLORS=("$GREEN" "$BLUE" "$RED" "$PURPLE" "$GOLD" "$CYAN")
-PRESET_FILES=("matrix-green-ghostty.glsl" "matrix-blue-ghostty.glsl" "matrix-red-ghostty.glsl" "matrix-purple-ghostty.glsl" "matrix-gold-ghostty.glsl" "matrix-teal-ghostty.glsl")
 
 # Color swatch using ANSI 24-bit color
 color_swatch() {
     local r=$1 g=$2 b=$3
-    # Convert 0.0-1.0 to 0-255
-    local ri=$(awk "BEGIN {printf \"%d\", $r * 255}")
-    local gi=$(awk "BEGIN {printf \"%d\", $g * 255}")
-    local bi=$(awk "BEGIN {printf \"%d\", $b * 255}")
+    local ri=$(python3 -c "print(int($r * 255))")
+    local gi=$(python3 -c "print(int($g * 255))")
+    local bi=$(python3 -c "print(int($b * 255))")
     printf "\033[48;2;%d;%d;%dm   \033[0m" "$ri" "$gi" "$bi"
 }
 
 # --- Functions ---
 
-# Detect which Matrix slots have running Ghostty processes
-# Returns space-separated list of open slot numbers
 get_open_slots() {
     local open=()
     for conf in /tmp/ghostty-matrix-*.conf; do
         [ -f "$conf" ] || continue
-        local slot=$(echo "$conf" | grep -oP 'ghostty-matrix-\K\d+')
-        if pgrep -f "config-file=$conf" >/dev/null 2>&1; then
+        local slot=$(echo "$conf" | grep -oE 'ghostty-matrix-[0-9]+' | grep -oE '[0-9]+')
+        # macOS: use ps instead of pgrep -f
+        if ps -eo args 2>/dev/null | grep -q "config-file=$conf"; then
             open+=("$slot")
         fi
     done
@@ -95,86 +113,70 @@ launch_window() {
     local preset_idx=$1
     local slot=$2
     IFS=':' read -r name r g b fg <<< "${PRESETS[$preset_idx]}"
+
     # Create per-slot shader from template with preset colors
     local shader_file
-    shader_file=$(python3 "$PYMOD_DIR/shader_service.py" create --slot "$slot" --preset "$preset_idx" 2>/dev/null)
+    shader_file=$(python3 "$SHADER_SERVICE" create --slot "$slot" --preset "$preset_idx" 2>/dev/null)
     if [ -z "$shader_file" ] || [ ! -f "$shader_file" ]; then
-        # Fallback to direct preset file if shader_service fails
-        shader_file="${SHADER_DIR}/${PRESET_FILES[$preset_idx]}"
-        echo -e "   ${DIM}(using preset file fallback)${RESET}"
+        # Fallback: try Linux shader_service
+        shader_file=$(python3 "$SCRIPT_DIR/../linux/shader_service.py" create --slot "$slot" --preset "$preset_idx" 2>/dev/null)
     fi
-    local conf="/tmp/ghostty-matrix-${slot}.conf"
+    if [ -z "$shader_file" ] || [ ! -f "$shader_file" ]; then
+        echo -e "   ${DIM}(shader creation failed)${RESET}"
+        return 1
+    fi
 
+    local conf="/tmp/ghostty-matrix-${slot}.conf"
     cat > "$conf" <<EOF
 custom-shader = ${shader_file}
 background = #000000
 foreground = ${fg}
-font-family = Nimbus Mono PS
+font-family = ${FONT}
 font-style = Bold
 background-opacity = 0.85
-gtk-titlebar = true
-window-decoration = client
+macos-titlebar-style = hidden
 custom-shader-animation = always
-desktop-notifications = false
-keybind = ctrl+shift+j=unbind
-keybind = ctrl+shift+k=unbind
-keybind = ctrl+shift+b=unbind
-keybind = ctrl+shift+h=unbind
-keybind = ctrl+shift+l=unbind
-keybind = ctrl+shift+one=unbind
-keybind = ctrl+shift+two=unbind
-keybind = ctrl+shift+three=unbind
-keybind = ctrl+shift+up=unbind
-keybind = ctrl+shift+down=unbind
-keybind = ctrl+shift+left=unbind
-keybind = ctrl+shift+right=unbind
-keybind = ctrl+shift+f5=unbind
-keybind = ctrl+shift+s=unbind
-keybind = ctrl+shift+r=unbind
-keybind = ctrl+shift+g=unbind
 EOF
 
-    # NOTE: Do NOT overwrite default config - matrix windows use their own config files
-    # Default ~/.config/ghostty/config stays clean so normal Ghostty opens are normal
-
     echo -ne "   Waiting for Matrix-${slot}..."
-    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
-    local ghostty_pid=$!
-    # Register PID with window service for positioning (Phase 5)
-    python3 "$PYMOD_DIR/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
+
+    if [ -n "$GHOSTTY_BIN" ]; then
+        nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+    else
+        open -na Ghostty --args --config-default-files=false --config-file="$conf" 2>/dev/null &
+    fi
     sleep 0.5
+
     local swatch=$(color_swatch "$r" "$g" "$b")
     echo -e " ${swatch} ${PRESET_COLORS[$preset_idx]}${name}${RESET} ${GREEN}OK${RESET}"
 }
 
-# Turn wizard window 100% transparent (glass pane)
 go_transparent() {
     setup_conf="/tmp/ghostty-wakeupneo.conf"
     cat > "$setup_conf" <<TRANSEOF
 background = #000000
 foreground = #6EDCAA
-font-family = Nimbus Mono PS
+font-family = ${FONT}
 font-style = Bold
 font-size = 16
 background-opacity = 0
-gtk-titlebar = true
-window-decoration = client
+macos-titlebar-style = hidden
 TRANSEOF
-    # Signal ALL Ghostty instances to reload
-    for busname in $(busctl --user list 2>/dev/null | awk '/ghostty/{print $1}'); do
-        gdbus call --session --dest "$busname" \
-            --object-path /com/mitchellh/ghostty \
-            --method org.gtk.Actions.Activate \
-            'reload-config' '[]' '{}' >/dev/null 2>&1
-    done
+    # Trigger config reload on all Ghostty instances
+    python3 "$SCRIPT_DIR/platform_mac.py" reload 2>/dev/null || \
+    python3 -c "
+import sys; sys.path.insert(0, '$SCRIPT_DIR')
+from platform_mac import reload_ghostty_mac
+reload_ghostty_mac()
+" 2>/dev/null
     sleep 0.3
 }
 
-# Post-launch display (shown on transparent glass background)
 show_post_launch() {
     local is_redpill=$1
 
     echo
+
     # Kill any existing hotkey listener, then start fresh
     if [ -f "$MATRIX_KEYS_PID" ]; then
         kill "$(cat "$MATRIX_KEYS_PID")" 2>/dev/null
@@ -189,24 +191,6 @@ show_post_launch() {
         echo -e "${GREEN} Starting hotkeys...${RESET} ${RED}MISSING (${MATRIX_KEYS})${RESET}"
     fi
 
-    # Start watchdog to auto-restart hotkey listener on crash
-    WATCHDOG_SCRIPT="$PYMOD_DIR/matrix_watchdog.py"
-    if [ -f "$WATCHDOG_SCRIPT" ]; then
-        watchdog_pid="/tmp/matrix-watchdog.pid"
-        if [ -f "$watchdog_pid" ] && kill -0 "$(cat "$watchdog_pid")" 2>/dev/null; then
-            : # Watchdog already running
-        else
-            nohup python3 "$WATCHDOG_SCRIPT" > /dev/null 2>&1 &
-            disown
-        fi
-    fi
-
-    # Spawn hotkey help overlay as separate popup window
-    if [ -x "$HOTKEY_HELP" ]; then
-        "$HOTKEY_HELP" &
-    fi
-
-    # Final message
     echo
     if [ "$is_redpill" -eq 1 ]; then
         echo -e "${GREEN} THE MATRIX HAS YOU.${RESET}"
@@ -218,7 +202,6 @@ show_post_launch() {
         echo -e "${CYAN} matrixshader.com/redpill${RESET}"
     fi
 
-    # Hotkey summary
     echo
     echo -e "${DIM} ----------------------------------------${RESET}"
     echo -e " ${CYAN}GLOBAL HOTKEYS${RESET} ${DIM}(Ctrl+Shift+H for full reference)${RESET}"
@@ -232,6 +215,15 @@ show_post_launch() {
     echo -e "${GOLD} https://buymeacoffee.com/IKnowKungFu${RESET}"
     echo
 
+    # Check Accessibility permission
+    python3 -c "
+import sys; sys.path.insert(0, '$SCRIPT_DIR')
+from platform_mac import check_accessibility_permission
+if not check_accessibility_permission():
+    print('\033[33m Note: Grant Accessibility permission for hotkeys to work.\033[0m')
+    print('\033[2m System Settings > Privacy & Security > Accessibility\033[0m')
+" 2>/dev/null
+
     sleep infinity
 }
 
@@ -240,7 +232,7 @@ show_post_launch() {
 clear
 echo
 
-# Dramatic intro - matches Windows version timing
+# Dramatic intro
 typewriter " Wake up, Neo..." 0.10
 sleep 1
 
@@ -258,16 +250,16 @@ echo -e "${DIM} ----------------------------------------${RESET}"
 echo
 
 # Check Ghostty
-if [ ! -f "$GHOSTTY_BIN" ]; then
-    echo -e "${RED} Ghostty not found at $GHOSTTY_BIN${RESET}"
-    echo -e "${DIM} Build it first: cd ~/ghostty-build && zig build -Doptimize=ReleaseFast -Dapp-runtime=gtk${RESET}"
+if [ -z "$GHOSTTY_BIN" ] && ! command -v ghostty &>/dev/null; then
+    echo -e "${RED} Ghostty not found.${RESET}"
+    echo -e "${DIM} Install Ghostty: brew install --cask ghostty${RESET}"
     echo
     sleep 3
     exit 1
 fi
 
 # Check for previous session
-mkdir -p "$STATE_DIR" "$CONFIG_DIR"
+mkdir -p "$STATE_DIR"
 
 if [ -f "$STATE_FILE" ]; then
     num_prev=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(len(d['windows']))" 2>/dev/null || echo 0)
@@ -286,10 +278,7 @@ print(', '.join(str(w['slot']) for w in d['windows']))
         echo
 
         if [[ "$restore" == "y" || "$restore" == "Y" ]]; then
-            # Detect already-open Matrix windows
             open_slots=($(get_open_slots))
-
-            # Turn wizard transparent, then show restore on glass background
             go_transparent
             clear
             echo
@@ -302,7 +291,6 @@ print(', '.join(str(w['slot']) for w in d['windows']))
                 preset_idx=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d['windows'][$i]['preset'])")
                 slot=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d['windows'][$i]['slot'])")
 
-                # Skip if this slot is already running
                 if [[ " ${open_slots[*]} " == *" $slot "* ]]; then
                     IFS=':' read -r name r g b fg <<< "${PRESETS[$preset_idx]}"
                     swatch=$(color_swatch "$r" "$g" "$b")
@@ -321,16 +309,6 @@ print(', '.join(str(w['slot']) for w in d['windows']))
                 echo -e "${DIM}   Skipped ${skipped} already-open window(s)${RESET}"
             fi
 
-            # Apply layout to position restored windows
-            sleep 0.5
-            python3 -c "
-import sys; sys.path.insert(0, '$PYMOD_DIR')
-from layout_engine import apply_current_layout
-n = apply_current_layout()
-if n > 0:
-    print(f'   Positioned {n} window(s) in layout')
-" 2>/dev/null || true
-
             show_post_launch 0
             exit 0
         fi
@@ -338,14 +316,14 @@ if n > 0:
     fi
 fi
 
-# Detect currently open Matrix windows (matches Windows FindMatrixWindows)
+# Detect currently open Matrix windows
 open_slots=($(get_open_slots))
 if [ "${#open_slots[@]}" -gt 0 ] && [ -n "${open_slots[0]}" ]; then
     echo -e "${DIM} Detected ${#open_slots[@]} open Matrix window(s): slots [${open_slots[*]}]${RESET}"
     echo
 fi
 
-# Calculate available slots (1-8 minus occupied)
+# Calculate available slots
 declare -a available_slots
 for s in $(seq 1 8); do
     if [[ " ${open_slots[*]} " != *" $s "* ]]; then
@@ -356,7 +334,7 @@ max_new=${#available_slots[@]}
 
 if [ "$max_new" -eq 0 ]; then
     echo -e "${GREEN} All 8 Matrix slots are in use!${RESET}"
-    echo -e "${DIM} Close some Matrix windows first, or use the control panel.${RESET}"
+    echo -e "${DIM} Close some Matrix windows first.${RESET}"
     sleep 3
     exit 0
 fi
@@ -381,7 +359,6 @@ for w in $(seq 1 "$num_windows"); do
     echo -e "${DIM} ----------------------------------------${RESET}"
     echo
 
-    # Show color presets with swatches
     for i in "${!PRESETS[@]}"; do
         IFS=':' read -r name r g b fg <<< "${PRESETS[$i]}"
         local_swatch=$(color_swatch "$r" "$g" "$b")
@@ -444,7 +421,7 @@ for i in "${!selected_presets[@]}"; do
     sleep 0.3
 done
 
-# Save state with slot info
+# Save state
 {
     echo '{"windows":['
     for i in "${!selected_presets[@]}"; do
@@ -454,15 +431,5 @@ done
     echo
     echo ']}'
 } > "$STATE_FILE"
-
-# Apply pillars layout to position windows with proper gaps
-sleep 0.5
-python3 -c "
-import sys; sys.path.insert(0, '$PYMOD_DIR')
-from layout_engine import apply_current_layout
-n = apply_current_layout()
-if n > 0:
-    print(f'   Positioned {n} window(s) in layout')
-" 2>/dev/null || true
 
 show_post_launch "$is_redpill"

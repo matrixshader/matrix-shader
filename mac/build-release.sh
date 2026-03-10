@@ -1,0 +1,137 @@
+#!/bin/bash
+# Matrix Shader - macOS Release Builder
+# Creates matrix-shader-mac-{arch}.tar.gz for GitHub release
+#
+# Usage: ./build-release.sh
+#
+# Must run on macOS. Detects architecture automatically.
+# Optionally builds patched Ghostty if --build-ghostty is passed.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+BUILD_GHOSTTY=false
+
+for arg in "$@"; do
+    case "$arg" in
+        --build-ghostty) BUILD_GHOSTTY=true ;;
+    esac
+done
+
+GREEN='\033[0;32m'
+DIM='\033[2m'
+RED='\033[0;31m'
+RESET='\033[0m'
+
+# Architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)  ARCH_SUFFIX="x86_64" ;;
+    arm64)   ARCH_SUFFIX="aarch64" ;;
+    *)
+        echo -e "${RED}Must run on macOS (x86_64 or arm64)${RESET}"
+        exit 1
+        ;;
+esac
+
+echo ""
+echo -e "${GREEN}  Matrix Shader - macOS Release Builder${RESET}"
+echo -e "${GREEN}  ======================================${RESET}"
+echo -e "${DIM}  Architecture: $ARCH ($ARCH_SUFFIX)${RESET}"
+echo ""
+
+# Create staging directory
+STAGING=$(mktemp -d)
+trap "rm -rf $STAGING" EXIT
+
+RELEASE_DIR="$STAGING/matrix-shader-mac-$ARCH_SUFFIX"
+mkdir -p "$RELEASE_DIR"/{mac/patches,shaders-glsl}
+
+# 1. Copy Mac scripts
+echo -e "${DIM}  Staging Mac scripts...${RESET}"
+for f in wakeupneo wakeupneo_mac.sh matrix_keys_mac.py matrix_toast_mac.py \
+         hotkey_config_mac.py shader_service_mac.py platform_mac.py \
+         install_mac.sh i.sh __init__.py; do
+    [ -f "$SCRIPT_DIR/$f" ] && cp "$SCRIPT_DIR/$f" "$RELEASE_DIR/mac/"
+done
+
+# 2. Copy patches
+echo -e "${DIM}  Staging patches...${RESET}"
+cp -r "$SCRIPT_DIR/patches/"* "$RELEASE_DIR/mac/patches/" 2>/dev/null || true
+
+# 3. Copy Homebrew cask
+if [ -d "$SCRIPT_DIR/Casks" ]; then
+    cp -r "$SCRIPT_DIR/Casks" "$RELEASE_DIR/mac/"
+fi
+
+# 4. Copy DMG builder
+if [ -d "$SCRIPT_DIR/dmg" ]; then
+    cp -r "$SCRIPT_DIR/dmg" "$RELEASE_DIR/mac/"
+fi
+
+# 5. Copy GLSL shaders
+echo -e "${DIM}  Staging shaders...${RESET}"
+cp "$PROJECT_DIR/shaders-glsl/"*-ghostty.glsl "$RELEASE_DIR/shaders-glsl/" 2>/dev/null || true
+
+# 6. Copy shared Linux scripts that Mac might reference
+mkdir -p "$RELEASE_DIR/linux"
+for f in shader_service.py state_service.py hotkey_actions.py hotkey_config.py; do
+    [ -f "$PROJECT_DIR/linux/$f" ] && cp "$PROJECT_DIR/linux/$f" "$RELEASE_DIR/linux/"
+done
+
+# 7. Build patched Ghostty if requested (must be on macOS)
+if $BUILD_GHOSTTY; then
+    echo -e "${DIM}  Building patched Ghostty.app...${RESET}"
+    GHOSTTY_SRC="/tmp/ghostty-build-mac"
+
+    ZIG_DIR="/tmp/zig-macos-${ARCH}-0.13.0"
+    if [ ! -d "$ZIG_DIR" ]; then
+        ZIG_ARCH="$ARCH"
+        [ "$ARCH" = "arm64" ] && ZIG_ARCH="aarch64"
+        echo -e "${DIM}  Downloading Zig 0.13.0...${RESET}"
+        curl -sL "https://ziglang.org/download/0.13.0/zig-macos-${ZIG_ARCH}-0.13.0.tar.xz" | tar xJ -C /tmp
+    fi
+
+    if [ ! -d "$GHOSTTY_SRC" ]; then
+        git clone https://github.com/ghostty-org/ghostty "$GHOSTTY_SRC"
+    fi
+
+    cd "$GHOSTTY_SRC"
+    git checkout -- . 2>/dev/null || true
+    git apply "$SCRIPT_DIR/patches/metal-shader-hotreload.patch"
+
+    PATH="$ZIG_DIR:$PATH" zig build -Doptimize=ReleaseFast -Dapp-runtime=none -Demit-xcframework=true
+    xcodebuild -project macos/Ghostty.xcodeproj -scheme Ghostty -configuration Release \
+        -derivedDataPath build 2>&1 | tail -3
+
+    BUILT_APP="build/Build/Products/Release/Ghostty.app"
+    if [ -d "$BUILT_APP" ]; then
+        echo -e "${DIM}  Bundling Ghostty.app in release...${RESET}"
+        cp -R "$BUILT_APP" "$RELEASE_DIR/Ghostty.app"
+    else
+        echo -e "${RED}  Ghostty build failed -- not included in release${RESET}"
+    fi
+    cd "$PROJECT_DIR"
+fi
+
+# 8. Create tarball
+OUTPUT="$PROJECT_DIR/matrix-shader-mac-${ARCH_SUFFIX}.tar.gz"
+echo -e "${DIM}  Creating tarball...${RESET}"
+cd "$STAGING"
+tar czf "$OUTPUT" "matrix-shader-mac-$ARCH_SUFFIX"
+
+SIZE=$(du -sh "$OUTPUT" | cut -f1)
+
+echo ""
+echo -e "${GREEN}  Release built successfully!${RESET}"
+echo -e "${DIM}  Output: $OUTPUT${RESET}"
+echo -e "${DIM}  Size:   $SIZE${RESET}"
+echo ""
+echo -e "${DIM}  Contents:${RESET}"
+tar tzf "$OUTPUT" | head -30
+echo -e "${DIM}  ...${RESET}"
+echo ""
+echo -e "${DIM}  Upload to GitHub release:${RESET}"
+echo -e "${DIM}    gh release upload vX.Y.Z $OUTPUT${RESET}"
+echo ""
