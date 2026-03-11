@@ -31,7 +31,9 @@ public class TabManager
 
         // Initialize from state or first open window
         var state = _configService.LoadState();
-        var openWindows = _identityService.FindMatrixWindows();
+        var openWindows = _identityService.FindMatrixWindows()
+            .Where(w => w.ShaderIndex > 0 && !w.IsControlPanel && !w.IsConstruct)
+            .ToList();
 
         if (openWindows.Count > 0)
         {
@@ -76,7 +78,8 @@ public class TabManager
     /// </summary>
     public IReadOnlyList<(int slot, float r, float g, float b)> GetTabsForRendering()
     {
-        var windows = _identityService.FindMatrixWindows();
+        var windows = _identityService.FindMatrixWindows()
+            .Where(w => w.ShaderIndex > 0 && !w.IsControlPanel && !w.IsConstruct);
         var tabs = new List<(int slot, float r, float g, float b)>();
 
         foreach (var win in windows)
@@ -103,7 +106,9 @@ public class TabManager
             SaveCurrentShader();
         }
 
-        var openWindows = _identityService.FindMatrixWindows();
+        var openWindows = _identityService.FindMatrixWindows()
+            .Where(w => w.ShaderIndex > 0 && !w.IsControlPanel && !w.IsConstruct)
+            .ToList();
         if (openWindows.Count == 0)
         {
             return false;
