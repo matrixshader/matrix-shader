@@ -7,6 +7,11 @@ SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 TUI_SCRIPT="${SCRIPT_DIR}/redpill_tui.py"
 GHOSTTY_BIN="/home/neo/ghostty-build/zig-out/bin/ghostty"
 
+# Handle --activate without launching Ghostty window
+if [ "$1" = "--activate" ]; then
+    exec python3 -B "$TUI_SCRIPT" --activate "$2"
+fi
+
 # Self-relaunch inside Ghostty if not already there
 # Uses --in-ghostty flag (not env var) to avoid leaking through child processes
 if [ "$1" != "--in-ghostty" ]; then
@@ -17,16 +22,26 @@ if [ "$1" != "--in-ghostty" ]; then
         exit 1
     fi
 
+    REDPILL_SHADER="$(realpath "${SCRIPT_DIR}/../shaders-glsl/redpill-neo-ghostty.glsl")"
+
     conf="/tmp/ghostty-redpill.conf"
-    cat > "$conf" <<'EOF'
+    cat > "$conf" <<EOF
+custom-shader = ${REDPILL_SHADER}
+custom-shader-animation = always
 background = #000000
 foreground = #6EDCAA
 font-family = Nimbus Mono PS
 font-style = Bold
-font-size = 16
-background-opacity = 1
+font-size = 9
+adjust-cell-height = -4
+window-padding-x = 1
+window-padding-y = 1
+window-width = 132
+window-height = 58
+background-opacity = 0.85
 gtk-titlebar = true
 window-decoration = client
+desktop-notifications = false
 keybind = ctrl+shift+j=unbind
 keybind = ctrl+shift+k=unbind
 keybind = ctrl+shift+b=unbind
@@ -52,4 +67,4 @@ EOF
 fi
 
 # Running inside Ghostty -- launch the TUI
-exec python3 "$TUI_SCRIPT"
+exec python3 -B "$TUI_SCRIPT"

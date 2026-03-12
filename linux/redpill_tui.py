@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Red Pill TUI Control Panel for Matrix Shader (Linux/Ghostty).
 
-Full-screen curses application for live adjustment of all shader parameters.
+Full-screen TUI using raw ANSI escape codes for live shader parameter adjustment.
 Direct port of MatrixShader.Cli.Redpill (C#/.NET).
 
 Launch via `redpill` command (shell wrapper with Ghostty self-relaunch).
 """
 
-import curses
 import glob as _glob
 import json
 import os
@@ -19,7 +18,7 @@ import tempfile
 # Ensure linux/ directory is in sys.path for sibling imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from redpill_keys import PARAM_DELTAS, process_key
+from redpill_keys import PARAM_DELTAS, process_key, read_key, enter_raw_mode, restore_mode
 from shader_service import (
     PARAM_DEFAULTS,
     PARAM_RANGES,
@@ -27,9 +26,11 @@ from shader_service import (
     SLOT_SHADER_DIR,
     clamp_value,
     create_slot_shader,
+    get_all_ghostty_configs,
     get_ghostty_bus_names,
     read_shader_config,
     reload_ghostty,
+    resolve_config_path,
     write_shader_param,
     write_shader_params,
 )
@@ -39,14 +40,6 @@ from shader_service import (
 # ---------------------------------------------------------------------------
 
 GHOSTTY_BIN = "/home/neo/ghostty-build/zig-out/bin/ghostty"
-
-# Color pair indices
-CP_GREEN = 1
-CP_YELLOW = 2
-CP_RED = 3
-CP_CYAN = 4
-CP_MAGENTA = 5
-CP_WHITE = 6
 
 # Preset action name -> PRESET_COLORS index
 PRESET_ACTIONS = {
@@ -83,15 +76,171 @@ DEFAULT_LAYOUT = {
 
 
 # ---------------------------------------------------------------------------
-# Rendering helpers
+# TuiRenderer -- port of TuiRenderer.cs
+# Uses raw ANSI escape codes, NOT curses.
 # ---------------------------------------------------------------------------
 
+class TuiRenderer:
+    """Static rendering methods for pixel-perfect TUI output.
+
+    Port of C# TuiRenderer.cs. All methods return strings for buffered
+    rendering (write-once pattern: build full frame, cursor home, write).
+    """
+
+    # ANSI escape codes (matching C# TuiRenderer constants)
+    ESC = "\x1b"
+    RESET = "\x1b[0m"
+    GREEN = "\x1b[32m"
+    GRAY = "\x1b[90m"
+    YELLOW = "\x1b[33m"
+    CYAN = "\x1b[36m"
+    RED = "\x1b[31m"
+    WHITE = "\x1b[37m"
+    DIM = "\x1b[2m"
+    MAGENTA = "\x1b[35m"
+
+    @staticmethod
+    def clear_width():
+        """Dynamic terminal width for padding lines (minimum 80)."""
+        try:
+            return max(80, os.get_terminal_size().columns)
+        except OSError:
+            return 80
+
+    @staticmethod
+    def terminal_height():
+        """Dynamic terminal height."""
+        try:
+            return os.get_terminal_size().lines
+        except OSError:
+            return 24
+
+    @staticmethod
+    def color_swatch(r, g, b, width=2):
+        """Create a color swatch using RGB background color."""
+        r8 = int(max(0, min(255, r * 255)))
+        g8 = int(max(0, min(255, g * 255)))
+        b8 = int(max(0, min(255, b * 255)))
+        return f"\x1b[48;2;{r8};{g8};{b8}m{' ' * width}\x1b[0m"
+
+    @staticmethod
+    def progress_bar(val, min_val, max_val, width=15):
+        """Create a progress bar with green filled and gray empty portions."""
+        if max_val <= min_val:
+            return "\x1b[90m" + "-" * width + "\x1b[0m"
+        pct = max(0.0, min(1.0, (val - min_val) / (max_val - min_val)))
+        filled = int(pct * width)
+        empty = width - filled
+        return f"\x1b[32m{'=' * filled}\x1b[90m{'-' * empty}\x1b[0m"
+
+    @staticmethod
+    def format_parameter_row(keys, label, value, val, min_val, max_val):
+        """Return a parameter row string with consistent formatting."""
+        bar = TuiRenderer.progress_bar(val, min_val, max_val)
+        return f" [{keys}] {label:<8s} {value:>4s} {bar}"
+
+    @staticmethod
+    def format_layer_status(key, name, enabled):
+        """Return layer toggle status string with color-coded ON/off indicator."""
+        status = "ON " if enabled else "off"
+        color = TuiRenderer.GREEN if enabled else TuiRenderer.GRAY
+        return f" [{key}] {name}: {color}{status}{TuiRenderer.RESET}"
+
+    @staticmethod
+    def format_section_header(title):
+        """Return a section header string with white text."""
+        return f" {TuiRenderer.WHITE}{title}{TuiRenderer.RESET}"
+
+    @staticmethod
+    def format_tab_bar(tabs, active_slot):
+        """Return the tab bar string showing all Matrix shader windows."""
+        parts = [" TABS: "]
+        if not tabs:
+            parts.append(f"{TuiRenderer.GRAY}(no Matrix windows detected){TuiRenderer.RESET}")
+        else:
+            for slot, r, g, b in tabs:
+                if slot == active_slot:
+                    parts.append(f"{TuiRenderer.YELLOW}[{slot}]{TuiRenderer.RESET}")
+                else:
+                    parts.append(f"{TuiRenderer.GRAY} {slot} {TuiRenderer.RESET}")
+                parts.append(TuiRenderer.color_swatch(r, g, b, 1))
+                parts.append(" ")
+        return "".join(parts)
+
+    @staticmethod
+    def format_color_presets():
+        """Return the color preset row string with numbered swatches."""
+        s = TuiRenderer.color_swatch
+        return (f" [1]{s(0, 1, 0.3)}Green "
+                f"[2]{s(0, 0.6, 1)}Blue "
+                f"[3]{s(1, 0.1, 0.1)}Red "
+                f"[4]{s(0.7, 0, 1)}Purple "
+                f"[5]{s(1, 0.7, 0)}Gold "
+                f"[6]{s(0, 0.9, 0.9)}Teal")
+
+    @staticmethod
+    def format_header(slot, dirty):
+        """Return the header string with title and dirty indicator."""
+        dirty_mark = "*" if dirty else " "
+        return f" {TuiRenderer.RED}RED PILL{TuiRenderer.RESET}{dirty_mark}- Tab {slot}"
+
+    @staticmethod
+    def append_footer(buf, cw, launch_count, can_launch, glitch_enabled):
+        """Append the footer lines with launch, save controls, and hotkey help hint."""
+        if launch_count > 0:
+            enter_action = f"[ENTER] Deploy {launch_count} window(s)"
+            enter_color = TuiRenderer.YELLOW
+        else:
+            enter_action = "[ENTER] (set count first)"
+            enter_color = TuiRenderer.GRAY
+        TuiRenderer.append_padded_line(
+            buf, cw,
+            f" {enter_color}{enter_action}{TuiRenderer.RESET}  "
+            f"{TuiRenderer.GRAY}[0] Reset  [ESC] Quit{TuiRenderer.RESET}")
+        TuiRenderer.append_padded_line(
+            buf, cw,
+            f" {TuiRenderer.GRAY}[Shift+H] Configure hotkeys  [?] Help{TuiRenderer.RESET}")
+        TuiRenderer.append_padded_line(
+            buf, cw,
+            f" {TuiRenderer.GREEN}All changes apply instantly{TuiRenderer.RESET}")
+
+    @staticmethod
+    def append_padded_line(buf, cw, content):
+        """Append a line padded to clear_width to prevent residual text."""
+        visible_len = TuiRenderer.visible_length(content)
+        padding = max(0, cw - visible_len)
+        buf.append(content)
+        buf.append(" " * padding)
+        buf.append("\n")
+
+    @staticmethod
+    def visible_length(s):
+        """Calculate the visible length of a string (excluding ANSI escape sequences)."""
+        length = 0
+        in_escape = False
+        for ch in s:
+            if ch == "\x1b":
+                in_escape = True
+                continue
+            if in_escape:
+                if ch.isalpha():
+                    in_escape = False
+                continue
+            length += 1
+        return length
+
+    @staticmethod
+    def append_blank_lines(buf, cw, count):
+        """Append blank padded lines to fill remaining visible rows."""
+        blank = " " * cw + "\n"
+        for _ in range(count):
+            buf.append(blank)
+
+
+# Keep module-level aliases for backwards compatibility with tests
 def color_swatch(r, g, b, width=2):
     """Create ANSI 24-bit background color swatch string."""
-    ri = int(max(0, min(255, r * 255)))
-    gi = int(max(0, min(255, g * 255)))
-    bi = int(max(0, min(255, b * 255)))
-    return f"\033[48;2;{ri};{gi};{bi}m{' ' * width}\033[0m"
+    return TuiRenderer.color_swatch(r, g, b, width)
 
 
 def progress_bar(val, min_val, max_val, width=15):
@@ -102,14 +251,6 @@ def progress_bar(val, min_val, max_val, width=15):
     filled = int(pct * width)
     empty = width - filled
     return "=" * filled + "-" * empty
-
-
-def _safe_addstr(stdscr, row, col, text, attr=0):
-    """addstr with bounds checking -- silently ignores out-of-bounds."""
-    try:
-        stdscr.addstr(row, col, text, attr)
-    except curses.error:
-        pass
 
 
 # ---------------------------------------------------------------------------
@@ -187,8 +328,8 @@ class RedpillTUI:
         self._read_initial_opacity()
 
     def _read_initial_opacity(self):
-        """Read current opacity from first Ghostty config."""
-        configs = sorted(_glob.glob("/tmp/ghostty-matrix-*.conf"))
+        """Read current opacity from any running Ghostty config."""
+        configs = sorted(get_all_ghostty_configs())
         for conf in configs:
             try:
                 with open(conf) as f:
@@ -244,171 +385,121 @@ class RedpillTUI:
         self.config = read_shader_config(self.active_slot)
 
     # -------------------------------------------------------------------
-    # Rendering
+    # Rendering (ANSI escape codes, matching C# TuiRenderer + Render())
     # -------------------------------------------------------------------
 
-    def render(self, stdscr):
-        """Full screen render."""
-        stdscr.erase()
-        height, width = stdscr.getmaxyx()
+    def render(self):
+        """Full screen render using ANSI escape codes.
 
-        if height < 20 or width < 50:
-            _safe_addstr(stdscr, 0, 0, "Terminal too small. Resize to 50x20+.", curses.A_BOLD)
-            stdscr.refresh()
-            return
-
-        row = 0
+        Port of C# ControlPanel.Render(). Builds entire frame as a string
+        buffer, then writes at once with cursor home for flicker-free update.
+        Line-for-line match of the C# TUI layout.
+        """
+        R = TuiRenderer
+        cw = R.clear_width()
+        buf = []
         cfg = self.config
 
         # Header
-        row += 1
-        _safe_addstr(stdscr, row, 1, "RED PILL", curses.color_pair(CP_RED) | curses.A_BOLD)
-        dirty_mark = "*" if self.dirty else " "
-        slot_str = f"{dirty_mark}- Tab {self.active_slot}" if self.active_slot else " - No windows"
-        _safe_addstr(stdscr, row, 9, slot_str)
-        row += 2
+        R.append_padded_line(buf, cw, R.format_header(
+            self.active_slot if self.active_slot else 0, self.dirty))
+        R.append_padded_line(buf, cw,
+            R.format_tab_bar(self.tabs, self.active_slot)
+            + f"  {R.GRAY}[TAB] next tab{R.RESET}")
 
-        # Tab bar
-        _safe_addstr(stdscr, row, 1, "TABS: ", curses.A_DIM)
-        col = 7
-        if not self.tabs:
-            _safe_addstr(stdscr, row, col, "(no Matrix windows detected)", curses.A_DIM)
-        else:
-            for slot, r, g, b in self.tabs:
-                if slot == self.active_slot:
-                    _safe_addstr(stdscr, row, col, f"[{slot}]",
-                                 curses.color_pair(CP_YELLOW) | curses.A_BOLD)
-                else:
-                    _safe_addstr(stdscr, row, col, f" {slot} ", curses.A_DIM)
-                col += 4
-                swatch = color_swatch(r, g, b, 1)
-                _safe_addstr(stdscr, row, col, swatch)
-                col += 3
-        row += 1
-        _safe_addstr(stdscr, row, 1, "[TAB] next tab", curses.A_DIM)
-        row += 2
+        # Agent colors
+        R.append_padded_line(buf, cw, R.format_section_header("AGENT COLORS"))
+        R.append_padded_line(buf, cw, R.format_color_presets())
 
-        # Agent Colors
-        _safe_addstr(stdscr, row, 1, "AGENT COLORS", curses.color_pair(CP_WHITE) | curses.A_BOLD)
-        row += 1
-        col = 1
-        for i, (pr, pg, pb) in enumerate(PRESET_COLORS):
-            label = f"[{i+1}]"
-            _safe_addstr(stdscr, row, col, label)
-            col += len(label)
-            swatch = color_swatch(pr, pg, pb, 2)
-            _safe_addstr(stdscr, row, col, swatch)
-            col += 2
-            name = PRESET_NAMES[i]
-            _safe_addstr(stdscr, row, col, name)
-            col += len(name) + 1
-        row += 2
+        # Current color
+        cr = cfg.get("RAIN_R", 0)
+        cg = cfg.get("RAIN_G", 1)
+        cb = cfg.get("RAIN_B", 0.3)
+        R.append_padded_line(buf, cw, f" CURRENT {R.color_swatch(cr, cg, cb, 3)}")
+        R.append_padded_line(buf, cw, R.format_parameter_row(
+            "Q/W", "Red", f"{cr:.1f}", cr, 0, 1))
+        R.append_padded_line(buf, cw, R.format_parameter_row(
+            "A/S", "Green", f"{cg:.1f}", cg, 0, 1))
+        R.append_padded_line(buf, cw, R.format_parameter_row(
+            "Z/X", "Blue", f"{cb:.1f}", cb, 0, 1))
 
-        # Current Color
-        cr, cg, cb = cfg.get("RAIN_R", 0), cfg.get("RAIN_G", 1), cfg.get("RAIN_B", 0.3)
-        _safe_addstr(stdscr, row, 1, "CURRENT ")
-        _safe_addstr(stdscr, row, 9, color_swatch(cr, cg, cb, 3))
-        row += 1
-        row = self._render_param_row(stdscr, row, "Q/W", "Red",   cr, 0, 1)
-        row = self._render_param_row(stdscr, row, "A/S", "Green", cg, 0, 1)
-        row = self._render_param_row(stdscr, row, "Z/X", "Blue",  cb, 0, 1)
-        row += 1
-
-        # Rain Parameters
-        _safe_addstr(stdscr, row, 1, "RAIN PARAMETERS", curses.color_pair(CP_WHITE) | curses.A_BOLD)
-        row += 1
-        row = self._render_param_row(stdscr, row, "E/R", "Speed",
-                                     cfg.get("RAIN_SPEED", 0.8), 0.1, 5.0)
-        row = self._render_param_row(stdscr, row, "D/F", "Glow",
-                                     cfg.get("GLOW_STRENGTH", 0.8), 0.2, 3.0)
-        row = self._render_param_row(stdscr, row, "C/V", "Width",
-                                     cfg.get("CHAR_WIDTH", 10.0), 6.0, 20.0, fmt="%.0f")
-        row = self._render_param_row(stdscr, row, "T/Y", "Trail",
-                                     cfg.get("TRAIL_POWER", 8.0), 4.0, 15.0, fmt="%.0f")
-        row = self._render_param_row(stdscr, row, "G/H", "Density",
-                                     cfg.get("RAIN_DENSITY", 0.4), 0.2, 1.0)
-        row += 1
+        # Rain parameters
+        R.append_padded_line(buf, cw, R.format_section_header("RAIN PARAMETERS"))
+        speed = cfg.get("RAIN_SPEED", 0.8)
+        glow = cfg.get("GLOW_STRENGTH", 0.8)
+        width = cfg.get("CHAR_WIDTH", 10.0)
+        trail = cfg.get("TRAIL_POWER", 8.0)
+        density = cfg.get("RAIN_DENSITY", 0.4)
+        R.append_padded_line(buf, cw, R.format_parameter_row(
+            "E/R", "Speed", f"{speed:.1f}", speed, 0.1, 5.0))
+        R.append_padded_line(buf, cw, R.format_parameter_row(
+            "D/F", "Glow", f"{glow:.1f}", glow, 0.2, 3.0))
+        R.append_padded_line(buf, cw, R.format_parameter_row(
+            "C/V", "Width", f"{width:.0f}", width, 6.0, 20.0))
+        R.append_padded_line(buf, cw, R.format_parameter_row(
+            "T/Y", "Trail", f"{trail:.0f}", trail, 4.0, 15.0))
+        R.append_padded_line(buf, cw, R.format_parameter_row(
+            "G/H", "Density", f"{density:.1f}", density, 0.2, 1.0))
 
         # Layers
-        _safe_addstr(stdscr, row, 1, "LAYERS", curses.color_pair(CP_WHITE) | curses.A_BOLD)
-        row += 1
+        R.append_padded_line(buf, cw, R.format_section_header("LAYERS"))
         l1 = cfg.get("SHOW_L1", 1.0) >= 0.5
         l2 = cfg.get("SHOW_L2", 1.0) >= 0.5
         l3 = cfg.get("SHOW_L3", 1.0) >= 0.5
-        col = 1
-        for key, name, on in [("7", "Far", l1), ("8", "Mid", l2), ("9", "Near", l3)]:
-            label = f"[{key}] {name}: "
-            _safe_addstr(stdscr, row, col, label)
-            col += len(label)
-            status = "ON " if on else "off"
-            attr = curses.color_pair(CP_GREEN) if on else curses.A_DIM
-            _safe_addstr(stdscr, row, col, status, attr)
-            col += len(status) + 2
-        row += 2
+        R.append_padded_line(buf, cw,
+            R.format_layer_status("7", "Far", l1) + "  "
+            + R.format_layer_status("8", "Mid", l2) + "  "
+            + R.format_layer_status("9", "Near", l3))
 
-        # Window Effects
-        _safe_addstr(stdscr, row, 1, "WINDOW EFFECTS", curses.color_pair(CP_WHITE) | curses.A_BOLD)
-        row += 1
+        # Window effects
+        R.append_padded_line(buf, cw, R.format_section_header("WINDOW EFFECTS"))
         trans_status = "ON " if self.transparency else "off"
-        trans_attr = curses.color_pair(CP_CYAN) if self.transparency else curses.A_DIM
-        _safe_addstr(stdscr, row, 1, "[B] Transparency: ")
-        _safe_addstr(stdscr, row, 19, trans_status, trans_attr)
-        row += 1
-        bar = progress_bar(self.opacity, 0, 100)
-        _safe_addstr(stdscr, row, 1, f"[K/L] Opacity: {self.opacity:3d}% {bar}", curses.A_DIM)
-        row += 2
+        trans_color = R.CYAN if self.transparency else R.GRAY
+        R.append_padded_line(buf, cw,
+            f" [B] Transparency:  {trans_color}{trans_status}{R.RESET}"
+            f"  {R.GRAY}(toggles & applies){R.RESET}")
+        if self.transparency:
+            R.append_padded_line(buf, cw,
+                f" [K/L] Opacity:     {self.opacity:3d}% "
+                f"{R.progress_bar(self.opacity, 0, 100)}")
 
-        # Combat Training
-        _safe_addstr(stdscr, row, 1, "COMBAT TRAINING", curses.color_pair(CP_WHITE) | curses.A_BOLD)
-        row += 1
+        # Combat training
         glitch_on = self.layout.get("glitch_enabled", False)
         glitch_status = "ON " if glitch_on else "off"
-        glitch_attr = curses.color_pair(CP_CYAN) if glitch_on else curses.A_DIM
-        _safe_addstr(stdscr, row, 1, " [Shift+G] Glitch:  ")
-        _safe_addstr(stdscr, row, 21, glitch_status, glitch_attr)
-        _safe_addstr(stdscr, row, 25, "(windows auto-snap to formation)", curses.A_DIM)
-        row += 1
+        glitch_color = R.CYAN if glitch_on else R.GRAY
+        R.append_padded_line(buf, cw, R.format_section_header("COMBAT TRAINING"))
+        R.append_padded_line(buf, cw,
+            f" [Shift+G] Glitch:  {glitch_color}{glitch_status}{R.RESET}"
+            f"  {R.GRAY}(windows auto-snap to formation){R.RESET}")
         layout_mode = self.layout.get("mode", "Pillars")
-        layout_attr = curses.color_pair(CP_YELLOW) if layout_mode == "Pillars" else curses.color_pair(CP_MAGENTA)
-        _safe_addstr(stdscr, row, 1, " [Shift+L] Layout:  ")
-        _safe_addstr(stdscr, row, 21, layout_mode, layout_attr)
-        _safe_addstr(stdscr, row, 21 + len(layout_mode) + 1, "(Pillars=columns, Quads=2x2)", curses.A_DIM)
-        row += 2
+        layout_color = R.YELLOW if layout_mode.lower() == "pillars" else R.MAGENTA
+        R.append_padded_line(buf, cw,
+            f" [Shift+L] Layout:  {layout_color}{layout_mode}{R.RESET}"
+            f"  {R.GRAY}(Pillars=columns, Quads=2x2){R.RESET}")
 
         # Deploy
-        _safe_addstr(stdscr, row, 1, "DEPLOY", curses.color_pair(CP_MAGENTA) | curses.A_BOLD)
-        row += 1
+        R.append_padded_line(buf, cw, f" {R.MAGENTA}DEPLOY{R.RESET}")
         if self.tabs:
             open_str = ",".join(str(t[0]) for t in self.tabs)
         else:
             open_str = "none"
-        _safe_addstr(stdscr, row, 1, "Open: ", curses.A_DIM)
-        _safe_addstr(stdscr, row, 7, open_str, curses.color_pair(CP_GREEN))
-        row += 1
-        count_str = f"{self.launch_count} window(s)" if self.launch_count > 0 else "0"
-        count_attr = curses.color_pair(CP_MAGENTA) if self.launch_count > 0 else curses.A_DIM
-        _safe_addstr(stdscr, row, 1, "[-/+] Count: ")
-        _safe_addstr(stdscr, row, 14, count_str, count_attr)
-        row += 2
+        R.append_padded_line(buf, cw,
+            f" {R.GRAY}Open:{R.RESET} {R.GREEN}{open_str}{R.RESET}")
+        launch_status = f"{self.launch_count} window(s)" if self.launch_count > 0 else "disabled"
+        launch_color = R.MAGENTA if self.launch_count > 0 else R.GRAY
+        R.append_padded_line(buf, cw,
+            f" [-/+] Count: {launch_color}{launch_status}{R.RESET}")
 
         # Footer
-        enter_attr = curses.color_pair(CP_YELLOW) if self.launch_count > 0 else curses.A_DIM
-        _safe_addstr(stdscr, row, 1, "[ENTER] Deploy", enter_attr)
-        _safe_addstr(stdscr, row, 17, "  [0] Reset  [ESC] Quit", curses.A_DIM)
-        row += 1
-        _safe_addstr(stdscr, row, 1, "[?] Help  [Shift+H] Hotkeys  [Shift+S] Save pos  [Shift+R] Restore", curses.A_DIM)
-        row += 1
-        _safe_addstr(stdscr, row, 1, "All changes apply instantly", curses.color_pair(CP_GREEN))
+        R.append_footer(buf, cw, self.launch_count,
+                        self.launch_count > 0, glitch_on)
 
-        stdscr.refresh()
-
-    def _render_param_row(self, stdscr, row, keys, label, val, min_val, max_val, fmt="%.1f"):
-        """Render a parameter row: [E/R] Speed   0.8 ====-------"""
-        bar = progress_bar(val, min_val, max_val)
-        val_str = fmt % val
-        line = f" [{keys}] {label:<8s} {val_str:>4s} {bar}"
-        _safe_addstr(stdscr, row, 0, line)
-        return row + 1
+        # Reset colors, cursor home, write frame, clear leftover lines
+        frame = "".join(buf)
+        sys.stdout.write("\x1b[0m\x1b[H")
+        sys.stdout.write(frame)
+        sys.stdout.write("\x1b[J")  # clear from cursor to end of screen
+        sys.stdout.flush()
 
     # -------------------------------------------------------------------
     # Action handlers
@@ -475,13 +566,13 @@ class RedpillTUI:
                 self._apply_opacity(100)
             return
         if action == "OpacityDecrease":
-            self.opacity = max(0, self.opacity - 5)
-            if self.transparency:
+            if self.transparency and self.opacity > 0:
+                self.opacity -= 5
                 self._apply_opacity(self.opacity)
             return
         if action == "OpacityIncrease":
-            self.opacity = min(100, self.opacity + 5)
-            if self.transparency:
+            if self.transparency and self.opacity < 100:
+                self.opacity += 5
                 self._apply_opacity(self.opacity)
             return
 
@@ -520,14 +611,12 @@ class RedpillTUI:
             self._save_layout()
             return
         if action == "SnapbackRestore":
-            # Restore is a no-op if nothing saved; actual repositioning deferred to Phase 6
             return
         if action == "PriorityToggle":
             self.layout["priority_lock"] = not self.layout.get("priority_lock", False)
             self._save_layout()
             return
         if action == "MonitorChange":
-            # Re-apply layout -- actual repositioning deferred to Phase 6
             return
         if action == "PrimaryDecrease":
             self.layout["primary_window_count"] = max(0, self.layout.get("primary_window_count", 0) - 1)
@@ -544,16 +633,16 @@ class RedpillTUI:
 
         # Help screen
         if action == "Help":
-            self._show_help(self._stdscr)
+            self._show_help()
             return
 
         # Hotkey config screen
         if action == "HotkeyConfig":
-            self._show_hotkey_config(self._stdscr)
+            self._show_hotkey_config()
             return
 
     def _update_tab_color(self):
-        """Update the active tab's color in the tabs list after RGB change."""
+        """Update the active tab's color in the tabs list and sync Ghostty foreground."""
         if self.active_slot is None:
             return
         r = self.config.get("RAIN_R", 0)
@@ -563,6 +652,27 @@ class RedpillTUI:
             (slot, r, g, b) if slot == self.active_slot else (slot, tr, tg, tb)
             for slot, tr, tg, tb in self.tabs
         ]
+        self._sync_foreground_color(self.active_slot, r, g, b)
+
+    def _sync_foreground_color(self, slot, r, g, b):
+        """Update Ghostty config foreground color to match rain RGB and reload."""
+        fg = f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
+        conf = resolve_config_path(slot)
+        if not conf:
+            return
+        try:
+            with open(conf) as f:
+                content = f.read()
+            content = re.sub(r"foreground = #[0-9a-fA-F]+", f"foreground = {fg}", content)
+            with open(conf, "w") as f:
+                f.write(content)
+        except (FileNotFoundError, PermissionError):
+            return
+        mapping = get_ghostty_bus_names()
+        bus = mapping.get(slot, {}).get("bus_name")
+        if bus:
+            reload_ghostty(bus)
+
 
     def _apply_opacity(self, percent):
         """Write opacity to all matrix config files and reload."""
@@ -572,7 +682,9 @@ class RedpillTUI:
         if value == "1.00":
             value = "1"
 
-        for conf in _glob.glob("/tmp/ghostty-matrix-*.conf"):
+        # Update ALL running Ghostty configs (any launch method)
+        confs = get_all_ghostty_configs()
+        for conf in confs:
             try:
                 with open(conf) as f:
                     content = f.read()
@@ -644,7 +756,6 @@ keybind = ctrl+shift+f5=unbind
 
         ghostty = GHOSTTY_BIN
         if not os.path.isfile(ghostty):
-            # Fallback: try PATH
             import shutil
             ghostty = shutil.which("ghostty") or ghostty
 
@@ -659,111 +770,248 @@ keybind = ctrl+shift+f5=unbind
             pass
 
     # -------------------------------------------------------------------
-    # Main loop
+    # Help screen (ANSI, no curses)
     # -------------------------------------------------------------------
 
-    def _show_help(self, stdscr):
+    def _show_help(self):
         """Show full help screen, wait for any keypress to return."""
-        if stdscr is None:
-            return
-        stdscr.erase()
-        row = 0
-        _safe_addstr(stdscr, row, 1, "HOTKEY HELP", curses.color_pair(CP_GREEN) | curses.A_BOLD)
-        row += 2
-        _safe_addstr(stdscr, row, 1, "CONTROL PANEL KEYS (local):", curses.A_DIM)
-        row += 2
+        R = TuiRenderer
+        cw = R.clear_width()
+        buf = []
+
+        R.append_padded_line(buf, cw, "")
+        R.append_padded_line(buf, cw, f" {R.GREEN}HOTKEY HELP{R.RESET}")
+        R.append_padded_line(buf, cw, "")
+
+        R.append_padded_line(buf, cw, f" {R.DIM}CONTROL PANEL KEYS (local):{R.RESET}")
+        R.append_padded_line(buf, cw, "")
         help_lines = [
-            "  [1-6]      Agent colors (Green/Blue/Red/Purple/Gold/Teal)",
-            "  [Q/W]      Red -/+          [A/S] Green -/+    [Z/X] Blue -/+",
-            "  [E/R]      Speed -/+        [D/F] Glow -/+",
-            "  [C/V]      Width -/+        [T/Y] Trail -/+    [G/H] Density -/+",
-            "  [7/8/9]    Toggle layers (Far/Mid/Near)",
-            "  [B]        Toggle transparency    [K/L] Opacity -/+",
-            "  [-/+]      Deploy count -/+       [ENTER] Deploy windows",
-            "  [0]        Reset to defaults       (all changes apply instantly)",
-            "  [TAB]      Switch tabs            [ESC] Quit",
+            "   [1-6]      Agent colors (Green/Blue/Red/Purple/Gold/Teal)",
+            "   [Q/W]      Red -/+          [A/S] Green -/+    [Z/X] Blue -/+",
+            "   [E/R]      Speed -/+        [D/F] Glow -/+",
+            "   [C/V]      Width -/+        [T/Y] Trail -/+    [G/H] Density -/+",
+            "   [7/8/9]    Toggle layers (Far/Mid/Near)",
+            "   [B]        Toggle transparency    [K/L] Opacity -/+",
+            "   [-/+]      Deploy count -/+       [ENTER] Deploy windows",
+            "   [0]        Reset to defaults       (all changes apply instantly)",
+            "   [TAB]      Switch tabs            [ESC] Quit",
         ]
         for line in help_lines:
-            _safe_addstr(stdscr, row, 0, line)
-            row += 1
-        row += 1
-        _safe_addstr(stdscr, row, 1, "SHIFT KEYS (local):", curses.A_DIM)
-        row += 2
+            R.append_padded_line(buf, cw, f" {R.DIM}{line}{R.RESET}")
+        R.append_padded_line(buf, cw, "")
+
+        R.append_padded_line(buf, cw, f" {R.DIM}SHIFT KEYS (local):{R.RESET}")
+        R.append_padded_line(buf, cw, "")
         shift_lines = [
-            "  [Shift+G]  Toggle Glitch (auto-snap to formation)",
-            "  [Shift+L]  Cycle layout mode (Pillars/Quads/Overlap)",
-            "  [Shift+H]  Configure global hotkey bindings",
-            "  [Shift+S]  Save snapback position",
-            "  [Shift+R]  Restore snapback position",
+            "   [Shift+G]  Toggle Glitch (auto-snap to formation)",
+            "   [Shift+L]  Cycle layout mode (Pillars/Quads/Overlap)",
+            "   [Shift+H]  Configure global hotkey bindings",
+            "   [Shift+S]  Save snapback position",
+            "   [Shift+R]  Restore snapback position",
         ]
         for line in shift_lines:
-            _safe_addstr(stdscr, row, 0, line)
-            row += 1
-        row += 1
-        _safe_addstr(stdscr, row, 1, "GLOBAL HOTKEYS (active when Matrix windows exist):", curses.color_pair(CP_GREEN))
-        row += 2
+            R.append_padded_line(buf, cw, f" {R.DIM}{line}{R.RESET}")
+        R.append_padded_line(buf, cw, "")
+
+        R.append_padded_line(buf, cw, f" {R.GREEN}GLOBAL HOTKEYS (active when Matrix windows exist):{R.RESET}")
+        R.append_padded_line(buf, cw, "")
         global_lines = [
-            "  Ctrl+Shift+L       Cycle layout mode",
-            "  Ctrl+Shift+B       Toggle background transparency",
-            "  Ctrl+Shift+J/K     Decrease/Increase opacity",
-            "  Ctrl+Shift+Up/Down Decrease/Increase rain speed",
-            "  Ctrl+Shift+1/2/3   Toggle FAR/MID/NEAR layers",
-            "  Ctrl+Shift+H       Show help overlay",
-            "  Ctrl+Shift+F5      Force reload all shaders",
+            "   Ctrl+Shift+L       Cycle layout mode",
+            "   Ctrl+Shift+B       Toggle background transparency",
+            "   Ctrl+Shift+K/O     Decrease/Increase opacity",
+            "   Ctrl+Shift+Up/Down Cycle shader in library",
+            "   Ctrl+Shift+, / .   Decrease/Increase rain speed",
+            "   Ctrl+Shift+1/2/3   Toggle FAR/MID/NEAR layers",
         ]
         for line in global_lines:
-            _safe_addstr(stdscr, row, 0, line)
-            row += 1
-        row += 2
-        _safe_addstr(stdscr, row, 1, "Press [Shift+H] to customize global hotkey bindings.", curses.A_DIM)
-        row += 2
-        _safe_addstr(stdscr, row, 1, "Press any key to return...", curses.color_pair(CP_GREEN))
-        stdscr.refresh()
-        stdscr.getch()
+            R.append_padded_line(buf, cw, f" {R.DIM}{line}{R.RESET}")
+        R.append_padded_line(buf, cw, "")
 
-    def _show_hotkey_config(self, stdscr):
-        """Launch the hotkey config screen (if available)."""
+        R.append_padded_line(buf, cw, f" {R.DIM}Press [Shift+H] to customize global hotkey bindings.{R.RESET}")
+        R.append_padded_line(buf, cw, "")
+        R.append_padded_line(buf, cw, f" Press any key to return...")
+
+        # Fill remaining rows
+        frame = "".join(buf)
+        lines_written = frame.count("\n")
+        max_rows = R.terminal_height()
+        remaining = max_rows - lines_written - 1
+        if remaining > 0:
+            tail_buf = []
+            R.append_blank_lines(tail_buf, cw, remaining)
+            frame += "".join(tail_buf)
+
+        # Clear screen and show help
+        sys.stdout.write("\x1b[2J\x1b[H")
+        sys.stdout.write(frame)
+        sys.stdout.flush()
+
+        # Wait for keypress
+        read_key()
+
+        # Clear for main screen to redraw
+        sys.stdout.write("\x1b[2J")
+        sys.stdout.flush()
+
+    def _show_hotkey_config(self):
+        """Launch the hotkey config screen (ANSI mode)."""
         try:
             from hotkey_config_screen import HotkeyConfigScreen
             screen = HotkeyConfigScreen()
-            screen.run(stdscr)
-        except ImportError:
-            if stdscr:
-                _safe_addstr(stdscr, 0, 0, "Hotkey config screen not available.", curses.A_BOLD)
-                stdscr.refresh()
-                stdscr.getch()
+            screen.run_ansi()
+        except (ImportError, AttributeError):
+            # Fallback: show simple message
+            sys.stdout.write("\x1b[2J\x1b[H")
+            sys.stdout.write(" Hotkey config screen not available.\n")
+            sys.stdout.write(" Press any key to return...\n")
+            sys.stdout.flush()
+            read_key()
+        sys.stdout.write("\x1b[2J")
+        sys.stdout.flush()
 
-    def run(self, stdscr):
-        """Main curses loop: render -> getch -> dispatch -> repeat."""
-        self._stdscr = stdscr
-        curses.curs_set(0)
-        stdscr.keypad(True)
-        curses.start_color()
-        curses.use_default_colors()
+    # -------------------------------------------------------------------
+    # Main loop
+    # -------------------------------------------------------------------
 
-        curses.init_pair(CP_GREEN, curses.COLOR_GREEN, -1)
-        curses.init_pair(CP_YELLOW, curses.COLOR_YELLOW, -1)
-        curses.init_pair(CP_RED, curses.COLOR_RED, -1)
-        curses.init_pair(CP_CYAN, curses.COLOR_CYAN, -1)
-        curses.init_pair(CP_MAGENTA, curses.COLOR_MAGENTA, -1)
-        curses.init_pair(CP_WHITE, curses.COLOR_WHITE, -1)
+    def run(self):
+        """Main loop: render -> read key -> dispatch -> repeat.
 
-        self.refresh_tabs()
+        Uses raw terminal mode (termios) instead of curses for input.
+        """
+        # Switch to alternate screen buffer, hide cursor, disable alt scroll, clear
+        sys.stdout.write("\x1b[?1049h")  # alternate screen buffer
+        sys.stdout.write("\x1b[?1007l")  # disable alternate scroll mode
+        sys.stdout.write("\x1b[?25l")    # hide cursor
+        sys.stdout.write("\x1b[2J")      # clear screen
+        sys.stdout.flush()
+
+        # Enter raw mode via redpill_keys helper
+        old_settings = enter_raw_mode()
 
         try:
+            self.refresh_tabs()
+
             while self.running:
-                self.render(stdscr)
-                key = stdscr.getch()
-                action = process_key(key)
+                self.render()
+                key_code = read_key()
+                if key_code == -1:
+                    continue
+                action = process_key(key_code)
                 if action:
                     self.handle_action(action)
         finally:
+            # Restore terminal settings
+            restore_mode(old_settings)
             self.save_full_state()
+
+            # Show cursor, restore main screen buffer
+            sys.stdout.write("\x1b[?25h")
+            sys.stdout.write("\x1b[?1049l")
+            sys.stdout.flush()
+
+
+def _show_purchase_prompt():
+    """Show purchase info and inline activation prompt (matches C# ShowPurchasePrompt)."""
+    GREEN = "\x1b[32m"
+    DIM = "\x1b[2m"
+    YELLOW = "\x1b[33m"
+    CYAN = "\x1b[36m"
+    RESET = "\x1b[0m"
+    # OSC 8 hyperlink
+    LINK = "\x1b]8;;https://matrixshader.com/redpill\x07"
+    LINK_END = "\x1b]8;;\x07"
+
+    print()
+    print(f" {GREEN}THE RED PILL{RESET}")
+    print(f" {DIM}----------------------------------------{RESET}")
+    print()
+    print(f" {DIM}The Red Pill unlocks the full control panel:{RESET}")
+    print()
+    print(f" {DIM}  - Live parameter adjustment (speed, glow, width, trail, density){RESET}")
+    print(f" {DIM}  - Custom RGB color picker (any color, not just presets){RESET}")
+    print(f" {DIM}  - Per-window layer toggles (Far/Mid/Near){RESET}")
+    print(f" {DIM}  - Multi-tab management (up to 8 shader configs){RESET}")
+    print(f" {DIM}  - Layout mode controls (Pillars/Quads/Auto){RESET}")
+    print(f" {DIM}  - Snapback position save/restore{RESET}")
+    print(f" {DIM}  - Hotkey configuration (remap bindings){RESET}")
+    print(f" {DIM}  - Neo vision shader background{RESET}")
+    print()
+    print(f" {YELLOW}$5 — one-time purchase, yours forever.{RESET}")
+    print()
+    print(f" {LINK}{CYAN}matrixshader.com/redpill{RESET}{LINK_END}")
+    print()
+    print(f" {DIM}Already purchased? Activate with:{RESET}")
+    print(f" {DIM}  redpill --activate REDPILL-XXXX-XXXX-XXXX-XXXX{RESET}")
+    print()
+
+
+def _handle_activation(key):
+    """Activate a license key and print result. Returns exit code."""
+    from license_service import activate, ActivationResult
+
+    GREEN = "\x1b[32m"
+    RED = "\x1b[31m"
+    DIM = "\x1b[2m"
+    RESET = "\x1b[0m"
+
+    print()
+    result = activate(key)
+
+    if result == ActivationResult.SUCCESS:
+        print(f" {GREEN}Welcome to the real world.{RESET}")
+        print()
+        print(f" {DIM}License activated. Run 'redpill' to open the control panel.{RESET}")
+        print()
+        return 0
+
+    if result == ActivationResult.ACTIVATION_LIMIT_EXCEEDED:
+        print(f" {RED}Activation limit reached.{RESET}")
+        print()
+        print(f" {DIM}This key has been activated on too many machines.{RESET}")
+        print(f" {DIM}If this is your key, contact support for help.{RESET}")
+        print()
+        return 1
+
+    # INVALID_KEY or SAVE_FAILED
+    print(f" {RED}Invalid license key.{RESET}")
+    print()
+    print(f" {DIM}Format: REDPILL-XXXX-XXXX-XXXX-XXXX{RESET}")
+    print(f" {DIM}Get your key at: https://matrixshader.com/redpill{RESET}")
+    print()
+    return 1
 
 
 def main():
+    # Handle --activate flag
+    if "--activate" in sys.argv:
+        idx = sys.argv.index("--activate")
+        if idx + 1 < len(sys.argv):
+            sys.exit(_handle_activation(sys.argv[idx + 1]))
+        else:
+            print(" Usage: redpill --activate REDPILL-XXXX-XXXX-XXXX-XXXX")
+            sys.exit(1)
+
+    # License gate — check before launching TUI
+    from license_service import is_licensed
+
+    if not is_licensed():
+        _show_purchase_prompt()
+
+        CYAN = "\x1b[36m"
+        RESET = "\x1b[0m"
+
+        print(f" {CYAN}Already have a key? Paste it here (or press Enter to close): {RESET}", end="", flush=True)
+        try:
+            user_input = input().strip()
+        except (EOFError, KeyboardInterrupt):
+            user_input = ""
+
+        if user_input:
+            sys.exit(_handle_activation(user_input))
+        sys.exit(0)
+
     tui = RedpillTUI()
-    curses.wrapper(tui.run)
+    tui.run()
 
 
 if __name__ == "__main__":

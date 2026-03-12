@@ -132,12 +132,21 @@ done
 # Copy Python modules needed by scripts
 for pymod in shader_service.py state_service.py hotkey_actions.py hotkey_config.py \
              hotkey_config_screen.py hotkey_conflicts.py layout_engine.py \
-             matrix_toast.py redpill_tui.py redpill_keys.py window_service.py; do
+             matrix_toast.py redpill_tui.py redpill_keys.py window_service.py \
+             license_service.py machine_fingerprint.py; do
     [ -f "$SCRIPT_DIR/$pymod" ] && cp "$SCRIPT_DIR/$pymod" "$RELEASE_DIR/scripts/"
 done
 
 # Copy redpill launcher
 [ -f "$SCRIPT_DIR/redpill.sh" ] && cp "$SCRIPT_DIR/redpill.sh" "$RELEASE_DIR/scripts/"
+
+# Copy license secret (required for HMAC validation at runtime)
+LICENSE_SECRET="$SCRIPT_DIR/../MatrixShader/license-secret.key"
+if [ -f "$LICENSE_SECRET" ]; then
+    cp "$LICENSE_SECRET" "$RELEASE_DIR/scripts/license-secret.key"
+else
+    echo -e "${DIM}  Warning: license-secret.key not found — using dev placeholder${RESET}"
+fi
 
 chmod +x "$RELEASE_DIR/scripts/"*.sh "$RELEASE_DIR/scripts/"*.py 2>/dev/null || true
 
