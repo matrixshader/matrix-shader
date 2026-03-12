@@ -1,28 +1,139 @@
 """Key-to-action mapping for the Red Pill TUI control panel.
 
 Direct port of MatrixShader.Cli.Redpill/KeyHandler.cs.
-Maps curses getch() return values to action strings.
+Maps raw key codes (from tty.setraw / sys.stdin) to action strings.
 
 Shift+letter combinations detected via uppercase char codes
 BEFORE lowercase fallback -- this is critical for distinguishing
 Shift+L (LayoutCycle) from lowercase l (OpacityIncrease).
 """
 
+import select
+import sys
+import termios
+import tty
 
-def process_key(key):
-    """Map a curses getch() key code to an action string.
+
+def read_key(fd=None):
+    """Read a single keypress from raw terminal input.
+
+    Handles multi-byte escape sequences (arrow keys, Shift+Tab, etc.)
+    by checking if more bytes are available after reading ESC.
 
     Args:
-        key: Integer key code from curses stdscr.getch().
+        fd: File descriptor to read from. Defaults to sys.stdin.
+
+    Returns:
+        Integer key code compatible with process_key().
+        Special return values:
+          - 27 for bare Escape
+          - -2 for Shift+Tab (ESC [ Z)
+          - -3 for Up arrow
+          - -4 for Down arrow
+          - -5 for Right arrow
+          - -6 for Left arrow
+          - Regular ord() values for printable characters
+    """
+    if fd is None:
+        fd = sys.stdin
+
+    ch = fd.read(1)
+    if not ch:
+        return -1
+
+    if ch == '\x1b':
+        # Check if more bytes follow (escape sequence vs bare Escape)
+        if _has_more(fd):
+            seq = ch + fd.read(1)
+            if len(seq) == 2 and seq[1] == '[':
+                # CSI sequence -- read the final byte
+                if _has_more(fd):
+                    seq += fd.read(1)
+                    if seq == '\x1b[A':
+                        return -3   # Up
+                    if seq == '\x1b[B':
+                        return -4   # Down
+                    if seq == '\x1b[C':
+                        return -5   # Right
+                    if seq == '\x1b[D':
+                        return -6   # Left
+                    if seq == '\x1b[Z':
+                        return -2   # Shift+Tab
+                    # Drain any remaining bytes in the sequence
+                    while _has_more(fd):
+                        fd.read(1)
+                    return -1
+            # Unknown escape sequence -- drain and ignore
+            while _has_more(fd):
+                fd.read(1)
+            return -1
+        # Bare Escape
+        return 27
+
+    return ord(ch)
+
+
+def _has_more(fd, timeout=0.1):
+    """Check if more input is available on fd within timeout seconds.
+
+    100ms timeout handles mouse scroll sequences that arrive slightly
+    delayed (Ghostty on Wayland). Too short = scroll \x1b bytes get
+    treated as bare ESC and close the TUI.
+    """
+    if hasattr(fd, 'fileno'):
+        r, _, _ = select.select([fd], [], [], timeout)
+        return bool(r)
+    return False
+
+
+def enter_raw_mode(fd=None):
+    """Put terminal into raw mode, returning old settings for restore.
+
+    Args:
+        fd: File descriptor. Defaults to sys.stdin.fileno().
+
+    Returns:
+        Old termios settings (pass to restore_mode).
+    """
+    if fd is None:
+        fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    return old
+
+
+def restore_mode(old_settings, fd=None):
+    """Restore terminal to previous mode.
+
+    Args:
+        old_settings: Settings returned by enter_raw_mode().
+        fd: File descriptor. Defaults to sys.stdin.fileno().
+    """
+    if fd is None:
+        fd = sys.stdin.fileno()
+    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+
+def process_key(key):
+    """Map a raw key code to an action string.
+
+    Args:
+        key: Integer key code from read_key().
 
     Returns:
         Action string, or None for unrecognized keys.
     """
     # Special keys
     if key == 9:    return "Tab"
-    if key == 10:   return "Launch"
+    if key == 10 or key == 13:  return "Launch"    # LF or CR (raw mode sends CR)
     if key == 27:   return "Quit"
-    if key == 353:  return "ShiftTab"       # curses KEY_BTAB
+    if key == -2 or key == 353:  return "ShiftTab"  # ESC [ Z (raw) or KEY_BTAB (curses)
+
+    # Arrow keys (for sub-screens like hotkey config)
+    if key == -3:   return "ArrowUp"
+    if key == -4:   return "ArrowDown"
+    if key == -5:   return "ArrowRight"
+    if key == -6:   return "ArrowLeft"
 
     # Shift combinations (uppercase letters) -- check BEFORE lowercase
     if key == ord('L'):  return "LayoutCycle"

@@ -220,8 +220,12 @@ def handle_config_reload(watcher):
 
 
 def _try_glitch_check():
-    """Disabled — glitch snap needs redesign (event-driven, not polling)."""
-    pass
+    """Periodically check for window overlap and snap back to formation."""
+    try:
+        from layout_engine import check_and_snap
+        check_and_snap()
+    except Exception:
+        pass
 
 
 def event_loop(kbd, hotkey_table, watcher):

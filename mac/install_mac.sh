@@ -76,7 +76,7 @@ RELEASE_URL="https://github.com/matrixshader/matrix-shader/releases/latest/downl
 mkdir -p "$INSTALL_DIR"
 
 if curl -fsSL "$RELEASE_URL" -o /tmp/matrix-shader-mac.tar.gz 2>/dev/null; then
-    tar xzf /tmp/matrix-shader-mac.tar.gz -C "$INSTALL_DIR"
+    tar xzf /tmp/matrix-shader-mac.tar.gz -C "$INSTALL_DIR" --strip-components=1
     rm -f /tmp/matrix-shader-mac.tar.gz
     echo -e "${DIM}  Downloaded and extracted.${RESET}"
 else

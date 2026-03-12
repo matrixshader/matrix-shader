@@ -75,9 +75,14 @@ get_open_slots() {
     for conf in /tmp/ghostty-matrix-*.conf; do
         [ -f "$conf" ] || continue
         local slot=$(echo "$conf" | grep -oP 'ghostty-matrix-\K\d+')
-        if pgrep -f "config-file=$conf" >/dev/null 2>&1; then
-            open+=("$slot")
-        fi
+        # Filter to actual ghostty processes — pgrep -f matches claude/editor transcripts too
+        for pid in $(pgrep -f "config-file=$conf" 2>/dev/null); do
+            local exe=$(readlink /proc/$pid/exe 2>/dev/null)
+            if [[ "$exe" == *ghostty* ]]; then
+                open+=("$slot")
+                break
+            fi
+        done
     done
     echo "${open[*]}"
 }
@@ -182,7 +187,7 @@ show_post_launch() {
     fi
 
     if [ -f "$MATRIX_KEYS" ]; then
-        nohup python3 "$MATRIX_KEYS" > /tmp/matrix-keys.log 2>&1 &
+        nohup python3 -B "$MATRIX_KEYS" > /tmp/matrix-keys.log 2>&1 &
         disown
         echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
     else
@@ -201,16 +206,68 @@ show_post_launch() {
         fi
     fi
 
-    # Spawn hotkey help overlay as separate popup window
-    if [ -x "$HOTKEY_HELP" ]; then
-        "$HOTKEY_HELP" &
-    fi
-
     # Final message
     echo
     if [ "$is_redpill" -eq 1 ]; then
-        echo -e "${GREEN} THE MATRIX HAS YOU.${RESET}"
-        echo -e "${DIM} Control panel ready for live adjustments.${RESET}"
+        # Check license and either launch TUI or show purchase prompt
+        local licensed
+        licensed=$(python3 -B -c "
+import sys; sys.path.insert(0, '$PYMOD_DIR')
+from license_service import is_licensed
+print('yes' if is_licensed() else 'no')
+" 2>/dev/null)
+
+        if [ "$licensed" = "yes" ]; then
+            echo -e "${GREEN} THE MATRIX HAS YOU.${RESET}"
+            echo -e "${DIM} Launching control panel...${RESET}"
+            sleep 1
+            # Launch redpill TUI in its own Ghostty window, then close wizard
+            REDPILL_SCRIPT="$PYMOD_DIR/redpill.sh"
+            if [ -f "$REDPILL_SCRIPT" ]; then
+                bash "$REDPILL_SCRIPT" &
+                disown
+                sleep 0.5
+                exit 0
+            fi
+        else
+            echo -e "${GREEN} THE RED PILL${RESET}"
+            echo -e "${DIM} ----------------------------------------${RESET}"
+            echo
+            echo -e "${DIM} The Red Pill unlocks the full control panel:${RESET}"
+            echo
+            echo -e "${DIM}   - Live parameter adjustment (speed, glow, width, trail, density)${RESET}"
+            echo -e "${DIM}   - Custom RGB color picker (any color, not just presets)${RESET}"
+            echo -e "${DIM}   - Per-window layer toggles (Far/Mid/Near)${RESET}"
+            echo -e "${DIM}   - Layout mode controls (Pillars/Quads/Auto)${RESET}"
+            echo -e "${DIM}   - Hotkey configuration (remap bindings)${RESET}"
+            echo
+            echo -e "\033[33m \$5 — one-time purchase, yours forever.\033[0m"
+            echo
+            echo -e " \033]8;;https://matrixshader.com/redpill\007${CYAN}matrixshader.com/redpill${RESET}\033]8;;\007"
+            echo
+            echo -ne " ${CYAN}Already have a key? Paste it here (or Enter to skip): ${RESET}"
+            read -r license_key
+            if [ -n "$license_key" ]; then
+                python3 -B "$PYMOD_DIR/redpill_tui.py" --activate "$license_key"
+                # If activation succeeded, launch the TUI
+                licensed=$(python3 -B -c "
+import sys; sys.path.insert(0, '$PYMOD_DIR')
+from license_service import is_licensed
+print('yes' if is_licensed() else 'no')
+" 2>/dev/null)
+                if [ "$licensed" = "yes" ]; then
+                    echo -e "${DIM} Launching control panel...${RESET}"
+                    sleep 1
+                    REDPILL_SCRIPT="$PYMOD_DIR/redpill.sh"
+                    if [ -f "$REDPILL_SCRIPT" ]; then
+                        bash "$REDPILL_SCRIPT" &
+                        disown
+                        sleep 0.5
+                        exit 0
+                    fi
+                fi
+            fi
+        fi
     else
         echo -e "${GREEN} FOLLOW THE WHITE RABBIT.${RESET}"
         echo

@@ -38,6 +38,22 @@ from platform_mac import get_ghostty_pids, reload_ghostty_mac
 
 
 # ---------------------------------------------------------------------------
+# Compatibility aliases — hotkey_actions.py imports these from "shader_service"
+# On Mac, sys.modules["shader_service"] points here, so we must export them.
+# ---------------------------------------------------------------------------
+
+def get_ghostty_bus_names():
+    """Mac equivalent: returns {slot: {"bus_name": pid}} for compatibility."""
+    mapping = get_ghostty_pids()
+    return {slot: {"bus_name": info["pid"]} for slot, info in mapping.items()}
+
+
+def reload_ghostty(pid_or_bus):
+    """Mac equivalent: reload via SIGHUP instead of D-Bus."""
+    reload_ghostty_mac(int(pid_or_bus))
+
+
+# ---------------------------------------------------------------------------
 # macOS-adapted shader write functions
 # ---------------------------------------------------------------------------
 

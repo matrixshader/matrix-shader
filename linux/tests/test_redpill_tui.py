@@ -423,12 +423,13 @@ class TestOpacityActions:
             assert tui.opacity == 100
 
     def test_opacity_no_apply_when_transparency_off(self):
+        """C# behavior: opacity doesn't change at all when transparency is off."""
         tui = _make_tui()
         tui.opacity = 80
         tui.transparency = False
         with patch.object(tui, "_apply_opacity") as mock_apply:
             tui.handle_action("OpacityDecrease")
-            assert tui.opacity == 75
+            assert tui.opacity == 80  # Unchanged -- matches C# HandleKey
             mock_apply.assert_not_called()
 
 

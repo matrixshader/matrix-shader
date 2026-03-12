@@ -2,7 +2,9 @@ cask "matrix-shader" do
   version "1.0.0"
   sha256 "PLACEHOLDER_SHA256"
 
-  url "https://github.com/matrixshader/matrix-shader/releases/download/v#{version}/matrix-shader-mac-#{Hardware::CPU.arch}.tar.gz"
+  arch arm: "aarch64", intel: "x86_64"
+
+  url "https://github.com/matrixshader/matrix-shader/releases/download/v#{version}/matrix-shader-mac-#{arch}.tar.gz"
   name "Matrix Shader"
   desc "GPU-powered Matrix rain effects for your terminal"
   homepage "https://matrixshader.com"
@@ -16,7 +18,7 @@ cask "matrix-shader" do
       "#{Dir.home}/.config/matrix-shader/shaders"]
   end
 
-  artifact "matrix-shader", target: "#{Dir.home}/.local/share/matrix-shader"
+  artifact "matrix-shader-mac-#{arch}", target: "#{Dir.home}/.local/share/matrix-shader"
 
   postflight do
     # Create wakeupneo symlink

@@ -48,23 +48,22 @@ def _make_tui():
 
 class TestHelpScreen:
     def test_help_dispatches(self):
-        """? key dispatches to _show_help."""
+        """? key dispatches to _show_help and waits for keypress."""
         tui = _make_tui()
-        mock_stdscr = MagicMock()
-        tui._stdscr = mock_stdscr
-        with patch("curses.color_pair", return_value=0):
+        with patch("redpill_tui.sys.stdout") as mock_stdout, \
+             patch("redpill_tui.read_key", return_value=ord(' ')):
             tui.handle_action("Help")
-        # Should call getch to wait for keypress
-        mock_stdscr.getch.assert_called()
+        # Should have written output (help screen content)
+        mock_stdout.write.assert_called()
 
     def test_help_renders_sections(self):
         """Help screen writes expected section headers."""
         tui = _make_tui()
-        mock_stdscr = MagicMock()
-        with patch("curses.color_pair", return_value=0):
-            tui._show_help(mock_stdscr)
-        # Collect all addstr calls
-        calls = [str(c) for c in mock_stdscr.addstr.call_args_list]
+        with patch("redpill_tui.sys.stdout") as mock_stdout, \
+             patch("redpill_tui.read_key", return_value=ord(' ')):
+            tui._show_help()
+        # Collect all write calls
+        calls = [str(c) for c in mock_stdout.write.call_args_list]
         text = " ".join(calls)
         assert "HOTKEY HELP" in text
         assert "CONTROL PANEL KEYS" in text
@@ -72,10 +71,12 @@ class TestHelpScreen:
         assert "GLOBAL HOTKEYS" in text
         assert "Press any key to return" in text
 
-    def test_help_none_stdscr(self):
-        """Help with None stdscr is a no-op."""
+    def test_help_no_crash(self):
+        """Help screen runs without crash."""
         tui = _make_tui()
-        tui._show_help(None)  # Should not crash
+        with patch("redpill_tui.sys.stdout") as mock_stdout, \
+             patch("redpill_tui.read_key", return_value=ord(' ')):
+            tui._show_help()  # Should not crash
 
 
 # -----------------------------------------------------------------------

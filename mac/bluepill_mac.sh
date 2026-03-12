@@ -1,19 +1,37 @@
 #!/bin/bash
-# Matrix Shader - Bluepill (Linux/Ghostty)
+# Matrix Shader - Bluepill (macOS/Ghostty)
 # Fast session restore — "Straight into the Matrix Shader, Coppertop!"
-# Linux equivalent of MatrixShader.Cli.Bluepill
+# macOS port of linux/bluepill.sh
 
-SCRIPT_PATH="$(realpath "$0")"
+SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 PYMOD_DIR="$SCRIPT_DIR"
-SHADER_DIR="$(dirname "$SCRIPT_PATH")/../shaders-glsl"
-GHOSTTY_BIN="/home/neo/ghostty-build/zig-out/bin/ghostty"
-CONFIG_DIR="$HOME/.config/ghostty"
+LINUX_DIR="$SCRIPT_DIR/../linux"
+SHADER_DIR="$SCRIPT_DIR/../shaders-glsl"
 STATE_DIR="$HOME/.config/matrix-shader"
 STATE_FILE="$STATE_DIR/state.json"
-MATRIX_KEYS="$(dirname "$SCRIPT_PATH")/matrix_keys.py"
+MATRIX_KEYS="$SCRIPT_DIR/matrix_keys_mac.py"
 MATRIX_KEYS_PID="/tmp/matrix-keys.pid"
-WATCHDOG_SCRIPT="$(dirname "$SCRIPT_PATH")/matrix_watchdog.py"
+
+# Detect Ghostty binary
+if [ -x "/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
+    GHOSTTY_BIN="/Applications/Ghostty.app/Contents/MacOS/ghostty"
+elif [ -x "$HOME/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
+    GHOSTTY_BIN="$HOME/Applications/Ghostty.app/Contents/MacOS/ghostty"
+elif command -v ghostty &>/dev/null; then
+    GHOSTTY_BIN="$(command -v ghostty)"
+else
+    GHOSTTY_BIN=""
+fi
+
+# Detect font
+if system_profiler SPFontsDataType 2>/dev/null | grep -qi "Nimbus Mono PS"; then
+    FONT="Nimbus Mono PS"
+elif system_profiler SPFontsDataType 2>/dev/null | grep -qi "SF Mono"; then
+    FONT="SF Mono"
+else
+    FONT="Menlo"
+fi
 
 # Colors
 GREEN='\033[0;32m'
@@ -36,16 +54,19 @@ PRESETS=(
 
 # Self-relaunch inside Ghostty if not already there
 if [ "$1" != "--in-ghostty" ]; then
+    if [ -z "$GHOSTTY_BIN" ]; then
+        echo "Error: Ghostty not found"
+        exit 1
+    fi
     setup_conf="/tmp/ghostty-bluepill.conf"
-    cat > "$setup_conf" <<'SETUPEOF'
+    cat > "$setup_conf" <<SETUPEOF
 background = #000000
 foreground = #6EDCAA
-font-family = Nimbus Mono PS
+font-family = ${FONT}
 font-style = Bold
 font-size = 16
 background-opacity = 1
-gtk-titlebar = true
-window-decoration = client
+macos-titlebar-style = hidden
 SETUPEOF
     nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$setup_conf" -e "$SCRIPT_PATH" --in-ghostty >/dev/null 2>&1 &
     disown
@@ -58,15 +79,11 @@ get_open_slots() {
     local open=()
     for conf in /tmp/ghostty-matrix-*.conf; do
         [ -f "$conf" ] || continue
-        local slot=$(echo "$conf" | grep -oP 'ghostty-matrix-\K\d+')
-        # Filter to actual ghostty processes — pgrep -f matches claude/editor transcripts too
-        for pid in $(pgrep -f "config-file=$conf" 2>/dev/null); do
-            local exe=$(readlink /proc/$pid/exe 2>/dev/null)
-            if [[ "$exe" == *ghostty* ]]; then
-                open+=("$slot")
-                break
-            fi
-        done
+        local slot=$(echo "$conf" | grep -oE 'ghostty-matrix-[0-9]+' | grep -oE '[0-9]+')
+        # Check if a ghostty process is using this config
+        if ps aux 2>/dev/null | grep -v grep | grep -q "config-file=$conf"; then
+            open+=("$slot")
+        fi
     done
     echo "${open[*]}"
 }
@@ -76,18 +93,15 @@ go_transparent() {
     cat > "$setup_conf" <<TRANSEOF
 background = #000000
 foreground = #6EDCAA
-font-family = Nimbus Mono PS
+font-family = ${FONT}
 font-style = Bold
 font-size = 16
 background-opacity = 0
-gtk-titlebar = true
-window-decoration = client
+macos-titlebar-style = hidden
 TRANSEOF
-    for busname in $(busctl --user list 2>/dev/null | awk '/ghostty/{print $1}'); do
-        gdbus call --session --dest "$busname" \
-            --object-path /com/mitchellh/ghostty \
-            --method org.gtk.Actions.Activate \
-            'reload-config' '[]' '{}' >/dev/null 2>&1
+    # Reload all Ghostty instances via SIGHUP
+    for pid in $(pgrep -f "ghostty" 2>/dev/null); do
+        kill -HUP "$pid" 2>/dev/null
     done
     sleep 0.3
 }
@@ -98,7 +112,7 @@ launch_window_from_state() {
     # Read shader config for this slot from state.json
     local shader_config
     shader_config=$(python3 -c "
-import sys; sys.path.insert(0, '$PYMOD_DIR')
+import sys; sys.path.insert(0, '$LINUX_DIR'); sys.path.insert(0, '$PYMOD_DIR')
 from state_service import load_state
 import json
 state = load_state()
@@ -109,20 +123,20 @@ print(json.dumps(config))
     local shader_file
     if [ -z "$shader_config" ] || [ "$shader_config" = "{}" ]; then
         # Fallback: use green preset
-        shader_file=$(python3 "$PYMOD_DIR/shader_service.py" create --slot "$slot" --preset 0 2>/dev/null)
+        shader_file=$(python3 "$PYMOD_DIR/shader_service_mac.py" create --slot "$slot" --preset 0 2>/dev/null)
     else
         # Create shader with saved RGB
         local r g b
         r=$(echo "$shader_config" | python3 -c "import sys,json; c=json.load(sys.stdin); print(c.get('RAIN_R', 0.0))")
         g=$(echo "$shader_config" | python3 -c "import sys,json; c=json.load(sys.stdin); print(c.get('RAIN_G', 1.0))")
         b=$(echo "$shader_config" | python3 -c "import sys,json; c=json.load(sys.stdin); print(c.get('RAIN_B', 0.3))")
-        shader_file=$(python3 "$PYMOD_DIR/shader_service.py" create --slot "$slot" --r "$r" --g "$g" --b "$b" 2>/dev/null)
+        shader_file=$(python3 "$PYMOD_DIR/shader_service_mac.py" create --slot "$slot" --r "$r" --g "$g" --b "$b" 2>/dev/null)
 
         # Write all non-RGB params to restore full config
         python3 -c "
-import sys; sys.path.insert(0, '$PYMOD_DIR')
+import sys; sys.path.insert(0, '$LINUX_DIR'); sys.path.insert(0, '$PYMOD_DIR')
 import json
-from shader_service import write_shader_params
+from shader_service_mac import write_shader_params
 config = json.loads('''$shader_config''')
 params = {k: v for k, v in config.items() if k not in ('RAIN_R', 'RAIN_G', 'RAIN_B')}
 if params:
@@ -138,14 +152,13 @@ if params:
     # Read opacity from state
     local opacity
     opacity=$(python3 -c "
-import sys; sys.path.insert(0, '$PYMOD_DIR')
+import sys; sys.path.insert(0, '$LINUX_DIR'); sys.path.insert(0, '$PYMOD_DIR')
 from state_service import load_state
 state = load_state()
 print(state.get('opacity', 85))
 " 2>/dev/null || echo 85)
     local opacity_val
     opacity_val=$(awk "BEGIN {printf \"%.2f\", $opacity / 100}")
-    # Clean up edge cases
     [ "$opacity_val" = "0.00" ] && opacity_val="0"
     [ "$opacity_val" = "1.00" ] && opacity_val="1"
 
@@ -163,36 +176,17 @@ print('#%02x%02x%02x' % (int(r*255), int(g*255), int(b*255)))
 custom-shader = ${shader_file}
 background = #000000
 foreground = ${fg}
-font-family = Nimbus Mono PS
+font-family = ${FONT}
 font-style = Bold
 background-opacity = ${opacity_val}
-gtk-titlebar = true
-window-decoration = client
+macos-titlebar-style = hidden
 custom-shader-animation = always
 desktop-notifications = false
-keybind = ctrl+shift+j=unbind
-keybind = ctrl+shift+k=unbind
-keybind = ctrl+shift+b=unbind
-keybind = ctrl+shift+h=unbind
-keybind = ctrl+shift+l=unbind
-keybind = ctrl+shift+one=unbind
-keybind = ctrl+shift+two=unbind
-keybind = ctrl+shift+three=unbind
-keybind = ctrl+shift+up=unbind
-keybind = ctrl+shift+down=unbind
-keybind = ctrl+shift+left=unbind
-keybind = ctrl+shift+right=unbind
-keybind = ctrl+shift+f5=unbind
-keybind = ctrl+shift+s=unbind
-keybind = ctrl+shift+r=unbind
-keybind = ctrl+shift+g=unbind
 EOF
 
     echo -ne "   Waiting for Matrix-${slot}..."
     nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
     local ghostty_pid=$!
-    # Register PID with window service for positioning (Phase 5/6)
-    python3 "$PYMOD_DIR/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
     sleep 0.3
     echo -e " ${GREEN}OK${RESET}"
 }
@@ -206,15 +200,16 @@ echo -e "${DIM} ----------------------------------------${RESET}"
 echo
 
 # Check Ghostty
-if [ ! -f "$GHOSTTY_BIN" ]; then
-    echo -e "${RED} Ghostty not found at $GHOSTTY_BIN${RESET}"
+if [ -z "$GHOSTTY_BIN" ]; then
+    echo -e "${RED} Ghostty not found${RESET}"
+    echo -e "${DIM} Install Ghostty.app to /Applications first.${RESET}"
     sleep 3
     exit 1
 fi
 
 # Load saved slots from state.json
 saved_slots=$(python3 -c "
-import sys; sys.path.insert(0, '$PYMOD_DIR')
+import sys; sys.path.insert(0, '$LINUX_DIR'); sys.path.insert(0, '$PYMOD_DIR')
 from state_service import load_state
 state = load_state()
 slots = sorted(state.get('shader_configs', {}).keys())
@@ -263,10 +258,10 @@ if [ "$skipped" -gt 0 ]; then
     echo -e "${DIM}   Skipped ${skipped} already-open window(s)${RESET}"
 fi
 
-# Apply layout to position windows with proper gaps
+# Apply layout to position windows
 sleep 0.5
 python3 -c "
-import sys; sys.path.insert(0, '$PYMOD_DIR')
+import sys; sys.path.insert(0, '$LINUX_DIR'); sys.path.insert(0, '$PYMOD_DIR')
 from layout_engine import apply_current_layout
 n = apply_current_layout()
 if n > 0:
@@ -289,17 +284,6 @@ else
     nohup python3 -B "$MATRIX_KEYS" > /tmp/matrix-keys.log 2>&1 &
     disown
     echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
-fi
-
-# Start watchdog if not running
-if [ -f "$WATCHDOG_SCRIPT" ]; then
-    watchdog_pid="/tmp/matrix-watchdog.pid"
-    if [ -f "$watchdog_pid" ] && kill -0 "$(cat "$watchdog_pid")" 2>/dev/null; then
-        : # Watchdog already running
-    else
-        nohup python3 "$WATCHDOG_SCRIPT" > /dev/null 2>&1 &
-        disown
-    fi
 fi
 
 # Final status

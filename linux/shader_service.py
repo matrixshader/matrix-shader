@@ -269,7 +269,8 @@ def get_ghostty_bus_names() -> dict:
     try:
         result = subprocess.run(
             ["busctl", "--user", "list"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            stdin=subprocess.DEVNULL,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return mapping
@@ -318,6 +319,66 @@ def get_ghostty_bus_names() -> dict:
     return mapping
 
 
+def resolve_config_path(slot: int) -> str:
+    """Find the actual Ghostty config file for a slot by reading /proc/PID/cmdline.
+
+    Works regardless of how the window was launched (wakeupneo, bluepill,
+    manual, or any other method). Falls back to the conventional path
+    if the PID can't be inspected.
+
+    Args:
+        slot: Window slot number (1-8).
+
+    Returns:
+        Absolute path to the Ghostty config file for this slot.
+    """
+    mapping = get_ghostty_bus_names()
+    info = mapping.get(slot)
+    if info:
+        pid = info.get("pid")
+        if pid:
+            try:
+                with open(f"/proc/{pid}/cmdline") as f:
+                    cmdline = f.read()
+                for part in cmdline.split("\x00"):
+                    if part.startswith("--config-file="):
+                        return part.split("=", 1)[1]
+            except (FileNotFoundError, PermissionError):
+                pass
+    return f"/tmp/ghostty-matrix-{slot}.conf"
+
+
+def get_all_ghostty_configs():
+    """Discover config file paths for ALL running Ghostty instances.
+
+    Reads /proc/PID/cmdline for every Ghostty process. Returns a set
+    of unique config file paths — works for any launch method.
+
+    Returns:
+        Set of config file paths.
+    """
+    configs = set()
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "ghostty.*config-file"],
+            capture_output=True, text=True, timeout=3,
+            stdin=subprocess.DEVNULL,
+        )
+        for pid_str in result.stdout.strip().split():
+            try:
+                pid = int(pid_str)
+                with open(f"/proc/{pid}/cmdline") as f:
+                    cmdline = f.read()
+                for part in cmdline.split("\x00"):
+                    if part.startswith("--config-file="):
+                        configs.add(part.split("=", 1)[1])
+            except (FileNotFoundError, PermissionError, ValueError):
+                continue
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return configs
+
+
 def reload_ghostty(bus_name: str) -> bool:
     """Trigger config reload for a specific Ghostty instance via D-Bus.
 
@@ -340,7 +401,8 @@ def reload_ghostty(bus_name: str) -> bool:
                 "reload-config", "[]", "{}"
             ],
             capture_output=True,
-            timeout=5
+            stdin=subprocess.DEVNULL,
+            timeout=5,
         )
         return True
     except (subprocess.TimeoutExpired, subprocess.CalledProcessError):

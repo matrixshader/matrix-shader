@@ -164,12 +164,12 @@ def action_manual_reload() -> None:
 # ---------------------------------------------------------------------------
 
 def _read_current_opacity() -> int:
-    """Read the current background-opacity from the first matrix config.
+    """Read the current background-opacity from any running Ghostty config.
 
     Returns opacity as an integer percentage (0-100).
     """
-    import glob as _glob
-    configs = sorted(_glob.glob("/tmp/ghostty-matrix-*.conf"))
+    from shader_service import get_all_ghostty_configs
+    configs = sorted(get_all_ghostty_configs())
     if not configs:
         configs = [os.path.expanduser("~/.config/ghostty/config")]
     for conf in configs:

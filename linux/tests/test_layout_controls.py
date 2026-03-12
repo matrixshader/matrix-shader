@@ -168,12 +168,12 @@ class TestLayoutActions:
         assert "2" in tui.snapback_positions
 
     def test_snapback_restore_noop(self):
-        """Restore is a no-op until Phase 6 implements positioning."""
+        """Restore is a no-op until positioning is implemented."""
         tui = _make_tui()
         tui.handle_action("SnapbackRestore")  # Should not crash
 
     def test_monitor_change_noop(self):
-        """MonitorChange is a no-op until Phase 6."""
+        """MonitorChange is a no-op."""
         tui = _make_tui()
         tui.handle_action("MonitorChange")  # Should not crash
 

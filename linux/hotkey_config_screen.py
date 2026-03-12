@@ -239,3 +239,155 @@ class HotkeyConfigScreen:
                 self.reset_to_defaults()
             elif key == ord('s') or key == ord('S'):
                 self.save()
+
+    # -------------------------------------------------------------------
+    # ANSI mode (raw terminal, no curses) -- used by redpill_tui.py
+    # -------------------------------------------------------------------
+
+    def _render_ansi(self):
+        """Render config screen using raw ANSI escape codes."""
+        GREEN = "\x1b[32m"
+        YELLOW = "\x1b[33m"
+        CYAN = "\x1b[36m"
+        GRAY = "\x1b[90m"
+        RESET = "\x1b[0m"
+
+        try:
+            cw = max(80, os.get_terminal_size().columns)
+            max_rows = os.get_terminal_size().lines
+        except OSError:
+            cw = 80
+            max_rows = 24
+
+        buf = []
+
+        def padline(content):
+            vlen = 0
+            in_esc = False
+            for c in content:
+                if c == "\x1b":
+                    in_esc = True
+                    continue
+                if in_esc:
+                    if c.isalpha():
+                        in_esc = False
+                    continue
+                vlen += 1
+            pad = max(0, cw - vlen)
+            buf.append(content + " " * pad + "\n")
+
+        padline("")
+        padline(f" {GREEN}HOTKEY CONFIGURATION{RESET}")
+        padline(f" {GRAY}Use arrows to navigate, Enter to edit, D to disable, R to reset all{RESET}")
+        padline("")
+
+        for i, action in enumerate(self.actions):
+            binding = self.config.get(action, {})
+            display_name = self.get_display_name(action)
+
+            if i == self.selected_index:
+                indicator = f"{GREEN} > {RESET}"
+            else:
+                indicator = "   "
+
+            if i == self.selected_index and self.edit_mode:
+                binding_display = f"{YELLOW}[Press new key combo...]{RESET}"
+            elif not binding.get("enabled", True):
+                binding_display = f"{GRAY}[Disabled]{RESET}"
+            else:
+                binding_display = f"{CYAN}{format_binding(binding)}{RESET}"
+
+            padline(f"{indicator}{display_name:<24s}{binding_display}")
+
+        padline("")
+        if self.status_message:
+            padline(f" {YELLOW}{self.status_message}{RESET}")
+        else:
+            padline("")
+        padline("")
+        padline(f" {GRAY}[Enter] Edit  [D] Toggle disable  [R] Reset all  [S] Save  [Esc] Exit{RESET}")
+        padline("")
+
+        frame = "".join(buf)
+        lines_written = frame.count("\n")
+        remaining = max_rows - lines_written - 1
+        if remaining > 0:
+            blank = " " * cw + "\n"
+            frame += blank * remaining
+
+        sys.stdout.write("\x1b[H")
+        sys.stdout.write(frame)
+        sys.stdout.flush()
+
+    def _handle_edit_capture_ansi(self, key_str):
+        """Process a key in edit mode (raw terminal input). Returns True if edit ended."""
+        if key_str == "\x1b":
+            self.edit_mode = False
+            self.status_message = None
+            return True
+
+        key_name = None
+        if key_str == "LEFT":
+            key_name = "Left"
+        elif key_str == "RIGHT":
+            key_name = "Right"
+        elif key_str == "UP":
+            key_name = "Up"
+        elif key_str == "DOWN":
+            key_name = "Down"
+        elif len(key_str) == 1 and 32 < ord(key_str) < 127:
+            key_name = key_str.upper()
+
+        if key_name is None:
+            self.status_message = "Invalid key"
+            return False
+
+        action = self.actions[self.selected_index]
+        self.config[action] = {
+            "key": key_name,
+            "modifiers": ["Ctrl", "Shift"],
+            "enabled": True,
+        }
+        display = format_binding(self.config[action])
+        self.status_message = f"Changed to {display} (press S to save)"
+        self.edit_mode = False
+        return True
+
+    def run_ansi(self):
+        """Main loop using raw ANSI (no curses). Called from redpill_tui.py."""
+        from redpill_tui import _read_key
+
+        if not is_redpill():
+            sys.stdout.write("\x1b[2J\x1b[H")
+            sys.stdout.write(" Hotkey customization requires Red Pill.\n")
+            sys.stdout.write(" Visit matrixshader.com/redpill\n\n")
+            sys.stdout.write(" Press any key to return...\n")
+            sys.stdout.flush()
+            _read_key()
+            return
+
+        sys.stdout.write("\x1b[2J")
+        sys.stdout.flush()
+
+        while True:
+            self._render_ansi()
+            key_str = _read_key()
+
+            if self.edit_mode:
+                self._handle_edit_capture_ansi(key_str)
+                continue
+
+            if key_str == "\x1b":
+                break
+            elif key_str == "UP":
+                self.move_selection(-1)
+            elif key_str == "DOWN":
+                self.move_selection(1)
+            elif key_str in ("\n", "\r"):
+                self.enter_edit_mode()
+            elif key_str in ("d", "D"):
+                self.toggle_disable()
+            elif key_str in ("r", "R"):
+                self.reset_to_defaults()
+            elif key_str in ("s", "S"):
+                self.save()
