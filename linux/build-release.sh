@@ -159,6 +159,14 @@ else
     echo -e "${DIM}  Warning: no license secret — set LICENSE_SECRET or create MatrixShader/license-secret.key${RESET}"
 fi
 
+# Copy uninstaller
+[ -f "$SCRIPT_DIR/uninstall.sh" ] && cp "$SCRIPT_DIR/uninstall.sh" "$RELEASE_DIR/scripts/"
+
+# Copy matrixlite
+[ -f "$SCRIPT_DIR/matrixlite.py" ] && cp "$SCRIPT_DIR/matrixlite.py" "$RELEASE_DIR/scripts/"
+[ -f "$SCRIPT_DIR/matrixlite_launcher.sh" ] && cp "$SCRIPT_DIR/matrixlite_launcher.sh" "$RELEASE_DIR/scripts/"
+[ -f "$SCRIPT_DIR/installer_helpers.py" ] && cp "$SCRIPT_DIR/installer_helpers.py" "$RELEASE_DIR/scripts/"
+
 chmod +x "$RELEASE_DIR/scripts/"*.sh "$RELEASE_DIR/scripts/"*.py 2>/dev/null || true
 
 # 4. Copy GNOME Shell extension
@@ -172,6 +180,11 @@ fi
 echo -e "${DIM}  Staging installer...${RESET}"
 cp "$SCRIPT_DIR/install.sh" "$RELEASE_DIR/"
 chmod +x "$RELEASE_DIR/install.sh"
+
+# Write version stamp from package.json
+PACKAGE_VERSION=$(node -p "require('$PROJECT_DIR/package.json').version" 2>/dev/null || echo "1.0.0")
+echo "$PACKAGE_VERSION" > "$RELEASE_DIR/VERSION"
+echo -e "${DIM}  Version: $PACKAGE_VERSION${RESET}"
 
 # 6. Create tarball
 OUTPUT="$PROJECT_DIR/matrixshader-linux-x86_64.tar.gz"

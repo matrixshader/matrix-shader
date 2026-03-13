@@ -13,11 +13,33 @@ HOTKEY_HELP="$HOME/.local/bin/matrix-hotkey-help.sh"
 MATRIX_KEYS="$(dirname "$SCRIPT_PATH")/matrix_keys.py"
 MATRIX_KEYS_PID="/tmp/matrix-keys.pid"
 
+# Parse flags
+MODE=""
+IN_GHOSTTY=false
+for arg in "$@"; do
+    case "$arg" in
+        --in-ghostty)  IN_GHOSTTY=true ;;
+        --morpheus)    MODE="morpheus" ;;
+        --agent-smith) MODE="agent-smith" ;;
+        --update)      MODE="update" ;;
+        --help|-h)     MODE="help" ;;
+    esac
+done
+
 # Self-relaunch inside Ghostty if not already there
 # Uses --in-ghostty flag (not env var) to avoid leaking through child processes
-if [ "$1" != "--in-ghostty" ]; then
-    setup_conf="/tmp/ghostty-wakeupneo.conf"
-    cat > "$setup_conf" <<'SETUPEOF'
+if [ "$IN_GHOSTTY" != "true" ]; then
+    # --update and --agent-smith run directly (no Ghostty window needed)
+    if [[ "$MODE" == "update" ]]; then
+        # Define check_update inline for direct invocation (functions defined later)
+        :  # Handled after function definitions below
+    fi
+    if [[ "$MODE" == "agent-smith" ]]; then
+        :  # Handled after function definitions below
+    fi
+    if [[ "$MODE" != "update" && "$MODE" != "agent-smith" ]]; then
+        setup_conf="/tmp/ghostty-wakeupneo.conf"
+        cat > "$setup_conf" <<'SETUPEOF'
 background = #000000
 foreground = #6EDCAA
 font-family = Nimbus Mono PS
@@ -27,9 +49,10 @@ background-opacity = 1
 gtk-titlebar = true
 window-decoration = client
 SETUPEOF
-    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$setup_conf" -e "$SCRIPT_PATH" --in-ghostty >/dev/null 2>&1 &
-    disown
-    exit 0
+        nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$setup_conf" -e "$SCRIPT_PATH" --in-ghostty ${MODE:+--$MODE} >/dev/null 2>&1 &
+        disown
+        exit 0
+    fi
 fi
 
 # Colors for terminal output
@@ -120,6 +143,128 @@ show_random_quote() {
     echo -e " ${DIM}\"${MATRIX_QUOTES[$idx]}\"${RESET}"
     echo
 }
+
+morpheus_intro() {
+    echo
+    typewriter " I imagine that right now, you're feeling a bit like Alice." 0.05
+    sleep 0.5
+    typewriter " Tumbling down the rabbit hole." 0.05
+    sleep 0.5
+    echo
+    typewriter " You take the red pill, you stay in Wonderland..." 0.06
+    sleep 0.3
+    typewriter " and I show you how deep the rabbit hole goes." 0.06
+    sleep 0.8
+    echo
+    typewriter " Remember, all I'm offering is the truth." 0.05
+    sleep 0.3
+    typewriter " Nothing more." 0.06
+    sleep 1
+    echo
+}
+
+agent_smith_mode() {
+    echo -e "${GREEN} AGENT SMITH MODE: CHAOS${RESET}"
+    echo
+    typewriter " Mr. Anderson..." 0.10
+    sleep 0.5
+    typewriter " You're going to help us, Mr. Anderson." 0.08
+    sleep 0.5
+    typewriter " Whether you want to or not." 0.08
+    sleep 1
+
+    local count=0
+    for conf in /tmp/ghostty-matrix-*.conf; do
+        [ -f "$conf" ] || continue
+        local slot=$(echo "$conf" | grep -oP 'ghostty-matrix-\K\d+')
+        # Generate random RGB and speed
+        local r g b speed
+        r=$(python3 -c "import random; print(f'{random.random():.1f}')")
+        g=$(python3 -c "import random; print(f'{random.random():.1f}')")
+        b=$(python3 -c "import random; print(f'{random.random():.1f}')")
+        speed=$(python3 -c "import random; print(f'{random.random() * 2.5 + 0.5:.1f}')")
+
+        python3 "$PYMOD_DIR/shader_service.py" write --slot "$slot" --param RAIN_R --value "$r"
+        python3 "$PYMOD_DIR/shader_service.py" write --slot "$slot" --param RAIN_G --value "$g"
+        python3 "$PYMOD_DIR/shader_service.py" write --slot "$slot" --param RAIN_B --value "$b"
+        python3 "$PYMOD_DIR/shader_service.py" write --slot "$slot" --param RAIN_SPEED --value "$speed"
+        ((count++))
+    done
+
+    # Trigger reload on all Ghostty instances
+    for busname in $(busctl --user list 2>/dev/null | awk '/ghostty/{print $1}'); do
+        gdbus call --session --dest "$busname" \
+            --object-path /com/mitchellh/ghostty \
+            --method org.gtk.Actions.Activate \
+            'reload-config' '[]' '{}' >/dev/null 2>&1
+    done
+
+    echo
+    echo -e "${GREEN} Chaos applied to ${count} window(s).${RESET}"
+    echo -e "${DIM} There is no spoon.${RESET}"
+}
+
+get_current_version() {
+    local version_file
+    version_file="$(dirname "$SCRIPT_PATH")/../VERSION"
+    if [ -f "$version_file" ]; then
+        cat "$version_file"
+    else
+        echo "0.0.0"
+    fi
+}
+
+check_update() {
+    local current_version
+    current_version=$(get_current_version)
+    local api_url="https://api.github.com/repos/matrixshader/matrix-shader/releases/latest"
+
+    # Silent, non-blocking: max 5 seconds, fail silently
+    local response
+    response=$(curl -s --max-time 5 -H "User-Agent: MatrixShader-UpdateCheck" "$api_url" 2>/dev/null) || return 0
+
+    local latest
+    latest=$(echo "$response" | python3 -c "
+import sys, json, re
+try:
+    data = json.load(sys.stdin)
+    tag = data.get('tag_name', '').lstrip('v')
+    match = re.match(r'[\d.]+', tag)
+    print(match.group(0) if match else '')
+except:
+    pass
+" 2>/dev/null) || return 0
+
+    if [ -z "$latest" ]; then
+        return 0
+    fi
+
+    # Compare versions using Python tuple comparison
+    if python3 -c "
+import sys
+v1 = tuple(map(int, '$latest'.split('.')))
+v2 = tuple(map(int, '$current_version'.split('.')))
+sys.exit(0 if v1 > v2 else 1)
+" 2>/dev/null; then
+        echo
+        echo -e " \033[33m UPDATE AVAILABLE: v${latest}\033[0m"
+        echo -e " \033[90m Current: v${current_version}\033[0m"
+        echo -e " \033[90m Update:  curl -sL matrixshader.com/install | bash\033[0m"
+        echo
+    fi
+}
+
+# Handle --update and --agent-smith direct invocations (no Ghostty window)
+if [ "$IN_GHOSTTY" != "true" ]; then
+    if [[ "$MODE" == "update" ]]; then
+        check_update
+        exit 0
+    fi
+    if [[ "$MODE" == "agent-smith" ]]; then
+        agent_smith_mode
+        exit 0
+    fi
+fi
 
 matrix_splash() {
     local width=$(tput cols 2>/dev/null || echo 80)
@@ -413,6 +558,9 @@ print('yes' if is_licensed() else 'no')
     echo -e "${GOLD} https://buymeacoffee.com/IKnowKungFu${RESET}"
     echo
 
+    # Background update check (silent, non-blocking)
+    check_update &
+
     sleep infinity
 }
 
@@ -434,6 +582,11 @@ sleep 0.5
 
 show_random_quote
 sleep 1
+
+# Morpheus easter egg: extended philosophical intro
+if [[ "$MODE" == "morpheus" ]]; then
+    morpheus_intro
+fi
 
 # Clear and show header
 clear
@@ -630,6 +783,16 @@ for i in "${!selected_presets[@]}"; do
     launch_window "${selected_presets[$i]}" "${selected_slots[$i]}"
     sleep 0.3
 done
+
+# Desktop notification
+WINDOW_COUNT=${#selected_presets[@]}
+if command -v notify-send &>/dev/null; then
+    notify-send \
+        --app-name="Matrix Shader" \
+        --expire-time=5000 \
+        "The Matrix has you" \
+        "$WINDOW_COUNT window(s) deployed" 2>/dev/null || true
+fi
 
 # Save state with slot info
 {

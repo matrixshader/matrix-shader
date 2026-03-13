@@ -18,6 +18,12 @@ BIN_DIR="$HOME/.local/bin"
 SHADER_DIR="$INSTALL_DIR/shaders"
 GHOSTTY_BIN="$INSTALL_DIR/ghostty"
 
+# Read installed version (if any)
+CURRENT_VERSION=""
+if [ -f "$INSTALL_DIR/VERSION" ]; then
+    CURRENT_VERSION=$(cat "$INSTALL_DIR/VERSION")
+fi
+
 echo
 echo -e "${GREEN}  Matrix Shader - Linux Installer${RESET}"
 echo -e "${GREEN}  ================================${RESET}"
@@ -57,6 +63,34 @@ else
     echo
 fi
 
+# Read release version from source
+RELEASE_VERSION=""
+if [ -f "$SOURCE_DIR/VERSION" ]; then
+    RELEASE_VERSION=$(cat "$SOURCE_DIR/VERSION")
+fi
+
+# Version comparison: offer update or reinstall if already installed
+if [ -n "$CURRENT_VERSION" ] && [ -n "$RELEASE_VERSION" ]; then
+    echo -e "  ${DIM}Installed version: $CURRENT_VERSION${RESET}"
+    echo -e "  ${DIM}Available version: $RELEASE_VERSION${RESET}"
+    echo
+
+    version_gt() {
+        [ "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ] && [ "$1" != "$2" ]
+    }
+
+    if version_gt "$RELEASE_VERSION" "$CURRENT_VERSION"; then
+        echo -e "  ${GREEN}Update available!${RESET}"
+        read -p "  Update $CURRENT_VERSION -> $RELEASE_VERSION? (Y/n) " CHOICE
+        [ "$CHOICE" = "n" ] || [ "$CHOICE" = "N" ] && exit 0
+    else
+        echo -e "  ${DIM}Already up to date.${RESET}"
+        read -p "  Reinstall? (y/N) " CHOICE
+        [ "$CHOICE" != "y" ] && [ "$CHOICE" != "Y" ] && exit 0
+    fi
+    echo
+fi
+
 # Kill any running matrix processes
 for proc in ghostty-matrix matrix-hotkey matrix_keys; do
     pkill -f "$proc" 2>/dev/null || true
@@ -92,12 +126,25 @@ if [ -f "$SOURCE_DIR/scripts/redpill.sh" ]; then
     chmod +x "$BIN_DIR/redpill"
 fi
 
+# Install uninstaller
+if [ -f "$SOURCE_DIR/scripts/uninstall.sh" ]; then
+    cp "$SOURCE_DIR/scripts/uninstall.sh" "$BIN_DIR/uninstall-matrix"
+    chmod +x "$BIN_DIR/uninstall-matrix"
+fi
+
+# Install matrixlite
+if [ -f "$SOURCE_DIR/scripts/matrixlite_launcher.sh" ]; then
+    cp "$SOURCE_DIR/scripts/matrixlite_launcher.sh" "$BIN_DIR/matrixlite"
+    chmod +x "$BIN_DIR/matrixlite"
+fi
+
 # Python modules (TUI, services, layout engine)
 PYMOD_DIR="$INSTALL_DIR/pylib"
 mkdir -p "$PYMOD_DIR"
 for pymod in shader_service.py state_service.py hotkey_actions.py hotkey_config.py \
              hotkey_config_screen.py hotkey_conflicts.py layout_engine.py \
-             matrix_toast.py redpill_tui.py redpill_keys.py window_service.py; do
+             matrix_toast.py redpill_tui.py redpill_keys.py window_service.py \
+             license_service.py machine_fingerprint.py matrixlite.py installer_helpers.py; do
     [ -f "$SOURCE_DIR/scripts/$pymod" ] && cp "$SOURCE_DIR/scripts/$pymod" "$PYMOD_DIR/"
 done
 
@@ -120,6 +167,11 @@ sed -i "s|WATCHDOG_SCRIPT=.*|WATCHDOG_SCRIPT=\"$BIN_DIR/matrix_watchdog.py\"|" "
 if [ -f "$BIN_DIR/redpill" ]; then
     sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/redpill"
     sed -i "s|TUI_SCRIPT=.*|TUI_SCRIPT=\"$PYMOD_DIR/redpill_tui.py\"|" "$BIN_DIR/redpill"
+fi
+
+# Patch matrixlite paths
+if [ -f "$BIN_DIR/matrixlite" ]; then
+    sed -i "s|^PYMOD_DIR=.*|PYMOD_DIR=\"$PYMOD_DIR\"|" "$BIN_DIR/matrixlite"
 fi
 
 # Inject PYTHONPATH into Python scripts so they can find modules in PYMOD_DIR.
@@ -219,15 +271,22 @@ if command -v gsettings >/dev/null 2>&1; then
     fi
 fi
 
+# Write version stamp
+if [ -n "$RELEASE_VERSION" ]; then
+    echo "$RELEASE_VERSION" > "$INSTALL_DIR/VERSION"
+fi
+
 echo
 echo -e "${GREEN}  ================================${RESET}"
 echo -e "${GREEN}  Matrix Shader installed!${RESET}"
 echo -e "${GREEN}  ================================${RESET}"
 echo
 echo -e "  Commands available:"
-echo -e "    ${CYAN}wakeupneo${RESET}  - Setup wizard (start here!)"
-echo -e "    ${CYAN}bluepill${RESET}   - Fast session restore"
-echo -e "    ${CYAN}redpill${RESET}    - Control panel (advanced)"
+echo -e "    ${CYAN}wakeupneo${RESET}        - Setup wizard (start here!)"
+echo -e "    ${CYAN}bluepill${RESET}         - Fast session restore"
+echo -e "    ${CYAN}redpill${RESET}          - Control panel (advanced)"
+echo -e "    ${CYAN}matrixlite${RESET}       - Text-mode rain (any terminal)"
+echo -e "    ${CYAN}uninstall-matrix${RESET} - Remove Matrix Shader"
 echo
 echo -e "  Hotkeys:"
 echo -e "    ${DIM}Ctrl+Shift+B   Toggle transparency${RESET}"
