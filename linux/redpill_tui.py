@@ -911,36 +911,26 @@ keybind = ctrl+shift+f5=unbind
 
 
 def _show_purchase_prompt():
-    """Show purchase info and inline activation prompt (matches C# ShowPurchasePrompt)."""
+    """Open purchase page in browser and prompt for key."""
     GREEN = "\x1b[32m"
     DIM = "\x1b[2m"
-    YELLOW = "\x1b[33m"
-    CYAN = "\x1b[36m"
     RESET = "\x1b[0m"
-    LINK = "\x1b]8;;https://matrixshader.com/redpill\x07"
-    LINK_END = "\x1b]8;;\x07"
 
     print()
     print(f" {GREEN}THE RED PILL{RESET}")
-    print(f" {DIM}----------------------------------------{RESET}")
     print()
-    print(f" {DIM}The Red Pill unlocks the full control panel:{RESET}")
-    print()
-    print(f" {DIM}  - Live parameter adjustment (speed, glow, width, trail, density){RESET}")
-    print(f" {DIM}  - Custom RGB color picker (any color, not just presets){RESET}")
-    print(f" {DIM}  - Per-window layer toggles (Far/Mid/Near){RESET}")
-    print(f" {DIM}  - Multi-tab management (up to 8 shader configs){RESET}")
-    print(f" {DIM}  - Layout mode controls (Pillars/Quads/Auto){RESET}")
-    print(f" {DIM}  - Snapback position save/restore{RESET}")
-    print(f" {DIM}  - Hotkey configuration (remap bindings){RESET}")
-    print(f" {DIM}  - Neo vision shader background{RESET}")
-    print()
-    print(f" {YELLOW}$5 — one-time purchase, yours forever.{RESET}")
-    print()
-    print(f" {LINK}{CYAN}matrixshader.com/redpill{RESET}{LINK_END}")
-    print()
-    print(f" {DIM}Already purchased? Activate with:{RESET}")
-    print(f" {DIM}  redpill --activate REDPILL-XXXX-XXXX-XXXX-XXXX{RESET}")
+    print(f" {DIM}Opening purchase page...{RESET}")
+
+    import platform
+    opener = "open" if platform.system() == "Darwin" else "xdg-open"
+    try:
+        subprocess.Popen(
+            [opener, "https://matrixshader.com/redpill"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        pass
+
     print()
 
 
@@ -999,7 +989,7 @@ def main():
         CYAN = "\x1b[36m"
         RESET = "\x1b[0m"
 
-        print(f" {CYAN}Already have a key? Paste it here (or press Enter to close): {RESET}", end="", flush=True)
+        print(f" {CYAN}Paste your key here after purchase (or press Enter to close): {RESET}", end="", flush=True)
         try:
             user_input = input().strip()
         except (EOFError, KeyboardInterrupt):

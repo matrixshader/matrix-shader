@@ -231,21 +231,11 @@ print('yes' if is_licensed() else 'no')
             fi
         else
             echo -e "${GREEN} THE RED PILL${RESET}"
-            echo -e "${DIM} ----------------------------------------${RESET}"
             echo
-            echo -e "${DIM} The Red Pill unlocks the full control panel:${RESET}"
+            echo -e "${DIM} Opening purchase page...${RESET}"
+            xdg-open "https://matrixshader.com/redpill" 2>/dev/null &
             echo
-            echo -e "${DIM}   - Live parameter adjustment (speed, glow, width, trail, density)${RESET}"
-            echo -e "${DIM}   - Custom RGB color picker (any color, not just presets)${RESET}"
-            echo -e "${DIM}   - Per-window layer toggles (Far/Mid/Near)${RESET}"
-            echo -e "${DIM}   - Layout mode controls (Pillars/Quads/Auto)${RESET}"
-            echo -e "${DIM}   - Hotkey configuration (remap bindings)${RESET}"
-            echo
-            echo -e "\033[33m \$5 — one-time purchase, yours forever.\033[0m"
-            echo
-            echo -e " \033]8;;https://matrixshader.com/redpill\007${CYAN}matrixshader.com/redpill${RESET}\033]8;;\007"
-            echo
-            echo -ne " ${CYAN}Already have a key? Paste it here (or Enter to skip): ${RESET}"
+            echo -ne " ${CYAN}Paste your key here after purchase (or Enter to skip): ${RESET}"
             read -r license_key
             if [ -n "$license_key" ]; then
                 python3 -B "$PYMOD_DIR/redpill_tui.py" --activate "$license_key"
