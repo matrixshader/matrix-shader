@@ -167,7 +167,10 @@ Plans:
   3. Running `uninstall-matrix` removes all Matrix files, PATH entries, and background processes cleanly
   4. Re-running `install.sh` on an existing installation detects the current version and offers update or reinstall
   5. After launching windows, a desktop notification appears via `notify-send` confirming Matrix is running
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 10-01-PLAN.md — MatrixLite text-mode rain module (TDD port from C#) (LITE-01, LITE-02, LITE-03)
+- [ ] 10-02-PLAN.md — Uninstaller, version detection, desktop notifications (INST-01, INST-02, INST-03)
 
 ## Progress
 
@@ -185,4 +188,4 @@ Phases execute in numeric order. Phase 8 (Mac) can begin in parallel with Phase 
 | 7. Window & Session Management | 0/3 | Planning complete | - |
 | 8. Mac Port | 0/TBD | Not started | - |
 | 9. Wizard Polish & Easter Eggs | 0/TBD | Not started | - |
-| 10. MatrixLite & Installer Completion | 0/TBD | Not started | - |
+| 10. MatrixLite & Installer Completion | 0/2 | Planning complete | - |
