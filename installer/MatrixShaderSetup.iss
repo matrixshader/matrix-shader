@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=Matrix Shader
-AppVersion=1.0.3
+AppVersion=1.0.4
 AppPublisher=MatrixShader
 DefaultDirName={autopf}\MatrixShader
 DefaultGroupName=Matrix Shader
