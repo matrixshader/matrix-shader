@@ -121,6 +121,115 @@ show_random_quote() {
     echo
 }
 
+matrix_splash() {
+    local width=$(tput cols 2>/dev/null || echo 80)
+    local height=$(tput lines 2>/dev/null || echo 24)
+    local chars="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    local char_count=${#chars}
+
+    tput civis 2>/dev/null  # Hide cursor
+    printf '\033[H\033[2J'  # Clear screen once at start
+
+    # Column state: position and speed
+    declare -a col_pos col_speed col_trail
+    for ((x=0; x<width; x++)); do
+        col_pos[$x]=$(( (RANDOM % height) * -1 ))
+        col_speed[$x]=$(( RANDOM % 2 + 1 ))
+        col_trail[$x]=$(( RANDOM % 8 + 4 ))
+    done
+
+    # Animate for ~1.5 seconds (30 frames at ~50ms each)
+    local frames=30
+    for ((frame=0; frame<frames; frame++)); do
+        local buf=""
+        for ((x=0; x<width; x++)); do
+            local pos=${col_pos[$x]}
+            local trail=${col_trail[$x]}
+
+            for ((t=0; t<trail && t<3; t++)); do
+                local y=$((pos - t))
+                if ((y >= 0 && y < height)); then
+                    local c="${chars:$(( RANDOM % char_count )):1}"
+                    if ((t == 0)); then
+                        buf+="\033[$((y+1));$((x+1))H\033[97m${c}"   # White head
+                    elif ((t == 1)); then
+                        buf+="\033[$((y+1));$((x+1))H\033[92m${c}"   # Bright green
+                    else
+                        buf+="\033[$((y+1));$((x+1))H\033[32m${c}"   # Green
+                    fi
+                fi
+            done
+
+            # Advance column
+            col_pos[$x]=$(( pos + ${col_speed[$x]} ))
+            # Reset if past screen
+            if ((col_pos[$x] - trail > height)); then
+                col_pos[$x]=$(( (RANDOM % height) * -1 ))
+                col_speed[$x]=$(( RANDOM % 2 + 1 ))
+            fi
+        done
+
+        printf "${buf}\033[0m"
+        printf '\033[H'  # Cursor home (no flicker — no clear between frames)
+        sleep 0.05
+    done
+
+    printf '\033[H\033[2J'  # Clear screen at end
+    tput cnorm 2>/dev/null  # Show cursor
+}
+
+arrow_menu() {
+    local prompt="$1"
+    shift
+    local options=("$@")
+    local selected=0
+    local count=${#options[@]}
+
+    tput civis 2>/dev/null  # Hide cursor during menu
+
+    # Save cursor position for redrawing
+    local menu_lines=$((count + 4))  # prompt + blank + options + blank
+
+    # Initial draw
+    echo
+    echo -e " ${DIM}${prompt}${RESET}"
+    echo
+    for ((i=0; i<count; i++)); do
+        if [ "$i" -eq "$selected" ]; then
+            echo -e "   ${GREEN}>${RESET} \033[1;32m${options[$i]}\033[0m"
+        else
+            echo -e "     \033[90m${options[$i]}\033[0m"
+        fi
+    done
+
+    while true; do
+        # Read keypress
+        read -rsn1 key
+        if [[ "$key" == $'\x1b' ]]; then
+            read -rsn2 -t 0.1 key
+            case "$key" in
+                '[A') ((selected = (selected - 1 + count) % count)) ;;  # Up
+                '[B') ((selected = (selected + 1) % count)) ;;          # Down
+            esac
+        elif [[ "$key" == "" ]]; then  # Enter
+            tput cnorm 2>/dev/null  # Show cursor
+            echo "$selected"
+            return 0
+        fi
+
+        # Redraw options only (move cursor up to option start)
+        printf "\033[${count}A"
+        for ((i=0; i<count; i++)); do
+            printf "\033[2K"  # Clear line
+            if [ "$i" -eq "$selected" ]; then
+                echo -e "   ${GREEN}>${RESET} \033[1;32m${options[$i]}\033[0m"
+            else
+                echo -e "     \033[90m${options[$i]}\033[0m"
+            fi
+        done
+    done
+}
+
 launch_window() {
     local preset_idx=$1
     local slot=$2
@@ -309,7 +418,8 @@ print('yes' if is_licensed() else 'no')
 
 # --- Main ---
 
-clear
+matrix_splash
+
 echo
 
 # Dramatic intro - matches Windows version timing
@@ -497,14 +607,12 @@ echo
 echo -e "${DIM} ----------------------------------------${RESET}"
 echo
 echo -e "${DIM} This is your last chance. After this, there is no turning back.${RESET}"
-echo
-echo -e "   ${BLUE}[1]${RESET} BLUE PILL - Enter the Matrix"
-echo -e "   ${RED}[2]${RESET} RED PILL  - Full Customization (control panel)"
-echo
-echo -ne " > "
-read -r pill_choice
 
-if [[ "$pill_choice" == "2" ]]; then
+pill_result=$(arrow_menu "Choose your path:" \
+    "${BLUE}BLUE PILL${RESET} - Enter the Matrix" \
+    "${RED}RED PILL${RESET}  - Full Customization (control panel)")
+
+if [[ "$pill_result" == "1" ]]; then
     is_redpill=1
 else
     is_redpill=0

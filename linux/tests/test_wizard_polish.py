@@ -8,7 +8,9 @@ update checker (WIZD-04).
 import os
 import sys
 import re
+import json
 import subprocess
+import textwrap
 
 import pytest
 
@@ -192,3 +194,132 @@ class TestMatrixQuotes:
         content = self._read_script("mac")
         for quote in EXPECTED_QUOTES:
             assert quote in content, f"Missing quote: {quote}"
+
+
+# ---------------------------------------------------------------------------
+# Helper to read script content
+# ---------------------------------------------------------------------------
+
+def _read_script(name):
+    script_dir = os.path.join(os.path.dirname(__file__), "..")
+    if name == "linux":
+        path = os.path.join(script_dir, "wakeupneo.sh")
+    else:
+        path = os.path.join(script_dir, "..", "mac", "wakeupneo_mac.sh")
+    with open(path) as f:
+        return f.read()
+
+
+# ---------------------------------------------------------------------------
+# WIZD-01: Splash animation
+# ---------------------------------------------------------------------------
+
+class TestSplashAnimation:
+    """Test splash animation function exists and has correct properties."""
+
+    def test_linux_matrix_splash_function_exists(self):
+        """matrix_splash function should be defined in Linux script."""
+        content = _read_script("linux")
+        assert "matrix_splash()" in content
+
+    def test_mac_matrix_splash_function_exists(self):
+        """matrix_splash function should be defined in Mac script."""
+        content = _read_script("mac")
+        assert "matrix_splash()" in content
+
+    def test_splash_uses_hide_cursor(self):
+        """Splash should use tput civis to hide cursor."""
+        content = _read_script("linux")
+        assert "tput civis" in content
+
+    def test_splash_uses_show_cursor(self):
+        """Splash should use tput cnorm to restore cursor."""
+        content = _read_script("linux")
+        assert "tput cnorm" in content
+
+    def test_splash_uses_cursor_home_not_clear(self):
+        """Splash should use cursor home (\\033[H) for frame updates, not clear."""
+        content = _read_script("linux")
+        # Extract just the matrix_splash function body
+        in_func = False
+        func_lines = []
+        brace_depth = 0
+        for line in content.splitlines():
+            if "matrix_splash()" in line and "{" in line:
+                in_func = True
+                brace_depth = 1
+                func_lines.append(line)
+                continue
+            if in_func:
+                brace_depth += line.count("{") - line.count("}")
+                func_lines.append(line)
+                if brace_depth <= 0:
+                    break
+        func_body = "\n".join(func_lines)
+        # Should have cursor home escape
+        assert "\\033[H" in func_body or "\\x1b[H" in func_body
+
+    def test_splash_duration_approximately_1_5_seconds(self):
+        """Splash should run for approximately 1.5 seconds (30 frames at 50ms)."""
+        content = _read_script("linux")
+        # Check for frame count or duration constant
+        assert "frames=30" in content or "1.5" in content or "1500" in content
+
+    def test_splash_called_before_typewriter(self):
+        """matrix_splash should be called before typewriter intro in main flow."""
+        content = _read_script("linux")
+        splash_pos = content.find("matrix_splash")
+        # Find the call site (not the function def)
+        # Look for the call in the main section
+        main_section = content[content.find("# --- Main ---"):]
+        splash_call = main_section.find("matrix_splash")
+        typewriter_call = main_section.find("typewriter")
+        assert splash_call >= 0, "matrix_splash not called in main section"
+        assert splash_call < typewriter_call, "splash should come before typewriter"
+
+
+# ---------------------------------------------------------------------------
+# WIZD-03: Arrow-key menu
+# ---------------------------------------------------------------------------
+
+class TestArrowMenu:
+    """Test arrow-key navigable menu function."""
+
+    def test_linux_arrow_menu_function_exists(self):
+        """arrow_menu function should be defined in Linux script."""
+        content = _read_script("linux")
+        assert "arrow_menu()" in content
+
+    def test_mac_arrow_menu_function_exists(self):
+        """arrow_menu function should be defined in Mac script."""
+        content = _read_script("mac")
+        assert "arrow_menu()" in content
+
+    def test_arrow_menu_uses_read_rsn1(self):
+        """arrow_menu should use read -rsn1 for keypress capture."""
+        content = _read_script("linux")
+        assert "read -rsn1" in content
+
+    def test_arrow_menu_handles_up_arrow(self):
+        """arrow_menu should handle [A escape sequence for up arrow."""
+        content = _read_script("linux")
+        assert "'[A'" in content or '"[A"' in content
+
+    def test_arrow_menu_handles_down_arrow(self):
+        """arrow_menu should handle [B escape sequence for down arrow."""
+        content = _read_script("linux")
+        assert "'[B'" in content or '"[B"' in content
+
+    def test_pill_choice_uses_arrow_menu(self):
+        """Pill choice should use arrow_menu instead of numbered prompt."""
+        content = _read_script("linux")
+        # The old pattern should be gone
+        assert 'echo -ne " > "' not in content
+        # arrow_menu should be used for pill choice
+        assert "arrow_menu" in content
+
+    def test_linux_no_old_pill_prompt(self):
+        """Old [1]/[2] pill choice prompt should be replaced."""
+        content = _read_script("linux")
+        # Check the summary/pill section doesn't have the old read pattern
+        assert 'read -r pill_choice' not in content
