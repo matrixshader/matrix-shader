@@ -20,6 +20,7 @@ from shader_service import (
     PARAM_DEFAULTS,
     PARAM_RANGES,
     PRESET_COLORS,
+    REDPILL_NEO_PATH,
     SLOT_SHADER_DIR,
     TEMPLATE_PATH,
     atomic_write,

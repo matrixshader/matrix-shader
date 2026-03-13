@@ -155,7 +155,11 @@ Plans:
   4. `wakeupneo --morpheus` shows an extended philosophical intro; `--agent-smith` randomizes all window colors and speeds
   5. `wakeupneo --update` (or automatic check) reports if a newer version is available via GitHub releases API
   6. The Redpill-Neo 3D corridor shader renders in GLSL and is selectable as a color preset
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 09-01-PLAN.md — Redpill-Neo 7th preset integration + Matrix movie quotes (SHDR-07, WIZD-02)
+- [ ] 09-02-PLAN.md — Splash animation + arrow-key pill menu (WIZD-01, WIZD-03)
+- [ ] 09-03-PLAN.md — Easter egg modes (--morpheus, --agent-smith) + update checker (WIZD-04, WIZD-05, WIZD-06)
 
 ### Phase 10: MatrixLite & Installer Completion
 **Goal**: MatrixLite provides text-mode Matrix rain in any terminal; the installer gains clean uninstall and update detection; desktop notifications work
@@ -187,5 +191,5 @@ Phases execute in numeric order. Phase 8 (Mac) can begin in parallel with Phase 
 | 6. Layout Engine | 0/TBD | Not started | - |
 | 7. Window & Session Management | 0/3 | Planning complete | - |
 | 8. Mac Port | 0/TBD | Not started | - |
-| 9. Wizard Polish & Easter Eggs | 0/TBD | Not started | - |
+| 9. Wizard Polish & Easter Eggs | 0/3 | Planning complete | - |
 | 10. MatrixLite & Installer Completion | 0/2 | Planning complete | - |

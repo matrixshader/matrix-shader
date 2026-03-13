@@ -12,6 +12,7 @@ Dependencies: Python 3 stdlib only (no pip packages).
 import os
 import re
 import json
+import shutil
 import tempfile
 import subprocess
 from pathlib import Path
@@ -51,7 +52,8 @@ PARAM_RANGES = {
     "SHOW_L3": (0.0, 1.0),
 }
 
-# 6 preset RGB tuples matching wakeupneo.sh PRESETS array
+# 7 preset RGB tuples matching wakeupneo.sh PRESETS array
+# Index 6 (Redpill-Neo) is None -- it uses a different shader, not RGB rewrite
 PRESET_COLORS = [
     (0.0, 1.0, 0.3),   # Classic Green
     (0.0, 0.6, 1.0),   # Cyber Blue
@@ -59,6 +61,7 @@ PRESET_COLORS = [
     (0.7, 0.0, 1.0),   # Purple
     (1.0, 0.7, 0.0),   # Gold
     (0.0, 0.9, 0.9),   # Teal
+    None,               # Redpill-Neo 3D Corridor (special: copy shader directly)
 ]
 
 # Per-slot shader file directory
@@ -69,6 +72,12 @@ SLOT_SHADER_DIR = os.path.expanduser("~/.config/matrix-shader/shaders")
 TEMPLATE_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "..", "shaders-glsl", "matrix-green-ghostty.glsl"
+)
+
+# Redpill-Neo 3D corridor shader -- copied directly (different #define params)
+REDPILL_NEO_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "..", "shaders-glsl", "redpill-neo-ghostty.glsl"
 )
 
 
@@ -177,6 +186,8 @@ def create_slot_shader(slot: int, r=0.0, g=1.0, b=0.3, preset_idx=None) -> str:
     """Create a per-slot shader file from the green preset template.
 
     Mirrors ShaderTemplate.Template generation from C# codebase.
+    For preset_idx=6 (Redpill-Neo), copies the 3D corridor shader
+    directly instead of rewriting #defines (different parameter set).
 
     Args:
         slot: Window slot number (1-8).
@@ -184,10 +195,19 @@ def create_slot_shader(slot: int, r=0.0, g=1.0, b=0.3, preset_idx=None) -> str:
         g: Green component (0.0-1.0). Ignored if preset_idx is set.
         b: Blue component (0.0-1.0). Ignored if preset_idx is set.
         preset_idx: If set, use PRESET_COLORS[preset_idx] for RGB values.
+                    Index 6 triggers Redpill-Neo copy instead.
 
     Returns:
         Path to the created shader file.
     """
+    path = os.path.join(SLOT_SHADER_DIR, f"matrix-{slot}.glsl")
+
+    # Redpill-Neo: copy directly (different #define params than matrix rain)
+    if preset_idx == 6:
+        os.makedirs(SLOT_SHADER_DIR, exist_ok=True)
+        shutil.copy2(REDPILL_NEO_PATH, path)
+        return path
+
     if preset_idx is not None:
         r, g, b = PRESET_COLORS[preset_idx]
 
@@ -198,7 +218,6 @@ def create_slot_shader(slot: int, r=0.0, g=1.0, b=0.3, preset_idx=None) -> str:
     content = replace_define(content, "RAIN_G", g)
     content = replace_define(content, "RAIN_B", b)
 
-    path = os.path.join(SLOT_SHADER_DIR, f"matrix-{slot}.glsl")
     atomic_write(path, content)
     return path
 
@@ -429,7 +448,7 @@ def _cli():
     # --- create ---
     p_create = sub.add_parser("create", help="Create a per-slot shader file from template")
     p_create.add_argument("--slot", type=int, required=True, help="Window slot number (1-8)")
-    p_create.add_argument("--preset", type=int, default=None, help="Preset index (0-5)")
+    p_create.add_argument("--preset", type=int, default=None, help="Preset index (0-6, 6=Redpill-Neo)")
     p_create.add_argument("--r", type=float, default=0.0, help="Red component (0.0-1.0)")
     p_create.add_argument("--g", type=float, default=1.0, help="Green component (0.0-1.0)")
     p_create.add_argument("--b", type=float, default=0.3, help="Blue component (0.0-1.0)")

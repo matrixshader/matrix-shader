@@ -51,10 +51,29 @@ PRESETS=(
     "Purple:0.7:0.0:1.0:#b300ff"
     "Gold:1.0:0.7:0.0:#ffb300"
     "Teal:0.0:0.9:0.9:#00e6e6"
+    "Redpill-Neo 3D:0.0:1.0:0.0:#00ff00"
 )
 
-PRESET_COLORS=("$GREEN" "$BLUE" "$RED" "$PURPLE" "$GOLD" "$CYAN")
-PRESET_FILES=("matrix-green-ghostty.glsl" "matrix-blue-ghostty.glsl" "matrix-red-ghostty.glsl" "matrix-purple-ghostty.glsl" "matrix-gold-ghostty.glsl" "matrix-teal-ghostty.glsl")
+PRESET_COLORS=("$GREEN" "$BLUE" "$RED" "$PURPLE" "$GOLD" "$CYAN" "$GREEN")
+PRESET_FILES=("matrix-green-ghostty.glsl" "matrix-blue-ghostty.glsl" "matrix-red-ghostty.glsl" "matrix-purple-ghostty.glsl" "matrix-gold-ghostty.glsl" "matrix-teal-ghostty.glsl" "redpill-neo-ghostty.glsl")
+
+# Matrix movie quotes (ported from MatrixQuotes.cs)
+MATRIX_QUOTES=(
+    "The Matrix has you..."
+    "Follow the white rabbit."
+    "There is no spoon."
+    "Free your mind."
+    "I know kung fu."
+    "Welcome to the real world."
+    "What is the Matrix?"
+    "You've been living in a dream world, Neo."
+    "Unfortunately, no one can be told what the Matrix is."
+    "The body cannot live without the mind."
+    "Dodge this."
+    "I can only show you the door."
+    "Everything begins with choice."
+    "There's a difference between knowing the path and walking the path."
+)
 
 # Color swatch using ANSI 24-bit color
 color_swatch() {
@@ -93,6 +112,12 @@ typewriter() {
         printf "%s" "${text:$i:1}"
         sleep "$delay"
     done
+    echo
+}
+
+show_random_quote() {
+    local idx=$(( RANDOM % ${#MATRIX_QUOTES[@]} ))
+    echo -e " ${DIM}\"${MATRIX_QUOTES[$idx]}\"${RESET}"
     echo
 }
 
@@ -297,6 +322,9 @@ sleep 1
 typewriter " Follow the white rabbit." 0.08
 sleep 0.5
 
+show_random_quote
+sleep 1
+
 # Clear and show header
 clear
 echo
@@ -432,14 +460,18 @@ for w in $(seq 1 "$num_windows"); do
     for i in "${!PRESETS[@]}"; do
         IFS=':' read -r name r g b fg <<< "${PRESETS[$i]}"
         local_swatch=$(color_swatch "$r" "$g" "$b")
+        # Visual separator before Redpill-Neo (option 7)
+        if [ "$i" -eq 6 ]; then
+            echo
+        fi
         echo -e "   [$((i+1))] ${local_swatch} ${PRESET_COLORS[$i]}${name}${RESET}"
     done
 
     echo
-    echo -ne " Color (1-6): "
+    echo -ne " Color (1-7): "
     read -r choice
 
-    if ! [[ "$choice" =~ ^[1-6]$ ]]; then
+    if ! [[ "$choice" =~ ^[1-7]$ ]]; then
         choice=1
     fi
     selected_presets+=($((choice - 1)))
