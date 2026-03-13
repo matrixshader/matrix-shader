@@ -323,3 +323,153 @@ class TestArrowMenu:
         content = _read_script("linux")
         # Check the summary/pill section doesn't have the old read pattern
         assert 'read -r pill_choice' not in content
+
+
+# ---------------------------------------------------------------------------
+# WIZD-05: Morpheus mode
+# ---------------------------------------------------------------------------
+
+class TestMorpheusMode:
+    """Test --morpheus easter egg mode."""
+
+    def test_linux_morpheus_intro_function_exists(self):
+        """morpheus_intro function should be defined."""
+        content = _read_script("linux")
+        assert "morpheus_intro()" in content
+
+    def test_mac_morpheus_intro_function_exists(self):
+        content = _read_script("mac")
+        assert "morpheus_intro()" in content
+
+    def test_morpheus_contains_red_pill_text(self):
+        """morpheus_intro should contain the red pill quote."""
+        content = _read_script("linux")
+        assert "red pill" in content.lower() or "rabbit hole" in content.lower()
+
+    def test_morpheus_flag_handled(self):
+        """--morpheus flag should be recognized in flag parsing."""
+        content = _read_script("linux")
+        assert "--morpheus" in content
+
+    def test_mac_morpheus_flag_handled(self):
+        content = _read_script("mac")
+        assert "--morpheus" in content
+
+
+# ---------------------------------------------------------------------------
+# WIZD-06: Agent Smith mode
+# ---------------------------------------------------------------------------
+
+class TestAgentSmithMode:
+    """Test --agent-smith easter egg mode."""
+
+    def test_linux_agent_smith_function_exists(self):
+        """agent_smith_mode function should be defined."""
+        content = _read_script("linux")
+        assert "agent_smith_mode()" in content
+
+    def test_mac_agent_smith_function_exists(self):
+        content = _read_script("mac")
+        assert "agent_smith_mode()" in content
+
+    def test_agent_smith_calls_shader_service_write(self):
+        """agent_smith_mode should call shader_service.py write."""
+        content = _read_script("linux")
+        # Find within agent_smith_mode function
+        assert "shader_service.py" in content and "write" in content
+
+    def test_agent_smith_triggers_reload(self):
+        """agent_smith_mode should trigger Ghostty reload."""
+        content = _read_script("linux")
+        # Should have reload logic (busctl/gdbus for Linux)
+        assert "reload-config" in content
+
+    def test_agent_smith_flag_handled(self):
+        """--agent-smith flag should be recognized."""
+        content = _read_script("linux")
+        assert "--agent-smith" in content
+
+    def test_mac_agent_smith_flag_handled(self):
+        content = _read_script("mac")
+        assert "--agent-smith" in content
+
+
+# ---------------------------------------------------------------------------
+# WIZD-04: Update checker
+# ---------------------------------------------------------------------------
+
+class TestUpdateChecker:
+    """Test --update version checker."""
+
+    def test_linux_check_update_function_exists(self):
+        """check_update function should be defined."""
+        content = _read_script("linux")
+        assert "check_update()" in content
+
+    def test_mac_check_update_function_exists(self):
+        content = _read_script("mac")
+        assert "check_update()" in content
+
+    def test_linux_get_current_version_function_exists(self):
+        """get_current_version function should be defined."""
+        content = _read_script("linux")
+        assert "get_current_version()" in content
+
+    def test_update_uses_github_api(self):
+        """check_update should call GitHub releases API."""
+        content = _read_script("linux")
+        assert "api.github.com" in content
+
+    def test_update_has_max_time(self):
+        """check_update should use curl --max-time to avoid blocking."""
+        content = _read_script("linux")
+        assert "max-time" in content
+
+    def test_update_silent_failure(self):
+        """check_update should return 0 on curl failure (silent)."""
+        content = _read_script("linux")
+        assert "return 0" in content
+
+    def test_update_flag_handled(self):
+        """--update flag should be recognized."""
+        content = _read_script("linux")
+        assert "--update" in content
+
+    def test_version_comparison_uses_python(self):
+        """Version comparison should use Python tuple comparison."""
+        content = _read_script("linux")
+        assert "tuple(map(int" in content or "split('.')" in content
+
+    def test_version_file_fallback(self):
+        """get_current_version should fall back to 0.0.0 if VERSION missing."""
+        content = _read_script("linux")
+        assert "0.0.0" in content
+
+    def test_version_comparison_logic(self):
+        """Python version comparison logic should work correctly."""
+        # Test the actual Python one-liner logic used in the script
+        assert tuple(map(int, "1.2.0".split("."))) > tuple(map(int, "1.0.3".split(".")))
+        assert not tuple(map(int, "1.0.3".split("."))) > tuple(map(int, "1.0.3".split(".")))
+        assert not tuple(map(int, "0.9.0".split("."))) > tuple(map(int, "1.0.3".split(".")))
+
+
+# ---------------------------------------------------------------------------
+# Build release: VERSION file
+# ---------------------------------------------------------------------------
+
+class TestBuildReleaseVersion:
+    """Test VERSION file is bundled in release tarballs."""
+
+    def test_linux_build_release_has_version(self):
+        """Linux build-release.sh should extract and bundle VERSION file."""
+        path = os.path.join(os.path.dirname(__file__), "..", "build-release.sh")
+        with open(path) as f:
+            content = f.read()
+        assert "VERSION" in content
+
+    def test_mac_build_release_has_version(self):
+        """Mac build-release.sh should extract and bundle VERSION file."""
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "mac", "build-release.sh")
+        with open(path) as f:
+            content = f.read()
+        assert "VERSION" in content

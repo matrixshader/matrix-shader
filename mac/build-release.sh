@@ -141,7 +141,12 @@ if $BUILD_GHOSTTY; then
     cd "$PROJECT_DIR"
 fi
 
-# 8. Create tarball
+# 8. Bundle VERSION file from package.json
+VERSION=$(python3 -c "import json; print(json.load(open('$PROJECT_DIR/package.json'))['version'])" 2>/dev/null || echo "1.0.0")
+echo "$VERSION" > "$RELEASE_DIR/VERSION"
+echo -e "${DIM}  Version: $VERSION${RESET}"
+
+# 9. Create tarball
 OUTPUT="$PROJECT_DIR/matrix-shader-mac-${ARCH_SUFFIX}.tar.gz"
 echo -e "${DIM}  Creating tarball...${RESET}"
 cd "$STAGING"
