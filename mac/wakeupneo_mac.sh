@@ -191,10 +191,61 @@ show_post_launch() {
         echo -e "${GREEN} Starting hotkeys...${RESET} ${RED}MISSING (${MATRIX_KEYS})${RESET}"
     fi
 
+    # PYMOD_DIR for license_service.py (lives in linux/)
+    local PYMOD_DIR="$SCRIPT_DIR/../linux"
+
     echo
     if [ "$is_redpill" -eq 1 ]; then
-        echo -e "${GREEN} THE MATRIX HAS YOU.${RESET}"
-        echo -e "${DIM} Control panel ready for live adjustments.${RESET}"
+        # Check license and either launch TUI or show purchase prompt
+        local licensed
+        licensed=$(python3 -B -c "
+import sys; sys.path.insert(0, '$PYMOD_DIR'); sys.path.insert(0, '$SCRIPT_DIR')
+from license_service import is_licensed
+print('yes' if is_licensed() else 'no')
+" 2>/dev/null)
+
+        if [ "$licensed" = "yes" ]; then
+            echo -e "${GREEN} THE MATRIX HAS YOU.${RESET}"
+            echo -e "${DIM} Launching control panel...${RESET}"
+            sleep 1
+            # Launch redpill TUI in its own Ghostty window, then close wizard
+            REDPILL_SCRIPT="$SCRIPT_DIR/redpill_mac.sh"
+            if [ -f "$REDPILL_SCRIPT" ]; then
+                bash "$REDPILL_SCRIPT" &
+                disown
+                sleep 0.5
+                exit 0
+            fi
+        else
+            echo -e "${GREEN} THE RED PILL${RESET}"
+            echo
+            echo -e "${DIM} Opening purchase page...${RESET}"
+            open "https://matrixshader.com/redpill" 2>/dev/null &
+            echo
+            echo -ne " ${CYAN}Paste your key here after purchase (or Enter to skip): ${RESET}"
+            read -r license_key
+            if [ -n "$license_key" ]; then
+                export PYTHONPATH="${SCRIPT_DIR}:${PYMOD_DIR}:${PYTHONPATH:-}"
+                python3 -B "$PYMOD_DIR/redpill_tui.py" --activate "$license_key"
+                # If activation succeeded, launch the TUI
+                licensed=$(python3 -B -c "
+import sys; sys.path.insert(0, '$PYMOD_DIR'); sys.path.insert(0, '$SCRIPT_DIR')
+from license_service import is_licensed
+print('yes' if is_licensed() else 'no')
+" 2>/dev/null)
+                if [ "$licensed" = "yes" ]; then
+                    echo -e "${DIM} Launching control panel...${RESET}"
+                    sleep 1
+                    REDPILL_SCRIPT="$SCRIPT_DIR/redpill_mac.sh"
+                    if [ -f "$REDPILL_SCRIPT" ]; then
+                        bash "$REDPILL_SCRIPT" &
+                        disown
+                        sleep 0.5
+                        exit 0
+                    fi
+                fi
+            fi
+        fi
     else
         echo -e "${GREEN} FOLLOW THE WHITE RABBIT.${RESET}"
         echo
