@@ -7,11 +7,15 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN,
 });
 
+if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  console.error('FATAL: KV_REST_API_URL and KV_REST_API_TOKEN must be set');
+}
+
 async function rateLimit(ip, prefix, limit, windowSec) {
   const key = `rl:${prefix}:${ip}`;
   try {
     const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, windowSec);
+    await redis.expire(key, windowSec); // Always set/refresh TTL
     return count > limit;
   } catch { return false; }
 }
@@ -74,13 +78,14 @@ export default async function handler(req, res) {
   initSentry();
   // CORS headers for the thank-you page
   res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -89,9 +94,21 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many requests. Try again later.' });
   }
 
-  const orderId = req.query.order_id;
-  if (!orderId) {
-    return res.status(400).json({ error: 'Missing order_id parameter' });
+  // Support both GET (legacy) and POST (secure) — POST requires email verification
+  let orderId, email;
+  if (req.method === 'POST') {
+    const body = req.body || {};
+    orderId = body.orderId || body.order_id;
+    email = body.email;
+    if (!orderId || !email) {
+      return res.status(400).json({ error: 'Missing orderId or email' });
+    }
+  } else {
+    orderId = req.query.order_id;
+    email = req.query.email;
+    if (!orderId || !email) {
+      return res.status(400).json({ error: 'Missing order_id or email parameter' });
+    }
   }
 
   const secret = process.env.LICENSE_SECRET;
@@ -106,6 +123,12 @@ export default async function handler(req, res) {
   const order = await validateOrder(orderId, apiKey);
   if (!order) {
     return res.status(404).json({ error: 'Order not found or not paid' });
+  }
+
+  // Verify email matches the order's buyer email to prevent order ID enumeration
+  const orderEmail = order.email;
+  if (!orderEmail || email.trim().toLowerCase() !== orderEmail.trim().toLowerCase()) {
+    return res.status(403).json({ error: 'Email does not match order' });
   }
 
   if (order.status === 'refunded') {
@@ -123,10 +146,9 @@ export default async function handler(req, res) {
   try {
     const existing = await redis.get(`key:${keyHash}`);
     if (!existing) {
-      customerNumber = await redis.incr('stats:customer_number');
+      // Customer number assigned by webhook only — avoid race condition with concurrent incr
       await redis.set(`key:${keyHash}`, JSON.stringify({
         orderId: `LS-${orderId}`,
-        customerNumber,
         createdAt: new Date().toISOString(),
         activations: [],
       }));

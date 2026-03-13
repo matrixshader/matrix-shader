@@ -1,6 +1,10 @@
 import { Redis } from '@upstash/redis';
 import { initSentry, captureError } from './_sentry.js';
 
+if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  console.error('FATAL: KV_REST_API_URL and KV_REST_API_TOKEN must be set');
+}
+
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN,
@@ -14,7 +18,7 @@ async function rateLimit(ip, prefix, limit, windowSec) {
   const key = `rl:${prefix}:${ip}`;
   try {
     const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, windowSec);
+    await redis.expire(key, windowSec);
     return count > limit;
   } catch { return false; }
 }
@@ -41,9 +45,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing or invalid event name' });
     }
 
-    const allowed = ['download', 'install', 'activate', 'page_view', 'redpill_click', 'github_click', 'gate_email', 'gate_skip', 'gate_close'];
+    const allowed = ['download', 'install', 'activate', 'page_view', 'redpill_click', 'github_click', 'gate_email', 'gate_skip', 'gate_close', 'platform_tab_windows', 'platform_tab_linux', 'platform_tab_mac'];
     const utmSources = ['hackernews', 'reddit', 'twitter', 'producthunt', 'youtube', 'linkedin', 'discord', 'email', 'blog', 'referral', 'direct'];
     const isUtmVisit = event.startsWith('visit_') && utmSources.some(s => event === `visit_${s}` || event.startsWith(`visit_${s}:`));
+    if (isUtmVisit && event.length > 50) {
+      return res.status(400).json({ error: 'Event name too long' });
+    }
     if (!allowed.includes(event) && !isUtmVisit) {
       return res.status(400).json({ error: `Unknown event` });
     }
@@ -53,6 +60,8 @@ export default async function handler(req, res) {
         redis.incr(`stats:${event}`),
         redis.incr(`ts:${event}:${todayKey()}`),
       ]);
+      // Set 90-day TTL on time-series keys (dashboard only shows 30 days)
+      await redis.expire(`ts:${event}:${todayKey()}`, 7776000);
       return res.status(200).json({ event, count });
     } catch (err) {
       console.error('Track error:', err);

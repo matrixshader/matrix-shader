@@ -417,8 +417,11 @@
             if (event.data && event.data.event === 'Checkout.Success') {
                 var order = event.data.data;
                 var orderId = order && order.order ? order.order.data.id : '';
+                var email = order && order.order ? order.order.data.attributes.user_email : '';
                 if (orderId) {
-                    window.location.href = '/redpill/thankyou?order_id=' + orderId;
+                    var url = '/redpill/thankyou?order_id=' + orderId;
+                    if (email) url += '&email=' + encodeURIComponent(email);
+                    window.location.href = url;
                 } else {
                     window.location.href = '/redpill/thankyou';
                 }

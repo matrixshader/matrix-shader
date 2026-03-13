@@ -6,6 +6,9 @@ const redis = new Redis({
   url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN,
 });
+if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  console.error('FATAL: KV_REST_API_URL and KV_REST_API_TOKEN must be set');
+}
 const MAX_ACTIVATIONS = 3;
 
 const CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -42,7 +45,7 @@ async function rateLimit(ip, prefix, limit, windowSec) {
   const key = `rl:${prefix}:${ip}`;
   try {
     const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, windowSec);
+    await redis.expire(key, windowSec); // Always refresh TTL
     return count > limit;
   } catch { return false; }
 }

@@ -2,6 +2,10 @@ import { Redis } from '@upstash/redis';
 import crypto from 'crypto';
 import { initSentry, captureError } from './_sentry.js';
 
+if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  console.error('FATAL: KV_REST_API_URL and KV_REST_API_TOKEN must be set');
+}
+
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN,
@@ -25,7 +29,7 @@ async function rateLimit(ip, prefix, limit, windowSec) {
   const key = `rl:${prefix}:${ip}`;
   try {
     const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, windowSec);
+    await redis.expire(key, windowSec);
     return count > limit;
   } catch { return false; }
 }
@@ -96,7 +100,7 @@ export default async function handler(req, res) {
     };
 
     try {
-      await redis.set(`faq:q:${id}`, JSON.stringify(record));
+      await redis.set(`faq:q:${id}`, JSON.stringify(record), { ex: 31536000 });
       await Promise.all([
         redis.incr('stats:faq_submit'),
         redis.incr(`ts:faq_submit:${todayKey()}`),
@@ -224,7 +228,7 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: `Unknown action: ${action}` });
       }
 
-      await redis.set(`faq:q:${id}`, JSON.stringify(record));
+      await redis.set(`faq:q:${id}`, JSON.stringify(record), { ex: 31536000 });
       return res.status(200).json(record);
     } catch (err) {
       console.error('FAQ update error:', err);

@@ -6,6 +6,10 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN,
 });
 
+if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  console.error('FATAL: KV_REST_API_URL and KV_REST_API_TOKEN must be set');
+}
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
 }
@@ -14,7 +18,7 @@ async function rateLimit(ip, prefix, limit, windowSec) {
   const key = `rl:${prefix}:${ip}`;
   try {
     const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, windowSec);
+    await redis.expire(key, windowSec);
     return count > limit;
   } catch { return false; }
 }
@@ -75,6 +79,10 @@ export default async function handler(req, res) {
   }
 }
 
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function unsubscribePage(message) {
   return `<!DOCTYPE html>
 <html lang="en"><head>
@@ -90,7 +98,7 @@ function unsubscribePage(message) {
 </head><body>
 <div class="box">
   <h1>MatrixShader</h1>
-  <p>${message}</p>
+  <p>${escapeHtml(message)}</p>
   <p style="margin-top:1.5rem"><a href="https://matrixshader.com">Back to MatrixShader</a></p>
 </div>
 </body></html>`;
