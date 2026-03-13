@@ -288,26 +288,26 @@ class TestServerActivation:
 # ---------------------------------------------------------------------------
 
 class TestSecretLoading:
-    def test_loads_from_file(self, tmp_path):
-        secret_file = tmp_path / "license-secret.key"
-        secret_file.write_text("MY-PRODUCTION-SECRET")
+    def test_loads_from_embedded_module(self):
+        """_license_secret.py import path (build-time embed)."""
         license_service._PRODUCT_SECRET = None
-        with patch.object(license_service, "_SECRET_CANDIDATES", [str(secret_file)]):
+        fake_module = MagicMock()
+        fake_module.SECRET = "MY-PRODUCTION-SECRET"
+        with patch.dict("sys.modules", {"_license_secret": fake_module}):
             secret = license_service._load_secret()
             assert secret == b"MY-PRODUCTION-SECRET"
 
     def test_fallback_to_dev_placeholder(self):
         license_service._PRODUCT_SECRET = None
-        with patch.object(license_service, "_SECRET_CANDIDATES", ["/nonexistent/path"]):
+        # No embedded module, no key file → dev placeholder
+        with patch.dict("sys.modules", {"_license_secret": None}):
             secret = license_service._load_secret()
             assert secret == b"DEV-PLACEHOLDER-NOT-FOR-PRODUCTION"
 
-    def test_caches_result(self, tmp_path):
+    def test_caches_result(self):
         license_service._PRODUCT_SECRET = b"cached"
-        # Should return cached without reading file
-        with patch.object(license_service, "_SECRET_CANDIDATES", []):
-            secret = license_service._load_secret()
-            assert secret == b"cached"
+        secret = license_service._load_secret()
+        assert secret == b"cached"
 
 
 # ---------------------------------------------------------------------------

@@ -25,6 +25,7 @@ obj/
 
 # License secret (NEVER commit — used at build time only)
 license-secret.key
+_license_secret.py
 
 # OS files
 .DS_Store
