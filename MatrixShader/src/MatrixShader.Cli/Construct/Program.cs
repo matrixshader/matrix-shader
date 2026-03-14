@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using MatrixShader.Core.Constants;
 using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
+using MatrixShader.Core.Startup;
 using MatrixShader.Core.Native;
 using MatrixShader.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,31 +33,40 @@ public static class Program
 
     public static int Main(string[] args)
     {
-        var services = new ServiceCollection();
-        services.AddSingleton<IConfigService, ConfigService>();
-        services.AddSingleton<IShaderService, ShaderService>();
-        services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
-        services.AddSingleton<IIdentityService, IdentityService>();
-        services.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
-        var provider = services.BuildServiceProvider();
-
-        var configService = provider.GetRequiredService<IConfigService>();
-        var shaderService = provider.GetRequiredService<IShaderService>();
-        var terminalService = provider.GetRequiredService<ITerminalSettingsService>();
-        var identityService = provider.GetRequiredService<IIdentityService>();
-
-        if (args.Length >= 1 && args[0] == "--pick")
+        try
         {
-            return RunPicker(configService, shaderService, terminalService, identityService);
+            var services = new ServiceCollection();
+            services.AddSingleton<IConfigService, ConfigService>();
+            services.AddSingleton<IShaderService, ShaderService>();
+            services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
+            services.AddSingleton<IIdentityService, IdentityService>();
+            services.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
+            var provider = services.BuildServiceProvider();
+
+            var configService = provider.GetRequiredService<IConfigService>();
+            var shaderService = provider.GetRequiredService<IShaderService>();
+            var terminalService = provider.GetRequiredService<ITerminalSettingsService>();
+            var identityService = provider.GetRequiredService<IIdentityService>();
+
+            if (args.Length >= 1 && args[0] == "--pick")
+            {
+                return RunPicker(configService, shaderService, terminalService, identityService);
+            }
+
+            var color = ParseColor(args);
+            if (color == null) { ShowHelp(); return 1; }
+
+            if (args.Length == 0)
+                return RunWhiteRoom(terminalService);
+
+            return LaunchWithColor(color.Value, configService, shaderService, terminalService, identityService);
         }
-
-        var color = ParseColor(args);
-        if (color == null) { ShowHelp(); return 1; }
-
-        if (args.Length == 0)
-            return RunWhiteRoom(terminalService);
-
-        return LaunchWithColor(color.Value, configService, shaderService, terminalService, identityService);
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Error("CONSTRUCT", $"Unhandled exception: {ex.Message}");
+            MatrixErrorHandler.ShowError(ex.Message);
+            return 1;
+        }
     }
 
     private static int LaunchWithColor(

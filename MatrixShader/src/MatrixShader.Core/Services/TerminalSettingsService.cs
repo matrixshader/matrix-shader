@@ -314,7 +314,7 @@ public class TerminalSettingsService : ITerminalSettingsService
     /// </summary>
     private static string GetRedpillExecutablePath()
     {
-        // Try Program Files first (installed location)
+        // Try Program Files first (admin install location)
         var programFilesPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             "MatrixShader", "redpill.exe");
@@ -323,6 +323,17 @@ public class TerminalSettingsService : ITerminalSettingsService
         {
             DiagnosticLogger.Debug("TERMINAL", $"Found redpill at installed location: {programFilesPath}");
             return programFilesPath;
+        }
+
+        // Try LocalAppData\Programs (non-admin CLI install location)
+        var localAppDataPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Programs", "MatrixShader", "redpill.exe");
+
+        if (File.Exists(localAppDataPath))
+        {
+            DiagnosticLogger.Debug("TERMINAL", $"Found redpill at user install location: {localAppDataPath}");
+            return localAppDataPath;
         }
 
         // Fallback to same directory as current executable

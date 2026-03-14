@@ -233,6 +233,20 @@ try {
         }
     }
 
+    # Bundle uninstall script locally (so uninstall works offline)
+    Write-Host "  Downloading uninstall script..." -ForegroundColor Gray
+    $UninstallScriptDest = Join-Path $InstallDir "uninstall.ps1"
+    try {
+        $UninstallUrl = "https://matrixshader.com/uninstall.ps1"
+        if ($PSVersionTable.PSVersion.Major -ge 6) {
+            Invoke-WebRequest -Uri $UninstallUrl -OutFile $UninstallScriptDest -UseBasicParsing
+        } else {
+            (New-Object System.Net.WebClient).DownloadFile($UninstallUrl, $UninstallScriptDest)
+        }
+    } catch {
+        Write-Host "  WARNING: Could not download uninstall script: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+
     # Verify key executables
     $MissingExe = $ExeFiles | Where-Object { -not (Test-Path (Join-Path $InstallDir $_)) }
     if ($MissingExe) {
@@ -293,8 +307,8 @@ try {
     # Calculate installed size in KB
     $InstalledSizeKB = [math]::Round((Get-ChildItem $InstallDir -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1024)
 
-    # Uninstall command runs the uninstall script non-interactively
-    $UninstallCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"irm https://matrixshader.com/uninstall.ps1 | iex`""
+    # Uninstall command runs the local uninstall script (works offline)
+    $UninstallCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$InstallDir\uninstall.ps1`""
 
     Set-ItemProperty -Path $UninstallKey -Name 'DisplayName' -Value 'Matrix Terminal Shader'
     Set-ItemProperty -Path $UninstallKey -Name 'DisplayVersion' -Value ($TagName -replace '^v', '')
