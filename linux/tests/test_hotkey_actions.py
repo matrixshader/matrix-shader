@@ -382,52 +382,61 @@ class TestSwapActions:
 # ---------------------------------------------------------------------------
 
 class TestOpacityActions:
-    """Opacity up/down/toggle delegate to matrix-opacity.sh and show OSD toast."""
+    """Opacity up/down/toggle use inline Python with overflow/underflow counters."""
+
+    def setup_method(self):
+        """Reset module-level counter state between tests."""
+        import hotkey_actions
+        hotkey_actions._overflow_counters.clear()
+        hotkey_actions._underflow_counters.clear()
+        hotkey_actions._base_opacity.clear()
 
     @patch("hotkey_actions._get_state_service", return_value=None)
     @patch("hotkey_actions._fire_toast")
-    @patch("hotkey_actions._read_current_opacity", return_value=80)
-    @patch("hotkey_actions.subprocess.run")
-    def test_opacity_down(self, mock_run, mock_read_op, mock_fire, mock_svc):
-        from hotkey_actions import action_opacity_down, OPACITY_SCRIPT
-        action_opacity_down()
-        mock_run.assert_called_once_with(
-            [OPACITY_SCRIPT, "down"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3,
-        )
-        mock_fire.assert_called_once_with(80)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    @patch("hotkey_actions.get_all_ghostty_configs")
+    def test_opacity_down(self, mock_configs, mock_bus, mock_reload, mock_fire, mock_svc, tmp_path):
+        import hotkey_actions
+        conf = tmp_path / "ghostty-matrix-1.conf"
+        conf.write_text("background-opacity = 0.80\n")
+        mock_configs.return_value = [str(conf)]
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        hotkey_actions.action_opacity_down()
+        mock_fire.assert_called_once_with(75)
 
     @patch("hotkey_actions._get_state_service", return_value=None)
     @patch("hotkey_actions._fire_toast")
-    @patch("hotkey_actions._read_current_opacity", return_value=85)
-    @patch("hotkey_actions.subprocess.run")
-    def test_opacity_up(self, mock_run, mock_read_op, mock_fire, mock_svc):
-        from hotkey_actions import action_opacity_up, OPACITY_SCRIPT
-        action_opacity_up()
-        mock_run.assert_called_once_with(
-            [OPACITY_SCRIPT, "up"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3,
-        )
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    @patch("hotkey_actions.get_all_ghostty_configs")
+    def test_opacity_up(self, mock_configs, mock_bus, mock_reload, mock_fire, mock_svc, tmp_path):
+        import hotkey_actions
+        conf = tmp_path / "ghostty-matrix-1.conf"
+        conf.write_text("background-opacity = 0.85\n")
+        mock_configs.return_value = [str(conf)]
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        hotkey_actions.action_opacity_up()
+        mock_fire.assert_called_once_with(90)
+
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    @patch("hotkey_actions.get_all_ghostty_configs")
+    def test_toggle_transparency(self, mock_configs, mock_bus, mock_reload, mock_fire, mock_svc, tmp_path):
+        import hotkey_actions
+        conf = tmp_path / "ghostty-matrix-1.conf"
+        conf.write_text("background-opacity = 1\n")
+        mock_configs.return_value = [str(conf)]
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        hotkey_actions.action_toggle_transparency()
         mock_fire.assert_called_once_with(85)
 
     @patch("hotkey_actions._get_state_service", return_value=None)
     @patch("hotkey_actions._fire_toast")
-    @patch("hotkey_actions._read_current_opacity", return_value=0)
-    @patch("hotkey_actions.subprocess.run")
-    def test_toggle_transparency(self, mock_run, mock_read_op, mock_fire, mock_svc):
-        from hotkey_actions import action_toggle_transparency, OPACITY_SCRIPT
-        action_toggle_transparency()
-        mock_run.assert_called_once_with(
-            [OPACITY_SCRIPT, "toggle"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3,
-        )
-        mock_fire.assert_called_once_with(0)
-
-    @patch("hotkey_actions._get_state_service", return_value=None)
-    @patch("hotkey_actions._fire_toast")
-    @patch("hotkey_actions._read_current_opacity")
-    @patch("hotkey_actions.subprocess.run", side_effect=FileNotFoundError)
-    def test_opacity_missing_script(self, mock_run, mock_read_op, mock_fire, mock_svc):
+    @patch("hotkey_actions.get_all_ghostty_configs", return_value=[])
+    def test_opacity_no_configs_is_safe(self, mock_configs, mock_fire, mock_svc):
         from hotkey_actions import action_opacity_down
         action_opacity_down()  # Should not raise
         mock_fire.assert_not_called()
@@ -437,6 +446,224 @@ class TestOpacityActions:
         result = _read_current_opacity()
         assert isinstance(result, int)
         assert 0 <= result <= 100
+
+
+# ---------------------------------------------------------------------------
+# TestOpacityOverflow — v1.0.4 overflow/underflow counters
+# ---------------------------------------------------------------------------
+
+class TestOpacityOverflow:
+    """Opacity overflow/underflow counters match Windows C# AdjustOpacity logic."""
+
+    def setup_method(self):
+        """Reset module-level counter state between tests."""
+        import hotkey_actions
+        hotkey_actions._overflow_counters.clear()
+        hotkey_actions._underflow_counters.clear()
+        hotkey_actions._base_opacity.clear()
+
+    def _make_config(self, opacity_pct):
+        """Create a temp config file with background-opacity set."""
+        import tempfile
+        fd, path = tempfile.mkstemp(suffix=".conf")
+        with os.fdopen(fd, "w") as f:
+            f.write(f"background-opacity = {opacity_pct / 100:.2f}\n")
+        return path
+
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    def test_opacity_up_at_100_increments_overflow(self, mock_bus, mock_reload,
+                                                     mock_svc, mock_toast):
+        """Opacity up at 100% increments overflow counter, no visual change."""
+        import hotkey_actions
+        conf = self._make_config(100)
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        with patch("hotkey_actions.get_all_ghostty_configs", return_value=[conf]):
+            result = hotkey_actions._adjust_opacity_with_counters(hotkey_actions.OPACITY_DELTA)
+        assert result is None  # No visual change
+        assert hotkey_actions._overflow_counters.get(conf, 0) == 1
+        os.unlink(conf)
+
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    def test_opacity_down_at_0_increments_underflow(self, mock_bus, mock_reload,
+                                                      mock_svc, mock_toast):
+        """Opacity down at 0% increments underflow counter, no visual change."""
+        import hotkey_actions
+        conf = self._make_config(0)
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        with patch("hotkey_actions.get_all_ghostty_configs", return_value=[conf]):
+            result = hotkey_actions._adjust_opacity_with_counters(-hotkey_actions.OPACITY_DELTA)
+        assert result is None
+        assert hotkey_actions._underflow_counters.get(conf, 0) == 1
+        os.unlink(conf)
+
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    def test_opacity_up_drains_underflow(self, mock_bus, mock_reload,
+                                          mock_svc, mock_toast):
+        """Opacity up with underflow > 0 drains underflow, no opacity change."""
+        import hotkey_actions
+        conf = self._make_config(0)
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        hotkey_actions._underflow_counters[conf] = 2
+        hotkey_actions._base_opacity[conf] = 0
+        with patch("hotkey_actions.get_all_ghostty_configs", return_value=[conf]):
+            result = hotkey_actions._adjust_opacity_with_counters(hotkey_actions.OPACITY_DELTA)
+        assert result is None
+        assert hotkey_actions._underflow_counters[conf] == 1
+        os.unlink(conf)
+
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    def test_opacity_down_drains_overflow(self, mock_bus, mock_reload,
+                                           mock_svc, mock_toast):
+        """Opacity down with overflow > 0 drains overflow, no opacity change."""
+        import hotkey_actions
+        conf = self._make_config(100)
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        hotkey_actions._overflow_counters[conf] = 3
+        hotkey_actions._base_opacity[conf] = 100
+        with patch("hotkey_actions.get_all_ghostty_configs", return_value=[conf]):
+            result = hotkey_actions._adjust_opacity_with_counters(-hotkey_actions.OPACITY_DELTA)
+        assert result is None
+        assert hotkey_actions._overflow_counters[conf] == 2
+        os.unlink(conf)
+
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    def test_opacity_up_at_50_increases(self, mock_bus, mock_reload,
+                                         mock_svc, mock_toast):
+        """Opacity up at 50% increases by OPACITY_DELTA (5%), no counter change."""
+        import hotkey_actions
+        conf = self._make_config(50)
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        with patch("hotkey_actions.get_all_ghostty_configs", return_value=[conf]):
+            result = hotkey_actions._adjust_opacity_with_counters(hotkey_actions.OPACITY_DELTA)
+        assert result == 55
+        # Verify file was written
+        with open(conf) as f:
+            content = f.read()
+        assert "0.55" in content
+        os.unlink(conf)
+
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    def test_opacity_down_at_50_decreases(self, mock_bus, mock_reload,
+                                            mock_svc, mock_toast):
+        """Opacity down at 50% decreases by OPACITY_DELTA (5%), no counter change."""
+        import hotkey_actions
+        conf = self._make_config(50)
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        with patch("hotkey_actions.get_all_ghostty_configs", return_value=[conf]):
+            result = hotkey_actions._adjust_opacity_with_counters(-hotkey_actions.OPACITY_DELTA)
+        assert result == 45
+        with open(conf) as f:
+            content = f.read()
+        assert "0.45" in content
+        os.unlink(conf)
+
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    def test_external_change_resets_counters(self, mock_bus, mock_reload,
+                                              mock_svc, mock_toast):
+        """External opacity change (base mismatch) resets both counters."""
+        import hotkey_actions
+        conf = self._make_config(70)
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        # Simulate: we were at 100% with overflow, but someone changed to 70%
+        hotkey_actions._overflow_counters[conf] = 5
+        hotkey_actions._underflow_counters[conf] = 3
+        hotkey_actions._base_opacity[conf] = 100
+        with patch("hotkey_actions.get_all_ghostty_configs", return_value=[conf]):
+            result = hotkey_actions._adjust_opacity_with_counters(hotkey_actions.OPACITY_DELTA)
+        assert result == 75
+        assert hotkey_actions._overflow_counters.get(conf, 0) == 0
+        assert hotkey_actions._underflow_counters.get(conf, 0) == 0
+        os.unlink(conf)
+
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    def test_toggle_cycle(self, mock_bus, mock_reload, mock_svc, mock_toast):
+        """Toggle cycles Off(100)->Custom(85)->Full(0)->Off(100)."""
+        import hotkey_actions
+        conf = self._make_config(100)
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        with patch("hotkey_actions.get_all_ghostty_configs", return_value=[conf]):
+            # From 100 (Off) -> 85 (Custom)
+            hotkey_actions.action_toggle_transparency()
+            with open(conf) as f:
+                content = f.read()
+            assert "0.85" in content
+
+            # From 85 (Custom) -> 0 (Full transparent)
+            hotkey_actions.action_toggle_transparency()
+            with open(conf) as f:
+                content = f.read()
+            assert "background-opacity = 0" in content
+
+            # From 0 (Full) -> 100 (Off)
+            hotkey_actions.action_toggle_transparency()
+            with open(conf) as f:
+                content = f.read()
+            assert "background-opacity = 1" in content
+        os.unlink(conf)
+
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    def test_adjust_writes_all_configs_and_reloads(self, mock_bus, mock_reload,
+                                                     mock_svc, mock_toast):
+        """adjust_opacity writes to all Matrix window configs and reloads all."""
+        import hotkey_actions
+        conf1 = self._make_config(50)
+        conf2 = self._make_config(50)
+        mock_bus.return_value = {
+            1: {"pid": 100, "bus_name": ":1.10"},
+            2: {"pid": 200, "bus_name": ":1.20"},
+        }
+        with patch("hotkey_actions.get_all_ghostty_configs", return_value=[conf1, conf2]):
+            result = hotkey_actions._adjust_opacity_with_counters(hotkey_actions.OPACITY_DELTA)
+        assert result == 55
+        # Both files should be updated
+        for conf in [conf1, conf2]:
+            with open(conf) as f:
+                assert "0.55" in f.read()
+            os.unlink(conf)
+        # Reload called for all bus names
+        assert mock_reload.call_count == 2
+
+    @patch("hotkey_actions._fire_toast")
+    @patch("hotkey_actions._get_state_service", return_value=None)
+    @patch("hotkey_actions.reload_ghostty")
+    @patch("hotkey_actions.get_ghostty_bus_names")
+    def test_returns_none_all_capped(self, mock_bus, mock_reload,
+                                       mock_svc, mock_toast):
+        """Returns None when all windows are at max and pressing up."""
+        import hotkey_actions
+        conf = self._make_config(100)
+        mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
+        with patch("hotkey_actions.get_all_ghostty_configs", return_value=[conf]):
+            result = hotkey_actions._adjust_opacity_with_counters(hotkey_actions.OPACITY_DELTA)
+        assert result is None
+        os.unlink(conf)
 
 
 # ---------------------------------------------------------------------------

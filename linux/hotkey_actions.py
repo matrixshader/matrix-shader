@@ -18,6 +18,7 @@ import sys
 import tempfile
 
 from shader_service import (
+    get_all_ghostty_configs,
     get_ghostty_bus_names,
     read_shader_config,
     write_shader_param,
@@ -33,11 +34,16 @@ SPEED_DELTA = 0.5   # Matches Windows SpeedDelta = 0.5f
 SPEED_MIN = 0.1     # From PARAM_RANGES
 SPEED_MAX = 5.0     # From PARAM_RANGES
 
+# Opacity constants -- matches Windows v1.0.4 AdjustOpacity
+OPACITY_DELTA = 5   # 5% per step
+MIN_OPACITY = 0
+MAX_OPACITY = 100
+
 LAYOUT_MODES = ["pillars", "quads", "overlap", "auto"]
 
 STATE_PATH = os.path.expanduser("~/.config/matrix-shader/state.json")
 
-# Path to the proven-working opacity bash script
+# Path to the proven-working opacity bash script (legacy, no longer called by hotkey actions)
 OPACITY_SCRIPT = os.path.expanduser("~/.local/bin/matrix-opacity.sh")
 
 # Path to the OSD toast script (lives alongside this file)
@@ -160,15 +166,21 @@ def action_manual_reload() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Opacity actions — delegate to proven matrix-opacity.sh
+# Opacity actions — inline Python with overflow/underflow counters
+# Port of Windows v1.0.4 AdjustOpacity (HotkeyActions.cs)
 # ---------------------------------------------------------------------------
+
+# Module-level state for overflow/underflow tracking per config file
+_overflow_counters = {}    # config_path -> int
+_underflow_counters = {}   # config_path -> int
+_base_opacity = {}         # config_path -> int (for external change detection)
+
 
 def _read_current_opacity() -> int:
     """Read the current background-opacity from any running Ghostty config.
 
     Returns opacity as an integer percentage (0-100).
     """
-    from shader_service import get_all_ghostty_configs
     configs = sorted(get_all_ghostty_configs())
     if not configs:
         configs = [os.path.expanduser("~/.config/ghostty/config")]
@@ -182,6 +194,58 @@ def _read_current_opacity() -> int:
         except (FileNotFoundError, ValueError, IndexError):
             continue
     return 100  # Default: fully opaque
+
+
+def _read_opacity_from_config(conf_path: str) -> int:
+    """Read background-opacity from a specific Ghostty config file.
+
+    Returns opacity as an integer percentage (0-100).
+    """
+    try:
+        with open(conf_path) as f:
+            for line in f:
+                if "background-opacity" in line:
+                    val = line.split("=", 1)[1].strip()
+                    return round(float(val) * 100)
+    except (FileNotFoundError, ValueError, IndexError):
+        pass
+    return 100
+
+
+def _write_opacity_to_config(conf_path: str, opacity_pct: int) -> None:
+    """Write opacity to a Ghostty config file via atomic replace.
+
+    Replaces the `background-opacity = X.XX` line with the new value.
+    """
+    import re as _re
+    value = f"{opacity_pct / 100:.2f}"
+    if value == "0.00":
+        value = "0"
+    if value == "1.00":
+        value = "1"
+    try:
+        with open(conf_path) as f:
+            content = f.read()
+        content = _re.sub(
+            r"background-opacity = .*",
+            f"background-opacity = {value}",
+            content,
+        )
+        fd, tmp_path = tempfile.mkstemp(
+            dir=os.path.dirname(conf_path), suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(content)
+            os.replace(tmp_path, conf_path)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+    except (FileNotFoundError, PermissionError):
+        pass
 
 
 def _fire_toast(opacity_pct: int) -> None:
@@ -199,45 +263,151 @@ def _fire_toast(opacity_pct: int) -> None:
         pass
 
 
-def _run_opacity(mode: str) -> None:
-    """Call the working matrix-opacity.sh script directly.
+def _adjust_opacity_with_counters(delta: int):
+    """Adjust opacity with overflow/underflow counter logic.
 
-    This is the original fast implementation — sed + busctl + gdbus.
-    3-state toggle cycle: Off (100%) -> Custom (85%) -> Full (0%) -> Off.
-    After the script runs, reads the new opacity and shows an OSD toast.
+    Port of Windows v1.0.4 AdjustOpacity. Iterates ALL Matrix configs.
+
+    - If delta > 0 (increasing): drain underflow first, then increase, then overflow
+    - If delta < 0 (decreasing): drain overflow first, then decrease, then underflow
+    - External change detection: if _base_opacity[conf] != current, reset both counters
+
+    Args:
+        delta: Positive to increase, negative to decrease.
+
+    Returns:
+        Representative opacity (int) for toast display, or None if all windows
+        are capped (no visual change happened).
     """
-    try:
-        subprocess.run(
-            [OPACITY_SCRIPT, mode],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=3,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return
+    configs = sorted(get_all_ghostty_configs())
+    if not configs:
+        return None
 
-    # Read the new opacity and show toast
-    opacity = _read_current_opacity()
-    _fire_toast(opacity)
+    any_changed = False
+    representative_opacity = None
 
-    svc = _get_state_service()
-    if svc:
-        svc.update_opacity(opacity)
+    for conf in configs:
+        current = _read_opacity_from_config(conf)
+
+        # External change detection: if someone changed opacity outside hotkeys
+        if conf in _base_opacity and _base_opacity[conf] != current:
+            _overflow_counters[conf] = 0
+            _underflow_counters[conf] = 0
+
+        overflow = _overflow_counters.get(conf, 0)
+        underflow = _underflow_counters.get(conf, 0)
+
+        if delta > 0:
+            # Increasing opacity
+            if underflow > 0:
+                # Drain underflow first (no visual change)
+                _underflow_counters[conf] = underflow - 1
+                _base_opacity[conf] = current
+                representative_opacity = current
+                continue
+            new_opacity = current + delta
+            if new_opacity > MAX_OPACITY:
+                new_opacity = MAX_OPACITY
+                if current >= MAX_OPACITY:
+                    # Already at max, increment overflow
+                    _overflow_counters[conf] = overflow + 1
+                    _base_opacity[conf] = current
+                    representative_opacity = current
+                    continue
+            _write_opacity_to_config(conf, new_opacity)
+            _base_opacity[conf] = new_opacity
+            _overflow_counters[conf] = 0
+            _underflow_counters[conf] = 0
+            representative_opacity = new_opacity
+            any_changed = True
+        else:
+            # Decreasing opacity
+            if overflow > 0:
+                # Drain overflow first (no visual change)
+                _overflow_counters[conf] = overflow - 1
+                _base_opacity[conf] = current
+                representative_opacity = current
+                continue
+            new_opacity = current + delta  # delta is negative
+            if new_opacity < MIN_OPACITY:
+                new_opacity = MIN_OPACITY
+                if current <= MIN_OPACITY:
+                    # Already at min, increment underflow
+                    _underflow_counters[conf] = underflow + 1
+                    _base_opacity[conf] = current
+                    representative_opacity = current
+                    continue
+            _write_opacity_to_config(conf, new_opacity)
+            _base_opacity[conf] = new_opacity
+            _overflow_counters[conf] = 0
+            _underflow_counters[conf] = 0
+            representative_opacity = new_opacity
+            any_changed = True
+
+    # Reload all Ghostty instances if anything changed
+    if any_changed:
+        mapping = get_ghostty_bus_names()
+        for slot_info in mapping.values():
+            reload_ghostty(slot_info["bus_name"])
+
+    return representative_opacity if any_changed else None
 
 
 def action_toggle_transparency() -> None:
-    """Cycle: Off (100%) -> Custom (85%) -> Full transparent (0%) -> Off."""
-    _run_opacity("toggle")
+    """Cycle: Off (100%) -> Custom (85%) -> Full transparent (0%) -> Off.
+
+    Resets overflow/underflow counters on toggle.
+    """
+    configs = sorted(get_all_ghostty_configs())
+    if not configs:
+        return
+
+    current = _read_opacity_from_config(configs[0])
+
+    # 3-state cycle matching Windows behavior
+    if current >= 100:
+        new_opacity = 85
+    elif current > 0:
+        new_opacity = 0
+    else:
+        new_opacity = 100
+
+    for conf in configs:
+        _write_opacity_to_config(conf, new_opacity)
+        # Reset counters on toggle
+        _overflow_counters[conf] = 0
+        _underflow_counters[conf] = 0
+        _base_opacity[conf] = new_opacity
+
+    # Reload all Ghostty instances
+    mapping = get_ghostty_bus_names()
+    for slot_info in mapping.values():
+        reload_ghostty(slot_info["bus_name"])
+
+    _fire_toast(new_opacity)
+    svc = _get_state_service()
+    if svc:
+        svc.update_opacity(new_opacity)
 
 
 def action_opacity_down() -> None:
-    """Decrease opacity by 5%."""
-    _run_opacity("down")
+    """Decrease opacity by 5% with underflow counter support."""
+    result = _adjust_opacity_with_counters(-OPACITY_DELTA)
+    if result is not None:
+        _fire_toast(result)
+        svc = _get_state_service()
+        if svc:
+            svc.update_opacity(result)
 
 
 def action_opacity_up() -> None:
-    """Increase opacity by 5%."""
-    _run_opacity("up")
+    """Increase opacity by 5% with overflow counter support."""
+    result = _adjust_opacity_with_counters(OPACITY_DELTA)
+    if result is not None:
+        _fire_toast(result)
+        svc = _get_state_service()
+        if svc:
+            svc.update_opacity(result)
 
 
 # ---------------------------------------------------------------------------
