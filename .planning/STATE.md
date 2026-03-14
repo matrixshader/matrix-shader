@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 11-03-PLAN.md
-last_updated: "2026-03-14T01:43:06Z"
-last_activity: 2026-03-14 — Completed bonus shader ports (plan 11-01)
+status: completed
+stopped_at: Completed 11-04-PLAN.md (Phase 11 COMPLETE)
+last_updated: "2026-03-14T02:13:11.078Z"
+last_activity: 2026-03-14 — Completed Mac port (plan 11-04)
 progress:
-  total_phases: 10
-  completed_phases: 1
-  total_plans: 6
-  completed_plans: 5
-  percent: 67
+  total_phases: 11
+  completed_phases: 4
+  total_plans: 31
+  completed_plans: 14
+  percent: 83
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-05)
 ## Current Position
 
 Phase: 11 of 11 (Platform Sync v1.0.4 Features)
-Plan: 3 of 4 in current phase
-Status: Executing
-Last activity: 2026-03-14 — Completed construct CLI (plan 11-03)
+Plan: 4 of 4 in current phase (COMPLETE)
+Status: Phase 11 Complete
+Last activity: 2026-03-14 — Completed Mac port (plan 11-04)
 
 Progress: [████████░░] 83%
 
@@ -56,6 +56,7 @@ Progress: [████████░░] 83%
 | Phase 11 P02 | 6min | 3 tasks | 10 files |
 | Phase 11 P01 | 16min | 3 tasks | 8 files |
 | Phase 11 P03 | 6min | 2 tasks | 5 files |
+| Phase 11 P04 | 1min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,10 @@ Recent decisions affecting current work:
 - [11-01]: White-room shader created from scratch -- WhiteRoom.hlsl not in git history
 - [11-01]: GLSL modulo for MatrixCodeVision uses manual formula to avoid int mod issues
 - [11-01]: Test suite uses .frag extension for glslangValidator stage detection
+- [11-04]: Mac construct uses find_next_slot_mac with ps-based process discovery instead of Linux /proc approach
+- [11-04]: Mac Ghostty config uses macos-titlebar-style=hidden and SF Mono font defaults
+- [11-04]: Command banner shared from linux/command_banner.py via relative path -- no Mac-specific copy
+- [11-04]: get_all_ghostty_configs added to shader_service_mac.py for Mac opacity counter support
 
 ### Pending Todos
 
@@ -110,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14
-Stopped at: Completed 11-03-PLAN.md
+Last session: 2026-03-14T02:13:09.731Z
+Stopped at: Completed 11-04-PLAN.md (Phase 11 COMPLETE)
 Resume file: None
