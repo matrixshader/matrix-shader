@@ -183,16 +183,16 @@ Phases execute in numeric order. Phase 8 (Mac) can begin in parallel with Phase 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shader Hot-Reload | 0/3 | Planning complete | - |
-| 2. Full Hotkey System | 0/3 | Planning complete | - |
-| 3. Control Panel Core | 0/TBD | Not started | - |
-| 4. Control Panel Polish | 0/3 | Planning complete | - |
-| 5. Window Positioning | 0/3 | Planning complete | - |
-| 6. Layout Engine | 0/TBD | Not started | - |
-| 7. Window & Session Management | 0/3 | Planning complete | - |
-| 8. Mac Port | 0/TBD | Not started | - |
-| 9. Wizard Polish & Easter Eggs | 0/3 | Planning complete | - |
-| 10. MatrixLite & Installer Completion | 0/2 | Planning complete | - |
+| 1. Shader Hot-Reload | 3/3 | Complete | 2026-03-08 |
+| 2. Full Hotkey System | 3/3 | Complete | 2026-03-08 |
+| 3. Control Panel Core | 1/1 | Complete | 2026-03-09 |
+| 4. Control Panel Polish | 3/3 | Complete | 2026-03-09 |
+| 5. Window Positioning | 3/3 | Complete | 2026-03-09 |
+| 6. Layout Engine | 2/2 | Complete | 2026-03-09 |
+| 7. Window & Session Management | 1/1 | Complete | 2026-03-09 |
+| 8. Mac Port | 1/1 | Complete | 2026-03-09 |
+| 9. Wizard Polish & Easter Eggs | 3/3 | Complete | 2026-03-13 |
+| 10. MatrixLite & Installer Completion | 2/2 | Complete | 2026-03-13 |
 
 ### Phase 11: Platform Sync — v1.0.4 Features
 
@@ -210,6 +210,6 @@ Phases execute in numeric order. Phase 8 (Mac) can begin in parallel with Phase 
 **Plans:** 4 plans
 Plans:
 - [ ] 11-01-PLAN.md — Port 6 bonus HLSL shaders to GLSL + white-room CRT shader (SYNC-02)
-- [ ] 11-02-PLAN.md — Opacity overflow counters + command banner + window filtering (SYNC-03, SYNC-04, SYNC-05, SYNC-07)
+- [x] 11-02-PLAN.md — Opacity overflow counters + command banner + window filtering (SYNC-03, SYNC-04, SYNC-05, SYNC-07)
 - [ ] 11-03-PLAN.md — Construct CLI + TransitionToRain + build/install pipeline (SYNC-01, SYNC-06)
 - [ ] 11-04-PLAN.md — Mac port of all Phase 11 features (all SYNC-*)

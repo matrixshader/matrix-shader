@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-05)
 
 ## Current Position
 
-Phase: 2 of 10 (Full Hotkey System)
-Plan: 3 of 3 in current phase
+Phase: 11 of 11 (Platform Sync v1.0.4 Features)
+Plan: 3 of 4 in current phase
 Status: Executing
-Last activity: 2026-03-08 — Completed hotkey action handlers (plan 02-02)
+Last activity: 2026-03-14 — Completed v1.0.4 small features (plan 11-02)
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [███████░░░] 67%
 | Phase 01 P01 | 16min | 2 tasks | 1 files |
 | Phase 02 P02 | 8min | 1 tasks | 2 files |
 | Phase 02 P01 | 10min | 2 tasks | 4 files |
+| Phase 11 P02 | 6min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,10 @@ Recent decisions affecting current work:
 - [Phase 02]: Opacity ported from matrix-opacity.sh to Python -- eliminates subprocess overhead
 - [Phase 02]: Red Pill status via file existence (~/.config/matrix-shader/redpill.json) -- simple, mockable, licensing deferred
 - [Phase 02]: InotifyWatcher watches directory not file for atomic write compatibility
+- [11-02]: Opacity overflow/underflow uses module-level dicts keyed by config path -- matches Windows per-window state
+- [11-02]: Removed _run_opacity() shell delegation -- inline Python is faster and supports counters
+- [11-02]: Command banner uses 24-bit ANSI #35B381 for command names -- exact Windows match
+- [11-02]: Non-shader window filtering already correct via get_ghostty_bus_names() -- added regression tests
 
 ### Pending Todos
 
@@ -88,8 +93,14 @@ None yet.
 - [Phase 5 RISK]: Wayland window positioning is the hardest feature. Compositor-specific IPC (GNOME Mutter D-Bus, swaymsg, KWin) may require separate code paths. Ghostty patch is the clean solution.
 - [Phase 8 DEADLINE]: Mac port must be functional by March 11, 2026. Start planning Phase 8 no later than completion of Phase 2. CGEvent tap for hotkeys and terminal selection (Ghostty preferred) are the first decisions to resolve.
 
+## Accumulated Context
+
+### Roadmap Evolution
+- Phase 11 added: Platform Sync — v1.0.4 Features (construct CLI, bonus shaders, OSD toast, opacity counters, command banner, TransitionToRain)
+- Phases 1-10 all COMPLETE as of 2026-03-13 (roadmap progress table is stale)
+
 ## Session Continuity
 
-Last session: 2026-03-08T17:26:36.821Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-03-14
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
