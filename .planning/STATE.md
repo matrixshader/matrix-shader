@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 11-01-PLAN.md
+stopped_at: Completed 11-03-PLAN.md
 last_updated: "2026-03-14T01:43:06Z"
 last_activity: 2026-03-14 — Completed bonus shader ports (plan 11-01)
 progress:
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-05)
 ## Current Position
 
 Phase: 11 of 11 (Platform Sync v1.0.4 Features)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: Executing
-Last activity: 2026-03-14 — Completed bonus shader ports (plan 11-01)
+Last activity: 2026-03-14 — Completed construct CLI (plan 11-03)
 
 Progress: [████████░░] 83%
 
@@ -55,6 +55,7 @@ Progress: [████████░░] 83%
 | Phase 02 P01 | 10min | 2 tasks | 4 files |
 | Phase 11 P02 | 6min | 3 tasks | 10 files |
 | Phase 11 P01 | 16min | 3 tasks | 8 files |
+| Phase 11 P03 | 6min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [11-02]: Removed _run_opacity() shell delegation -- inline Python is faster and supports counters
 - [11-02]: Command banner uses 24-bit ANSI #35B381 for command names -- exact Windows match
 - [11-02]: Non-shader window filtering already correct via get_ghostty_bus_names() -- added regression tests
+- [11-03]: Bonus shaders copied to slot dir as matrix-{slot}.glsl -- consistent slot naming for hotkeys/redpill/bluepill
+- [11-03]: TransitionToRain uses atomic config rewrite + D-Bus reload -- same-window shader swap
+- [11-03]: White room uses --pick flag + ghostty-construct-{slot}.conf naming -- distinguishes from regular self-relaunch
 - [11-01]: Manual HLSL-to-GLSL port over automated transpiler -- proven approach, only 6 shaders
 - [11-01]: White-room shader created from scratch -- WhiteRoom.hlsl not in git history
 - [11-01]: GLSL modulo for MatrixCodeVision uses manual formula to avoid int mod issues
@@ -107,5 +111,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 11-01-PLAN.md
+Stopped at: Completed 11-03-PLAN.md
 Resume file: None

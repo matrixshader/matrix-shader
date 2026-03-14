@@ -207,7 +207,7 @@ Phases execute in numeric order. Phase 8 (Mac) can begin in parallel with Phase 
   5. A command reference banner displays on exit of every CLI tool (wakeupneo, bluepill, redpill, construct)
   6. The Redpill TUI ignores non-Matrix windows in its tab list
   7. All features work identically on both Linux and Mac
-**Plans:** 4 plans
+**Plans:** 3/4 plans executed
 Plans:
 - [x] 11-01-PLAN.md — Port 6 bonus HLSL shaders to GLSL + white-room CRT shader (SYNC-02)
 - [x] 11-02-PLAN.md — Opacity overflow counters + command banner + window filtering (SYNC-03, SYNC-04, SYNC-05, SYNC-07)
