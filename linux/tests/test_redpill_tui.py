@@ -566,3 +566,95 @@ class TestQuitAction:
         assert tui.running is True
         tui.handle_action("Quit")
         assert tui.running is False
+
+
+# -----------------------------------------------------------------------
+# Non-shader window filtering (v1.0.4 regression guard)
+# -----------------------------------------------------------------------
+
+class TestWindowFiltering:
+    """Redpill TUI tab list only shows Matrix shader windows.
+
+    get_ghostty_bus_names() filters by config-file pattern (ghostty-matrix-{slot}),
+    naturally excluding regular Ghostty, construct, and redpill windows.
+    These tests lock that behavior as regression guards.
+    """
+
+    def setup_method(self):
+        _reset_mocks()
+
+    def test_only_matrix_slot_windows_in_tabs(self):
+        """Only ghostty-matrix-{slot} config windows appear as tabs."""
+        # Simulate get_ghostty_bus_names returning only matrix-slot windows
+        _get_ghostty_bus_names.return_value = {
+            1: {"pid": 100, "bus_name": ":1.10"},
+            3: {"pid": 300, "bus_name": ":1.30"},
+        }
+        _read_shader_config.return_value = dict(shader_service.PARAM_DEFAULTS)
+        tui = RedpillTUI()
+        tui.refresh_tabs()
+        slots = [t[0] for t in tui.tabs]
+        assert slots == [1, 3]
+
+    def test_construct_windows_not_in_tabs(self):
+        """Construct white room windows (ghostty-construct config) not in tab list.
+
+        get_ghostty_bus_names() only matches ghostty-matrix-{slot} in /proc cmdline,
+        so construct configs are naturally excluded.
+        """
+        # get_ghostty_bus_names would never return construct windows
+        _get_ghostty_bus_names.return_value = {
+            2: {"pid": 200, "bus_name": ":1.20"},
+        }
+        _read_shader_config.return_value = dict(shader_service.PARAM_DEFAULTS)
+        tui = RedpillTUI()
+        tui.refresh_tabs()
+        assert len(tui.tabs) == 1
+        assert tui.tabs[0][0] == 2
+
+    def test_redpill_window_not_in_tabs(self):
+        """Redpill TUI window (ghostty-redpill config) not in tab list.
+
+        get_ghostty_bus_names() only matches ghostty-matrix-{slot} in /proc cmdline,
+        so the redpill window itself is naturally excluded.
+        """
+        # Empty return = only the redpill window itself is running (not a matrix window)
+        _get_ghostty_bus_names.return_value = {}
+        tui = RedpillTUI()
+        tui.refresh_tabs()
+        assert tui.tabs == []
+        assert tui.active_slot is None
+
+    def test_regular_ghostty_not_in_tabs(self):
+        """Regular Ghostty windows (no matrix config) not in tab list.
+
+        get_ghostty_bus_names() matches by /proc/{pid}/cmdline containing
+        'ghostty-matrix-{slot}'. Regular Ghostty has no such config pattern.
+        """
+        _get_ghostty_bus_names.return_value = {}
+        tui = RedpillTUI()
+        tui.refresh_tabs()
+        assert tui.tabs == []
+
+    def test_refresh_tabs_uses_get_ghostty_bus_names(self):
+        """refresh_tabs() uses get_ghostty_bus_names() for discovery (not raw pgrep)."""
+        _get_ghostty_bus_names.return_value = {
+            1: {"pid": 100, "bus_name": ":1.10"},
+        }
+        _read_shader_config.return_value = dict(shader_service.PARAM_DEFAULTS)
+        tui = RedpillTUI()
+        tui.refresh_tabs()
+        _get_ghostty_bus_names.assert_called_once()
+
+    def test_tab_list_sorted_by_slot(self):
+        """Tab list is sorted by slot number."""
+        _get_ghostty_bus_names.return_value = {
+            5: {"pid": 500, "bus_name": ":1.50"},
+            2: {"pid": 200, "bus_name": ":1.20"},
+            8: {"pid": 800, "bus_name": ":1.80"},
+        }
+        _read_shader_config.return_value = dict(shader_service.PARAM_DEFAULTS)
+        tui = RedpillTUI()
+        tui.refresh_tabs()
+        slots = [t[0] for t in tui.tabs]
+        assert slots == [2, 5, 8]

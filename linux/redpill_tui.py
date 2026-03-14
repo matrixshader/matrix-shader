@@ -307,7 +307,15 @@ class RedpillTUI:
         self._load_layout()
 
     def refresh_tabs(self):
-        """Discover open Matrix windows and their colors."""
+        """Discover open Matrix shader windows and their colors.
+
+        Uses get_ghostty_bus_names() which filters by /proc/{pid}/cmdline
+        matching 'ghostty-matrix-{slot}'. This naturally excludes:
+        - Regular Ghostty windows (no matrix config in cmdline)
+        - Construct white room windows (ghostty-construct.conf)
+        - Redpill TUI windows (ghostty-redpill.conf)
+        Only actual Matrix shader windows (slots 1-8) appear as tabs.
+        """
         mapping = get_ghostty_bus_names()
         self.tabs = []
         for slot in sorted(mapping.keys()):
