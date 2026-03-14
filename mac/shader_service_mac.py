@@ -43,6 +43,32 @@ from platform_mac import get_ghostty_pids, reload_ghostty_mac
 # On Mac, sys.modules["shader_service"] points here, so we must export them.
 # ---------------------------------------------------------------------------
 
+def get_all_ghostty_configs():
+    """Mac version: find config files for running Matrix Ghostty instances.
+
+    Uses ps instead of /proc/PID/cmdline.
+
+    Returns:
+        Set of config file paths.
+    """
+    import re
+    import subprocess
+    configs = set()
+    try:
+        result = subprocess.run(
+            ["ps", "-eo", "args"],
+            capture_output=True, text=True, timeout=5,
+            stdin=subprocess.DEVNULL,
+        )
+        for line in result.stdout.splitlines():
+            match = re.search(r"--config-file=(/\S+)", line)
+            if match and "ghostty-matrix-" in match.group(1):
+                configs.add(match.group(1))
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return configs
+
+
 def get_ghostty_bus_names():
     """Mac equivalent: returns {slot: {"bus_name": pid}} for compatibility."""
     mapping = get_ghostty_pids()

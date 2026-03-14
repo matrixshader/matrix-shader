@@ -329,43 +329,44 @@ arrow_menu() {
     local selected=0
     local count=${#options[@]}
 
-    tput civis 2>/dev/null  # Hide cursor during menu
+    # All UI output goes to /dev/tty so $() capture only gets the result
+    tput civis >/dev/tty 2>/dev/null
 
     # Initial draw
-    echo
-    echo -e " ${DIM}${prompt}${RESET}"
-    echo
+    echo >/dev/tty
+    echo -e " ${DIM}${prompt}${RESET}" >/dev/tty
+    echo >/dev/tty
     for ((i=0; i<count; i++)); do
         if [ "$i" -eq "$selected" ]; then
-            echo -e "   ${GREEN}>${RESET} \033[1;32m${options[$i]}\033[0m"
+            echo -e "   ${GREEN}>${RESET} \033[1;32m${options[$i]}\033[0m" >/dev/tty
         else
-            echo -e "     \033[90m${options[$i]}\033[0m"
+            echo -e "     \033[90m${options[$i]}\033[0m" >/dev/tty
         fi
     done
 
     while true; do
         # Read keypress
-        read -rsn1 key
+        read -rsn1 key </dev/tty
         if [[ "$key" == $'\x1b' ]]; then
-            read -rsn2 -t 0.1 key
+            read -rsn2 -t 0.1 key </dev/tty
             case "$key" in
                 '[A') ((selected = (selected - 1 + count) % count)) ;;  # Up
                 '[B') ((selected = (selected + 1) % count)) ;;          # Down
             esac
         elif [[ "$key" == "" ]]; then  # Enter
-            tput cnorm 2>/dev/null  # Show cursor
-            echo "$selected"
+            tput cnorm >/dev/tty 2>/dev/null
+            echo "$selected"  # Only this goes to stdout (captured by $())
             return 0
         fi
 
         # Redraw options only (move cursor up to option start)
-        printf "\033[${count}A"
+        printf "\033[${count}A" >/dev/tty
         for ((i=0; i<count; i++)); do
-            printf "\033[2K"  # Clear line
+            printf "\033[2K" >/dev/tty  # Clear line
             if [ "$i" -eq "$selected" ]; then
-                echo -e "   ${GREEN}>${RESET} \033[1;32m${options[$i]}\033[0m"
+                echo -e "   ${GREEN}>${RESET} \033[1;32m${options[$i]}\033[0m" >/dev/tty
             else
-                echo -e "     \033[90m${options[$i]}\033[0m"
+                echo -e "     \033[90m${options[$i]}\033[0m" >/dev/tty
             fi
         done
     done
@@ -536,6 +537,9 @@ if not check_accessibility_permission():
     print('\033[33m Note: Grant Accessibility permission for hotkeys to work.\033[0m')
     print('\033[2m System Settings > Privacy & Security > Accessibility\033[0m')
 " 2>/dev/null
+
+    # Command reference banner
+    python3 -B "$SCRIPT_DIR/../linux/command_banner.py" 2>/dev/null
 
     # Background update check (silent, non-blocking)
     check_update &

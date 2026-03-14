@@ -52,6 +52,7 @@ mkdir -p "$RELEASE_DIR"/{mac/patches,shaders-glsl}
 echo -e "${DIM}  Staging Mac scripts...${RESET}"
 for f in wakeupneo wakeupneo_mac.sh matrix_keys_mac.py matrix_toast_mac.py \
          hotkey_config_mac.py shader_service_mac.py platform_mac.py \
+         construct_mac.sh construct_service_mac.py \
          install_mac.sh i.sh __init__.py; do
     [ -f "$SCRIPT_DIR/$f" ] && cp "$SCRIPT_DIR/$f" "$RELEASE_DIR/mac/"
 done
@@ -79,7 +80,8 @@ mkdir -p "$RELEASE_DIR/linux"
 for f in shader_service.py state_service.py hotkey_actions.py hotkey_config.py \
          hotkey_config_screen.py hotkey_conflicts.py layout_engine.py \
          matrix_toast.py redpill_tui.py redpill_keys.py window_service.py \
-         license_service.py machine_fingerprint.py; do
+         license_service.py machine_fingerprint.py \
+         construct_service.py command_banner.py; do
     [ -f "$PROJECT_DIR/linux/$f" ] && cp "$PROJECT_DIR/linux/$f" "$RELEASE_DIR/linux/"
 done
 
@@ -124,7 +126,7 @@ if $BUILD_GHOSTTY; then
     fi
 
     cd "$GHOSTTY_SRC"
-    git checkout -- . 2>/dev/null || true
+    git reset --hard v1.1.3 2>/dev/null || git checkout -- . 2>/dev/null || true
     git apply "$SCRIPT_DIR/patches/metal-shader-hotreload.patch"
 
     PATH="$ZIG_DIR:$PATH" zig build -Doptimize=ReleaseFast -Dapp-runtime=none -Demit-xcframework=true

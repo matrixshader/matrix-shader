@@ -15,6 +15,7 @@ MAC_DIR = os.path.join(os.path.dirname(__file__), "..")
 SHELL_SCRIPTS = [
     "bluepill_mac.sh",
     "build-release.sh",
+    "construct_mac.sh",
     "install_mac.sh",
     "i.sh",
     "matrix-hotkey-help-mac.sh",

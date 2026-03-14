@@ -71,4 +71,7 @@ fi
 # Running inside Ghostty -- launch the TUI
 # Set up Python path so TUI can find mac modules
 export PYTHONPATH="${SCRIPT_DIR}:${SCRIPT_DIR}/../linux:${PYTHONPATH:-}"
-exec python3 -B "$TUI_SCRIPT"
+python3 -B "$TUI_SCRIPT"
+
+# Command reference banner after TUI exits
+python3 -B "$SCRIPT_DIR/../linux/command_banner.py" 2>/dev/null
