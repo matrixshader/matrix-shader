@@ -212,93 +212,54 @@ class TestTransitionToRain:
     """Test TransitionToRain: config rewrite, opacity update, D-Bus reload."""
 
     @patch("construct_service.shader_service.reload_ghostty")
-    @patch("construct_service.shader_service.get_ghostty_bus_names")
-    @patch("construct_service.shader_service.create_slot_shader")
-    def test_transition_rewrites_config_shader_path(
-        self, mock_create, mock_bus, mock_reload, isolate_env
-    ):
-        """transition_to_rain replaces white-room shader with rain shader."""
+    def test_transition_creates_rain_shader_and_matrix_config(self, isolate_env):
+        """transition_to_rain creates rain shader and writes matrix config."""
         slot = 1
-        shader_path = str(isolate_env / "shaders" / "matrix-1.glsl")
-        mock_create.return_value = shader_path
-        mock_bus.return_value = {1: {"pid": 123, "bus_name": ":1.42"}}
-        mock_reload.return_value = True
+        construct_conf = f"/tmp/ghostty-construct-{slot}.conf"
+        with open(construct_conf, "w") as f:
+            f.write("custom-shader = /some/path/white-room.glsl\nbackground-opacity = 1.0\n")
 
-        # Write initial config pointing to white-room
-        conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
-        with open(conf_path, "w") as f:
-            f.write(
-                "custom-shader = /some/path/white-room.glsl\n"
-                "background-opacity = 1.0\n"
-                "background = #000000\n"
-            )
+        with patch("construct_service._find_construct_bus_name", return_value=None), \
+             patch("construct_service.shader_service.create_slot_shader",
+                   return_value="/fake/shaders/matrix-1.glsl"):
+            construct_service.transition_to_rain(slot, 0, construct_conf=construct_conf)
 
+        # Matrix config should be created
+        matrix_conf = f"/tmp/ghostty-matrix-{slot}.conf"
         try:
-            construct_service.transition_to_rain(slot, 0)
-
-            # Verify config was rewritten
-            with open(conf_path) as f:
+            assert os.path.isfile(matrix_conf)
+            with open(matrix_conf) as f:
                 content = f.read()
+            assert "matrix-1.glsl" in content
+            assert "background-opacity = 0" in content
             assert "white-room" not in content
-            assert f"matrix-{slot}.glsl" in content
+            # Construct config should be overwritten with matrix config
+            with open(construct_conf) as f:
+                content2 = f.read()
+            assert "matrix-1.glsl" in content2
         finally:
-            os.unlink(conf_path)
+            for f in [construct_conf, matrix_conf]:
+                try: os.unlink(f)
+                except FileNotFoundError: pass
 
-    @patch("construct_service.shader_service.reload_ghostty")
-    @patch("construct_service.shader_service.get_ghostty_bus_names")
-    @patch("construct_service.shader_service.create_slot_shader")
-    def test_transition_updates_opacity(
-        self, mock_create, mock_bus, mock_reload, isolate_env
-    ):
-        """transition_to_rain changes background-opacity from 1.0 to 0.85."""
+    def test_transition_triggers_construct_dbus_reload(self, isolate_env):
+        """transition_to_rain calls _find_construct_bus_name and reloads it."""
         slot = 2
-        shader_path = str(isolate_env / "shaders" / "matrix-2.glsl")
-        mock_create.return_value = shader_path
-        mock_bus.return_value = {2: {"pid": 456, "bus_name": ":1.99"}}
-        mock_reload.return_value = True
+        construct_conf = f"/tmp/ghostty-construct-{slot}.conf"
+        with open(construct_conf, "w") as f:
+            f.write("custom-shader = /path/white-room.glsl\nbackground-opacity = 1.0\n")
 
-        conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
-        with open(conf_path, "w") as f:
-            f.write(
-                "custom-shader = /path/to/white-room.glsl\n"
-                "background-opacity = 1.0\n"
-            )
-
-        try:
-            construct_service.transition_to_rain(slot, 1)
-
-            with open(conf_path) as f:
-                content = f.read()
-            assert "background-opacity = 0.85" in content
-            assert "background-opacity = 1.0" not in content
-        finally:
-            os.unlink(conf_path)
-
-    @patch("construct_service.shader_service.reload_ghostty")
-    @patch("construct_service.shader_service.get_ghostty_bus_names")
-    @patch("construct_service.shader_service.create_slot_shader")
-    def test_transition_triggers_dbus_reload(
-        self, mock_create, mock_bus, mock_reload, isolate_env
-    ):
-        """transition_to_rain triggers D-Bus reload on the slot's Ghostty instance."""
-        slot = 3
-        shader_path = str(isolate_env / "shaders" / "matrix-3.glsl")
-        mock_create.return_value = shader_path
-        mock_bus.return_value = {3: {"pid": 789, "bus_name": ":1.55"}}
-        mock_reload.return_value = True
-
-        conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
-        with open(conf_path, "w") as f:
-            f.write(
-                "custom-shader = /path/to/white-room.glsl\n"
-                "background-opacity = 1.0\n"
-            )
-
-        try:
-            construct_service.transition_to_rain(slot, 0)
+        with patch("construct_service._find_construct_bus_name", return_value=":1.55") as mock_find, \
+             patch("construct_service.shader_service.reload_ghostty") as mock_reload, \
+             patch("construct_service.shader_service.create_slot_shader",
+                   return_value="/fake/shaders/matrix-2.glsl"):
+            construct_service.transition_to_rain(slot, 0, construct_conf=construct_conf)
+            mock_find.assert_called_once()
             mock_reload.assert_called_once_with(":1.55")
-        finally:
-            os.unlink(conf_path)
+
+        for f in [construct_conf, f"/tmp/ghostty-matrix-{slot}.conf"]:
+            try: os.unlink(f)
+            except FileNotFoundError: pass
 
     @patch("construct_service.shader_service.reload_ghostty")
     @patch("construct_service.shader_service.get_ghostty_bus_names")

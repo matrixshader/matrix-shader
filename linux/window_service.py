@@ -30,12 +30,32 @@ DBUS_IFACE = 'org.matrix.WindowManager'
 # --- Slot-to-PID Mapping ---
 
 def load_mapping():
-    """Read slot-to-PID mapping from file."""
+    """Read slot-to-PID mapping from file, purging dead PIDs automatically.
+
+    VACCINE: Stale PIDs caused ghost slots that blocked new windows and
+    corrupted the redpill TUI tab list. Now every load scrubs dead entries.
+    """
     try:
         with open(MAP_FILE) as f:
-            return json.load(f)
+            raw = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
+    # Purge dead PIDs on every load
+    clean = {}
+    dirty = False
+    for slot, entry in raw.items():
+        pid = entry.get('pid')
+        if pid and _pid_alive(pid):
+            clean[slot] = entry
+        else:
+            dirty = True
+    if dirty:
+        try:
+            with open(MAP_FILE, 'w') as f:
+                json.dump(clean, f)
+        except OSError:
+            pass
+    return clean
 
 
 def save_mapping(mapping):
@@ -45,8 +65,11 @@ def save_mapping(mapping):
 
 
 def register_window(slot, pid):
-    """Register a slot-to-PID mapping after launching a window."""
-    mapping = load_mapping()
+    """Register a slot-to-PID mapping after launching a window.
+
+    Purges any stale entries first to prevent ghost slots.
+    """
+    mapping = load_mapping()  # auto-purges dead PIDs
     mapping[str(slot)] = {'pid': int(pid)}
     save_mapping(mapping)
 
@@ -56,6 +79,16 @@ def unregister_window(slot):
     mapping = load_mapping()
     mapping.pop(str(slot), None)
     save_mapping(mapping)
+
+
+def get_focused_slot():
+    """Get the currently active/focused slot from state. Returns None if unknown."""
+    try:
+        import state_service
+        state = state_service.load_state()
+        return state.get("active_tab")
+    except Exception:
+        return None
 
 
 def get_pid_for_slot(slot):

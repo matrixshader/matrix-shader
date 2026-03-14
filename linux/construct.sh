@@ -27,9 +27,11 @@ RESET='\033[0m'
 COLOR=""
 MODE=""
 IN_GHOSTTY=false
+PICK_SLOT=""
 for arg in "$@"; do
     case "$arg" in
         --pick)         IN_GHOSTTY=true ;;
+        --slot=*)       PICK_SLOT="${arg#--slot=}" ;;
         --help|-h)      MODE="help" ;;
         --green)        COLOR="green" ;;
         --red)          COLOR="red" ;;
@@ -87,73 +89,49 @@ fi
 
 # --- White room flow ---
 
-# If running inside Ghostty (--pick flag), run the picker
+# If running inside Ghostty (--pick flag), run the shader-driven picker
 if [ "$IN_GHOSTTY" = "true" ]; then
-    # Run the white room picker
-    selected=$(python3 -B "$PYMOD_DIR/construct_service.py" white-room 2>/dev/tty)
-    exit_code=$?
+    # Slot was passed via --slot=N by the launcher
+    own_slot="$PICK_SLOT"
+    own_conf="/tmp/ghostty-construct-${own_slot}.conf"
+    own_shader="/tmp/ghostty-construct-${own_slot}-shader.glsl"
 
-    if [ $exit_code -ne 0 ] || [ -z "$selected" ] || [ "$selected" = "cancelled" ]; then
-        echo -e "${DIM} Cancelled.${RESET}"
-        sleep 1
-        exit 0
-    fi
-
-    # Get the slot number from the Ghostty config filename
-    # The config file is /tmp/ghostty-construct-{slot}.conf
-    # We need to determine which slot this window is using
-    own_conf=""
-    own_slot=""
-    for s in $(seq 1 8); do
-        conf="/tmp/ghostty-construct-${s}.conf"
-        if [ -f "$conf" ]; then
-            # Check if this is our process
-            own_pid=$$
-            parent_pid=$(ps -o ppid= -p $own_pid 2>/dev/null | tr -d ' ')
-            if pgrep -f "config-file=$conf" | grep -q "$parent_pid" 2>/dev/null; then
-                own_conf="$conf"
-                own_slot="$s"
-                break
-            fi
-        fi
-    done
-
-    # Fallback: find the construct config that exists
-    if [ -z "$own_slot" ]; then
-        for s in $(seq 1 8); do
-            conf="/tmp/ghostty-construct-${s}.conf"
-            if [ -f "$conf" ]; then
-                own_slot="$s"
-                own_conf="$conf"
-                break
-            fi
-        done
-    fi
-
-    if [ -z "$own_slot" ]; then
-        echo -e "${RED} Could not determine window slot.${RESET}"
+    if [ -z "$own_slot" ] || [ ! -f "$own_conf" ] || [ ! -f "$own_shader" ]; then
+        echo -e "${RED} Could not determine window slot (got: ${own_slot}).${RESET}" >&2
         sleep 2
         exit 1
     fi
 
-    # Rename the construct config to matrix config for slot tracking
-    matrix_conf="/tmp/ghostty-matrix-${own_slot}.conf"
-    cp "$own_conf" "$matrix_conf"
+    # Run the white room picker (shader-driven via #define rewrites + D-Bus reload)
+    # Arrow keys change SELECTED in shader, shader renders highlighted swatch on CRT TV
+    selected=$(python3 -B "$PYMOD_DIR/construct_service.py" white-room --shader-path "$own_shader" 2>/dev/tty)
+    exit_code=$?
 
-    # Transition to rain: swap shader + opacity + reload
+    if [ $exit_code -ne 0 ] || [ -z "$selected" ] || [ "$selected" = "cancelled" ]; then
+        # Power-off animation already played by picker on cancel
+        sleep 0.5
+        exit 0
+    fi
+
+    # Transition to rain IN THIS WINDOW:
+    # - Creates rain shader for slot
+    # - Rewrites the CONSTRUCT config Ghostty is reading (shader + opacity + decorations)
+    # - D-Bus reloads ONLY this window
+    # - Registers window in window_service for redpill/hotkeys/glitch/layout
+    # - Saves shader config to state.json
     python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
 from construct_service import transition_to_rain
-transition_to_rain($own_slot, $selected)
-" 2>/dev/null
+transition_to_rain($own_slot, $selected, construct_conf='$own_conf')
+"
 
-    echo
-    echo -e "${GREEN} THE MATRIX HAS YOU.${RESET}"
-    echo
+    # Wait for Ghostty to detect config change and reload shader
+    sleep 0.5
 
-    # Command reference banner
-    python3 -B "$PYMOD_DIR/command_banner.py" 2>/dev/null
+    # Clean up construct shader copy
+    rm -f "$own_shader"
 
+    # Keep window alive — this is now a Matrix rain window
     sleep infinity
     exit 0
 fi
@@ -179,12 +157,14 @@ if [ -z "$next_slot" ]; then
     exit 1
 fi
 
-# Resolve white room shader path
-white_room_shader="$SHADER_DIR/white-room-ghostty.glsl"
-if [ ! -f "$white_room_shader" ]; then
-    echo -e "${RED} White room shader not found at $white_room_shader${RESET}"
+# Resolve white room shader — COPY to temp so we never modify the source
+white_room_source="$SHADER_DIR/white-room-ghostty.glsl"
+if [ ! -f "$white_room_source" ]; then
+    echo -e "${RED} White room shader not found at $white_room_source${RESET}"
     exit 1
 fi
+white_room_shader="/tmp/ghostty-construct-${next_slot}-shader.glsl"
+cp "$white_room_source" "$white_room_shader"
 
 # Write Ghostty config for white room (opaque, white foreground)
 construct_conf="/tmp/ghostty-construct-${next_slot}.conf"
@@ -197,13 +177,16 @@ font-family = Nimbus Mono PS
 font-style = Bold
 font-size = 16
 background-opacity = 1.0
-gtk-titlebar = true
-window-decoration = client
+gtk-titlebar = false
+window-decoration = none
+window-padding-x = 0
+window-padding-y = 0
+fullscreen = true
 desktop-notifications = false
 EOF
 
-# Self-relaunch inside Ghostty with --pick flag
+# Self-relaunch inside Ghostty with --pick flag + slot number
 nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$construct_conf" \
-    -e "$SCRIPT_PATH" --pick >/dev/null 2>&1 &
+    -e "$SCRIPT_PATH" --pick --slot="${next_slot}" >/dev/null 2>&1 &
 disown
 exit 0

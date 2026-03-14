@@ -310,6 +310,7 @@ float lightning(float t)
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     vec2 uv = fragCoord / iResolution.xy;
+    uv.y = 1.0 - uv.y;  // Flip Y: HLSL y=0 at top, OpenGL y=0 at bottom
     float t = iTime;
 
     // Aurora light field

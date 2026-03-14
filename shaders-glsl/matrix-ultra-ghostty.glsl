@@ -134,6 +134,7 @@ vec4 DrawLayerUltra(vec2 uv, float layerIdx, float totalLayers)
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     vec2 tex = fragCoord / iResolution.xy;
+    tex.y = 1.0 - tex.y;  // Flip Y: HLSL y=0 at top, OpenGL y=0 at bottom
     vec2 uv = tex;
     float t = iTime;
 

@@ -22,7 +22,7 @@ if [ "$1" != "--in-ghostty" ]; then
         exit 1
     fi
 
-    REDPILL_SHADER="$(realpath "${SCRIPT_DIR}/../shaders-glsl/redpill-neo-ghostty.glsl")"
+    REDPILL_SHADER="$(realpath "${SCRIPT_DIR}/../shaders-glsl/matrix-codevision-ghostty.glsl")"
 
     conf="/tmp/ghostty-redpill.conf"
     cat > "$conf" <<EOF

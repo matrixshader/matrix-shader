@@ -282,10 +282,10 @@ class TestLayoutAction:
 # ---------------------------------------------------------------------------
 
 class TestSwapActions:
-    """SwapLeft/Right rotates window positions in the layout formation."""
+    """SwapLeft/Right swaps focused window with its left/right neighbor."""
 
-    def test_swap_left_rotates_positions(self):
-        """SwapLeft moves window positions: [A, B, C] → [B, C, A]."""
+    def test_swap_left_swaps_with_neighbor(self):
+        """SwapLeft: focused slot 2 swaps with slot 1, slot 3 stays put."""
         from hotkey_actions import action_swap_left
 
         positions_applied = []
@@ -310,20 +310,19 @@ class TestSwapActions:
         with patch("window_service.load_mapping", return_value=fake_mapping), \
              patch("window_service.get_pid_for_slot", side_effect=fake_get_pid), \
              patch("window_service.get_position", side_effect=fake_get_position), \
+             patch("window_service.get_focused_slot", return_value=2), \
              patch("window_service.position_window", side_effect=fake_position), \
              patch("layout_engine._update_applied_cache"):
             action_swap_left()
 
-        # Left rotation: windows shift left; sorted by X = [1,2,3]
-        # rotated_windows = [2,3,1], so slot 2→pos0, slot 3→pos640, slot 1→pos1280
-        assert len(positions_applied) == 3
+        # Focused=slot 2, swap left neighbor=slot 1. Slot 3 untouched.
+        assert len(positions_applied) == 2
         slot_x = {s: x for s, x in positions_applied}
-        assert slot_x[2] == 0
-        assert slot_x[3] == 640
-        assert slot_x[1] == 1280
+        assert slot_x[2] == 0      # slot 2 moves to slot 1's position
+        assert slot_x[1] == 640    # slot 1 moves to slot 2's position
 
-    def test_swap_right_rotates_positions(self):
-        """SwapRight moves window positions: [A, B, C] → [C, A, B]."""
+    def test_swap_right_swaps_with_neighbor(self):
+        """SwapRight: focused slot 2 swaps with slot 3, slot 1 stays put."""
         from hotkey_actions import action_swap_right
 
         positions_applied = []
@@ -349,16 +348,52 @@ class TestSwapActions:
         with patch("window_service.load_mapping", return_value=fake_mapping), \
              patch("window_service.get_pid_for_slot", side_effect=fake_get_pid), \
              patch("window_service.get_position", side_effect=fake_get_position), \
+             patch("window_service.get_focused_slot", return_value=2), \
              patch("window_service.position_window", side_effect=fake_position), \
              patch("layout_engine._update_applied_cache"):
             action_swap_right()
 
-        # Right rotation: windows shift right; sorted by X = [1,2,3]
-        # rotated_windows = [3,1,2], so slot 3→pos0, slot 1→pos640, slot 2→pos1280
+        # Focused=slot 2, swap right neighbor=slot 3. Slot 1 untouched.
+        assert len(positions_applied) == 2
         slot_x = {s: x for s, x in positions_applied}
-        assert slot_x[3] == 0
+        assert slot_x[2] == 1280   # slot 2 moves to slot 3's position
+        assert slot_x[3] == 640    # slot 3 moves to slot 2's position
+
+    def test_swap_left_wraps_around(self):
+        """SwapLeft on leftmost window wraps to rightmost."""
+        from hotkey_actions import action_swap_left
+
+        positions_applied = []
+
+        def fake_position(slot, x, y, w, h):
+            positions_applied.append((slot, x))
+            return True
+
+        def fake_get_pid(slot):
+            return 100 + slot
+
+        geos = {
+            1: {"x": 0, "y": 0, "width": 640, "height": 1080},
+            2: {"x": 640, "y": 0, "width": 640, "height": 1080},
+        }
+
+        def fake_get_position(slot):
+            return geos.get(slot)
+
+        fake_mapping = {"1": {"pid": 101}, "2": {"pid": 102}}
+
+        with patch("window_service.load_mapping", return_value=fake_mapping), \
+             patch("window_service.get_pid_for_slot", side_effect=fake_get_pid), \
+             patch("window_service.get_position", side_effect=fake_get_position), \
+             patch("window_service.get_focused_slot", return_value=1), \
+             patch("window_service.position_window", side_effect=fake_position), \
+             patch("layout_engine._update_applied_cache"):
+            action_swap_left()
+
+        # Leftmost wraps to swap with rightmost
+        slot_x = {s: x for s, x in positions_applied}
         assert slot_x[1] == 640
-        assert slot_x[2] == 1280
+        assert slot_x[2] == 0
 
     @patch("hotkey_actions.show_toast")
     def test_swap_left_no_windows(self, mock_toast):
@@ -370,7 +405,7 @@ class TestSwapActions:
         mock_toast.assert_not_called()
 
     def test_swap_left_single_window(self):
-        """SwapLeft with 1 window does nothing (need 2+ to rotate)."""
+        """SwapLeft with 1 window does nothing (need 2+ to swap)."""
         from hotkey_actions import action_swap_left
         with patch("window_service.load_mapping", return_value={"1": {"pid": 101}}), \
              patch("window_service.get_pid_for_slot", return_value=101):

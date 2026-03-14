@@ -466,12 +466,11 @@ def action_cycle_layout() -> None:
         pass  # Layout engine may not be available yet
 
 
-def _rotate_positions(direction: str) -> None:
-    """Rotate window positions in the current layout formation.
+def _swap_with_neighbor(direction: str) -> None:
+    """Swap the focused window's position with its left or right neighbor.
 
-    Reads CURRENT window positions and rotates them. E.g. with 2 windows
-    at positions [A|B], SwapLeft produces [B|A], and another SwapLeft
-    produces [A|B] again.
+    Matches Windows RotateLeft/RotateRight behavior: only the focused window
+    and its immediate neighbor trade positions. All other windows stay put.
 
     Args:
         direction: "left" or "right".
@@ -499,38 +498,60 @@ def _rotate_positions(direction: str) -> None:
         slot_geos.append((slot, geo))
     slot_geos.sort(key=lambda sg: sg[1]["x"])
 
-    # Fixed positions (the physical spots on screen)
-    positions = [
-        {"x": g["x"], "y": g["y"], "width": g["width"], "height": g["height"]}
-        for _, g in slot_geos
-    ]
-    # Window order (which slot sits in which position)
     window_order = [s for s, _ in slot_geos]
 
-    # Rotate windows: LEFT = each window slides left, leftmost wraps right
-    if direction == "left":
-        rotated_windows = window_order[1:] + window_order[:1]
+    # Find the focused window (most recently active slot from state)
+    focused_slot = window_service.get_focused_slot()
+    if focused_slot is None or focused_slot not in window_order:
+        # Fallback: use first slot for left, last for right
+        current_idx = 0 if direction == "right" else len(window_order) - 1
     else:
-        rotated_windows = window_order[-1:] + window_order[:-1]
+        current_idx = window_order.index(focused_slot)
 
-    # Apply: each rotated window gets the fixed position at that index
-    result_layout = list(zip(rotated_windows, positions))
+    # Calculate neighbor index (wrap around)
+    if direction == "left":
+        neighbor_idx = (current_idx - 1 + len(window_order)) % len(window_order)
+    else:
+        neighbor_idx = (current_idx + 1) % len(window_order)
+
+    if current_idx == neighbor_idx:
+        return
+
+    # Swap only the two windows — everything else stays put
+    current_slot = window_order[current_idx]
+    neighbor_slot = window_order[neighbor_idx]
+    current_geo = slot_geos[current_idx][1]
+    neighbor_geo = slot_geos[neighbor_idx][1]
+
+    window_service.position_window(
+        current_slot, neighbor_geo["x"], neighbor_geo["y"],
+        neighbor_geo["width"], neighbor_geo["height"]
+    )
+    window_service.position_window(
+        neighbor_slot, current_geo["x"], current_geo["y"],
+        current_geo["width"], current_geo["height"]
+    )
+
+    # Update layout cache with new positions
+    result_layout = []
+    for i, (slot, geo) in enumerate(slot_geos):
+        if i == current_idx:
+            result_layout.append((current_slot, neighbor_geo))
+        elif i == neighbor_idx:
+            result_layout.append((neighbor_slot, current_geo))
+        else:
+            result_layout.append((slot, geo))
     _update_applied_cache(result_layout)
-
-    for slot, pos in result_layout:
-        window_service.position_window(
-            slot, pos["x"], pos["y"], pos["width"], pos["height"]
-        )
 
 
 def action_swap_left() -> None:
-    """Rotate window positions left in the layout formation."""
-    _rotate_positions("left")
+    """Swap focused window with its left neighbor."""
+    _swap_with_neighbor("left")
 
 
 def action_swap_right() -> None:
-    """Rotate window positions right in the layout formation."""
-    _rotate_positions("right")
+    """Swap focused window with its right neighbor."""
+    _swap_with_neighbor("right")
 
 
 # ---------------------------------------------------------------------------

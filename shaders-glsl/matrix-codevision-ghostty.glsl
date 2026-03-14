@@ -297,6 +297,7 @@ vec3 shadeCity(vec3 hp, float dist, int face, float seed, float scrollZ, int pre
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 tex = fragCoord / iResolution.xy;
+    tex.y = 1.0 - tex.y;  // Flip Y: HLSL y=0 at top, OpenGL y=0 at bottom
     float aspect = iResolution.x / iResolution.y;
     float t = iTime;
 
