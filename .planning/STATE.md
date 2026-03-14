@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-08T17:26:36.828Z"
-last_activity: 2026-03-08 — Completed hotkey action handlers (plan 02-02)
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-14T01:43:06Z"
+last_activity: 2026-03-14 — Completed bonus shader ports (plan 11-01)
 progress:
   total_phases: 10
   completed_phases: 1
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-05)
 ## Current Position
 
 Phase: 11 of 11 (Platform Sync v1.0.4 Features)
-Plan: 3 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: Executing
-Last activity: 2026-03-14 — Completed v1.0.4 small features (plan 11-02)
+Last activity: 2026-03-14 — Completed bonus shader ports (plan 11-01)
 
 Progress: [████████░░] 83%
 
@@ -54,6 +54,7 @@ Progress: [████████░░] 83%
 | Phase 02 P02 | 8min | 1 tasks | 2 files |
 | Phase 02 P01 | 10min | 2 tasks | 4 files |
 | Phase 11 P02 | 6min | 3 tasks | 10 files |
+| Phase 11 P01 | 16min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,10 @@ Recent decisions affecting current work:
 - [11-02]: Removed _run_opacity() shell delegation -- inline Python is faster and supports counters
 - [11-02]: Command banner uses 24-bit ANSI #35B381 for command names -- exact Windows match
 - [11-02]: Non-shader window filtering already correct via get_ghostty_bus_names() -- added regression tests
+- [11-01]: Manual HLSL-to-GLSL port over automated transpiler -- proven approach, only 6 shaders
+- [11-01]: White-room shader created from scratch -- WhiteRoom.hlsl not in git history
+- [11-01]: GLSL modulo for MatrixCodeVision uses manual formula to avoid int mod issues
+- [11-01]: Test suite uses .frag extension for glslangValidator stage detection
 
 ### Pending Todos
 
@@ -102,5 +107,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 11-02-PLAN.md
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None
