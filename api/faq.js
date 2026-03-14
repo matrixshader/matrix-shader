@@ -105,6 +105,28 @@ export default async function handler(req, res) {
         redis.incr('stats:faq_submit'),
         redis.incr(`ts:faq_submit:${todayKey()}`),
       ]);
+
+      // Notify owner about new FAQ question (best-effort)
+      const ownerEmail = process.env.OWNER_EMAIL;
+      const resendKey = process.env.RESEND_API_KEY;
+      const fromAddr = process.env.EMAIL_FROM || 'Matrix Shader <noreply@matrixshader.com>';
+      if (ownerEmail && resendKey) {
+        const notifHtml = `<div style="background:#0a0a0a;color:#ccc;font-family:monospace;padding:2rem">
+<h2 style="color:#00ff41">New FAQ Question</h2>
+<p><strong>From:</strong> ${record.email}</p>
+<p><strong>Category:</strong> ${cat}</p>
+<hr style="border-color:#333">
+<p style="white-space:pre-wrap">${question.trim().slice(0, 500).replace(/</g, '&lt;')}</p>
+<hr style="border-color:#333">
+<p style="color:#888;font-size:0.8rem">Answer it from the admin dashboard.</p>
+</div>`;
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: fromAddr, to: [ownerEmail], subject: `[FAQ] New question: ${cat}`, html: notifHtml }),
+        }).catch(err => console.error('FAQ notification failed:', err.message));
+      }
+
       return res.status(201).json({ id, message: 'Question received' });
     } catch (err) {
       console.error('FAQ submit error:', err);

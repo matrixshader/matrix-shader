@@ -110,6 +110,26 @@ export default async function handler(req, res) {
     };
     try {
       await redis.set(`support:${id}`, JSON.stringify(record), { ex: 31536000 });
+
+      // Notify owner about new support ticket (best-effort, don't block response)
+      const ownerEmail = process.env.OWNER_EMAIL;
+      if (ownerEmail && process.env.RESEND_API_KEY) {
+        const notifHtml = `<div style="background:#0a0a0a;color:#ccc;font-family:monospace;padding:2rem">
+<h2 style="color:#ff0040">New Support Ticket: ${ticketType}</h2>
+<p><strong>ID:</strong> ${id}</p>
+<p><strong>From:</strong> ${record.email}</p>
+<p><strong>Type:</strong> ${ticketType}</p>
+<p><strong>System:</strong> ${record.system || 'N/A'}</p>
+<hr style="border-color:#333">
+<p style="white-space:pre-wrap">${description.trim().slice(0, 1000).replace(/</g, '&lt;')}</p>
+<hr style="border-color:#333">
+<p style="color:#888;font-size:0.8rem">View all tickets at the admin dashboard.</p>
+</div>`;
+        sendEmail(ownerEmail, `[Support] ${ticketType}: ${id}`, notifHtml).catch(err => {
+          console.error('Owner notification failed:', err.message);
+        });
+      }
+
       return res.status(201).json({ id, message: 'Received' });
     } catch (err) {
       console.error('Support submit error:', err);

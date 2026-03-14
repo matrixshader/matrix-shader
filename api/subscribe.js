@@ -133,7 +133,7 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error('Confirm error:', err);
       captureError(err, { endpoint: 'subscribe', action: 'confirm' });
-      return res.status(200).send(confirmPage('Something went wrong. Try again or email hello@matrixshader.com.'));
+      return res.status(200).send(confirmPage('Something went wrong. Try again or email neo@matrixshader.com.'));
     }
   }
 
