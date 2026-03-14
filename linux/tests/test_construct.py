@@ -126,28 +126,11 @@ class TestFindNextSlot:
         mock_run.return_value = MagicMock(stdout="", returncode=1)
         assert construct_service.find_next_slot() == 1
 
-    @patch("construct_service.subprocess.run")
-    def test_returns_2_when_slot_1_occupied(self, mock_run):
+    @patch("construct_service._get_occupied_slots")
+    def test_returns_2_when_slot_1_occupied(self, mock_occupied):
         """Slot 1 has a running process -> returns 2."""
-        # pgrep returns PIDs that match ghostty-matrix-1
-        def fake_run(cmd, **kwargs):
-            result = MagicMock()
-            if "pgrep" in cmd:
-                result.stdout = "12345\n"
-                result.returncode = 0
-            else:
-                result.stdout = ""
-                result.returncode = 1
-            return result
-
-        mock_run.side_effect = fake_run
-
-        # Mock /proc to confirm slot 1 is ghostty
-        with patch("builtins.open", mock_open(read_data="ghostty\x00--config-file=/tmp/ghostty-matrix-1.conf\x00")):
-            with patch("os.path.isfile", return_value=True):
-                with patch("os.readlink", return_value="/usr/bin/ghostty"):
-                    result = construct_service.find_next_slot()
-                    assert result == 2
+        mock_occupied.return_value = {1}
+        assert construct_service.find_next_slot() == 2
 
     @patch("construct_service._get_occupied_slots")
     def test_returns_none_when_all_8_slots_full(self, mock_occupied):
