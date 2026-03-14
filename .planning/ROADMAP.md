@@ -193,3 +193,23 @@ Phases execute in numeric order. Phase 8 (Mac) can begin in parallel with Phase 
 | 8. Mac Port | 0/TBD | Not started | - |
 | 9. Wizard Polish & Easter Eggs | 0/3 | Planning complete | - |
 | 10. MatrixLite & Installer Completion | 0/2 | Planning complete | - |
+
+### Phase 11: Platform Sync — v1.0.4 Features
+
+**Goal**: Port all Windows v1.0.4 features to Linux and Mac — `construct` CLI (white room CRT picker + quick-launch with `--green`/`--red`/etc.), 6 bonus GLSL shader ports, OSD toast overlay, global opacity overflow/underflow counters, command reference banner on CLI exit, and TransitionToRain (white room → shader in same window)
+**Depends on**: Phase 10 (all v1.0 features complete)
+**Requirements**: SYNC-01 (construct CLI), SYNC-02 (bonus shaders), SYNC-03 (OSD overlay), SYNC-04 (opacity counters), SYNC-05 (command banner), SYNC-06 (TransitionToRain), SYNC-07 (non-shader window filtering)
+**Success Criteria** (what must be TRUE):
+  1. `construct --green` (or `--red`, `--blue`, etc.) launches a Matrix rain window with the specified color — no wizard, instant launch
+  2. `construct` with no args opens the white room CRT picker, user selects a color, window transitions to rain shader in-place
+  3. All 6 bonus shaders (AuroraBorealis, AuroraRain, Fireplace, MatrixCodeVision, MatrixUltra, RainOnGlass) render in GLSL on Linux and Mac
+  4. Opacity hotkeys track overflow/underflow counters — toggling transparency preserves accumulated presses beyond bounds
+  5. A command reference banner displays on exit of every CLI tool (wakeupneo, bluepill, redpill, construct)
+  6. The Redpill TUI ignores non-Matrix windows in its tab list
+  7. All features work identically on both Linux and Mac
+**Plans:** 4 plans
+Plans:
+- [ ] 11-01-PLAN.md — Port 6 bonus HLSL shaders to GLSL + white-room CRT shader (SYNC-02)
+- [ ] 11-02-PLAN.md — Opacity overflow counters + command banner + window filtering (SYNC-03, SYNC-04, SYNC-05, SYNC-07)
+- [ ] 11-03-PLAN.md — Construct CLI + TransitionToRain + build/install pipeline (SYNC-01, SYNC-06)
+- [ ] 11-04-PLAN.md — Mac port of all Phase 11 features (all SYNC-*)
