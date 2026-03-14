@@ -134,12 +134,16 @@ done
 for pymod in shader_service.py state_service.py hotkey_actions.py hotkey_config.py \
              hotkey_config_screen.py hotkey_conflicts.py layout_engine.py \
              matrix_toast.py redpill_tui.py redpill_keys.py window_service.py \
-             license_service.py machine_fingerprint.py command_banner.py; do
+             license_service.py machine_fingerprint.py command_banner.py \
+             construct_service.py; do
     [ -f "$SCRIPT_DIR/$pymod" ] && cp "$SCRIPT_DIR/$pymod" "$RELEASE_DIR/scripts/"
 done
 
 # Copy redpill launcher
 [ -f "$SCRIPT_DIR/redpill.sh" ] && cp "$SCRIPT_DIR/redpill.sh" "$RELEASE_DIR/scripts/"
+
+# Copy construct launcher
+[ -f "$SCRIPT_DIR/construct.sh" ] && cp "$SCRIPT_DIR/construct.sh" "$RELEASE_DIR/scripts/"
 
 # Embed license secret into Python module (like C# LicenseSecret.g.cs)
 # Secret comes from environment variable (CI) or gitignored file (local build)

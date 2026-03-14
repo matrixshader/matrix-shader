@@ -96,11 +96,37 @@ for proc in ghostty-matrix matrix-hotkey matrix_keys; do
     pkill -f "$proc" 2>/dev/null || true
 done
 
+# Detect existing Ghostty installs and warn about patched binary
+SYSTEM_GHOSTTY=""
+if command -v ghostty &>/dev/null; then
+    SYSTEM_GHOSTTY=$(command -v ghostty)
+fi
+
+if [ -n "$SYSTEM_GHOSTTY" ]; then
+    echo -e "  ${CYAN}Existing Ghostty detected:${RESET} ${DIM}$SYSTEM_GHOSTTY${RESET}"
+    echo
+    echo -e "  ${DIM}Matrix Shader bundles its own patched Ghostty binary.${RESET}"
+    echo -e "  ${DIM}Your existing Ghostty will NOT be modified.${RESET}"
+    echo
+    echo -e "  ${DIM}Why a patched build?${RESET}"
+    echo -e "  ${DIM}  1. GL_BLEND fix: lets shaders render true transparency${RESET}"
+    echo -e "  ${DIM}  2. Shader hot-reload: live color/speed changes via D-Bus${RESET}"
+    echo -e "  ${DIM}  3. Toast/keybind suppression: clean shader-only windows${RESET}"
+    echo
+    echo -e "  ${DIM}Matrix windows use the patched binary at:${RESET}"
+    echo -e "  ${CYAN}  $GHOSTTY_BIN${RESET}"
+    echo -e "  ${DIM}Your normal 'ghostty' command is unchanged.${RESET}"
+    echo
+fi
+
 # Create directories
 mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$SHADER_DIR"
 
 # Install Ghostty binary (patched for transparency)
 echo -e "${DIM}  Installing patched Ghostty...${RESET}"
+# rm before cp: running executables can't be overwritten (ETXTBSY) but can be
+# unlinked — the running process keeps its file descriptor to the old inode
+rm -f "$GHOSTTY_BIN" 2>/dev/null
 cp "$SOURCE_DIR/bin/ghostty" "$GHOSTTY_BIN"
 chmod +x "$GHOSTTY_BIN"
 
@@ -126,6 +152,13 @@ if [ -f "$SOURCE_DIR/scripts/redpill.sh" ]; then
     chmod +x "$BIN_DIR/redpill"
 fi
 
+# Install construct command
+if [ -f "$SOURCE_DIR/scripts/construct.sh" ]; then
+    rm -f "$BIN_DIR/construct" 2>/dev/null
+    cp "$SOURCE_DIR/scripts/construct.sh" "$BIN_DIR/construct"
+    chmod +x "$BIN_DIR/construct"
+fi
+
 # Install uninstaller
 if [ -f "$SOURCE_DIR/scripts/uninstall.sh" ]; then
     cp "$SOURCE_DIR/scripts/uninstall.sh" "$BIN_DIR/uninstall-matrix"
@@ -144,7 +177,8 @@ mkdir -p "$PYMOD_DIR"
 for pymod in shader_service.py state_service.py hotkey_actions.py hotkey_config.py \
              hotkey_config_screen.py hotkey_conflicts.py layout_engine.py \
              matrix_toast.py redpill_tui.py redpill_keys.py window_service.py \
-             license_service.py machine_fingerprint.py matrixlite.py installer_helpers.py; do
+             license_service.py machine_fingerprint.py matrixlite.py installer_helpers.py \
+             construct_service.py command_banner.py; do
     [ -f "$SOURCE_DIR/scripts/$pymod" ] && cp "$SOURCE_DIR/scripts/$pymod" "$PYMOD_DIR/"
 done
 
@@ -155,7 +189,10 @@ chmod +x "$BIN_DIR/"*.sh 2>/dev/null || true
 sed -i "s|^PYMOD_DIR=.*|PYMOD_DIR=\"$PYMOD_DIR\"|" "$BIN_DIR/wakeupneo"
 sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/wakeupneo"
 sed -i "s|SHADER_DIR=.*|SHADER_DIR=\"$SHADER_DIR\"|" "$BIN_DIR/wakeupneo"
+sed -i "s|^INSTALL_DIR=.*|INSTALL_DIR=\"$INSTALL_DIR\"|" "$BIN_DIR/wakeupneo"
 sed -i "s|MATRIX_KEYS=.*|MATRIX_KEYS=\"$BIN_DIR/matrix_keys.py\"|" "$BIN_DIR/wakeupneo"
+# Installed shaders have -ghostty suffix stripped by build-release.sh
+sed -i 's/-ghostty\.glsl/.glsl/g' "$BIN_DIR/wakeupneo"
 
 # Patch bluepill paths
 sed -i "s|^PYMOD_DIR=.*|PYMOD_DIR=\"$PYMOD_DIR\"|" "$BIN_DIR/bluepill"
@@ -167,6 +204,33 @@ sed -i "s|WATCHDOG_SCRIPT=.*|WATCHDOG_SCRIPT=\"$BIN_DIR/matrix_watchdog.py\"|" "
 if [ -f "$BIN_DIR/redpill" ]; then
     sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/redpill"
     sed -i "s|TUI_SCRIPT=.*|TUI_SCRIPT=\"$PYMOD_DIR/redpill_tui.py\"|" "$BIN_DIR/redpill"
+fi
+
+# Patch construct paths
+if [ -f "$BIN_DIR/construct" ]; then
+    sed -i "s|^PYMOD_DIR=.*|PYMOD_DIR=\"$PYMOD_DIR\"|" "$BIN_DIR/construct"
+    sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/construct"
+    sed -i "s|SHADER_DIR=.*|SHADER_DIR=\"$SHADER_DIR\"|" "$BIN_DIR/construct"
+    # Installed shaders have -ghostty suffix stripped by build-release.sh
+    sed -i 's/-ghostty\.glsl/.glsl/g' "$BIN_DIR/construct"
+fi
+
+# Patch construct_service.py shader paths (same as shader_service.py)
+if [ -f "$PYMOD_DIR/construct_service.py" ]; then
+    sed -i 's|"shaders-glsl"|"shaders"|g' "$PYMOD_DIR/construct_service.py"
+    sed -i 's/-ghostty\.glsl/.glsl/g' "$PYMOD_DIR/construct_service.py"
+fi
+
+# Patch redpill_tui.py Ghostty path (Python string, not shell variable)
+if [ -f "$PYMOD_DIR/redpill_tui.py" ]; then
+    sed -i "s|GHOSTTY_BIN = .*|GHOSTTY_BIN = \"$GHOSTTY_BIN\"|" "$PYMOD_DIR/redpill_tui.py"
+fi
+
+# Patch shader_service.py template paths — installed shaders are at
+# ../shaders/ (not ../shaders-glsl/) with -ghostty suffix stripped
+if [ -f "$PYMOD_DIR/shader_service.py" ]; then
+    sed -i 's|"shaders-glsl"|"shaders"|g' "$PYMOD_DIR/shader_service.py"
+    sed -i 's/-ghostty\.glsl/.glsl/g' "$PYMOD_DIR/shader_service.py"
 fi
 
 # Patch matrixlite paths
@@ -188,7 +252,7 @@ import sys as _sys; _sys.path.insert(0, '$PYMOD_DIR')  # Added by install.sh" "$
 done
 
 # Inject PYTHONPATH into shell scripts that run inline python3 -c
-for shscript in "$BIN_DIR/wakeupneo" "$BIN_DIR/bluepill"; do
+for shscript in "$BIN_DIR/wakeupneo" "$BIN_DIR/bluepill" "$BIN_DIR/construct"; do
     if [ -f "$shscript" ]; then
         sed -i "2a\\
 export PYTHONPATH=\"$PYMOD_DIR:\$PYTHONPATH\"  # Added by install.sh" "$shscript"
@@ -283,6 +347,7 @@ echo -e "${GREEN}  ================================${RESET}"
 echo
 echo -e "  Commands available:"
 echo -e "    ${CYAN}wakeupneo${RESET}        - Setup wizard (start here!)"
+echo -e "    ${CYAN}construct${RESET}        - Launch individual Matrix terminal (--help for colors)"
 echo -e "    ${CYAN}bluepill${RESET}         - Fast session restore"
 echo -e "    ${CYAN}redpill${RESET}          - Control panel (advanced)"
 echo -e "    ${CYAN}matrixlite${RESET}       - Text-mode rain (any terminal)"
