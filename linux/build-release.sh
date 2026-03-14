@@ -64,10 +64,11 @@ if $BUILD_GHOSTTY; then
         git clone https://github.com/ghostty-org/ghostty "$GHOSTTY_SRC"
     fi
 
-    # Apply patches
+    # Apply patches — reset to upstream tag first so patches apply cleanly
+    # whether or not previous patch commits exist in the local repo
     echo -e "${DIM}  Applying Matrix Shader patches...${RESET}"
     cd "$GHOSTTY_SRC"
-    git checkout -- . 2>/dev/null || true
+    git reset --hard v1.1.3 2>/dev/null || git checkout -- . 2>/dev/null || true
     git apply "$SCRIPT_DIR/patches/01-shader-hotreload-glblend.patch"
     git apply "$SCRIPT_DIR/patches/02-suppress-toast-and-keybinds.patch"
 
@@ -133,7 +134,7 @@ done
 for pymod in shader_service.py state_service.py hotkey_actions.py hotkey_config.py \
              hotkey_config_screen.py hotkey_conflicts.py layout_engine.py \
              matrix_toast.py redpill_tui.py redpill_keys.py window_service.py \
-             license_service.py machine_fingerprint.py; do
+             license_service.py machine_fingerprint.py command_banner.py; do
     [ -f "$SCRIPT_DIR/$pymod" ] && cp "$SCRIPT_DIR/$pymod" "$RELEASE_DIR/scripts/"
 done
 

@@ -67,4 +67,7 @@ EOF
 fi
 
 # Running inside Ghostty -- launch the TUI
-exec python3 -B "$TUI_SCRIPT"
+python3 -B "$TUI_SCRIPT"
+
+# Command reference banner after TUI exits
+python3 -B "${SCRIPT_DIR}/command_banner.py" 2>/dev/null

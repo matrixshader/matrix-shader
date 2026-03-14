@@ -319,4 +319,7 @@ echo -e "${DIM} Enjoying Matrix Shader? Buy me a coffee:${RESET}"
 echo -e "${GOLD} https://buymeacoffee.com/IKnowKungFu${RESET}"
 echo
 
+# Command reference banner
+python3 -B "$PYMOD_DIR/command_banner.py" 2>/dev/null
+
 sleep infinity

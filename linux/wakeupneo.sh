@@ -5,6 +5,7 @@
 SCRIPT_PATH="$(realpath "$0")"
 PYMOD_DIR="$(dirname "$SCRIPT_PATH")"
 SHADER_DIR="$(dirname "$SCRIPT_PATH")/../shaders-glsl"
+INSTALL_DIR=""
 GHOSTTY_BIN="/home/neo/ghostty-build/zig-out/bin/ghostty"
 CONFIG_DIR="$HOME/.config/ghostty"
 STATE_DIR="$HOME/.config/matrix-shader"
@@ -206,12 +207,14 @@ agent_smith_mode() {
 
 get_current_version() {
     local version_file
-    version_file="$(dirname "$SCRIPT_PATH")/../VERSION"
-    if [ -f "$version_file" ]; then
-        cat "$version_file"
-    else
-        echo "0.0.0"
-    fi
+    # Try INSTALL_DIR first (set by installer), fall back to dev path
+    for vf in "$INSTALL_DIR/VERSION" "$(dirname "$SCRIPT_PATH")/../VERSION"; do
+        if [ -f "$vf" ]; then
+            cat "$vf"
+            return
+        fi
+    done
+    echo "0.0.0"
 }
 
 check_update() {
@@ -330,46 +333,44 @@ arrow_menu() {
     local selected=0
     local count=${#options[@]}
 
-    tput civis 2>/dev/null  # Hide cursor during menu
-
-    # Save cursor position for redrawing
-    local menu_lines=$((count + 4))  # prompt + blank + options + blank
+    # All UI output goes to /dev/tty so $() capture only gets the result
+    tput civis >/dev/tty 2>/dev/null
 
     # Initial draw
-    echo
-    echo -e " ${DIM}${prompt}${RESET}"
-    echo
+    echo >/dev/tty
+    echo -e " ${DIM}${prompt}${RESET}" >/dev/tty
+    echo >/dev/tty
     for ((i=0; i<count; i++)); do
         if [ "$i" -eq "$selected" ]; then
-            echo -e "   ${GREEN}>${RESET} \033[1;32m${options[$i]}\033[0m"
+            echo -e "   ${GREEN}>${RESET} \033[1;32m${options[$i]}\033[0m" >/dev/tty
         else
-            echo -e "     \033[90m${options[$i]}\033[0m"
+            echo -e "     \033[90m${options[$i]}\033[0m" >/dev/tty
         fi
     done
 
     while true; do
         # Read keypress
-        read -rsn1 key
+        read -rsn1 key </dev/tty
         if [[ "$key" == $'\x1b' ]]; then
-            read -rsn2 -t 0.1 key
+            read -rsn2 -t 0.1 key </dev/tty
             case "$key" in
                 '[A') ((selected = (selected - 1 + count) % count)) ;;  # Up
                 '[B') ((selected = (selected + 1) % count)) ;;          # Down
             esac
         elif [[ "$key" == "" ]]; then  # Enter
-            tput cnorm 2>/dev/null  # Show cursor
-            echo "$selected"
+            tput cnorm >/dev/tty 2>/dev/null
+            echo "$selected"  # Only this goes to stdout (captured by $())
             return 0
         fi
 
         # Redraw options only (move cursor up to option start)
-        printf "\033[${count}A"
+        printf "\033[${count}A" >/dev/tty
         for ((i=0; i<count; i++)); do
-            printf "\033[2K"  # Clear line
+            printf "\033[2K" >/dev/tty  # Clear line
             if [ "$i" -eq "$selected" ]; then
-                echo -e "   ${GREEN}>${RESET} \033[1;32m${options[$i]}\033[0m"
+                echo -e "   ${GREEN}>${RESET} \033[1;32m${options[$i]}\033[0m" >/dev/tty
             else
-                echo -e "     \033[90m${options[$i]}\033[0m"
+                echo -e "     \033[90m${options[$i]}\033[0m" >/dev/tty
             fi
         done
     done
@@ -560,6 +561,9 @@ print('yes' if is_licensed() else 'no')
 
     # Background update check (silent, non-blocking)
     check_update &
+
+    # Command reference banner
+    python3 -B "$PYMOD_DIR/command_banner.py" 2>/dev/null
 
     sleep infinity
 }
