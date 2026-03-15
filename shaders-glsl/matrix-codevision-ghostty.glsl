@@ -297,7 +297,6 @@ vec3 shadeCity(vec3 hp, float dist, int face, float seed, float scrollZ, int pre
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 tex = fragCoord / iResolution.xy;
-    tex.y = 1.0 - tex.y;  // Flip Y: HLSL y=0 at top, OpenGL y=0 at bottom
     float aspect = iResolution.x / iResolution.y;
     float t = iTime;
 
@@ -337,7 +336,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec3 upB = up * cB + rgt * sB;
     vec3 rgB = rgt * cB - up * sB;
 
-    vec2 scr = (tex - 0.5) * vec2(aspect, -1.0);
+    vec2 scr = (tex - 0.5) * vec2(aspect, 1.0);
     vec3 rdW = normalize(scr.x * rgB + scr.y * upB + FOV * fwd);
     float scrollZ = t * CAM_SPEED;
 
