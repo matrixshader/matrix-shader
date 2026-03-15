@@ -278,6 +278,15 @@ public static class Program
                 Console.WriteLine();
                 return 1;
 
+            case ActivationResult.ServerUnreachable:
+                Console.WriteLine(" \x1b[33mCouldn't reach the activation server.\x1b[0m");
+                Console.WriteLine();
+                ConsoleHelper.WriteLineDim(" An internet connection is required for first-time activation.");
+                ConsoleHelper.WriteLineDim(" After that, your license works fully offline — no phone-home ever.");
+                ConsoleHelper.WriteLineDim(" Check your connection and try again.");
+                Console.WriteLine();
+                return 1;
+
             default:
                 Console.WriteLine(" \x1b[31mInvalid license key.\x1b[0m");
                 Console.WriteLine();

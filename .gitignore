@@ -17,6 +17,9 @@ node_modules/
 # IDE
 .vscode/
 
+# Python
+__pycache__/
+
 # Build artifacts
 installer/publish/
 installer/output/

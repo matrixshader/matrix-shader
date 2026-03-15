@@ -11,7 +11,8 @@ namespace MatrixShader.Core.Services;
 ///
 /// Design philosophy: honest people pay, pirates never would have.
 /// Don't punish paying customers with aggressive DRM.
-/// Server check is best-effort — if unreachable, activation still succeeds.
+/// First activation requires server verification to enforce machine limits.
+/// After activation, license is fully offline — no phone-home ever.
 /// </summary>
 public sealed class LicenseService : ILicenseService
 {
@@ -52,10 +53,10 @@ public sealed class LicenseService : ILicenseService
         if (!ValidateKey(key))
             return ActivationResult.InvalidKey;
 
-        // Server-side activation check (best-effort)
+        // Server-side activation check (required — no offline bypass)
         var serverResult = CheckServerActivation(key);
-        if (serverResult == ActivationResult.ActivationLimitExceeded)
-            return ActivationResult.ActivationLimitExceeded;
+        if (serverResult != ActivationResult.Success)
+            return serverResult;
 
         try
         {
@@ -143,7 +144,8 @@ public sealed class LicenseService : ILicenseService
 
     /// <summary>
     /// Calls /api/validate to check activation count.
-    /// Returns Success if server allows (or is unreachable), ActivationLimitExceeded if over limit.
+    /// Returns Success if server confirms, ActivationLimitExceeded if over limit,
+    /// or ServerUnreachable if the server cannot be contacted.
     /// </summary>
     private static ActivationResult CheckServerActivation(string key)
     {
@@ -165,15 +167,21 @@ public sealed class LicenseService : ILicenseService
                 return ActivationResult.ActivationLimitExceeded;
             }
 
-            // Any other response (200, 500, etc.) = allow activation
-            DiagnosticLogger.Info("LICENSE", $"Server validation: {(int)response.StatusCode}");
-            return ActivationResult.Success;
+            if (response.IsSuccessStatusCode)
+            {
+                DiagnosticLogger.Info("LICENSE", $"Server validation: {(int)response.StatusCode}");
+                return ActivationResult.Success;
+            }
+
+            // Server error (500, 503, etc.) — don't let activation bypass the check
+            DiagnosticLogger.Warn("LICENSE", $"Server error {(int)response.StatusCode}, activation blocked");
+            return ActivationResult.ServerUnreachable;
         }
         catch (Exception ex)
         {
-            // Network error, timeout, DNS failure, etc. — graceful degradation
-            DiagnosticLogger.Warn("LICENSE", $"Server unreachable, allowing offline activation: {ex.Message}");
-            return ActivationResult.Success;
+            // Network error, timeout, DNS failure — require connectivity for activation
+            DiagnosticLogger.Warn("LICENSE", $"Server unreachable: {ex.Message}");
+            return ActivationResult.ServerUnreachable;
         }
     }
 
