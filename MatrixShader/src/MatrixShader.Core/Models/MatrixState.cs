@@ -38,6 +38,9 @@ public record MatrixState
 
     /// <summary>Whether the hotkey help overlay has been auto-shown at least once</summary>
     public bool HelpShownOnce { get; init; }
+
+    /// <summary>Whether OSD toast is shown on opacity changes (default: true, freemium nudge)</summary>
+    public bool OsdToastEnabled { get; init; } = true;
 }
 
 /// <summary>

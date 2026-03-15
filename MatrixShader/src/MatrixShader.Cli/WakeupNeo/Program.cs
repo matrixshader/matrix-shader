@@ -31,6 +31,7 @@ public static class Program
 
             if (options.ShowHelp)
             {
+                ConsoleHelper.EnableAnsiEscapeCodes();
                 ShowHelp();
                 return 0;
             }
@@ -451,6 +452,9 @@ public class SetupWizard
 
         _identityService.SaveRegistry();
 
+        // Start background monitor (watchdog for matrix-hotkeys)
+        StartMonitorProcess();
+
         // Launch hotkeys background process (includes Glitch auto-snap)
         Console.WriteLine();
         ConsoleHelper.WriteMatrixGreen(" Starting hotkeys & Glitch...");
@@ -530,6 +534,8 @@ public class SetupWizard
         ConsoleHelper.WriteLineDim("   Ctrl+Shift+Up/Down      Change rain speed");
         ConsoleHelper.WriteLineDim("   Ctrl+Shift+1/2/3        Toggle Far/Mid/Near layers");
         ConsoleHelper.WriteLineDim("   Ctrl+Shift+H            Hotkey help overlay");
+
+        ConsoleHelper.ShowCommandBanner();
 
         Console.WriteLine();
         ConsoleHelper.WriteLineDim(" Enjoying Matrix Shader? Buy me a coffee:");
@@ -801,6 +807,43 @@ public class SetupWizard
             DiagnosticLogger.Warn("WAKEUPNEO", $"Failed to launch hotkeys: {ex.Message}");
             // Non-fatal - Matrix works without hotkeys
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Starts the background monitor process (watchdog for matrix-hotkeys).
+    /// </summary>
+    private static void StartMonitorProcess()
+    {
+        var monitorPath = Path.Combine(AppContext.BaseDirectory, "matrix-monitor.exe");
+        DiagnosticLogger.Info("WAKEUPNEO", $"Looking for monitor at: {monitorPath}");
+
+        if (!File.Exists(monitorPath))
+        {
+            monitorPath = Path.Combine(AppContext.BaseDirectory, "MatrixShader.Monitor.exe");
+        }
+
+        if (File.Exists(monitorPath))
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = monitorPath,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+                DiagnosticLogger.Info("WAKEUPNEO", "Started background monitor");
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Warn("WAKEUPNEO", $"Failed to start monitor: {ex.Message}");
+            }
+        }
+        else
+        {
+            DiagnosticLogger.Info("WAKEUPNEO", "Monitor executable not found, skipping");
         }
     }
 }

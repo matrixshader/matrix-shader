@@ -377,4 +377,104 @@ public static partial class HotkeyApi
     }
 
     #endregion
+
+    #region OSD Overlay Support
+
+    // Layered window
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetLayeredWindowAttributes(nint hwnd, uint crKey, byte bAlpha, uint dwFlags);
+
+    public const uint LWA_ALPHA = 0x02;
+    public const uint LWA_COLORKEY = 0x01;
+
+    // Timer
+    [LibraryImport("user32.dll", SetLastError = true)]
+    public static partial nint SetTimer(nint hWnd, nint nIDEvent, uint uElapse, nint lpTimerFunc);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool KillTimer(nint hWnd, nint uIDEvent);
+
+    public const uint WM_TIMER = 0x0113;
+    public const uint WM_PAINT = 0x000F;
+
+    // GDI text rendering
+    [LibraryImport("gdi32.dll", EntryPoint = "CreateFontW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial nint CreateFontW(int cHeight, int cWidth, int cEscapement, int cOrientation,
+        int cWeight, uint bItalic, uint bUnderline, uint bStrikeOut, uint iCharSet,
+        uint iOutPrecision, uint iClipPrecision, uint iQuality, uint iPitchAndFamily, string pszFaceName);
+
+    [LibraryImport("gdi32.dll")]
+    public static partial nint SelectObject(nint hdc, nint h);
+
+    [LibraryImport("gdi32.dll")]
+    public static partial int SetBkMode(nint hdc, int mode);
+
+    [LibraryImport("gdi32.dll")]
+    public static partial uint SetTextColor(nint hdc, uint color);
+
+    [LibraryImport("gdi32.dll", EntryPoint = "ExtTextOutW", StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ExtTextOutW(nint hdc, int x, int y, uint options, nint lprect,
+        string lpString, uint c, nint lpDx);
+
+    [LibraryImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool DeleteObject(nint ho);
+
+    [LibraryImport("user32.dll")]
+    public static partial nint BeginPaint(nint hWnd, out PAINTSTRUCT lpPaint);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool EndPaint(nint hWnd, ref PAINTSTRUCT lpPaint);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool InvalidateRect(nint hWnd, nint lpRect, [MarshalAs(UnmanagedType.Bool)] bool bErase);
+
+    [LibraryImport("gdi32.dll")]
+    public static partial nint CreateSolidBrush(uint color);
+
+    [LibraryImport("user32.dll")]
+    public static partial int FillRect(nint hDC, ref WindowsApi.RECT lprc, nint hbr);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetClientRect(nint hWnd, out WindowsApi.RECT lpRect);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool PostMessageW(nint hWnd, uint Msg, nint wParam, nint lParam);
+
+    public const int TRANSPARENT = 1;
+
+    // ShowWindow constant for no-activate show
+    public const int SW_SHOWNOACTIVATE = 8;
+
+    // Window extended styles for OSD
+    public const uint WS_EX_LAYERED = 0x00080000;
+    public const uint WS_EX_TOPMOST = 0x00000008;
+    public const uint WS_EX_NOACTIVATE = 0x08000000;
+    public const uint WS_EX_TOOLWINDOW = 0x00000080;
+    public const uint WS_EX_TRANSPARENT = 0x00000020;
+    public const uint WS_POPUP = 0x80000000;
+
+    /// <summary>
+    /// PAINTSTRUCT for BeginPaint/EndPaint.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PAINTSTRUCT
+    {
+        public nint hdc;
+        public int fErase;
+        public WindowsApi.RECT rcPaint;
+        public int fRestore;
+        public int fIncUpdate;
+        // rgbReserved[32] -- pad with fixed bytes
+        public unsafe fixed byte rgbReserved[32];
+    }
+
+    #endregion
 }

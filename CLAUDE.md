@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code when working with this repository.
 
+## Session Startup Protocol
+At the start of EVERY session (or after compaction), before doing any work:
+1. Read `C:\Users\ehome\documents\openmind\projects\matrixshader\sessions\` — list recent files, read the latest ones for context
+2. Read your memory file at `~/.claude/projects/C--Users-ehome-documents-matrix/memory/MEMORY.md`
+3. When launching agent swarms, always include: "Read the audit at openmind/projects/matrixshader/sessions/ for context"
+4. The full transcript of previous sessions is in openmind — search it when you need context about past decisions
+
 ## Project Overview
 
 Matrix Terminal Shader - Real-time GPU-powered Matrix rain effects for your terminal. Multi-platform: Windows Terminal (HLSL) and Linux/Ghostty (GLSL).

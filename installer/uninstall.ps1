@@ -95,7 +95,7 @@ Write-Host ""
 
 # Step 0: Kill all running Matrix processes (they hold DLLs and cached exe in memory)
 Write-Host "[0/5] Stopping running processes..." -ForegroundColor Cyan
-$MatrixProcesses = @('matrix-hotkeys', 'matrix-monitor', 'redpill', 'bluepill', 'wakeupneo', 'matrixlite')
+$MatrixProcesses = @('matrix-hotkeys', 'matrix-monitor', 'redpill', 'bluepill', 'wakeupneo', 'matrixlite', 'construct')
 $Killed = @()
 foreach ($proc in $MatrixProcesses) {
     $running = Get-Process -Name $proc -ErrorAction SilentlyContinue

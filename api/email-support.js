@@ -1,5 +1,10 @@
 import { Redis } from '@upstash/redis';
 import crypto from 'crypto';
+import { initSentry, captureError } from './_sentry.js';
+
+if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  console.error('FATAL: KV_REST_API_URL and KV_REST_API_TOKEN must be set');
+}
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -62,12 +67,14 @@ async function rateLimit(ip, prefix, limit, windowSec) {
   const key = `rl:${prefix}:${ip}`;
   try {
     const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, windowSec);
+    await redis.expire(key, windowSec); // Always refresh TTL
     return count > limit;
   } catch { return false; }
 }
 
 export default async function handler(req, res) {
+  initSentry();
+
   res.setHeader('Access-Control-Allow-Origin', 'https://matrixshader.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session');
@@ -102,10 +109,31 @@ export default async function handler(req, res) {
       submittedAt: new Date().toISOString(),
     };
     try {
-      await redis.set(`support:${id}`, JSON.stringify(record));
+      await redis.set(`support:${id}`, JSON.stringify(record), { ex: 31536000 });
+
+      // Notify owner about new support ticket (best-effort, don't block response)
+      const ownerEmail = process.env.OWNER_EMAIL;
+      if (ownerEmail && process.env.RESEND_API_KEY) {
+        const notifHtml = `<div style="background:#0a0a0a;color:#ccc;font-family:monospace;padding:2rem">
+<h2 style="color:#ff0040">New Support Ticket: ${ticketType}</h2>
+<p><strong>ID:</strong> ${id}</p>
+<p><strong>From:</strong> ${record.email}</p>
+<p><strong>Type:</strong> ${ticketType}</p>
+<p><strong>System:</strong> ${record.system || 'N/A'}</p>
+<hr style="border-color:#333">
+<p style="white-space:pre-wrap">${description.trim().slice(0, 1000).replace(/</g, '&lt;')}</p>
+<hr style="border-color:#333">
+<p style="color:#888;font-size:0.8rem">View all tickets at the admin dashboard.</p>
+</div>`;
+        sendEmail(ownerEmail, `[Support] ${ticketType}: ${id}`, notifHtml).catch(err => {
+          console.error('Owner notification failed:', err.message);
+        });
+      }
+
       return res.status(201).json({ id, message: 'Received' });
     } catch (err) {
       console.error('Support submit error:', err);
+      captureError(err, { endpoint: 'email-support', action: 'support' });
       return res.status(500).json({ error: 'Failed to save ticket' });
     }
   }
@@ -130,8 +158,8 @@ export default async function handler(req, res) {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email required' });
     const key = `sub:${email.trim().toLowerCase()}`;
-    await redis.del(key);
-    await redis.decr('stats:subscribe');
+    const deleted = await redis.del(key);
+    if (deleted) await redis.decr('stats:subscribe');
     return res.status(200).json({ success: true });
   }
 
@@ -146,14 +174,19 @@ export default async function handler(req, res) {
       const result = await sendEmail(ownerEmail, `[TEST] ${subject}`, htmlBody, preview);
       return res.status(200).json({ success: true, id: result.id });
     } catch (err) {
+      captureError(err, { endpoint: 'email-support', action: 'send-test' });
       return res.status(500).json({ error: err.message });
     }
   }
 
   // ── Send campaign to all subscribers ──
   if (action === 'send-campaign') {
-    const { subject, body: htmlBody, preview } = req.body;
+    const { subject, body: htmlBody, preview, resumeFrom } = req.body;
     if (!subject || !htmlBody) return res.status(400).json({ error: 'Subject and body required' });
+
+    const startTime = Date.now();
+    const TIMEOUT_MS = 8000; // Leave 2s buffer before Vercel's 10s limit
+    const BATCH_SIZE = 25;
 
     // Gather all subscribers
     const subscribers = [];
@@ -174,24 +207,51 @@ export default async function handler(req, res) {
 
     if (!subscribers.length) return res.status(400).json({ error: 'No subscribers to send to' });
 
-    // Send to each subscriber
+    const startIndex = resumeFrom || 0;
     let sent = 0;
     let failed = 0;
     const errors = [];
+    const campaignTimestamp = req.body.campaignTimestamp || Date.now();
+    const progressKey = `campaign:progress:${campaignTimestamp}`;
 
-    for (const sub of subscribers) {
-      try {
-        const personalizedHtml = htmlBody.replace(/\{\{name\}\}/g, sub.name || 'Operator');
-        await sendEmail(sub.email, subject, personalizedHtml, preview);
-        sent++;
-      } catch (err) {
-        failed++;
-        errors.push({ email: sub.email, error: err.message });
+    // Process in batches with timeout guard
+    for (let i = startIndex; i < subscribers.length; i += BATCH_SIZE) {
+      // Check if we're approaching the timeout
+      if (Date.now() - startTime > TIMEOUT_MS) {
+        // Save progress and return partial result
+        await redis.set(progressKey, JSON.stringify({
+          sent, failed, total: subscribers.length, lastIndex: i,
+          subject, errors: errors.slice(0, 5),
+        }), { ex: 86400 });
+        return res.status(200).json({
+          partial: true, sent, failed,
+          total: subscribers.length, remaining: subscribers.length - i,
+          resumeFrom: i, campaignTimestamp,
+        });
       }
+
+      const batch = subscribers.slice(i, i + BATCH_SIZE);
+      for (const sub of batch) {
+        try {
+          const personalizedHtml = htmlBody.replace(/\{\{name\}\}/g, sub.name || 'Operator');
+          await sendEmail(sub.email, subject, personalizedHtml, preview);
+          sent++;
+        } catch (err) {
+          failed++;
+          errors.push({ email: sub.email, error: err.message });
+          captureError(err, { endpoint: 'email-support', action: 'send-campaign', email: sub.email });
+        }
+      }
+
+      // Save progress after each batch
+      await redis.set(progressKey, JSON.stringify({
+        sent, failed, total: subscribers.length, lastIndex: i + batch.length,
+        subject, errors: errors.slice(0, 5),
+      }), { ex: 86400 });
     }
 
-    // Save campaign record
-    const campaignId = `campaign:${Date.now()}`;
+    // All done — save final campaign record
+    const campaignId = `campaign:${campaignTimestamp}`;
     await redis.set(campaignId, JSON.stringify({
       subject,
       sentAt: new Date().toISOString(),
@@ -199,7 +259,10 @@ export default async function handler(req, res) {
       sent,
       failed,
       errors: errors.slice(0, 5),
-    }));
+    }), { ex: 31536000 });
+
+    // Clean up progress key
+    await redis.del(progressKey);
 
     return res.status(200).json({ success: true, sent, failed, total: subscribers.length });
   }

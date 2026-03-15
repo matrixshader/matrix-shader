@@ -44,6 +44,7 @@ $projects = @(
     @{ Name = "Bluepill"; Path = "MatrixShader.Cli\Bluepill\MatrixShader.Cli.Bluepill.csproj" },
     @{ Name = "Redpill"; Path = "MatrixShader.Cli\Redpill\MatrixShader.Cli.Redpill.csproj" },
     @{ Name = "WakeupNeo"; Path = "MatrixShader.Cli\WakeupNeo\MatrixShader.Cli.WakeupNeo.csproj" },
+    @{ Name = "Construct"; Path = "MatrixShader.Cli\Construct\MatrixShader.Cli.Construct.csproj" },
     @{ Name = "MatrixLite"; Path = "MatrixShader.Cli\MatrixLite\MatrixShader.Cli.MatrixLite.csproj" },
     @{ Name = "Hotkeys"; Path = "MatrixShader.Hotkeys\MatrixShader.Hotkeys.csproj" },
     @{ Name = "Monitor"; Path = "MatrixShader.Monitor\MatrixShader.Monitor.csproj" }
@@ -64,7 +65,7 @@ foreach ($project in $projects) {
 }
 
 # Verify executables
-@("bluepill.exe", "redpill.exe", "wakeupneo.exe", "matrixlite.exe", "matrix-hotkeys.exe", "matrix-monitor.exe") | ForEach-Object {
+@("bluepill.exe", "redpill.exe", "wakeupneo.exe", "construct.exe", "matrixlite.exe", "matrix-hotkeys.exe", "matrix-monitor.exe") | ForEach-Object {
     $exe = Join-Path $PublishDir $_
     if (!(Test-Path $exe)) {
         throw "Missing executable: $_"

@@ -113,6 +113,7 @@ class MatrixWebsite {
           button.textContent = 'Copied!';
           button.style.background = 'rgba(0, 255, 65, 0.4)';
           if (code.includes('matrixshader.com/install')) {
+            // Note: "install" tracks clipboard copy of install script, not actual installation
             navigator.sendBeacon('/api/track?event=install');
             this.track('copy_install_script');
           }
@@ -378,7 +379,7 @@ class MatrixWebsite {
           downloads.style.display = 'block';
           navigator.sendBeacon('/api/track?event=download');
           navigator.sendBeacon('/api/track?event=gate_email');
-          this.track('email_gate_complete', { email: email });
+          this.track('email_gate_complete');
         } else {
           status.textContent = data.error || 'Something went wrong.';
           status.style.color = '#ff0040';
@@ -430,7 +431,10 @@ class MatrixWebsite {
           badge.innerHTML = `<img src="./assets/icons/github.svg" alt="" class="icon-svg-sm"> ${data.stargazers_count} stars`;
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // GitHub API rate limited or unavailable — hide stars badge gracefully
+        badge.style.display = 'none';
+      });
   }
 }
 

@@ -317,6 +317,13 @@ public static class Program
         ConsoleHelper.WriteLineDim(" Already purchased? Activate with:");
         ConsoleHelper.WriteLineDim("   redpill --activate REDPILL-XXXX-XXXX-XXXX-XXXX");
         Console.WriteLine();
+
+        // Open the Redpill purchase page in the default browser
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://matrixshader.com/redpill") { UseShellExecute = true });
+        }
+        catch { /* Non-fatal — terminal link is the fallback */ }
     }
 
     /// <summary>
@@ -437,6 +444,8 @@ public class ControlPanel
 
             Console.CursorVisible = true;
             Console.Clear();
+            ConsoleHelper.ShowCommandBanner();
+            Console.WriteLine();
         }
 
         return Task.CompletedTask;

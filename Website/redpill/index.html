@@ -7,6 +7,24 @@
     <meta name="description" content="Unlock the full Matrix Shader control panel. Live parameter adjustment, custom RGB colors, multi-tab management, and more. $5 one-time purchase.">
     <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
     <link rel="canonical" href="https://matrixshader.com/redpill">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://matrixshader.com/redpill">
+    <meta property="og:title" content="The Red Pill - Matrix Shader Control Panel | $5">
+    <meta property="og:description" content="Full Operator Console. Live parameter adjustment, custom RGB, per-window layer toggles. One-time purchase, yours forever.">
+    <meta property="og:image" content="https://matrixshader.com/assets/pillars-layout.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://matrixshader.com/redpill">
+    <meta property="twitter:title" content="The Red Pill - Matrix Shader Control Panel | $5">
+    <meta property="twitter:description" content="Full Operator Console. Live parameter adjustment, custom RGB, per-window layer toggles. One-time purchase, yours forever.">
+    <meta property="twitter:image" content="https://matrixshader.com/assets/pillars-layout.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/shared.css">
     <style>
         /* Follow the white rabbit */
@@ -227,7 +245,7 @@
         <div class="price-card">
             <div class="price"><s style="opacity:0.4;font-size:0.6em">$10</s> $5</div>
             <div class="price-note">One-time purchase. Yours forever.</div>
-            <div class="price-early">50% off | Founder's Edition | first 5,000 operators</div>
+            <div class="price-early">50% off | Founder's Edition | first 500 operators</div>
 
             <br>
             <button class="buy-btn" id="buy-button" onclick="startCheckout()">Take the Red Pill</button>
@@ -417,8 +435,11 @@
             if (event.data && event.data.event === 'Checkout.Success') {
                 var order = event.data.data;
                 var orderId = order && order.order ? order.order.data.id : '';
+                var email = order && order.order ? order.order.data.attributes.user_email : '';
                 if (orderId) {
-                    window.location.href = '/redpill/thankyou?order_id=' + orderId;
+                    var url = '/redpill/thankyou?order_id=' + orderId;
+                    if (email) url += '&email=' + encodeURIComponent(email);
+                    window.location.href = url;
                 } else {
                     window.location.href = '/redpill/thankyou';
                 }

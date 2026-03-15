@@ -128,4 +128,18 @@ public static partial class ConsoleHelper
     {
         Console.Write($"{WARNING_YELLOW}{text}{RESET}");
     }
+
+    /// <summary>
+    /// Displays the command reference banner shown at CLI exit points.
+    /// </summary>
+    public static void ShowCommandBanner()
+    {
+        Console.WriteLine();
+        Console.WriteLine($" {DIM}COMMANDS{RESET}");
+        Console.WriteLine($"  {MATRIX_GREEN}wakeupneo{RESET}          {DIM}Start here{RESET}");
+        Console.WriteLine($"  {MATRIX_GREEN}construct{RESET}          {DIM}Launch individual Matrix terminal (--help for colors){RESET}");
+        Console.WriteLine($"  {MATRIX_GREEN}bluepill{RESET}           {DIM}Quickly relaunch last saved settings{RESET}");
+        Console.WriteLine($"  {MATRIX_GREEN}redpill{RESET}            {DIM}Full control panel (fine tuning){RESET}");
+        Console.WriteLine($"  {MATRIX_GREEN}matrixlite{RESET}         {DIM}Visual effect only{RESET}");
+    }
 }

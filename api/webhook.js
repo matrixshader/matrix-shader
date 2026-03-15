@@ -7,6 +7,10 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN,
 });
 
+if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  console.error('FATAL: KV_REST_API_URL and KV_REST_API_TOKEN must be set');
+}
+
 const CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 function toBase36(bytes, offset, length) {
@@ -71,7 +75,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Invalid signature' });
   }
 
-  const event = JSON.parse(rawBody);
+  let event;
+  try { event = JSON.parse(rawBody); } catch { return res.status(400).json({ error: 'Invalid JSON' }); }
   const eventName = event.meta?.event_name;
   const orderId = event.data?.id;
 
@@ -94,7 +99,7 @@ export default async function handler(req, res) {
 
       const existing = await redis.get(`key:${keyHash}`);
       if (!existing) {
-        // Assign sequential customer number
+        // Assign sequential customer number — webhook is the sole authority for this
         const customerNumber = await redis.incr('stats:customer_number');
         await redis.set(`key:${keyHash}`, JSON.stringify({
           orderId: `LS-${orderId}`,
@@ -104,6 +109,15 @@ export default async function handler(req, res) {
           createdAt: new Date().toISOString(),
           activations: [],
         }));
+      } else {
+        // Record may have been created by activate.js without a customer number — backfill
+        const record = typeof existing === 'string' ? JSON.parse(existing) : existing;
+        if (!record.customerNumber) {
+          record.customerNumber = await redis.incr('stats:customer_number');
+          record.email = record.email || buyerEmail;
+          record.buyerName = record.buyerName || buyerName;
+          await redis.set(`key:${keyHash}`, JSON.stringify(record));
+        }
       }
       await redis.incr('stats:purchase');
     } catch (err) {
@@ -143,5 +157,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ received: true, event: eventName });
   }
 
+  console.log(`Webhook: unhandled event type "${eventName}"`);
   return res.status(200).json({ received: true, event: eventName });
 }

@@ -88,7 +88,7 @@ Write-Host "  Admin mode:       $IsAdmin"
 Write-Host ""
 
 # Kill running Matrix processes before install (DLLs are locked while running)
-$MatrixProcesses = @('matrix-hotkeys', 'matrix-monitor', 'redpill', 'bluepill', 'wakeupneo', 'matrixlite')
+$MatrixProcesses = @('matrix-hotkeys', 'matrix-monitor', 'redpill', 'bluepill', 'wakeupneo', 'matrixlite', 'construct')
 $Killed = @()
 foreach ($proc in $MatrixProcesses) {
     $running = Get-Process -Name $proc -ErrorAction SilentlyContinue
@@ -195,7 +195,7 @@ try {
 
     # Copy executables and DLLs to install directory
     Write-Host "  Copying executables to $InstallDir..." -ForegroundColor Gray
-    $ExeFiles = @('wakeupneo.exe', 'bluepill.exe', 'redpill.exe', 'matrixlite.exe', 'matrix-hotkeys.exe', 'matrix-monitor.exe')
+    $ExeFiles = @('wakeupneo.exe', 'bluepill.exe', 'redpill.exe', 'construct.exe', 'matrixlite.exe', 'matrix-hotkeys.exe', 'matrix-monitor.exe')
 
     # Copy all files (runtime, DLLs, etc.)
     Get-ChildItem -Path $SourceDir -Recurse | ForEach-Object {
@@ -231,6 +231,20 @@ try {
         Get-ChildItem -Path $SourceShaders -Filter "*.hlsl" | ForEach-Object {
             Copy-Item $_.FullName (Join-Path $ShadersDir $_.Name) -Force
         }
+    }
+
+    # Bundle uninstall script locally (so uninstall works offline)
+    Write-Host "  Downloading uninstall script..." -ForegroundColor Gray
+    $UninstallScriptDest = Join-Path $InstallDir "uninstall.ps1"
+    try {
+        $UninstallUrl = "https://matrixshader.com/uninstall.ps1"
+        if ($PSVersionTable.PSVersion.Major -ge 6) {
+            Invoke-WebRequest -Uri $UninstallUrl -OutFile $UninstallScriptDest -UseBasicParsing
+        } else {
+            (New-Object System.Net.WebClient).DownloadFile($UninstallUrl, $UninstallScriptDest)
+        }
+    } catch {
+        Write-Host "  WARNING: Could not download uninstall script: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 
     # Verify key executables
@@ -293,8 +307,8 @@ try {
     # Calculate installed size in KB
     $InstalledSizeKB = [math]::Round((Get-ChildItem $InstallDir -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1024)
 
-    # Uninstall command runs the uninstall script non-interactively
-    $UninstallCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"irm https://matrixshader.com/uninstall.ps1 | iex`""
+    # Uninstall command runs the local uninstall script (works offline)
+    $UninstallCmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$InstallDir\uninstall.ps1`""
 
     Set-ItemProperty -Path $UninstallKey -Name 'DisplayName' -Value 'Matrix Terminal Shader'
     Set-ItemProperty -Path $UninstallKey -Name 'DisplayVersion' -Value ($TagName -replace '^v', '')
@@ -322,11 +336,12 @@ Write-Host "  Installation complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "  IMPORTANT: Open a NEW terminal window for commands to work." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "  Commands available:" -ForegroundColor Cyan
-Write-Host "    wakeupneo  - Setup wizard (start here!)"
-Write-Host "    bluepill   - Quick launch Matrix"
-Write-Host "    redpill    - Control panel"
-Write-Host "    matrixlite - Text-only fallback"
+Write-Host "  COMMANDS" -ForegroundColor Cyan
+Write-Host "    wakeupneo  - Start here"
+Write-Host "    construct  - Launch individual Matrix terminal (--help for colors)"
+Write-Host "    bluepill   - Quickly relaunch last saved settings"
+Write-Host "    redpill    - Full control panel (fine tuning)"
+Write-Host "    matrixlite - Visual effect only"
 Write-Host ""
 
 Write-Host "  Enjoying Matrix Shader? Buy me a coffee:" -ForegroundColor DarkGray

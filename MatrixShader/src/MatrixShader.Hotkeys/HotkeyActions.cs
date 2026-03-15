@@ -32,6 +32,18 @@ public sealed class HotkeyActions
     private enum TransparencyState { Off, Custom, Full }
     private readonly Dictionary<string, TransparencyState> _transparencyStates = new();
     private readonly Dictionary<string, int> _customOpacity = new();
+    private readonly Dictionary<string, int> _overflowCounters = new();
+    private readonly Dictionary<string, int> _underflowCounters = new();
+    private readonly Dictionary<string, int> _baseOpacity = new();
+
+    // OSD overlay for opacity toast (set after message loop thread creation)
+    private OsdOverlay? _osdOverlay;
+
+    /// <summary>
+    /// Sets the OSD overlay for displaying opacity toast messages.
+    /// Must be called after OsdOverlay is created on the message loop thread.
+    /// </summary>
+    public void SetOsd(OsdOverlay osd) => _osdOverlay = osd;
 
     // Cache FindMatrixWindows result — identity resolution is expensive
     private IReadOnlyList<WindowInfo>? _cachedMatrixWindows;
@@ -289,17 +301,21 @@ public sealed class HotkeyActions
                 _ => TransparencyState.Off
             };
 
-            // Determine target opacity
-            int targetOpacity = nextState switch
+            // Determine uniform target opacity for Off and Full states.
+            // Custom state uses per-window values (see below).
+            int? uniformTarget = nextState switch
             {
                 TransparencyState.Off => 100,
-                TransparencyState.Custom => _customOpacity.TryGetValue(firstProfile, out var c) ? c : DefaultCustomOpacity,
                 TransparencyState.Full => 0,
-                _ => 100
+                _ => null // Custom: per-window
             };
 
             // Apply to ALL Matrix windows
+            // NOTE: Overflow/underflow counters are intentionally NOT reset here.
+            // User decision: counters are preserved across toggle cycles.
             var allSettings = _terminalSettingsService.LoadSettings();
+            string logLabel = "?";
+
             foreach (var window in matrixWindows)
             {
                 if (string.IsNullOrEmpty(window.ProfileName)) continue;
@@ -307,24 +323,59 @@ public sealed class HotkeyActions
                 var profile = _terminalSettingsService.GetProfile(allSettings, window.ProfileName);
                 if (profile == null) continue;
 
-                var updatedProfile = profile with { Opacity = targetOpacity, UseAcrylic = false };
+                int perWindowOpacity;
+                if (nextState == TransparencyState.Custom)
+                {
+                    // Per-window Custom restoration: each window returns to its own
+                    // last-known custom opacity (mix+offset preserved)
+                    perWindowOpacity = _customOpacity.TryGetValue(window.ProfileName, out var c) ? c : DefaultCustomOpacity;
+                }
+                else
+                {
+                    perWindowOpacity = uniformTarget!.Value;
+                }
+
+                var updatedProfile = profile with { Opacity = perWindowOpacity, UseAcrylic = false };
                 _terminalSettingsService.UpsertProfile(allSettings, updatedProfile);
 
                 // Track state per profile
                 _transparencyStates[window.ProfileName] = nextState;
+
+                // Update base opacity so AdjustOpacity knows what we set
+                _baseOpacity[window.ProfileName] = perWindowOpacity;
+
                 if (nextState == TransparencyState.Custom && !_customOpacity.ContainsKey(window.ProfileName))
                     _customOpacity[window.ProfileName] = DefaultCustomOpacity;
             }
             _terminalSettingsService.SaveSettings(allSettings);
 
-            var label = nextState switch
+            logLabel = nextState switch
             {
                 TransparencyState.Off => "OFF (100%)",
-                TransparencyState.Custom => $"CUSTOM ({targetOpacity}%)",
+                TransparencyState.Custom => "CUSTOM (per-window)",
                 TransparencyState.Full => "FULL (0%)",
                 _ => "?"
             };
-            DiagnosticLogger.Debug("HOTKEYS", $"Transparency cycled to {label} on {matrixWindows.Count} windows");
+            DiagnosticLogger.Debug("HOTKEYS", $"Transparency cycled to {logLabel} on {matrixWindows.Count} windows");
+
+            // Show OSD toast for toggle state — Custom shows the actual per-window value
+            var toastText = nextState switch
+            {
+                TransparencyState.Off => "100%",
+                TransparencyState.Full => "0%",
+                TransparencyState.Custom => $"{(_customOpacity.TryGetValue(firstProfile, out var cv) ? cv : DefaultCustomOpacity)}%",
+                _ => null
+            };
+            if (toastText != null)
+            {
+                try
+                {
+                    var state = _configService.LoadState();
+                    if (state.OsdToastEnabled)
+                        _osdOverlay?.ShowToast(toastText);
+                }
+                catch { }
+            }
         }
         catch (Exception ex)
         {
@@ -333,14 +384,14 @@ public sealed class HotkeyActions
     }
 
     /// <summary>
-    /// Decreases opacity of the focused Matrix window's profile by 5%.
+    /// Decreases opacity of ALL Matrix windows' profiles by 5%.
     /// Uses TerminalSettingsService to modify terminal settings.
     /// </summary>
     private void OpacityDown()
     {
         try
         {
-            AdjustOpacity(-OpacityDelta);
+            _ = AdjustOpacity(-OpacityDelta);
         }
         catch (Exception ex)
         {
@@ -349,14 +400,14 @@ public sealed class HotkeyActions
     }
 
     /// <summary>
-    /// Increases opacity of the focused Matrix window's profile by 5%.
+    /// Increases opacity of ALL Matrix windows' profiles by 5%.
     /// Uses TerminalSettingsService to modify terminal settings.
     /// </summary>
     private void OpacityUp()
     {
         try
         {
-            AdjustOpacity(OpacityDelta);
+            _ = AdjustOpacity(OpacityDelta);
         }
         catch (Exception ex)
         {
@@ -365,37 +416,154 @@ public sealed class HotkeyActions
     }
 
     /// <summary>
-    /// Adjusts opacity by the specified delta. Also remembers the value as the custom opacity
-    /// so the transparency toggle cycle (Off → Custom → Full) uses whatever the user set.
+    /// Adjusts opacity on ALL Matrix windows by the specified delta, with per-window
+    /// overflow/underflow counters that preserve per-window opacity mixes.
+    /// Returns the representative opacity percentage for OSD display, or null if all
+    /// windows were capped in the push direction (no change, no save).
     /// </summary>
-    private void AdjustOpacity(int delta)
+    private int? AdjustOpacity(int delta)
     {
-        var focusedWindow = GetFocusedMatrixWindow();
-        DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity({delta}): focused = {(focusedWindow == null ? "null" : $"shader={focusedWindow.ShaderIndex}, profile={focusedWindow.ProfileName}")}");
-        if (focusedWindow == null || string.IsNullOrEmpty(focusedWindow.ProfileName))
-            return;
+        var matrixWindows = GetMatrixWindowsCached();
+        if (matrixWindows.Count == 0)
+            return null;
 
-        var settings = _terminalSettingsService.LoadSettings();
-        var profile = _terminalSettingsService.GetProfile(settings, focusedWindow.ProfileName);
+        DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity({delta}): iterating {matrixWindows.Count} windows");
 
-        if (profile == null)
+        bool allCapped = true;
+        int? representativeOpacity = null;
+
+        var allSettings = _terminalSettingsService.LoadSettings();
+
+        foreach (var window in matrixWindows)
         {
-            DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity: profile '{focusedWindow.ProfileName}' not found");
-            return;
+            if (string.IsNullOrEmpty(window.ProfileName)) continue;
+
+            var profile = _terminalSettingsService.GetProfile(allSettings, window.ProfileName);
+            if (profile == null) continue;
+
+            var profileName = window.ProfileName;
+            int currentOpacity = profile.Opacity;
+
+            // Detect Redpill base change: if current opacity differs from what we
+            // last wrote, an external process (Redpill) changed it. Reset counters.
+            if (_baseOpacity.TryGetValue(profileName, out var trackedBase) && trackedBase != currentOpacity)
+            {
+                DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity: base change detected for {profileName}: tracked={trackedBase}, actual={currentOpacity} (Redpill?). Resetting counters.");
+                _overflowCounters[profileName] = 0;
+                _underflowCounters[profileName] = 0;
+                _baseOpacity[profileName] = currentOpacity;
+            }
+
+            if (!_overflowCounters.TryGetValue(profileName, out var overflow))
+                overflow = 0;
+            if (!_underflowCounters.TryGetValue(profileName, out var underflow))
+                underflow = 0;
+
+            int newOpacity = currentOpacity;
+
+            if (delta > 0) // Increasing opacity (K key)
+            {
+                if (underflow > 0)
+                {
+                    // Drain underflow by 1 keypress (not by OpacityDelta)
+                    _underflowCounters[profileName] = underflow - 1;
+                    // Opacity stays the same (draining virtual debt)
+                    allCapped = false;
+                }
+                else if (currentOpacity < MaxOpacity)
+                {
+                    newOpacity = Math.Min(currentOpacity + OpacityDelta, MaxOpacity);
+                    allCapped = false;
+                }
+                else
+                {
+                    // At ceiling, increment overflow by 1 keypress
+                    _overflowCounters[profileName] = overflow + 1;
+                    // allCapped stays true if ALL windows reach here
+                }
+            }
+            else // Decreasing opacity (J key)
+            {
+                if (overflow > 0)
+                {
+                    // Drain overflow by 1 keypress (not by OpacityDelta)
+                    _overflowCounters[profileName] = overflow - 1;
+                    // Opacity stays the same (draining virtual debt)
+                    allCapped = false;
+                }
+                else if (currentOpacity > MinOpacity)
+                {
+                    newOpacity = Math.Max(currentOpacity + delta, MinOpacity); // delta is negative
+                    allCapped = false;
+                }
+                else
+                {
+                    // At floor, increment underflow by 1 keypress
+                    _underflowCounters[profileName] = underflow + 1;
+                    // allCapped stays true if ALL windows reach here
+                }
+            }
+
+            if (newOpacity != currentOpacity)
+            {
+                var updatedProfile = profile with { Opacity = newOpacity };
+                _terminalSettingsService.UpsertProfile(allSettings, updatedProfile);
+            }
+
+            // Track what we set as the base for Redpill change detection
+            _baseOpacity[profileName] = newOpacity;
+
+            // Update custom opacity and transparency state for toggle cycle
+            _customOpacity[profileName] = newOpacity;
+            _transparencyStates[profileName] = TransparencyState.Custom;
+
+            // Capture representative opacity from first non-capped window
+            if (representativeOpacity == null && (newOpacity != currentOpacity || (delta > 0 && underflow > 0) || (delta < 0 && overflow > 0)))
+                representativeOpacity = newOpacity;
         }
 
-        // Clamp opacity to valid range
-        var newOpacity = Math.Clamp(profile.Opacity + delta, MinOpacity, MaxOpacity);
-        var updatedProfile = profile with { Opacity = newOpacity };
+        // TRANS-04: If ALL windows were capped in the push direction,
+        // skip save entirely (no flicker, no error, no unnecessary file write)
+        if (allCapped)
+        {
+            DiagnosticLogger.Debug("HOTKEYS", "AdjustOpacity: all windows capped, skipping save");
+            return null;
+        }
 
-        _terminalSettingsService.UpsertProfile(settings, updatedProfile);
-        _terminalSettingsService.SaveSettings(settings);
+        _terminalSettingsService.SaveSettings(allSettings);
 
-        // Remember as custom opacity for the toggle cycle
-        _customOpacity[focusedWindow.ProfileName] = newOpacity;
-        _transparencyStates[focusedWindow.ProfileName] = TransparencyState.Custom;
+        // If no representative was captured (e.g., all were draining counters),
+        // fall back to first window's current opacity
+        if (representativeOpacity == null)
+        {
+            var firstProfileName = matrixWindows[0].ProfileName;
+            if (!string.IsNullOrEmpty(firstProfileName))
+            {
+                var firstProfile = _terminalSettingsService.GetProfile(allSettings, firstProfileName);
+                representativeOpacity = firstProfile?.Opacity;
+            }
+        }
 
-        DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity: {profile.Opacity}% -> {newOpacity}% for {focusedWindow.ProfileName}");
+        DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity: representative opacity = {representativeOpacity}%");
+
+        // Show OSD toast if enabled (gated by OsdToastEnabled setting)
+        if (representativeOpacity != null)
+        {
+            try
+            {
+                var state = _configService.LoadState();
+                if (state.OsdToastEnabled)
+                {
+                    _osdOverlay?.ShowToast($"{representativeOpacity}%");
+                }
+            }
+            catch
+            {
+                // Fail silently -- OSD is non-critical
+            }
+        }
+
+        return representativeOpacity;
     }
 
     // CycleShader and GetNextShaderIndex REMOVED

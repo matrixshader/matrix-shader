@@ -2,6 +2,10 @@ import { Redis } from '@upstash/redis';
 import crypto from 'crypto';
 import { initSentry, captureError } from './_sentry.js';
 
+if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  console.error('FATAL: KV_REST_API_URL and KV_REST_API_TOKEN must be set');
+}
+
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN,
@@ -34,10 +38,17 @@ async function exportAllKeys() {
   do {
     const [nextCursor, keys] = await redis.scan(cursor, { count: 100 });
     cursor = Number(nextCursor);
-    if (keys.length > 0) {
-      const values = await redis.mget(...keys);
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
+    // Filter out backup keys to prevent recursive backup-of-backups growth
+    const filtered = keys.filter(k =>
+      !k.startsWith('backup:') &&
+      !k.startsWith('rl:') &&
+      !k.startsWith('ratelimit:') &&
+      !k.startsWith('session:')
+    );
+    if (filtered.length > 0) {
+      const values = await redis.mget(...filtered);
+      for (let i = 0; i < filtered.length; i++) {
+        const key = filtered[i];
         let value = values[i];
         // Try to parse JSON strings
         if (typeof value === 'string') {
@@ -89,19 +100,21 @@ export default async function handler(req, res) {
     const backup = { exportedAt, keyCount, data };
 
     if (isAuto) {
-      // Store backup in Redis with 7-day TTL
       const dateKey = exportedAt.slice(0, 10);
-      await redis.set(`backup:${dateKey}`, JSON.stringify(backup), { ex: 604800 }); // 7 days
+
+      // Store backup in Redis with 7-day TTL (safety net if email fails).
+      // exportAllKeys() filters out backup:* keys to prevent recursive growth.
+      await redis.set(`backup:${dateKey}`, JSON.stringify(backup), { ex: 604800 });
       await redis.set('backup:latest', exportedAt);
 
-      // Email backup offsite so it survives Redis data loss
+      // Also email backup offsite so it survives Redis data loss
       const resendKey = process.env.RESEND_API_KEY;
       const ownerEmail = process.env.OWNER_EMAIL;
       const fromAddr = process.env.EMAIL_FROM || 'Matrix Shader <noreply@matrixshader.com>';
       if (resendKey && ownerEmail) {
         try {
           const jsonStr = JSON.stringify(backup, null, 2);
-          await fetch('https://api.resend.com/emails', {
+          const emailRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -115,6 +128,11 @@ export default async function handler(req, res) {
               }],
             }),
           });
+          if (!emailRes.ok) {
+            const errBody = await emailRes.text().catch(() => '');
+            console.error(`Backup email failed (${emailRes.status}): ${errBody}`);
+            captureError(new Error(`Backup email ${emailRes.status}`), { endpoint: 'backup' });
+          }
         } catch (emailErr) {
           console.error('Backup email failed:', emailErr);
           captureError(emailErr, { endpoint: 'backup', action: 'email' });

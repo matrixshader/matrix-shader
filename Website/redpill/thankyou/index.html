@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to the Real World - Matrix Shader</title>
     <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/shared.css">
     <style>
         body {
@@ -197,9 +200,10 @@
         </p>
 
         <div class="manual-entry">
-            <label>Have an order number? Enter it to retrieve your key:</label>
+            <label>Have an order number? Enter it with your checkout email to retrieve your key:</label>
             <div class="input-row">
                 <input type="text" id="order-input" placeholder="Order ID (from your receipt email)">
+                <input type="email" id="email-input" placeholder="Email used at checkout">
                 <button onclick="lookupOrder()">Go</button>
             </div>
         </div>
@@ -239,6 +243,12 @@
             if (cmd) copyToClipboard(cmd, 'command-hint');
         }
 
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
         function showKey(data) {
             // Show operator number if available
             if (data.customer_number) {
@@ -249,10 +259,11 @@
                     'You have been unplugged. Your Red Pill license key is below.';
             }
 
+            var safeKey = escapeHtml(data.key);
             document.getElementById('result').innerHTML = `
                 <div class="key-card">
                     <div class="key-label">YOUR LICENSE KEY</div>
-                    <div class="key-value" id="key-display" onclick="copyKey()">${data.key}</div>
+                    <div class="key-value" id="key-display" onclick="copyKey()">${safeKey}</div>
                     <p class="copy-hint" id="key-hint">Click to copy</p>
                 </div>
             `;
@@ -263,21 +274,42 @@
 
         function showError(msg) {
             document.getElementById('result').innerHTML =
-                `<div class="error-msg">${msg}</div>`;
+                `<div class="error-msg">${escapeHtml(msg)}</div>`;
         }
 
-        async function fetchKey(orderId) {
+        async function fetchKey(orderId, email) {
             document.getElementById('result').innerHTML =
                 '<p class="loading">Generating your license key...</p>';
 
             try {
-                const res = await fetch(`/api/activate?order_id=${encodeURIComponent(orderId)}`);
+                let res;
+                if (email) {
+                    // POST with email for secure activation
+                    res = await fetch('/api/activate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderId, email }),
+                    });
+                } else {
+                    // Fallback for manual lookup — will prompt for email on the page
+                    const emailInput = document.getElementById('email-input');
+                    const manualEmail = emailInput ? emailInput.value.trim() : '';
+                    if (!manualEmail) {
+                        showError('Please enter the email you used at checkout.');
+                        return;
+                    }
+                    res = await fetch('/api/activate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderId, email: manualEmail }),
+                    });
+                }
                 const data = await res.json();
 
                 if (res.ok) {
                     showKey(data);
                 } else {
-                    showError(data.error || 'Failed to generate key. Check your order ID.');
+                    showError(data.error || 'Failed to generate key. Check your order ID and email.');
                 }
             } catch (err) {
                 showError('Connection error. Please try again or contact support.');
@@ -287,7 +319,9 @@
         function lookupOrder() {
             const input = document.getElementById('order-input').value.trim();
             if (!input) return;
-            fetchKey(input);
+            const emailInput = document.getElementById('email-input');
+            const email = emailInput ? emailInput.value.trim() : '';
+            fetchKey(input, email);
         }
 
         // Handle Enter key in input
@@ -298,11 +332,16 @@
         // Auto-fetch if order_id is in the URL (redirect from checkout)
         const params = new URLSearchParams(window.location.search);
         const orderId = params.get('order_id');
-        if (orderId) {
-            fetchKey(orderId);
+        const emailParam = params.get('email');
+        if (orderId && emailParam) {
+            fetchKey(orderId, emailParam);
+        } else if (orderId) {
+            // Have order but no email — show email input
+            document.getElementById('result').innerHTML =
+                '<p style="color: #888;">Please enter the email you used at checkout to retrieve your key.</p>';
         } else {
             document.getElementById('result').innerHTML =
-                '<p style="color: #888;">Enter your order number below to get your license key.</p>';
+                '<p style="color: #888;">Enter your order number and email below to get your license key.</p>';
         }
     </script>
 </body>
