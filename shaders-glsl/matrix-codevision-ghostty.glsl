@@ -336,7 +336,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec3 upB = up * cB + rgt * sB;
     vec3 rgB = rgt * cB - up * sB;
 
-    vec2 scr = (tex - 0.5) * vec2(aspect, 1.0);
+    // Flip tex.y for ray direction only (HLSL has y=0 at top, OpenGL y=0 at bottom)
+    // Using a separate flipped coord preserves tex for scanline effects
+    vec2 rayTex = vec2(tex.x, 1.0 - tex.y);
+    vec2 scr = (rayTex - 0.5) * vec2(aspect, -1.0);
     vec3 rdW = normalize(scr.x * rgB + scr.y * upB + FOV * fwd);
     float scrollZ = t * CAM_SPEED;
 
