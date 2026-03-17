@@ -1,4 +1,4 @@
-"""Offline license validation using HMAC-SHA256 with server-side activation tracking.
+"""License validation using HMAC-SHA256 with REQUIRED server-side activation tracking.
 
 Port of MatrixShader.Core/Services/LicenseService.cs.
 
@@ -7,7 +7,8 @@ of the first three groups, keyed with an embedded product secret.
 
 Design philosophy: honest people pay, pirates never would have.
 Don't punish paying customers with aggressive DRM.
-Server check is best-effort — if unreachable, activation still succeeds.
+First activation requires server verification to enforce machine limits.
+After activation, license is fully offline — no phone-home ever.
 """
 
 import hashlib
@@ -80,6 +81,7 @@ class ActivationResult(Enum):
     SUCCESS = "success"
     INVALID_KEY = "invalid_key"
     ACTIVATION_LIMIT_EXCEEDED = "activation_limit_exceeded"
+    SERVER_UNREACHABLE = "server_unreachable"
     SAVE_FAILED = "save_failed"
 
 
@@ -155,10 +157,10 @@ def is_licensed():
 
 
 def _check_server_activation(key):
-    """Call /api/validate to check activation count.
+    """Call /api/validate to register activation with the server.
 
-    Returns SUCCESS if server allows (or is unreachable),
-    ACTIVATION_LIMIT_EXCEEDED if over limit.
+    Returns SUCCESS if server confirms, ACTIVATION_LIMIT_EXCEEDED if over limit,
+    or SERVER_UNREACHABLE if the server cannot be contacted.
     """
     try:
         import urllib.request
@@ -181,12 +183,13 @@ def _check_server_activation(key):
         except urllib.error.HTTPError as e:
             if e.code == 403:
                 return ActivationResult.ACTIVATION_LIMIT_EXCEEDED
-            # Any other HTTP error = allow activation
+            # Server error (500, 503, etc.) — don't let activation bypass the check
+            return ActivationResult.SERVER_UNREACHABLE
         return ActivationResult.SUCCESS
 
     except Exception:
-        # Network error, timeout, DNS failure — graceful degradation
-        return ActivationResult.SUCCESS
+        # Network error, timeout, DNS failure — require connectivity for activation
+        return ActivationResult.SERVER_UNREACHABLE
 
 
 def activate(key):
@@ -198,10 +201,10 @@ def activate(key):
     if not validate_key(key):
         return ActivationResult.INVALID_KEY
 
-    # Server-side activation check (best-effort)
+    # Server-side activation check (required — no offline bypass)
     server_result = _check_server_activation(key)
-    if server_result == ActivationResult.ACTIVATION_LIMIT_EXCEEDED:
-        return ActivationResult.ACTIVATION_LIMIT_EXCEEDED
+    if server_result != ActivationResult.SUCCESS:
+        return server_result
 
     try:
         os.makedirs(LICENSE_DIR, exist_ok=True)

@@ -969,6 +969,16 @@ def _handle_activation(key):
         print()
         return 1
 
+    if result == ActivationResult.SERVER_UNREACHABLE:
+        YELLOW = "\x1b[33m"
+        print(f" {YELLOW}Couldn't reach the activation server.{RESET}")
+        print()
+        print(f" {DIM}An internet connection is required for first-time activation.{RESET}")
+        print(f" {DIM}After that, your license works fully offline — no phone-home ever.{RESET}")
+        print(f" {DIM}Check your connection and try again.{RESET}")
+        print()
+        return 1
+
     # INVALID_KEY or SAVE_FAILED
     print(f" {RED}Invalid license key.{RESET}")
     print()

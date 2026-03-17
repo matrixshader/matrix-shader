@@ -5,7 +5,7 @@ namespace MatrixShader.Core.Services;
 /// </summary>
 public enum ActivationResult
 {
-    /// <summary>Key is valid, saved, and server-verified (or server was unreachable).</summary>
+    /// <summary>Key is valid, saved, and server-verified.</summary>
     Success,
 
     /// <summary>Key format or HMAC signature is invalid.</summary>
@@ -16,11 +16,14 @@ public enum ActivationResult
 
     /// <summary>Failed to save key to disk.</summary>
     SaveFailed,
+
+    /// <summary>Server unreachable — activation requires server verification on first use.</summary>
+    ServerUnreachable,
 }
 
 /// <summary>
 /// Service for managing Red Pill license validation.
-/// Offline-first with server-side activation tracking.
+/// Server-verified activation with fully offline post-activation use.
 /// </summary>
 public interface ILicenseService
 {
