@@ -268,12 +268,12 @@ class TestServerActivation:
         )
         with patch("urllib.request.urlopen", side_effect=err):
             result = license_service._check_server_activation("KEY")
-            assert result == ActivationResult.SUCCESS
+            assert result == ActivationResult.SERVER_UNREACHABLE
 
-    def test_network_error_returns_success(self):
+    def test_network_error_returns_server_unreachable(self):
         with patch("urllib.request.urlopen", side_effect=OSError("no network")):
             result = license_service._check_server_activation("KEY")
-            assert result == ActivationResult.SUCCESS
+            assert result == ActivationResult.SERVER_UNREACHABLE
 
     def test_200_returns_success(self):
         mock_response = MagicMock()
