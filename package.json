@@ -14,7 +14,7 @@
   ],
   "author": "matrixshader.com",
   "type": "module",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "BUSL-1.1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/matrixshader/matrix-shader.git"
@@ -30,17 +30,6 @@
   "engines": {
     "node": ">=14.0.0"
   },
-  "bin": {
-    "wakeupneo": "./bin/wakeupneo.js",
-    "redpill": "./bin/redpill.js",
-    "bluepill": "./bin/bluepill.js"
-  },
-  "files": [
-    "bin/",
-    "shaders/",
-    "README.md",
-    "LICENSE"
-  ],
   "dependencies": {
     "@sentry/node": "^9.20.0",
     "@upstash/redis": "^1.36.2"

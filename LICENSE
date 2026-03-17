@@ -1,7 +1,40 @@
-Copyright (c) 2026 matrixshader.com. All Rights Reserved.
+Business Source License 1.1
 
-Free for personal, non-commercial use.
-Commercial use, redistribution, and modification require written permission.
+License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
+"Business Source License" is a trademark of MariaDB Corporation Ab.
+
+Parameters
+
+Licensor:             matrixshader.com
+Licensed Work:        MatrixShader versions 1.0 through 1.x (all 1.x releases)
+                      The Licensed Work is (c) 2026 matrixshader.com
+
+Additional Use Grant: You may use the Licensed Work for any purpose
+                      that does not Compete with the Licensed Work.
+                      "Compete" means (a) offering the Licensed Work,
+                      or any portion of it, as a commercial product,
+                      hosted service, or component of a commercial
+                      product or service that provides substantially
+                      similar functionality; or (b) using the Licensed
+                      Work to provide a commercial service that
+                      substitutes for the Licensed Work. Personal,
+                      educational, and internal business use is always
+                      permitted regardless of this restriction.
+
+Change Date:          2030-06-01
+Change License:       MIT
+
+For information about alternative licensing arrangements for the
+Licensed Work, please contact: architect@matrixshader.com
+
+Notice
+
+The Business Source License (this document, or the "License") is not an
+Open Source license. However, the Licensed Work will eventually be made
+available under an Open Source License, as stated in this License.
+
+For information about the Business Source License, please visit:
+https://mariadb.com/bsl11/
 
 ---
 

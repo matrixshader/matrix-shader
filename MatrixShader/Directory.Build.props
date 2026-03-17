@@ -16,7 +16,7 @@
     <!-- Assembly info -->
     <Company>Matrix Shader</Company>
     <Product>Matrix Terminal Shader</Product>
-    <Copyright>MIT License</Copyright>
+    <Copyright>Copyright (c) 2026 matrixshader.com. BUSL-1.1.</Copyright>
     <Version>1.0.4</Version>
     <AssemblyVersion>1.0.4.0</AssemblyVersion>
     <FileVersion>1.0.4.0</FileVersion>

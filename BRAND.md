@@ -17,7 +17,7 @@ We live inside the Matrix universe. Everything is written like it belongs in tha
 **Good:** "The path of the ONE:"
 **Bad:** "Key Features:"
 
-**Good:** "Limited to the first 5,000 operators."
+**Good:** "Limited to the first 500 operators."
 **Bad:** "Limited availability — act now!"
 
 **Good:** "Walk the path."
@@ -120,7 +120,7 @@ These are EXACT. Never deviate.
 
 - Always show the strikethrough: ~~$10~~ **$5**
 - Always mention: **Founder's Edition**
-- Always mention: **first 5,000 operators**
+- Always mention: **first 500 operators**
 - Discount code: **ORACLE1**
 - End with: **One key. 3 machines. Yours forever.**
 - Never say "subscription" — this is a one-time purchase
