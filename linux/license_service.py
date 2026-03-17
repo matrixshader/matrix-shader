@@ -7,7 +7,8 @@ of the first three groups, keyed with an embedded product secret.
 
 Design philosophy: honest people pay, pirates never would have.
 Don't punish paying customers with aggressive DRM.
-Server check is best-effort — if unreachable, activation still succeeds.
+First activation requires server verification to enforce machine limits.
+After activation, license is fully offline — no phone-home ever.
 """
 
 import hashlib
@@ -158,13 +159,8 @@ def is_licensed():
 def _check_server_activation(key):
     """Call /api/validate to register activation with the server.
 
-    Internet connection REQUIRED. Without server confirmation, activation
-    fails. This prevents the offline bypass hack (block network → unlimited
-    machines, since HMAC validates locally without server tracking).
-
-    Returns SUCCESS only if the server explicitly allows it.
-    Returns ACTIVATION_LIMIT_EXCEEDED if over 3-machine limit.
-    Returns SERVER_UNREACHABLE if no internet (activation denied).
+    Returns SUCCESS if server confirms, ACTIVATION_LIMIT_EXCEEDED if over limit,
+    or SERVER_UNREACHABLE if the server cannot be contacted.
     """
     try:
         import urllib.request
@@ -187,12 +183,12 @@ def _check_server_activation(key):
         except urllib.error.HTTPError as e:
             if e.code == 403:
                 return ActivationResult.ACTIVATION_LIMIT_EXCEEDED
-            # Other HTTP errors (500, 502, etc.) — server issue, deny activation
+            # Server error (500, 503, etc.) — don't let activation bypass the check
             return ActivationResult.SERVER_UNREACHABLE
         return ActivationResult.SUCCESS
 
     except Exception:
-        # Network error, timeout, DNS failure — activation DENIED
+        # Network error, timeout, DNS failure — require connectivity for activation
         return ActivationResult.SERVER_UNREACHABLE
 
 
@@ -205,7 +201,7 @@ def activate(key):
     if not validate_key(key):
         return ActivationResult.INVALID_KEY
 
-    # Server-side activation check (REQUIRED — no offline bypass)
+    # Server-side activation check (required — no offline bypass)
     server_result = _check_server_activation(key)
     if server_result != ActivationResult.SUCCESS:
         return server_result

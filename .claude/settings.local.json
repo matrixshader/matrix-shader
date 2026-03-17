@@ -16,7 +16,12 @@
       "Bash(echo:*)",
       "Bash(tasklist:*)",
       "Bash(wmic process where \"commandline like ''%matrix_monitor%''\" get processid)",
-      "Bash(wmic process where \"commandline like ''%matrix_monitor%''\" get processid,commandline)"
+      "Bash(wmic process where \"commandline like ''%matrix_monitor%''\" get processid,commandline)",
+      "Bash(ls:*)",
+      "Bash(claude --history 2>/dev/null | head -80)",
+      "Bash(grep -l \"glitch\" ~/.claude/projects/-home-neo-matrix-shader/*.jsonl ~/.claude/projects/-home-neo/*.jsonl 2>/dev/null)",
+      "Bash(grep -l \"log out\" ~/.claude/projects/-home-neo-matrix-shader/*.jsonl ~/.claude/projects/-home-neo/*.jsonl 2>/dev/null; grep -l \"logout\" ~/.claude/projects/-home-neo-matrix-shader/*.jsonl ~/.claude/projects/-home-neo/*.jsonl 2>/dev/null; grep -l \"log.out.*gnome\" ~/.claude/projects/-home-neo-matrix-shader/*.jsonl ~/.claude/projects/-home-neo/*.jsonl 2>/dev/null)",
+      "Bash(grep -c \"glitch.*position\\\\|position.*glitch\" ~/.claude/projects/-home-neo/*.jsonl 2>/dev/null | grep -v \":0$\")"
     ]
   },
   "enabledPlugins": {

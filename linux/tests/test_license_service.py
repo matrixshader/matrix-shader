@@ -261,7 +261,7 @@ class TestServerActivation:
             result = license_service._check_server_activation("KEY")
             assert result == ActivationResult.ACTIVATION_LIMIT_EXCEEDED
 
-    def test_500_returns_success(self):
+    def test_500_returns_server_unreachable(self):
         import urllib.error
         err = urllib.error.HTTPError(
             "url", 500, "Server Error", {}, None
