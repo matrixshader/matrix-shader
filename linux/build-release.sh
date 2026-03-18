@@ -113,8 +113,8 @@ chmod +x "$RELEASE_DIR/bin/ghostty"
 echo -e "${DIM}  Staging shaders...${RESET}"
 for shader in "$PROJECT_DIR/shaders-glsl/"*-ghostty.glsl; do
     [ -f "$shader" ] || continue
-    # Rename: matrix-green-ghostty.glsl -> matrix-green.glsl
-    basename=$(basename "$shader" | sed 's/-ghostty//')
+    # Keep original filename — shader_service.py expects the -ghostty suffix
+    basename=$(basename "$shader")
     cp "$shader" "$RELEASE_DIR/shaders/$basename"
 done
 

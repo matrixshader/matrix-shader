@@ -2,6 +2,6 @@
     "name": "Matrix Window Manager",
     "description": "D-Bus API for Matrix Shader window positioning on GNOME Wayland",
     "uuid": "matrix-window-manager@custom",
-    "shell-version": ["49"],
+    "shell-version": ["45", "46", "47", "48", "49"],
     "version": 1
 }

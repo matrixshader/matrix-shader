@@ -25,9 +25,10 @@ else
 fi
 
 # Detect font
-if system_profiler SPFontsDataType 2>/dev/null | grep -qi "Nimbus Mono PS"; then
+# Instant font detection via file existence (not system_profiler which takes 20-60s)
+if [ -f "/Library/Fonts/NimbusMonoPS-Regular.otf" ] || [ -f "$HOME/Library/Fonts/NimbusMonoPS-Regular.otf" ]; then
     FONT="Nimbus Mono PS"
-elif system_profiler SPFontsDataType 2>/dev/null | grep -qi "SF Mono"; then
+elif [ -f "/System/Library/Fonts/SFMono-Regular.otf" ] || [ -f "/Applications/Utilities/Terminal.app/Contents/Resources/Fonts/SFMono-Regular.otf" ]; then
     FONT="SF Mono"
 else
     FONT="Menlo"
@@ -262,6 +263,7 @@ fi
 sleep 0.5
 python3 -c "
 import sys; sys.path.insert(0, '$LINUX_DIR'); sys.path.insert(0, '$PYMOD_DIR')
+import window_service_mac; sys.modules['window_service'] = window_service_mac
 from layout_engine import apply_current_layout
 n = apply_current_layout()
 if n > 0:

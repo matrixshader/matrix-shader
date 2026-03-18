@@ -39,7 +39,23 @@ from shader_service import (
 # Constants
 # ---------------------------------------------------------------------------
 
-GHOSTTY_BIN = "/home/neo/ghostty-build/zig-out/bin/ghostty"
+def _find_ghostty():
+    """Discover Ghostty binary location at runtime."""
+    import shutil
+    env_bin = os.environ.get("MATRIX_GHOSTTY_BIN")
+    if env_bin and os.path.isfile(env_bin):
+        return env_bin
+    candidates = [
+        os.path.expanduser("~/.local/share/matrixshader/ghostty"),
+        "/Applications/Ghostty.app/Contents/MacOS/ghostty",
+        os.path.expanduser("~/Applications/Ghostty.app/Contents/MacOS/ghostty"),
+    ]
+    for c in candidates:
+        if os.path.isfile(c) and os.access(c, os.X_OK):
+            return c
+    return shutil.which("ghostty") or "ghostty"
+
+GHOSTTY_BIN = _find_ghostty()
 
 # Preset action name -> PRESET_COLORS index
 PRESET_ACTIONS = {

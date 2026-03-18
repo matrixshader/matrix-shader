@@ -29,6 +29,8 @@ if _linux_dir not in sys.path:
 import importlib
 import shader_service_mac
 sys.modules["shader_service"] = shader_service_mac
+import window_service_mac
+sys.modules["window_service"] = window_service_mac
 
 from hotkey_actions import ACTION_MAP
 from hotkey_config_mac import (

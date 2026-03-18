@@ -211,14 +211,11 @@ if [ -f "$BIN_DIR/construct" ]; then
     sed -i "s|^PYMOD_DIR=.*|PYMOD_DIR=\"$PYMOD_DIR\"|" "$BIN_DIR/construct"
     sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/construct"
     sed -i "s|SHADER_DIR=.*|SHADER_DIR=\"$SHADER_DIR\"|" "$BIN_DIR/construct"
-    # Installed shaders have -ghostty suffix stripped by build-release.sh
-    sed -i 's/-ghostty\.glsl/.glsl/g' "$BIN_DIR/construct"
 fi
 
-# Patch construct_service.py shader paths (same as shader_service.py)
+# Patch construct_service.py shader directory (shaders-glsl -> shaders)
 if [ -f "$PYMOD_DIR/construct_service.py" ]; then
     sed -i 's|"shaders-glsl"|"shaders"|g' "$PYMOD_DIR/construct_service.py"
-    sed -i 's/-ghostty\.glsl/.glsl/g' "$PYMOD_DIR/construct_service.py"
 fi
 
 # Patch redpill_tui.py Ghostty path (Python string, not shell variable)
@@ -227,10 +224,9 @@ if [ -f "$PYMOD_DIR/redpill_tui.py" ]; then
 fi
 
 # Patch shader_service.py template paths — installed shaders are at
-# ../shaders/ (not ../shaders-glsl/) with -ghostty suffix stripped
+# ../shaders/ (not ../shaders-glsl/) but filenames keep -ghostty suffix
 if [ -f "$PYMOD_DIR/shader_service.py" ]; then
     sed -i 's|"shaders-glsl"|"shaders"|g' "$PYMOD_DIR/shader_service.py"
-    sed -i 's/-ghostty\.glsl/.glsl/g' "$PYMOD_DIR/shader_service.py"
 fi
 
 # Patch matrixlite paths

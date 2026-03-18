@@ -23,9 +23,10 @@ else
 fi
 
 # Detect font (macOS may not have Nimbus Mono PS)
-if system_profiler SPFontsDataType 2>/dev/null | grep -qi "Nimbus Mono PS"; then
+# Instant font detection via file existence (not system_profiler which takes 20-60s)
+if [ -f "/Library/Fonts/NimbusMonoPS-Regular.otf" ] || [ -f "$HOME/Library/Fonts/NimbusMonoPS-Regular.otf" ]; then
     FONT="Nimbus Mono PS"
-elif system_profiler SPFontsDataType 2>/dev/null | grep -qi "SF Mono"; then
+elif [ -f "/System/Library/Fonts/SFMono-Regular.otf" ] || [ -f "/Applications/Utilities/Terminal.app/Contents/Resources/Fonts/SFMono-Regular.otf" ]; then
     FONT="SF Mono"
 else
     FONT="Menlo"
