@@ -50,7 +50,8 @@ public static class Program
 
             if (args.Length >= 1 && args[0] == "--pick")
             {
-                return RunPicker(configService, shaderService, terminalService, identityService);
+                var profileArg = args.SkipWhile(a => a != "--profile").Skip(1).FirstOrDefault() ?? "Construct";
+                return RunPicker(profileArg, configService, shaderService, terminalService, identityService);
             }
 
             var color = ParseColor(args);
@@ -138,13 +139,17 @@ public static class Program
         var exePath = Process.GetCurrentProcess().MainModule?.FileName
                       ?? Path.Combine(AppContext.BaseDirectory, "construct.exe");
 
+        // Each Construct launch gets a unique profile so multiple windows don't share state.
+        // After transition, this profile gets replaced by Matrix-{slot} via GUID swap.
+        var instanceId = Guid.NewGuid().ToString("N")[..6];
+        var profileName = $"Construct-{instanceId}";
+
         var settings = terminalService.LoadSettings();
-        var existing = terminalService.GetProfile(settings, "Construct");
         var constructProfile = new TerminalProfile
         {
-            Name = "Construct",
-            Guid = existing?.Guid ?? $"{{{Guid.NewGuid()}}}",
-            Commandline = $"\"{exePath}\" --pick",
+            Name = profileName,
+            Guid = $"{{{Guid.NewGuid()}}}",
+            Commandline = $"\"{exePath}\" --pick --profile {profileName}",
             Hidden = true,
             Opacity = 100,
             UseAcrylic = false,
@@ -161,7 +166,7 @@ public static class Program
             Process.Start(new ProcessStartInfo
             {
                 FileName = wtPath,
-                Arguments = "-p \"Construct\"",
+                Arguments = $"-p \"{profileName}\"",
                 UseShellExecute = true
             });
         }
@@ -179,6 +184,7 @@ public static class Program
     /// not via file writes. The shader reads shaderTexture to determine selection.
     /// </summary>
     private static int RunPicker(
+        string constructProfileName,
         IConfigService configService,
         IShaderService shaderService,
         ITerminalSettingsService terminalService,
@@ -237,10 +243,10 @@ public static class Program
                         // CRT power-off animation via shaderTexture
                         AnimatePowerOff(selected);
 
-                        // Same-window transition (no new window!)
+                        // Same-window transition: Construct profile becomes Matrix-{slot}
                         var selectedColor = ColorPresets.All[selected];
-                        TransitionToRain(selectedColor, slot, configService, shaderService,
-                                         terminalService, identityService, shadersDir);
+                        TransitionToRain(selectedColor, slot, constructProfileName, configService,
+                                         shaderService, terminalService, identityService, shadersDir);
                         return 0;
 
                     case ConsoleKey.Escape:
@@ -305,14 +311,15 @@ public static class Program
 
     /// <summary>
     /// Performs same-window transition from Construct white room to Matrix rain.
-    /// Modifies the Construct profile IN PLACE in settings.json — swapping the shader
-    /// path, opacity, and tab color. WT detects the change and loads the new shader
-    /// into the already-open window. The profile name stays "Construct" to avoid
-    /// GUID conflicts with UpsertProfile.
+    /// The Construct profile's GUID is transferred to the Matrix-{slot} profile,
+    /// making WT associate the already-open tab with Matrix-{slot}. The old
+    /// Construct profile is removed. This ensures each Construct-launched window
+    /// has its own identity and doesn't interfere with other windows.
     /// </summary>
     private static void TransitionToRain(
         MatrixColor color,
         int slot,
+        string constructProfileName,
         IConfigService configService,
         IShaderService shaderService,
         ITerminalSettingsService terminalService,
@@ -326,47 +333,57 @@ public static class Program
         else
             shaderService.CreateShader(slot, config);
 
-        // 2. Modify the Construct profile IN PLACE in settings.json
-        //    CRITICAL: Keep Name = "Construct" -- UpsertProfile matches by name.
-        //    Renaming to "Matrix-{slot}" would find the Matrix-{slot} template
-        //    (different GUID), overwrite it, and leave the Construct profile
-        //    untouched — causing a duplicate GUID conflict.
+        // 2. GUID swap: transfer the Construct window's GUID to Matrix-{slot}
+        //    so WT maps the running tab to the Matrix profile.
         var settings = terminalService.LoadSettings();
-
-        // Ensure Matrix profiles exist (creates templates if missing)
         terminalService.CreateMatrixProfiles(settings, 8, shadersDir);
 
-        // Get the Construct profile and swap its visual properties
-        var constructProfile = terminalService.GetProfile(settings, "Construct");
+        var constructProfile = terminalService.GetProfile(settings, constructProfileName);
+        var matrixProfileName = $"Matrix-{slot}";
+        var (r, g, b) = color.ToRgb();
+
         if (constructProfile != null)
         {
-            var (r, g, b) = color.ToRgb();
-            var transitioned = constructProfile with
+            // Remove all Construct profiles (this instance + any stale ones from prior launches)
+            settings.Profiles?.List?.RemoveAll(p =>
+                p.Name != null && (p.Name.Equals("Construct", StringComparison.OrdinalIgnoreCase)
+                    || p.Name.StartsWith("Construct-", StringComparison.OrdinalIgnoreCase)));
+
+            // Update Matrix-{slot} with the Construct window's GUID and new visuals
+            var matrixProfile = terminalService.GetProfile(settings, matrixProfileName);
+            var updated = new TerminalProfile
             {
-                PixelShaderPath = Path.Combine(shadersDir, $"Matrix-{slot}.hlsl"),
+                Name = matrixProfileName,
+                Guid = constructProfile.Guid,  // GUID swap: WT follows this
+                Commandline = matrixProfile?.Commandline ?? $"powershell.exe -NoExit -Command \"Write-Host ' Matrix Terminal {slot}' -ForegroundColor Green\"",
+                Hidden = true,
                 Opacity = 85,
                 UseAcrylic = false,
+                PixelShaderPath = Path.Combine(shadersDir, $"Matrix-{slot}.hlsl"),
                 TabColor = $"#{r:X2}{g:X2}{b:X2}",
+                SuppressApplicationTitle = false,  // Allow title changes for identity detection
             };
-            terminalService.UpsertProfile(settings, transitioned);
+            terminalService.UpsertProfile(settings, updated);
         }
 
         terminalService.SaveSettings(settings);
 
-        // 3. Persist shader state
+        // 3. Set console title for identity detection (Layer 3: title matching)
+        try { Console.Title = matrixProfileName; } catch { }
+
+        // 4. Persist shader state
         var state = configService.LoadState();
         state.ShaderConfigs[slot] = config;
         configService.SaveState(state);
 
-        // 4. Register window identity so Redpill and hotkeys can find it
+        // 5. Register window identity so Redpill and hotkeys can find it
         var hwnd = WindowsApi.GetForegroundWindow();
         if (hwnd != nint.Zero)
         {
-            identityService.RegisterWindowHandle(hwnd, $"Matrix-{slot}", slot);
+            identityService.RegisterWindowHandle(hwnd, matrixProfileName, slot);
         }
 
-        // 5. Wait for WT to detect settings.json change and load new shader
-        //    Screen is black, so this delay is invisible to user
+        // 6. Wait for WT to detect settings.json change and load new shader
         Thread.Sleep(500);
     }
 
