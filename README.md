@@ -99,7 +99,7 @@ The free version is the real thing — not a demo. But if you want full control 
 
 **[matrixshader.com/redpill](https://matrixshader.com/redpill)** — $5 one-time. 3 machines. Yours forever.
 
-Limited to the first 5,000 operators.
+Limited to the first 500 operators.
 
 ## Support
 
@@ -113,9 +113,7 @@ Limited to the first 5,000 operators.
 
 ---
 
-Copyright (c) 2026 matrixshader.com. All Rights Reserved.
-
-Free for personal, non-commercial use. Commercial use, redistribution, and modification require written permission.
+Source available under [BSL 1.1](LICENSE). Free for personal and internal use. Auto-converts to MIT on 2030-06-01.
 
 Inspired by The Matrix (1999). Not affiliated with or endorsed by Warner Bros. Entertainment Inc.
 If you are a rights holder and are interested in collaboration, please contact: architect@matrixshader.com
