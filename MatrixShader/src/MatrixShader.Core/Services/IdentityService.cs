@@ -921,6 +921,9 @@ public class IdentityService : IIdentityService
             || title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase)
             || title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase);
 
+        var isConstruct = profileName.Equals("Construct", StringComparison.OrdinalIgnoreCase)
+            || profileName.StartsWith("Construct-", StringComparison.OrdinalIgnoreCase);
+
         return new WindowInfo
         {
             Handle = hwnd,
@@ -931,7 +934,8 @@ public class IdentityService : IIdentityService
             Position = position,
             Source = source,
             Confidence = source.GetConfidence(),
-            IsControlPanel = isControlPanel
+            IsControlPanel = isControlPanel,
+            IsConstruct = isConstruct
         };
     }
 

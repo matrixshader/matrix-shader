@@ -31,6 +31,9 @@ public record WindowInfo
 
     /// <summary>Is this the control panel window</summary>
     public bool IsControlPanel { get; init; }
+
+    /// <summary>Is this a Construct picker window (not yet transitioned to rain)</summary>
+    public bool IsConstruct { get; init; }
 }
 
 /// <summary>
