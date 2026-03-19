@@ -142,11 +142,19 @@ transition_to_rain($own_slot, $selected, construct_conf='$own_conf')
         # Register with window_service (same call as wakeupneo line 429)
         python3 -B "$PYMOD_DIR/window_service.py" register "$own_slot" "$ghostty_pid" 2>/dev/null
 
-        # Also create the matrix config name so get_ghostty_bus_names cmdline match works
-        # The Ghostty process cmdline has ghostty-construct-{slot} but the system looks for ghostty-matrix-{slot}
-        # Create a symlink so both names resolve
+        # Create ghostty-matrix-{slot}.conf so get_ghostty_bus_names finds us
         matrix_conf="/tmp/ghostty-matrix-${own_slot}.conf"
         [ ! -f "$matrix_conf" ] && cp "$own_conf" "$matrix_conf"
+
+        # Exit fullscreen — picker was fullscreen, rain window should not be
+        busname=$(busctl --user list 2>/dev/null | awk -v p="$ghostty_pid" '$2==p && /ghostty/{print $1}')
+        if [ -n "$busname" ]; then
+            gdbus call --session --dest "$busname" \
+                --object-path /com/mitchellh/ghostty \
+                --method org.gtk.Actions.Activate \
+                "toggle_fullscreen" "[]" "{}" >/dev/null 2>&1
+            sleep 0.3
+        fi
 
         # Apply layout so this window snaps into position with the others
         python3 -B -c "
