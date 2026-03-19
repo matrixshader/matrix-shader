@@ -2,11 +2,11 @@
 // Ported from Windows WhiteRoom.hlsl
 
 // State machine defines (rewritten by construct_service.py via #define injection)
-#define STATE        1
+// STATE values: 0=idle, 1=zoom-in, 2=browsing, 3=power-off-cancel, 4=power-off-confirm
+#define STATE        0
 #define STATE_TIME   0.0
 #define SELECTED     0
-#define ZOOM         0.0
-#define POWER_OFF    0.0
+// ZOOM and POWER_OFF are now COMPUTED from STATE + iTime, not written per-frame
 
 // --- Utility functions ---
 
@@ -92,8 +92,7 @@ const vec3 COLORS[6] = vec3[6](
 
 // Picker state read from #defines (rewritten by construct_service.py)
 // SELECTED = swatch index 0-5
-// ZOOM = 0.0 (far) to 1.0 (close)
-// POWER_OFF = 0.0 (normal) to 1.0 (fully black)
+// STATE + STATE_TIME drive zoom and power-off animations on the GPU
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 tex = fragCoord / iResolution.xy;
@@ -105,10 +104,34 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
     float elapsed = iTime - float(STATE_TIME);
 
-    // Read picker state from #defines (rewritten by construct_service.py)
+    // Read picker state from #defines
     int selected = SELECTED;
-    float zoom = ZOOM;
-    float powerOff = POWER_OFF;
+    int state = STATE;
+
+    // Compute zoom and powerOff from state machine + elapsed time
+    float zoom = 0.0;
+    float powerOff = 0.0;
+
+    if (state == 0) {
+        // Idle: no zoom, no power-off
+        zoom = 0.0;
+        powerOff = 0.0;
+    } else if (state == 1) {
+        // Zoom-in: 0 -> 1 over 3 seconds, ease-out cubic
+        float t = clamp(elapsed / 3.0, 0.0, 1.0);
+        zoom = 1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t);
+        powerOff = 0.0;
+    } else if (state == 2) {
+        // Browsing: fully zoomed, no power-off
+        zoom = 1.0;
+        powerOff = 0.0;
+    } else if (state == 3 || state == 4) {
+        // Power-off (cancel or confirm): zoom shrinks, brightness fades
+        float t = clamp(elapsed / 1.0, 0.0, 1.0);
+        float eased = t * t;
+        zoom = 1.0 - eased * 0.92;
+        powerOff = t > 0.4 ? (t - 0.4) / 0.6 : 0.0;
+    }
 
     // Apply zoom: everything shrinks when zoom < 1
     vec2 zuv = uv / max(zoom, 0.01);

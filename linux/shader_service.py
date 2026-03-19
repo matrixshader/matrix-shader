@@ -314,7 +314,7 @@ def get_ghostty_bus_names() -> dict:
             with open(f"/proc/{pid}/cmdline") as f:
                 cmdline = f.read()
             for slot in range(1, 9):
-                if f"ghostty-matrix-{slot}" in cmdline:
+                if f"ghostty-matrix-{slot}" in cmdline or f"ghostty-construct-{slot}" in cmdline:
                     mapping[slot] = {"pid": pid, "bus_name": bus_name}
                     break
         except (FileNotFoundError, PermissionError):

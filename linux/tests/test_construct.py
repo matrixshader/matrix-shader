@@ -120,10 +120,10 @@ class TestColorMappings:
 class TestFindNextSlot:
     """Test find_next_slot returns lowest unused slot number (1-8)."""
 
-    @patch("construct_service.subprocess.run")
-    def test_returns_1_when_all_empty(self, mock_run):
+    @patch("construct_service._get_occupied_slots")
+    def test_returns_1_when_all_empty(self, mock_occupied):
         """No running Ghostty processes -> slot 1."""
-        mock_run.return_value = MagicMock(stdout="", returncode=1)
+        mock_occupied.return_value = set()
         assert construct_service.find_next_slot() == 1
 
     @patch("construct_service._get_occupied_slots")

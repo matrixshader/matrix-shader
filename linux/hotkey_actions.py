@@ -430,7 +430,7 @@ def action_cycle_layout() -> None:
                 state = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             pass
-        current = state.get("layout_mode", state.get("layout", {}).get("mode", "pillars"))
+        current = state.get("layout", {}).get("mode", "pillars")
 
     try:
         idx = LAYOUT_MODES.index(current)
@@ -443,7 +443,7 @@ def action_cycle_layout() -> None:
         svc.update_layout({"mode": next_mode})
     else:
         # Fallback: manual write
-        state["layout_mode"] = next_mode
+        state.setdefault("layout", {})["mode"] = next_mode
         dir_path = os.path.dirname(STATE_PATH)
         os.makedirs(dir_path, exist_ok=True)
         fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix=".tmp")

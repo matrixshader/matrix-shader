@@ -213,22 +213,22 @@ class TestLayoutAction:
     def test_cycle_from_pillars_to_quads(self, mock_svc, mock_toast, tmp_path):
         from hotkey_actions import action_cycle_layout, LAYOUT_MODES
         state_file = tmp_path / "state.json"
-        state_file.write_text(json.dumps({"layout_mode": "pillars"}))
+        state_file.write_text(json.dumps({"layout": {"mode": "pillars"}}))
         with patch("hotkey_actions.STATE_PATH", str(state_file)):
             action_cycle_layout()
         state = json.loads(state_file.read_text())
-        assert state["layout_mode"] == "quads"
+        assert state["layout"]["mode"] == "quads"
 
     @patch("hotkey_actions.show_toast")
     @patch("hotkey_actions._get_state_service", return_value=None)
     def test_cycle_wraps_from_auto_to_pillars(self, mock_svc, mock_toast, tmp_path):
         from hotkey_actions import action_cycle_layout
         state_file = tmp_path / "state.json"
-        state_file.write_text(json.dumps({"layout_mode": "auto"}))
+        state_file.write_text(json.dumps({"layout": {"mode": "auto"}}))
         with patch("hotkey_actions.STATE_PATH", str(state_file)):
             action_cycle_layout()
         state = json.loads(state_file.read_text())
-        assert state["layout_mode"] == "pillars"
+        assert state["layout"]["mode"] == "pillars"
 
     @patch("hotkey_actions.show_toast")
     @patch("hotkey_actions._get_state_service", return_value=None)
@@ -239,14 +239,14 @@ class TestLayoutAction:
             action_cycle_layout()
         state = json.loads(state_file.read_text())
         # Default is "pillars", so next is "quads"
-        assert state["layout_mode"] == "quads"
+        assert state["layout"]["mode"] == "quads"
 
     @patch("hotkey_actions.show_toast")
     @patch("hotkey_actions._get_state_service", return_value=None)
     def test_cycle_preserves_other_state(self, mock_svc, mock_toast, tmp_path):
         from hotkey_actions import action_cycle_layout
         state_file = tmp_path / "state.json"
-        state_file.write_text(json.dumps({"layout_mode": "pillars", "other_key": 42}))
+        state_file.write_text(json.dumps({"layout": {"mode": "pillars"}, "other_key": 42}))
         with patch("hotkey_actions.STATE_PATH", str(state_file)):
             action_cycle_layout()
         state = json.loads(state_file.read_text())
@@ -257,13 +257,13 @@ class TestLayoutAction:
     def test_cycle_all_modes(self, mock_svc, mock_toast, tmp_path):
         from hotkey_actions import action_cycle_layout, LAYOUT_MODES
         state_file = tmp_path / "state.json"
-        state_file.write_text(json.dumps({"layout_mode": "pillars"}))
+        state_file.write_text(json.dumps({"layout": {"mode": "pillars"}}))
         modes_visited = []
         for _ in range(len(LAYOUT_MODES)):
             with patch("hotkey_actions.STATE_PATH", str(state_file)):
                 action_cycle_layout()
             state = json.loads(state_file.read_text())
-            modes_visited.append(state["layout_mode"])
+            modes_visited.append(state["layout"]["mode"])
         assert modes_visited == ["quads", "overlap", "auto", "pillars"]
 
     @patch("hotkey_actions.show_toast")
@@ -271,7 +271,7 @@ class TestLayoutAction:
     def test_cycle_shows_toast(self, mock_svc, mock_toast, tmp_path):
         from hotkey_actions import action_cycle_layout
         state_file = tmp_path / "state.json"
-        state_file.write_text(json.dumps({"layout_mode": "pillars"}))
+        state_file.write_text(json.dumps({"layout": {"mode": "pillars"}}))
         with patch("hotkey_actions.STATE_PATH", str(state_file)):
             action_cycle_layout()
         mock_toast.assert_called_once_with("Layout: quads")

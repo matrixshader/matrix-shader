@@ -16,6 +16,7 @@ Dependencies: Python 3 stdlib + shader_service.py (sibling module).
 
 import os
 import re
+import select
 import sys
 import time
 import shutil
@@ -79,15 +80,22 @@ SHADER_SRC_DIR = os.path.join(
 # ---------------------------------------------------------------------------
 
 def _get_occupied_slots() -> set:
-    """Scan running Ghostty processes and return set of occupied slot numbers.
-
-    Checks BOTH ghostty-matrix-{slot} AND ghostty-construct-{slot} configs,
-    since construct-launched windows keep 'construct' in their cmdline even
-    after transition.
-    """
+    """Return set of occupied slot numbers from window map + pgrep scan."""
     occupied = set()
+    # Primary source: window_service mapping (has dead-PID purge + orphan recovery)
+    try:
+        import window_service
+        mapping = window_service.load_mapping()
+        for slot_str, entry in mapping.items():
+            pid = entry.get('pid')
+            if pid and window_service._pid_alive(pid):
+                occupied.add(int(slot_str))
+    except (ImportError, Exception):
+        pass
+    # Secondary source: pgrep scan (catches windows not yet registered)
     for slot in range(1, 9):
-        # Check both matrix and construct config patterns
+        if slot in occupied:
+            continue
         for pattern in [f"ghostty-matrix-{slot}", f"ghostty-construct-{slot}"]:
             conf = f"/tmp/{pattern}.conf"
             if not os.path.isfile(conf):
@@ -326,14 +334,26 @@ def transition_to_rain(slot: int, preset_idx: int,
 
 COLOR_NAMES = ["Green", "Blue", "Red", "Purple", "Gold", "Teal"]
 
+_cached_construct_bus_name = None
+
+
+def _warm_bus_cache():
+    """Pre-discover bus name before entering the picker loop."""
+    global _cached_construct_bus_name
+    _cached_construct_bus_name = None  # force refresh
+    _find_construct_bus_name()
+
 
 def _find_construct_bus_name():
-    """Find the D-Bus name for the construct Ghostty window ONLY.
+    """Find the D-Bus name for the construct Ghostty window ONLY (cached).
 
     Uses busctl to list Ghostty D-Bus names, then matches PID to the
     construct process via /proc/PID/cmdline containing 'ghostty-construct'.
     Returns bus_name string or None.
     """
+    global _cached_construct_bus_name
+    if _cached_construct_bus_name is not None:
+        return _cached_construct_bus_name
     try:
         result = subprocess.run(
             ["busctl", "--user", "list"],
@@ -361,6 +381,7 @@ def _find_construct_bus_name():
             with open(f"/proc/{pid}/cmdline") as f:
                 cmdline = f.read()
             if "ghostty-construct" in cmdline:
+                _cached_construct_bus_name = bus_name
                 return bus_name
         except (FileNotFoundError, PermissionError):
             continue
@@ -368,11 +389,8 @@ def _find_construct_bus_name():
     return None
 
 
-def _write_shader_defines(shader_path, selected, zoom, power_off):
-    """Rewrite #define values in the white room shader COPY and trigger D-Bus reload.
-
-    ONLY reloads the construct window, never other Matrix windows.
-    """
+def _write_shader_defines(shader_path, selected, state, state_time):
+    """Rewrite #define values in the white room shader COPY and trigger D-Bus reload."""
     try:
         with open(shader_path) as f:
             content = f.read()
@@ -380,8 +398,8 @@ def _write_shader_defines(shader_path, selected, zoom, power_off):
         return
 
     content = re.sub(r"(#define\s+SELECTED\s+)\S+", f"\\g<1>{selected}", content)
-    content = re.sub(r"(#define\s+ZOOM\s+)\S+", f"\\g<1>{zoom:.3f}", content)
-    content = re.sub(r"(#define\s+POWER_OFF\s+)\S+", f"\\g<1>{power_off:.3f}", content)
+    content = re.sub(r"(#define\s+STATE\s+)\S+", f"\\g<1>{state}", content)
+    content = re.sub(r"(#define\s+STATE_TIME\s+)\S+", f"\\g<1>{state_time:.3f}", content)
 
     # Atomic write
     dir_path = os.path.dirname(shader_path)
@@ -397,45 +415,80 @@ def _write_shader_defines(shader_path, selected, zoom, power_off):
             pass
         return
 
-    # Reload ONLY the construct window
+    # Reload ONLY the construct window (cached bus name)
     bus_name = _find_construct_bus_name()
     if bus_name:
         shader_service.reload_ghostty(bus_name)
 
 
-def write_picker_state(selected, zoom, power_off, shader_path):
+def write_picker_state(selected, state, shader_path, state_time=None):
     """Write picker state to shader copy via #define rewrite + targeted D-Bus reload."""
-    _write_shader_defines(shader_path, selected, zoom, power_off)
+    if state_time is None:
+        state_time = _approx_itime()
+    _write_shader_defines(shader_path, selected, state, state_time)
+
+
+_ghostty_start_monotonic = 0.0
+
+
+def _init_time_tracking():
+    """Initialize time tracking for iTime approximation.
+
+    Called once when the picker starts inside Ghostty. Walks up the process
+    tree to find the Ghostty parent and reads its start time from /proc.
+    """
+    global _ghostty_start_monotonic
+    try:
+        ghostty_pid = os.getppid()
+        # Walk up to find Ghostty
+        while ghostty_pid > 1:
+            try:
+                exe = os.readlink(f"/proc/{ghostty_pid}/exe")
+                if "ghostty" in exe:
+                    break
+            except (FileNotFoundError, PermissionError, OSError):
+                pass
+            try:
+                stat_data = open(f"/proc/{ghostty_pid}/stat").read()
+                # Field 22 (0-indexed after ')' split, index 19) is starttime
+                ghostty_pid = int(stat_data.split(')')[1].split()[1])  # ppid is field 4, index 1 after ')'
+            except (FileNotFoundError, PermissionError, OSError, ValueError, IndexError):
+                break
+        stat = open(f"/proc/{ghostty_pid}/stat").read()
+        # Field 22 (0-indexed 21) is starttime in clock ticks
+        starttime_ticks = int(stat.split(')')[1].split()[19])
+        clock_ticks = os.sysconf('SC_CLK_TCK')
+        uptime = float(open("/proc/uptime").read().split()[0])
+        process_start_seconds_ago = uptime - (starttime_ticks / clock_ticks)
+        _ghostty_start_monotonic = time.monotonic() - process_start_seconds_ago
+    except Exception:
+        # Fallback: assume Ghostty started ~2 seconds ago
+        _ghostty_start_monotonic = time.monotonic() - 2.0
+
+
+def _approx_itime():
+    """Return approximate iTime value for the running Ghostty."""
+    return time.monotonic() - _ghostty_start_monotonic
 
 
 def animate_zoom_in(selected, shader_path):
-    """Animate zoom from 0 to 1 over 3 seconds (ease-out cubic)."""
-    duration = 3.0
-    start = time.monotonic()
-    while True:
-        elapsed = time.monotonic() - start
-        t = min(elapsed / duration, 1.0)
-        eased = 1.0 - (1.0 - t) ** 3
-        write_picker_state(selected, eased, 0.0, shader_path)
-        if t >= 1.0:
-            break
-        time.sleep(1.0 / 15.0)
+    """Trigger GPU-driven zoom-in by setting STATE=1, STATE_TIME=current iTime."""
+    # STATE=1 tells the shader to compute zoom from iTime
+    # Use _approx_itime() so the animation starts from the current moment
+    state_time = _approx_itime()
+    write_picker_state(selected, 1, shader_path, state_time=state_time)
+    # Wait for the animation to complete before handing control to the picker
+    time.sleep(3.0)
+    # Transition to browsing state
+    write_picker_state(selected, 2, shader_path, state_time=0.0)
 
 
 def animate_power_off(selected, shader_path):
-    """Animate CRT power-off: zoom shrinks, brightness fades."""
-    duration = 1.0
-    start = time.monotonic()
-    while True:
-        elapsed = time.monotonic() - start
-        t = min(elapsed / duration, 1.0)
-        eased = t * t
-        zoom = 1.0 - eased * 0.92
-        power_off = max(0.0, (t - 0.4) / 0.6) if t > 0.4 else 0.0
-        write_picker_state(selected, zoom, power_off, shader_path)
-        if t >= 1.0:
-            break
-        time.sleep(1.0 / 15.0)
+    """Trigger GPU-driven power-off by setting STATE=3."""
+    state_time = _approx_itime()
+    write_picker_state(selected, 3, shader_path, state_time=state_time)
+    # Wait for the 1-second animation to complete
+    time.sleep(1.2)
 
 
 def white_room_picker(shader_path=None) -> int | None:
@@ -474,14 +527,22 @@ def white_room_picker(shader_path=None) -> int | None:
     sys.stderr.flush()
 
     try:
-        # Zoom-in animation
-        animate_zoom_in(selected, shader_path)
+        # Pre-cache bus name and init time tracking
+        _warm_bus_cache()
+        _init_time_tracking()
 
-        # Ensure fully zoomed
-        write_picker_state(selected, 1.0, 0.0, shader_path)
+        # Zoom-in animation (GPU-driven, one write)
+        animate_zoom_in(selected, shader_path)
 
         import termios
         import tty as tty_mod
+
+        def _has_more(fd, timeout=0.1):
+            """Check if more input is available within timeout."""
+            if hasattr(fd, 'fileno'):
+                r, _, _ = select.select([fd], [], [], timeout)
+                return bool(r)
+            return False
 
         old_settings = termios.tcgetattr(tty)
         tty_mod.setraw(tty.fileno())
@@ -490,19 +551,26 @@ def white_room_picker(shader_path=None) -> int | None:
             while True:
                 ch = tty.read(1)
                 if ch == "\x1b":
-                    ch2 = tty.read(1)
-                    if ch2 == "[":
-                        ch3 = tty.read(1)
-                        if ch3 == "A":    # Up
-                            selected = (selected + 3) % count
-                        elif ch3 == "B":  # Down
-                            selected = (selected + 3) % count
-                        elif ch3 == "C":  # Right
-                            selected = (selected + 1) % count
-                        elif ch3 == "D":  # Left
-                            selected = (selected - 1 + count) % count
+                    if _has_more(tty, 0.05):
+                        ch2 = tty.read(1)
+                        if ch2 == "[" and _has_more(tty, 0.05):
+                            ch3 = tty.read(1)
+                            if ch3 == "A":    # Up
+                                selected = (selected + 3) % count
+                            elif ch3 == "B":  # Down
+                                selected = (selected + 3) % count
+                            elif ch3 == "C":  # Right
+                                selected = (selected + 1) % count
+                            elif ch3 == "D":  # Left
+                                selected = (selected - 1 + count) % count
+                            else:
+                                continue
+                        else:
+                            # Bare ESC or unknown sequence
+                            animate_power_off(selected, shader_path)
+                            return None
                     else:
-                        # Bare escape
+                        # Bare ESC — no more bytes within timeout
                         animate_power_off(selected, shader_path)
                         return None
                 elif ch == "\r" or ch == "\n":  # Enter
@@ -514,12 +582,12 @@ def white_room_picker(shader_path=None) -> int | None:
                 else:
                     continue
 
-                # Update shader with new selection
-                write_picker_state(selected, 1.0, 0.0, shader_path)
+                # Update shader with new selection (only SELECTED changes, not state)
+                write_picker_state(selected, 2, shader_path, state_time=0.0)
         finally:
             termios.tcsetattr(tty, termios.TCSADRAIN, old_settings)
     except (ImportError, termios.error):
-        write_picker_state(selected, 1.0, 0.0, shader_path)
+        write_picker_state(selected, 2, shader_path, state_time=0.0)
     finally:
         tty.close()
         sys.stderr.write("\033[?25h")

@@ -77,24 +77,21 @@ if [ -n "$COLOR" ]; then
 
     # Launch Ghostty — same pattern as wakeupneo launch_window()
     nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+    local ghostty_pid=$!
     disown
+    # Register PID immediately (same pattern as wakeupneo line 427-429)
+    python3 -B "$PYMOD_DIR/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
     sleep 0.5
 
-    # Find the actual Ghostty PID (pgrep is reliable, $! can miss with nohup)
-    ghostty_pid=$(pgrep -f "config-file=$conf" 2>/dev/null | head -1)
-    if [ -n "$ghostty_pid" ]; then
-        python3 -B "$PYMOD_DIR/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
-    fi
-
-    # Apply layout — also auto-recovers any orphaned windows via load_mapping
-    sleep 0.3
+    # Apply layout — wait for window to be mapped by compositor
+    sleep 1.0
     python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
-try:
-    from layout_engine import apply_current_layout
+from layout_engine import apply_current_layout
+n = apply_current_layout()
+if n == 0:
+    import time; time.sleep(0.5)
     apply_current_layout()
-except Exception:
-    pass
 " 2>/dev/null
 
     echo -e "${GREEN} Matrix-${slot}${RESET} ${DIM}launched with ${COLOR}${RESET}"
@@ -141,8 +138,9 @@ transition_to_rain($own_slot, $selected, construct_conf='$own_conf')
     # Wait for Ghostty to detect config change and reload shader
     sleep 0.5
 
-    # Clean up construct shader copy
+    # Clean up construct shader copy (keep config — Ghostty still reads it on D-Bus reload)
     rm -f "$own_shader"
+    rm -f "/tmp/ghostty-construct-${own_slot}-shader.glsl"
 
     # Register this window in the matrix system — SAME as wakeupneo does
     # Find our Ghostty parent PID (we're a child process of Ghostty)
@@ -164,24 +162,15 @@ transition_to_rain($own_slot, $selected, construct_conf='$own_conf')
         matrix_conf="/tmp/ghostty-matrix-${own_slot}.conf"
         [ ! -f "$matrix_conf" ] && cp "$own_conf" "$matrix_conf"
 
-        # Exit fullscreen — picker was fullscreen, rain window should not be
-        busname=$(busctl --user list 2>/dev/null | awk -v p="$ghostty_pid" '$2==p && /ghostty/{print $1}')
-        if [ -n "$busname" ]; then
-            gdbus call --session --dest "$busname" \
-                --object-path /com/mitchellh/ghostty \
-                --method org.gtk.Actions.Activate \
-                "toggle_fullscreen" "[]" "{}" >/dev/null 2>&1
-            sleep 0.3
-        fi
-
-        # Apply layout so this window snaps into position with the others
+        # Apply layout — wait for compositor
+        sleep 1.0
         python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
-try:
-    from layout_engine import apply_current_layout
+from layout_engine import apply_current_layout
+n = apply_current_layout()
+if n == 0:
+    import time; time.sleep(0.5)
     apply_current_layout()
-except Exception:
-    pass
 " 2>/dev/null
     fi
 
@@ -230,11 +219,8 @@ font-family = Nimbus Mono PS
 font-style = Bold
 font-size = 16
 background-opacity = 1.0
-gtk-titlebar = false
-window-decoration = none
-window-padding-x = 0
-window-padding-y = 0
-fullscreen = true
+gtk-titlebar = true
+window-decoration = client
 desktop-notifications = false
 EOF
 

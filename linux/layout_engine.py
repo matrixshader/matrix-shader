@@ -75,7 +75,7 @@ def load_layout_config():
     state = _load_state()
     layout = state.get("layout", {})
     return {
-        "mode": state.get("layout_mode", layout.get("mode", "pillars")),
+        "mode": layout.get("mode", "pillars"),
         "gap_size": layout.get("gap_size", DEFAULT_GAP_SIZE),
         "glitch_enabled": layout.get("glitch_enabled", True),
         "overlap_percent": layout.get("overlap_percent", DEFAULT_OVERLAP_PERCENT),
@@ -91,7 +91,6 @@ def save_layout_config(config):
         "glitch_enabled": config["glitch_enabled"],
         "overlap_percent": config["overlap_percent"],
     }
-    state["layout_mode"] = config["mode"]
     _save_state(state)
 
 

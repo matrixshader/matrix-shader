@@ -482,9 +482,9 @@ class TestLayoutConfig(unittest.TestCase):
         assert loaded["overlap_percent"] == 10
 
     def test_load_respects_layout_mode_key(self):
-        # action_cycle_layout writes layout_mode at top level
+        # layout mode is stored under layout.mode (not top-level layout_mode)
         with open(self.state_path, "w") as f:
-            json.dump({"layout_mode": "overlap"}, f)
+            json.dump({"layout": {"mode": "overlap"}}, f)
         config = layout_engine.load_layout_config()
         assert config["mode"] == "overlap"
 
