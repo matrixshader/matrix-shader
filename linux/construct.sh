@@ -131,9 +131,8 @@ transition_to_rain($own_slot, $selected, construct_conf='$own_conf')
     # Clean up construct shader copy
     rm -f "$own_shader"
 
-    # Keep window alive — this is now a Matrix rain window
-    sleep infinity
-    exit 0
+    # Hand off to a real shell — this is now a usable Matrix terminal
+    exec "${SHELL:-/bin/bash}"
 fi
 
 # --- Self-relaunch: spawn Ghostty with white room shader ---
