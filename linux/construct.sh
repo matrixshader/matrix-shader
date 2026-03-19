@@ -113,12 +113,7 @@ if [ "$IN_GHOSTTY" = "true" ]; then
         exit 0
     fi
 
-    # Transition to rain IN THIS WINDOW:
-    # - Creates rain shader for slot
-    # - Rewrites the CONSTRUCT config Ghostty is reading (shader + opacity + decorations)
-    # - D-Bus reloads ONLY this window
-    # - Registers window in window_service for redpill/hotkeys/glitch/layout
-    # - Saves shader config to state.json
+    # Transition to rain IN THIS WINDOW
     python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
 from construct_service import transition_to_rain
@@ -130,6 +125,39 @@ transition_to_rain($own_slot, $selected, construct_conf='$own_conf')
 
     # Clean up construct shader copy
     rm -f "$own_shader"
+
+    # Register this window in the matrix system — SAME as wakeupneo does
+    # Find our Ghostty parent PID (we're a child process of Ghostty)
+    ghostty_pid=$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')
+    # Walk up if needed — construct.sh → bash → ghostty
+    while [ -n "$ghostty_pid" ] && [ "$ghostty_pid" != "1" ]; do
+        exe=$(readlink /proc/$ghostty_pid/exe 2>/dev/null || true)
+        if echo "$exe" | grep -q ghostty; then
+            break
+        fi
+        ghostty_pid=$(ps -o ppid= -p $ghostty_pid 2>/dev/null | tr -d ' ')
+    done
+
+    if [ -n "$ghostty_pid" ] && [ "$ghostty_pid" != "1" ]; then
+        # Register with window_service (same call as wakeupneo line 429)
+        python3 -B "$PYMOD_DIR/window_service.py" register "$own_slot" "$ghostty_pid" 2>/dev/null
+
+        # Also create the matrix config name so get_ghostty_bus_names cmdline match works
+        # The Ghostty process cmdline has ghostty-construct-{slot} but the system looks for ghostty-matrix-{slot}
+        # Create a symlink so both names resolve
+        matrix_conf="/tmp/ghostty-matrix-${own_slot}.conf"
+        [ ! -f "$matrix_conf" ] && cp "$own_conf" "$matrix_conf"
+
+        # Apply layout so this window snaps into position with the others
+        python3 -B -c "
+import sys; sys.path.insert(0, '$PYMOD_DIR')
+try:
+    from layout_engine import apply_current_layout
+    apply_current_layout()
+except Exception:
+    pass
+" 2>/dev/null
+    fi
 
     # Hand off to a real shell — this is now a usable Matrix terminal
     exec "${SHELL:-/bin/bash}"
