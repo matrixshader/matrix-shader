@@ -81,32 +81,35 @@ SHADER_SRC_DIR = os.path.join(
 def _get_occupied_slots() -> set:
     """Scan running Ghostty processes and return set of occupied slot numbers.
 
-    Uses pgrep + /proc/PID/exe readlink to filter to real ghostty processes
-    (same approach as wakeupneo.sh get_open_slots).
+    Checks BOTH ghostty-matrix-{slot} AND ghostty-construct-{slot} configs,
+    since construct-launched windows keep 'construct' in their cmdline even
+    after transition.
     """
     occupied = set()
     for slot in range(1, 9):
-        conf = f"/tmp/ghostty-matrix-{slot}.conf"
-        if not os.path.isfile(conf):
-            continue
-        try:
-            result = subprocess.run(
-                ["pgrep", "-f", f"config-file={conf}"],
-                capture_output=True, text=True, timeout=3,
-                stdin=subprocess.DEVNULL,
-            )
-            if result.returncode != 0:
+        # Check both matrix and construct config patterns
+        for pattern in [f"ghostty-matrix-{slot}", f"ghostty-construct-{slot}"]:
+            conf = f"/tmp/{pattern}.conf"
+            if not os.path.isfile(conf):
                 continue
-            for pid_str in result.stdout.strip().split():
-                try:
-                    exe = os.readlink(f"/proc/{pid_str}/exe")
-                    if "ghostty" in exe:
-                        occupied.add(slot)
-                        break
-                except (FileNotFoundError, PermissionError, OSError):
+            try:
+                result = subprocess.run(
+                    ["pgrep", "-f", f"config-file={conf}"],
+                    capture_output=True, text=True, timeout=3,
+                    stdin=subprocess.DEVNULL,
+                )
+                if result.returncode != 0:
                     continue
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+                for pid_str in result.stdout.strip().split():
+                    try:
+                        exe = os.readlink(f"/proc/{pid_str}/exe")
+                        if "ghostty" in exe:
+                            occupied.add(slot)
+                            break
+                    except (FileNotFoundError, PermissionError, OSError):
+                        continue
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                continue
     return occupied
 
 
