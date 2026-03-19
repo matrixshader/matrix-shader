@@ -75,9 +75,27 @@ if [ -n "$COLOR" ]; then
     slot="${result%%:*}"
     conf="${result#*:}"
 
-    # Launch Ghostty
+    # Launch Ghostty — same pattern as wakeupneo launch_window()
     nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
     disown
+    sleep 0.5
+
+    # Find the actual Ghostty PID (pgrep is reliable, $! can miss with nohup)
+    ghostty_pid=$(pgrep -f "config-file=$conf" 2>/dev/null | head -1)
+    if [ -n "$ghostty_pid" ]; then
+        python3 -B "$PYMOD_DIR/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
+    fi
+
+    # Apply layout — also auto-recovers any orphaned windows via load_mapping
+    sleep 0.3
+    python3 -B -c "
+import sys; sys.path.insert(0, '$PYMOD_DIR')
+try:
+    from layout_engine import apply_current_layout
+    apply_current_layout()
+except Exception:
+    pass
+" 2>/dev/null
 
     echo -e "${GREEN} Matrix-${slot}${RESET} ${DIM}launched with ${COLOR}${RESET}"
 

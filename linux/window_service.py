@@ -30,26 +30,84 @@ DBUS_IFACE = 'org.matrix.WindowManager'
 # --- Slot-to-PID Mapping ---
 
 def load_mapping():
-    """Read slot-to-PID mapping from file, purging dead PIDs automatically.
+    """Read slot-to-PID mapping, purge dead PIDs, and recover orphans.
 
-    VACCINE: Stale PIDs caused ghost slots that blocked new windows and
-    corrupted the redpill TUI tab list. Now every load scrubs dead entries.
+    VACCINE 1: Purges dead PIDs (ghost slots).
+    VACCINE 2: Scans for running Ghostty matrix/construct windows that
+    aren't in the mapping and auto-registers them. Prevents orphans.
     """
     try:
         with open(MAP_FILE) as f:
             raw = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-    # Purge dead PIDs on every load
+        raw = {}
+    # Purge dead PIDs
     clean = {}
-    dirty = False
     for slot, entry in raw.items():
         pid = entry.get('pid')
         if pid and _pid_alive(pid):
             clean[slot] = entry
-        else:
-            dirty = True
-    if dirty:
+
+    # VACCINE 2: Recover orphaned matrix windows not in mapping
+    # Only scan when using the real production map file
+    _do_orphan_scan = (MAP_FILE == "/tmp/matrix-window-map.json")
+    if not _do_orphan_scan:
+        if clean != raw:
+            try:
+                with open(MAP_FILE, 'w') as f:
+                    json.dump(clean, f)
+            except OSError:
+                pass
+        return clean
+    mapped_pids = {entry['pid'] for entry in clean.values()}
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "ghostty.*ghostty-matrix-[0-9]"],
+            capture_output=True, text=True, timeout=3,
+            stdin=subprocess.DEVNULL,
+        )
+        for pid_str in result.stdout.strip().split():
+            if not pid_str:
+                continue
+            pid = int(pid_str)
+            if pid in mapped_pids:
+                continue
+            # Found orphan — determine its slot from cmdline
+            try:
+                with open(f"/proc/{pid}/cmdline") as f:
+                    cmdline = f.read()
+                for s in range(1, 9):
+                    if f"ghostty-matrix-{s}" in cmdline and str(s) not in clean:
+                        clean[str(s)] = {'pid': pid}
+                        break
+            except (FileNotFoundError, PermissionError):
+                continue
+        # Also check construct windows (post-transition)
+        result2 = subprocess.run(
+            ["pgrep", "-f", "ghostty.*ghostty-construct-[0-9]"],
+            capture_output=True, text=True, timeout=3,
+            stdin=subprocess.DEVNULL,
+        )
+        for pid_str in result2.stdout.strip().split():
+            if not pid_str:
+                continue
+            pid = int(pid_str)
+            if pid in mapped_pids:
+                continue
+            try:
+                with open(f"/proc/{pid}/cmdline") as f:
+                    cmdline = f.read()
+                for s in range(1, 9):
+                    if f"ghostty-construct-{s}" in cmdline and str(s) not in clean:
+                        clean[str(s)] = {'pid': pid}
+                        break
+            except (FileNotFoundError, PermissionError):
+                continue
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    # Write back if anything changed
+    if clean != raw:
         try:
             with open(MAP_FILE, 'w') as f:
                 json.dump(clean, f)
