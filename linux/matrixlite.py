@@ -541,28 +541,40 @@ class LiteMenu:
         r, g, b = rgb
         color_str = f'\x1b[38;2;{r};{g};{b}m{name:<10}\x1b[0m'
 
+        # Brand colors: BRIGHT=#6EDCAA BASE=#35B381 SOFT=#1E6448 BORDER=#195A40
+        BR = '\x1b[38;2;110;220;170m'  # BRIGHT for borders/title
+        SF = '\x1b[38;2;30;100;72m'    # SOFT for labels
+        DM = '\x1b[2m'                 # DIM for descriptions
+        RS = '\x1b[0m'
+        # Color swatches for preset names
+        CG = '\x1b[38;2;0;255;77m'     # Green
+        CB = '\x1b[38;2;0;153;255m'    # Blue
+        CR = '\x1b[38;2;255;26;26m'    # Red
+        CP = '\x1b[38;2;179;0;255m'    # Purple
+        CO = '\x1b[38;2;255;179;0m'    # Gold
+        CT = '\x1b[38;2;0;230;230m'    # Teal
         lines = [
             '',
-            '  \x1b[32m+==================================================+\x1b[0m',
-            '  \x1b[32m|      MATRIX SHADER - LITE MODE                   |\x1b[0m',
-            '  \x1b[32m+==================================================+\x1b[0m',
-            '  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  COLOR PRESETS                                   \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [1] Green   [2] Blue   [3] Red                  \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [4] Purple  [5] Gold   [6] Teal                 \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  CONTROLS                                        \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [Enter] Start Rain (fullscreen)                 \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [B] Background Mode (rain behind commands)      \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [E/R] Speed -/+                                 \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [D/F] Density -/+                               \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [Q] Quit                                        \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m',
-            '  \x1b[32m+--------------------------------------------------+\x1b[0m',
-            f'  \x1b[32m|\x1b[0m  Color: {color_str}  Speed: {self._speed:.1f}x  Density: {self._density:.1f}  \x1b[32m|\x1b[0m',
-            '  \x1b[32m+==================================================+\x1b[0m',
+            f'  {BR}+==================================================+{RS}',
+            f'  {BR}|      MATRIX SHADER - LITE MODE                   |{RS}',
+            f'  {BR}+==================================================+{RS}',
+            f'  {BR}|{RS}                                                  {BR}|{RS}',
+            f'  {BR}|{RS}  {SF}COLOR PRESETS{RS}                                   {BR}|{RS}',
+            f'  {BR}|{RS}  [1] {CG}Green{RS}   [2] {CB}Blue{RS}   [3] {CR}Red{RS}                  {BR}|{RS}',
+            f'  {BR}|{RS}  [4] {CP}Purple{RS}  [5] {CO}Gold{RS}   [6] {CT}Teal{RS}                 {BR}|{RS}',
+            f'  {BR}|{RS}                                                  {BR}|{RS}',
+            f'  {BR}|{RS}  {SF}CONTROLS{RS}                                        {BR}|{RS}',
+            f'  {BR}|{RS}  {DM}[Enter] Start Rain (fullscreen){RS}                 {BR}|{RS}',
+            f'  {BR}|{RS}  {DM}[B] Background Mode (rain behind commands){RS}      {BR}|{RS}',
+            f'  {BR}|{RS}  {DM}[E/R] Speed -/+{RS}                                 {BR}|{RS}',
+            f'  {BR}|{RS}  {DM}[D/F] Density -/+{RS}                               {BR}|{RS}',
+            f'  {BR}|{RS}  {DM}[Q] Quit{RS}                                        {BR}|{RS}',
+            f'  {BR}|{RS}                                                  {BR}|{RS}',
+            f'  {BR}+--------------------------------------------------+{RS}',
+            f'  {BR}|{RS}  Color: {color_str}  Speed: {self._speed:.1f}x  Density: {self._density:.1f}  {BR}|{RS}',
+            f'  {BR}+==================================================+{RS}',
             '',
-            '  \x1b[90mPress a key...\x1b[0m',
+            f'  {DM}Press a key...{RS}',
         ]
         sys.stdout.write(CLEAR_SCREEN + HOME + '\r\n'.join(lines))
         sys.stdout.flush()
