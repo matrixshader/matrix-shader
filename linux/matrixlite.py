@@ -163,14 +163,34 @@ class Column:
 
 
 # ---------------------------------------------------------------------------
-# TextMatrixRenderer — ported from TextMatrixRenderer.cs
+# Synchronized update markers (DECSET 2026)
+# ---------------------------------------------------------------------------
+
+BSU = '\x1b[?2026h'  # Begin Synchronized Update
+ESU = '\x1b[?2026l'  # End Synchronized Update
+
+# Alternate screen buffer
+ALT_SCREEN_ON = '\x1b[?1049h'
+ALT_SCREEN_OFF = '\x1b[?1049l'
+
+# ---------------------------------------------------------------------------
+# TextMatrixRenderer — high-quality Matrix rain with dirty-cell rendering
 # ---------------------------------------------------------------------------
 
 class TextMatrixRenderer:
-    """Text-based Matrix rain renderer using ANSI escape codes.
+    """High-quality text-based Matrix rain renderer using ANSI escape codes.
 
-    Direct port of C# MatrixShader.Lite.TextMatrixRenderer.
+    Features:
+    - Synchronized output (DECSET 2026) for flicker-free rendering
+    - Dirty-cell rendering: only redraws cells that changed (~5-15% per frame)
+    - 10-level quantized color palette to minimize per-cell string formatting
+    - Background diffusion glow on bright cells
+    - Character twinkling/shimmer effect
+    - Alternate screen buffer to prevent scrollback pollution
     """
+
+    # Sentinel for empty cell (avoids char comparison with '\0')
+    _EMPTY = 0
 
     def __init__(self, width=None, height=None):
         if width is None or height is None:
@@ -191,9 +211,45 @@ class TextMatrixRenderer:
             if self._rng.random() > self._density:
                 col.reset()
 
+        # Pre-computed palette (rebuilt on color change)
+        self._palette = []
+        self._head_color = ''
+        self._build_palette()
+
+        # Allocate screen buffers
+        self._alloc_buffers()
+
+    def _build_palette(self):
+        """Pre-compute 10 brightness levels + head color for current color."""
+        r, g, b = self._color
+        self._palette = []
+        for i in range(10):
+            t = (i + 1) / 10.0  # 0.1 to 1.0
+            pr, pg, pb = int(r * t), int(g * t), int(b * t)
+            self._palette.append(f'\x1b[38;2;{pr};{pg};{pb}m')
+        # Head color: bright tint of current color (not pure white)
+        self._head_color = f'\x1b[38;2;{min(r + 200, 255)};{min(g + 200, 255)};{min(b + 200, 255)}m'
+
+    def _alloc_buffers(self):
+        """Allocate/reset all screen buffers."""
+        w, h = self._width, self._height
+        # Current frame buffers
+        self._screen = [[' '] * w for _ in range(h)]
+        self._bright = [[0.0] * w for _ in range(h)]
+        self._bg_glow = [[0] * w for _ in range(h)]
+        # Previous frame buffers (for dirty-cell comparison)
+        self._prev_screen = [[''] * w for _ in range(h)]
+        self._prev_bright_idx = [[-1] * w for _ in range(h)]
+        self._prev_bg_glow = [[-1] * w for _ in range(h)]
+        # Force full redraw on first frame
+        self._force_full_redraw = True
+
     def set_color(self, rgb):
         """Set color preset RGB tuple."""
         self._color = rgb
+        self._build_palette()
+        # Force full redraw since palette changed
+        self._force_full_redraw = True
 
     def set_speed(self, speed):
         """Set animation speed multiplier (0.1 - 3.0)."""
@@ -205,76 +261,161 @@ class TextMatrixRenderer:
 
     def initialize(self):
         """Initialize terminal for rendering."""
-        sys.stdout.write(HIDE_CURSOR + CLEAR_SCREEN + HOME)
+        sys.stdout.write(ALT_SCREEN_ON + HIDE_CURSOR + CLEAR_SCREEN + HOME)
         sys.stdout.flush()
+        self._force_full_redraw = True
 
     def render_frame(self):
         """Render one frame of Matrix rain. Returns ANSI string.
 
-        Port of TextMatrixRenderer.RenderFrame().
+        Uses dirty-cell rendering: only emits escape sequences for cells
+        that changed since the previous frame.
         """
-        buf = [HOME]
+        w, h = self._width, self._height
+        screen = self._screen
+        bright = self._bright
+        bg_glow = self._bg_glow
 
-        # Track screen positions
-        screen = [['\0'] * self._width for _ in range(self._height)]
-        bright = [[0.0] * self._width for _ in range(self._height)]
-
-        base_r, base_g, base_b = self._color
+        # Clear current frame buffers
+        for y in range(h):
+            row_s = screen[y]
+            row_b = bright[y]
+            row_g = bg_glow[y]
+            for x in range(w):
+                row_s[x] = ' '
+                row_b[x] = 0.0
+                row_g[x] = 0
 
         # Update all columns and collect characters
+        rng = self._rng
+        density = self._density
         for col in self._columns:
             col.update()
 
             # Respawn inactive columns based on density
-            if not col.is_active and self._rng.random() < self._density * 0.1:
+            if not col.is_active and rng.random() < density * 0.1:
                 col.reset()
 
             if not col.is_active:
                 continue
 
-            # Draw head (bright white)
-            if 0 <= col.head_y < self._height:
-                screen[col.head_y][col.x] = col.head_char
-                bright[col.head_y][col.x] = 1.5  # Brighter than max for head
+            head_y = col.head_y
+            col_x = col.x
+
+            # Draw head
+            if 0 <= head_y < h:
+                screen[head_y][col_x] = col.head_char
+                bright[head_y][col_x] = 1.5  # >1.0 marks as head
 
             # Draw trail
-            for i in range(col.trail_length):
-                y = col.head_y - i - 1
-                if 0 <= y < self._height:
-                    screen[y][col.x] = col.trail_chars[i]
-                    bright[y][col.x] = col.brightness(i)
+            trail_len = col.trail_length
+            trail_chars = col.trail_chars
+            for i in range(trail_len):
+                y = head_y - i - 1
+                if 0 <= y < h:
+                    screen[y][col_x] = trail_chars[i]
+                    b = col.brightness(i)
+                    # Character twinkling: subtle shimmer
+                    b += rng.uniform(-0.08, 0.08)
+                    if b < 0.0:
+                        b = 0.0
+                    elif b > 1.0:
+                        b = 1.0
+                    bright[y][col_x] = b
 
-        # Render to buffer with colors
-        for y in range(self._height):
-            for x in range(self._width):
+        # Background diffusion glow pass
+        for y in range(h):
+            for x in range(w):
+                b = bright[y][x]
+                if b > 0.5:
+                    glow = int(b * 10)
+                    # Spread to 4 neighbors
+                    if y > 0 and bg_glow[y - 1][x] < glow:
+                        bg_glow[y - 1][x] = glow
+                    if y < h - 1 and bg_glow[y + 1][x] < glow:
+                        bg_glow[y + 1][x] = glow
+                    if x > 0 and bg_glow[y][x - 1] < glow:
+                        bg_glow[y][x - 1] = glow
+                    if x < w - 1 and bg_glow[y][x + 1] < glow:
+                        bg_glow[y][x + 1] = glow
+
+        # Build output with dirty-cell rendering
+        buf = []
+        force_full = self._force_full_redraw
+        prev_screen = self._prev_screen
+        prev_bright_idx = self._prev_bright_idx
+        prev_bg_glow = self._prev_bg_glow
+        palette = self._palette
+        head_color = self._head_color
+
+        for y in range(h):
+            for x in range(w):
                 c = screen[y][x]
                 b = bright[y][x]
+                g = bg_glow[y][x]
 
-                if c == '\0' or b <= 0:
-                    buf.append(' ')
-                    continue
-
-                if b > 1.0:
-                    # Head character — bright white
-                    buf.append(f'\x1b[38;2;255;255;255m{c}')
+                # Quantize brightness to palette index (-1 for empty, 10 for head)
+                if c == ' ' or b <= 0.0:
+                    bidx = -1
+                elif b > 1.0:
+                    bidx = 10  # head
                 else:
-                    # Trail character — fading color
-                    r = int(base_r * b)
-                    g = int(base_g * b)
-                    bl = int(base_b * b)
-                    buf.append(f'\x1b[38;2;{r};{g};{bl}m{c}')
+                    bidx = max(0, min(9, int(b * 9.999)))
 
-            if y < self._height - 1:
-                buf.append(RESET)
-                buf.append('\n')
+                # Skip if unchanged from previous frame
+                if not force_full:
+                    if (c == prev_screen[y][x] and
+                            bidx == prev_bright_idx[y][x] and
+                            g == prev_bg_glow[y][x]):
+                        continue
 
-        buf.append(RESET)
-        return ''.join(buf)
+                # Store for next frame comparison
+                prev_screen[y][x] = c
+                prev_bright_idx[y][x] = bidx
+                prev_bg_glow[y][x] = g
+
+                # Emit cursor position
+                buf.append(f'\x1b[{y + 1};{x + 1}H')
+
+                if bidx == -1:
+                    # Empty cell — may still have bg glow
+                    if g > 0:
+                        buf.append(f'\x1b[48;2;0;{g};0m \x1b[49m')
+                    else:
+                        buf.append(RESET + ' ')
+                elif bidx == 10:
+                    # Head character
+                    if g > 0:
+                        buf.append(f'{head_color}\x1b[48;2;0;{g};0m{c}\x1b[49m')
+                    else:
+                        buf.append(f'{head_color}{c}')
+                else:
+                    # Trail character — use quantized palette
+                    if g > 0:
+                        buf.append(f'{palette[bidx]}\x1b[48;2;0;{g};0m{c}\x1b[49m')
+                    else:
+                        buf.append(f'{palette[bidx]}{c}')
+
+        self._force_full_redraw = False
+
+        # Wrap in synchronized update, end with RESET
+        result = BSU + ''.join(buf) + RESET + ESU
+        return result
 
     def cleanup(self):
         """Restore terminal state."""
-        sys.stdout.write(SHOW_CURSOR + RESET + CLEAR_SCREEN + HOME)
+        sys.stdout.write(SHOW_CURSOR + RESET + CLEAR_SCREEN + HOME + ALT_SCREEN_OFF)
         sys.stdout.flush()
+
+    def resize(self, width, height):
+        """Resize the renderer to new dimensions."""
+        self._width = width
+        self._height = height
+        self._columns = [Column(x, self._height, self._rng) for x in range(self._width)]
+        for col in self._columns:
+            if self._rng.random() > self._density:
+                col.reset()
+        self._alloc_buffers()
 
     def check_and_handle_resize(self):
         """Check for terminal resize and reinitialize if needed.
@@ -285,12 +426,7 @@ class TextMatrixRenderer:
             ts = shutil.get_terminal_size()
             new_w, new_h = ts.columns, ts.lines
             if new_w != self._width or new_h != self._height:
-                self._width = new_w
-                self._height = new_h
-                self._columns = [Column(x, self._height, self._rng) for x in range(self._width)]
-                for col in self._columns:
-                    if self._rng.random() > self._density:
-                        col.reset()
+                self.resize(new_w, new_h)
                 sys.stdout.write(CLEAR_SCREEN + HOME)
                 sys.stdout.flush()
                 return True

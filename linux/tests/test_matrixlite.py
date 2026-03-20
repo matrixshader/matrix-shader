@@ -117,19 +117,20 @@ class TestRenderer:
         frame = renderer.render_frame()
         assert '\x1b[' in frame
 
-    def test_render_frame_starts_with_home(self):
-        from matrixlite import TextMatrixRenderer, HOME
+    def test_render_frame_starts_with_bsu(self):
+        from matrixlite import TextMatrixRenderer, BSU
         renderer = TextMatrixRenderer(width=10, height=5)
         frame = renderer.render_frame()
-        assert frame.startswith(HOME)
+        assert frame.startswith(BSU)
 
-    def test_render_frame_ends_with_reset(self):
-        from matrixlite import TextMatrixRenderer, RESET
+    def test_render_frame_ends_with_esu(self):
+        from matrixlite import TextMatrixRenderer, RESET, ESU
         renderer = TextMatrixRenderer(width=10, height=5)
         frame = renderer.render_frame()
-        assert frame.endswith(RESET)
+        # Frame ends with RESET + ESU (synchronized update end)
+        assert frame.endswith(RESET + ESU)
 
-    def test_head_characters_render_white(self):
+    def test_head_characters_render_bright_tint(self):
         from matrixlite import TextMatrixRenderer
         rng = random.Random(42)
         renderer = TextMatrixRenderer(width=80, height=24)
@@ -139,7 +140,9 @@ class TestRenderer:
         renderer._columns[0]._active = True
         renderer._columns[0].speed = 1
         frame = renderer.render_frame()
-        assert '255;255;255' in frame
+        # Head color is bright tint of current color (green: 200;255;255)
+        # rather than pure white, matching movie aesthetics
+        assert renderer._head_color in frame
 
     def test_trail_uses_color_brightness(self):
         from matrixlite import TextMatrixRenderer
@@ -160,8 +163,9 @@ class TestRenderer:
         for col in renderer._columns:
             col._active = False
         frame = renderer.render_frame()
-        # Frame should be mostly spaces (between HOME and RESET)
-        assert '  ' in frame
+        # With dirty-cell rendering, spaces are emitted with cursor positioning
+        # Each empty cell emits a space character
+        assert ' ' in frame
 
 
 class TestColorPresets:
