@@ -60,7 +60,7 @@ RESET = '\x1b[0m'
 # ---------------------------------------------------------------------------
 
 COLOR_PRESETS = [
-    ('Green',  (53, 179, 129)),   # Brand BASE #35B381
+    ('Green',  (0, 255, 77)),     # (0.0, 1.0, 0.3) — rain color
     ('Blue',   (0, 153, 255)),   # (0.0, 0.6, 1.0)
     ('Red',    (255, 26, 26)),   # (1.0, 0.1, 0.1)
     ('Purple', (179, 0, 255)),   # (0.7, 0.0, 1.0)
@@ -543,24 +543,24 @@ class LiteMenu:
 
         lines = [
             '',
-            '  \x1b[32m+==================================================+\x1b[0m',
-            '  \x1b[32m|      MATRIX SHADER - LITE MODE                   |\x1b[0m',
-            '  \x1b[32m+==================================================+\x1b[0m',
-            '  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  COLOR PRESETS                                   \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [1] Green   [2] Blue   [3] Red                  \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [4] Purple  [5] Gold   [6] Teal                 \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  CONTROLS                                        \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [Enter] Start Rain (fullscreen)                 \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [B] Background Mode (rain behind commands)      \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [E/R] Speed -/+                                 \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [D/F] Density -/+                               \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m  [Q] Quit                                        \x1b[32m|\x1b[0m',
-            '  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m',
-            '  \x1b[32m+--------------------------------------------------+\x1b[0m',
-            f'  \x1b[32m|\x1b[0m  Color: {color_str}  Speed: {self._speed:.1f}x  Density: {self._density:.1f}  \x1b[32m|\x1b[0m',
-            '  \x1b[32m+==================================================+\x1b[0m',
+            '  \x1b[38;2;53;179;129m+==================================================+\x1b[0m',
+            '  \x1b[38;2;53;179;129m|      MATRIX SHADER - LITE MODE                   |\x1b[0m',
+            '  \x1b[38;2;53;179;129m+==================================================+\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m                                                  \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m  COLOR PRESETS                                   \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m  [1] Green   [2] Blue   [3] Red                  \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m  [4] Purple  [5] Gold   [6] Teal                 \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m                                                  \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m  CONTROLS                                        \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m  [Enter] Start Rain (fullscreen)                 \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m  [B] Background Mode (rain behind commands)      \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m  [E/R] Speed -/+                                 \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m  [D/F] Density -/+                               \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m  [Q] Quit                                        \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m|\x1b[0m                                                  \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m+--------------------------------------------------+\x1b[0m',
+            f'  \x1b[38;2;53;179;129m|\x1b[0m  Color: {color_str}  Speed: {self._speed:.1f}x  Density: {self._density:.1f}  \x1b[38;2;53;179;129m|\x1b[0m',
+            '  \x1b[38;2;53;179;129m+==================================================+\x1b[0m',
             '',
             '  \x1b[90mPress a key...\x1b[0m',
         ]
@@ -703,7 +703,7 @@ def _typewriter(text, delay=0.07):
 def _show_help():
     """Show help text and exit. Port of Program.ShowHelp()."""
     sys.stdout.write('\n')
-    sys.stdout.write('\x1b[32m MATRIXLITE - Text-based Matrix Rain\x1b[0m\n')
+    sys.stdout.write('\x1b[38;2;53;179;129m MATRIXLITE - Text-based Matrix Rain\x1b[0m\n')
     sys.stdout.write('\n')
     sys.stdout.write('\x1b[90m Usage: matrixlite [options]\x1b[0m\n')
     sys.stdout.write('\n')
@@ -725,7 +725,7 @@ def _show_help():
 def _show_intro():
     """Matrix-style intro. Port of Program.ShowIntro()."""
     sys.stdout.write(CLEAR_SCREEN + HOME + '\n')
-    sys.stdout.write('\x1b[32m')
+    sys.stdout.write('\x1b[38;2;53;179;129m')
     _typewriter(' Wake up, Neo...', 0.08)
     time.sleep(0.8)
     _typewriter(' The Matrix has you...', 0.06)
@@ -744,22 +744,22 @@ def _show_pill_choice():
     sys.stdout.write(CLEAR_SCREEN + HOME)
     lines = [
         '',
-        '\x1b[32m  +==================================================+\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m  \x1b[1;32m"This is your last chance. After this,\x1b[0m          \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m   \x1b[1;32mthere is no turning back."\x1b[0m                     \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  +--------------------------------------------------+\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m  \x1b[34m[B] BLUE PILL\x1b[0m - Straight to the Matrix          \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m      Start the rain immediately                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m  \x1b[31m[R] RED PILL\x1b[0m - Control the Code                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m      Open the control menu                       \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m  \x1b[90m[Q] EXIT\x1b[0m - Leave the Matrix                     \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  +==================================================+\x1b[0m',
+        '\x1b[38;2;53;179;129m  +==================================================+\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m                                                  \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m  \x1b[1;32m"This is your last chance. After this,\x1b[0m          \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m   \x1b[1;32mthere is no turning back."\x1b[0m                     \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m                                                  \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  +--------------------------------------------------+\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m                                                  \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m  \x1b[34m[B] BLUE PILL\x1b[0m - Straight to the Matrix          \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m      Start the rain immediately                  \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m                                                  \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m  \x1b[31m[R] RED PILL\x1b[0m - Control the Code                  \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m      Open the control menu                       \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m                                                  \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m  \x1b[90m[Q] EXIT\x1b[0m - Leave the Matrix                     \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  |\x1b[0m                                                  \x1b[38;2;53;179;129m|\x1b[0m',
+        '\x1b[38;2;53;179;129m  +==================================================+\x1b[0m',
         '',
         '  \x1b[90mChoose your path [B/R/Q]: \x1b[0m',
     ]
@@ -832,7 +832,7 @@ def main(args=None):
 
             if choice == 'quit':
                 sys.stdout.write(CLEAR_SCREEN + HOME)
-                sys.stdout.write('\x1b[32m  You take the exit... The story ends.\x1b[0m\n\n')
+                sys.stdout.write('\x1b[38;2;53;179;129m  You take the exit... The story ends.\x1b[0m\n\n')
                 sys.stdout.flush()
                 break
 

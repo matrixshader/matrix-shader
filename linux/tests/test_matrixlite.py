@@ -178,7 +178,7 @@ class TestColorPresets:
     def test_green_rgb(self):
         from matrixlite import COLOR_PRESETS
         name, (r, g, b) = COLOR_PRESETS[0]
-        assert (r, g, b) == (53, 179, 129)  # Brand BASE #35B381
+        assert (r, g, b) == (0, 255, 77)
 
     def test_blue_rgb(self):
         from matrixlite import COLOR_PRESETS
