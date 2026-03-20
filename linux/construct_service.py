@@ -243,12 +243,8 @@ def transition_to_rain(slot: int, preset_idx: int,
 
     # 2. Find the construct config that Ghostty is ACTUALLY reading
     if construct_conf is None:
-        for s in range(1, 9):
-            p = f"/tmp/ghostty-construct-{s}.conf"
-            if os.path.isfile(p):
-                construct_conf = p
-                break
-    if construct_conf is None:
+        construct_conf = f"/tmp/ghostty-construct-{slot}.conf"
+    if not os.path.isfile(construct_conf):
         return False
 
     # 3. Write a proper matrix rain config (not patching — full rewrite)
@@ -265,47 +261,28 @@ def transition_to_rain(slot: int, preset_idx: int,
         return False
 
     # 5. Trigger D-Bus reload on the construct window ONLY
-    bus_name = _find_construct_bus_name()
+    #    Use slot-specific matching to avoid hitting stale construct windows
+    #    from previous runs that already transitioned to rain.
+    global _cached_construct_bus_name
+    _cached_construct_bus_name = None  # force refresh
+    bus_name = _find_construct_bus_name(slot=slot)
     if bus_name:
         shader_service.reload_ghostty(bus_name)
 
-    # 6. Register window in window_service for system integration
-    #    (redpill, hotkeys, glitch, layout engine)
-    try:
-        import window_service
-        # Find the construct Ghostty PID
-        result = subprocess.run(
-            ["pgrep", "-f", f"config-file={construct_conf}"],
-            capture_output=True, text=True, timeout=3,
-            stdin=subprocess.DEVNULL,
-        )
-        if result.returncode == 0:
-            for pid_str in result.stdout.strip().split():
-                try:
-                    exe = os.readlink(f"/proc/{pid_str}/exe")
-                    if "ghostty" in exe:
-                        window_service.register_window(slot, int(pid_str))
-                        break
-                except (FileNotFoundError, PermissionError, OSError):
-                    continue
-    except ImportError:
-        pass
+    # 6. Window registration is handled by the CALLER (construct.sh line 159)
+    #    which walks the process tree to find the correct Ghostty PID.
+    #    Do NOT register here — pgrep matching is fragile and can find wrong PIDs.
 
     # 7. Save shader config to state
     try:
         import state_service
         state = state_service.load_state()
-        preset_colors = [
-            {"RAIN_R": 0.0, "RAIN_G": 1.0, "RAIN_B": 0.3},   # Green
-            {"RAIN_R": 0.0, "RAIN_G": 0.6, "RAIN_B": 1.0},   # Blue
-            {"RAIN_R": 1.0, "RAIN_G": 0.0, "RAIN_B": 0.0},   # Red
-            {"RAIN_R": 0.6, "RAIN_G": 0.0, "RAIN_B": 0.8},   # Purple
-            {"RAIN_R": 0.85, "RAIN_G": 0.65, "RAIN_B": 0.0},  # Gold
-            {"RAIN_R": 0.0, "RAIN_G": 0.75, "RAIN_B": 0.8},   # Teal
-        ]
-        if 0 <= preset_idx < len(preset_colors):
+        # Use shader_service.PRESET_COLORS as single source of truth
+        # (avoids drift between shader RGB and state.json RGB)
+        if 0 <= preset_idx < len(shader_service.PRESET_COLORS) and shader_service.PRESET_COLORS[preset_idx] is not None:
+            r, g, b = shader_service.PRESET_COLORS[preset_idx]
             config = {
-                **preset_colors[preset_idx],
+                "RAIN_R": r, "RAIN_G": g, "RAIN_B": b,
                 "RAIN_SPEED": 1.8, "GLOW_STRENGTH": 0.8,
                 "CHAR_WIDTH": 10.0, "TRAIL_POWER": 8.0,
                 "RAIN_DENSITY": 0.2,
@@ -337,18 +314,37 @@ COLOR_NAMES = ["Green", "Blue", "Red", "Purple", "Gold", "Teal"]
 _cached_construct_bus_name = None
 
 
-def _warm_bus_cache():
-    """Pre-discover bus name before entering the picker loop."""
+def _warm_bus_cache(slot=None):
+    """Pre-discover bus name before entering the picker loop.
+
+    Retries up to 5 times with 0.5s delay to handle the race condition where
+    Ghostty hasn't registered its D-Bus name yet when the picker starts.
+
+    Args:
+        slot: If provided, match only the construct window for this specific slot.
+              This prevents matching a stale construct window from a previous run.
+    """
     global _cached_construct_bus_name
     _cached_construct_bus_name = None  # force refresh
-    _find_construct_bus_name()
+    for _ in range(5):
+        bus = _find_construct_bus_name(slot=slot)
+        if bus is not None:
+            return
+        _cached_construct_bus_name = None  # reset for retry
+        time.sleep(0.5)
 
 
-def _find_construct_bus_name():
+def _find_construct_bus_name(slot=None):
     """Find the D-Bus name for the construct Ghostty window ONLY (cached).
 
     Uses busctl to list Ghostty D-Bus names, then matches PID to the
-    construct process via /proc/PID/cmdline containing 'ghostty-construct'.
+    construct process via /proc/PID/cmdline.
+
+    Args:
+        slot: If provided, match only 'ghostty-construct-{slot}' in cmdline.
+              Otherwise matches any 'ghostty-construct' — which can return stale
+              windows from previous runs that already transitioned to rain.
+
     Returns bus_name string or None.
     """
     global _cached_construct_bus_name
@@ -375,12 +371,14 @@ def _find_construct_bus_name():
             except (ValueError, IndexError):
                 continue
 
-    # Find which PID has "ghostty-construct" in its cmdline
+    # Match pattern: specific slot if provided, otherwise any construct window
+    match_pattern = f"ghostty-construct-{slot}" if slot else "ghostty-construct"
+
     for pid, bus_name in bus_entries.items():
         try:
             with open(f"/proc/{pid}/cmdline") as f:
                 cmdline = f.read()
-            if "ghostty-construct" in cmdline:
+            if match_pattern in cmdline:
                 _cached_construct_bus_name = bus_name
                 return bus_name
         except (FileNotFoundError, PermissionError):
@@ -389,8 +387,13 @@ def _find_construct_bus_name():
     return None
 
 
-def _write_shader_defines(shader_path, selected, state, state_time):
-    """Rewrite #define values in the white room shader COPY and trigger D-Bus reload."""
+def _write_shader_defines(shader_path, selected, state, state_time, slot=None):
+    """Rewrite #define values in the white room shader COPY and trigger D-Bus reload.
+
+    Args:
+        slot: If provided, used for slot-specific bus name matching when cache
+              is cold. Prevents matching stale construct windows from prior runs.
+    """
     try:
         with open(shader_path) as f:
             content = f.read()
@@ -415,17 +418,51 @@ def _write_shader_defines(shader_path, selected, state, state_time):
             pass
         return
 
-    # Reload ONLY the construct window (cached bus name)
-    bus_name = _find_construct_bus_name()
+    # Reload ONLY the construct window (cached bus name, falls back to slot match)
+    bus_name = _find_construct_bus_name(slot=slot)
     if bus_name:
         shader_service.reload_ghostty(bus_name)
 
 
-def write_picker_state(selected, state, shader_path, state_time=None):
+def write_picker_state(selected, state, shader_path, state_time=None, slot=None):
     """Write picker state to shader copy via #define rewrite + targeted D-Bus reload."""
     if state_time is None:
         state_time = _approx_itime()
-    _write_shader_defines(shader_path, selected, state, state_time)
+    _write_shader_defines(shader_path, selected, state, state_time, slot=slot)
+
+
+def _write_shader_selected(shader_path, selected, slot=None):
+    """Rewrite ONLY the SELECTED #define — leaves STATE and STATE_TIME untouched.
+
+    Used by the input loop during browsing so arrow keys change the highlighted
+    swatch without resetting the zoom or power-off animation.
+    """
+    try:
+        with open(shader_path) as f:
+            content = f.read()
+    except FileNotFoundError:
+        return
+
+    content = re.sub(r"(#define\s+SELECTED\s+)\S+", f"\\g<1>{selected}", content)
+
+    # Atomic write
+    dir_path = os.path.dirname(shader_path)
+    fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(content)
+        os.replace(tmp_path, shader_path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        return
+
+    # Reload ONLY the construct window
+    bus_name = _find_construct_bus_name(slot=slot)
+    if bus_name:
+        shader_service.reload_ghostty(bus_name)
 
 
 _ghostty_start_monotonic = 0.0
@@ -471,24 +508,33 @@ def _approx_itime():
     return time.monotonic() - _ghostty_start_monotonic
 
 
-def animate_zoom_in(selected, shader_path):
-    """Trigger GPU-driven zoom-in by setting STATE=1, STATE_TIME=current iTime."""
-    # STATE=1 tells the shader to compute zoom from iTime
-    # Use _approx_itime() so the animation starts from the current moment
-    state_time = _approx_itime()
-    write_picker_state(selected, 1, shader_path, state_time=state_time)
-    # Wait for the animation to complete before handing control to the picker
-    time.sleep(3.0)
-    # Transition to browsing state
-    write_picker_state(selected, 2, shader_path, state_time=0.0)
+def animate_zoom_in(selected, shader_path, slot=None):
+    """Trigger GPU-driven zoom-in by setting STATE=1. Returns immediately.
+
+    The zoom animation runs entirely on the GPU (3s ease-out cubic). With the
+    patched Ghostty binary (iTime preserved across reloads), arrow key presses
+    during the zoom don't restart the animation.
+
+    After 3s, clamp(elapsed/3.0) saturates at 1.0 — zoom stays at 1.0,
+    visually identical to STATE=2. No explicit transition needed.
+
+    Uses _approx_itime() for STATE_TIME so elapsed starts near 0 regardless
+    of when the window was opened. Required because iTime is preserved across
+    reloads — on second launches iTime could be 30+ seconds in.
+    """
+    write_picker_state(selected, 1, shader_path, state_time=_approx_itime(), slot=slot)
 
 
-def animate_power_off(selected, shader_path):
-    """Trigger GPU-driven power-off by setting STATE=3."""
-    state_time = _approx_itime()
-    write_picker_state(selected, 3, shader_path, state_time=state_time)
-    # Wait for the 1-second animation to complete
-    time.sleep(1.2)
+def animate_power_off(selected, shader_path, slot=None):
+    """Trigger GPU-driven power-off by setting STATE=3.
+
+    Uses _approx_itime() for STATE_TIME so elapsed starts near 0. With iTime
+    preserved across reloads, the shader's iTime reflects actual elapsed time
+    since the window opened. Both zoom-in and power-off use _approx_itime().
+    """
+    write_picker_state(selected, 3, shader_path, state_time=_approx_itime(), slot=slot)
+    # Wait for the 1-second animation + buffer for D-Bus round-trip + shader compile
+    time.sleep(1.5)
 
 
 def white_room_picker(shader_path=None) -> int | None:
@@ -517,9 +563,16 @@ def white_room_picker(shader_path=None) -> int | None:
     if shader_path is None:
         return 0  # Can't find shader, bail
 
+    # Extract slot number from shader path for targeted bus name matching.
+    # Path format: /tmp/ghostty-construct-{slot}-shader.glsl
+    _picker_slot = None
+    m = re.search(r"ghostty-construct-(\d+)-shader", shader_path)
+    if m:
+        _picker_slot = int(m.group(1))
+
     try:
-        tty = open("/dev/tty", "r")
-    except (FileNotFoundError, OSError):
+        tty_fd = os.open("/dev/tty", os.O_RDONLY)
+    except OSError:
         return 0
 
     # Hide cursor
@@ -528,68 +581,67 @@ def white_room_picker(shader_path=None) -> int | None:
 
     try:
         # Pre-cache bus name and init time tracking
-        _warm_bus_cache()
+        _warm_bus_cache(slot=_picker_slot)
         _init_time_tracking()
 
-        # Zoom-in animation (GPU-driven, one write)
-        animate_zoom_in(selected, shader_path)
+        # Zoom-in animation (blocks 3s while GPU animates, then enters browsing)
+        animate_zoom_in(selected, shader_path, slot=_picker_slot)
 
         import termios
         import tty as tty_mod
 
         def _has_more(fd, timeout=0.1):
             """Check if more input is available within timeout."""
-            if hasattr(fd, 'fileno'):
-                r, _, _ = select.select([fd], [], [], timeout)
-                return bool(r)
-            return False
+            r, _, _ = select.select([fd], [], [], timeout)
+            return bool(r)
 
-        old_settings = termios.tcgetattr(tty)
-        tty_mod.setraw(tty.fileno())
+        old_settings = termios.tcgetattr(tty_fd)
+        tty_mod.setraw(tty_fd)
 
         try:
             while True:
-                ch = tty.read(1)
-                if ch == "\x1b":
-                    if _has_more(tty, 0.05):
-                        ch2 = tty.read(1)
-                        if ch2 == "[" and _has_more(tty, 0.05):
-                            ch3 = tty.read(1)
-                            if ch3 == "A":    # Up
+                ch = os.read(tty_fd, 1)
+                if ch == b"\x1b":
+                    if _has_more(tty_fd, 0.05):
+                        ch2 = os.read(tty_fd, 1)
+                        if ch2 == b"[" and _has_more(tty_fd, 0.05):
+                            ch3 = os.read(tty_fd, 1)
+                            if ch3 == b"A":    # Up
                                 selected = (selected + 3) % count
-                            elif ch3 == "B":  # Down
+                            elif ch3 == b"B":  # Down
                                 selected = (selected + 3) % count
-                            elif ch3 == "C":  # Right
+                            elif ch3 == b"C":  # Right
                                 selected = (selected + 1) % count
-                            elif ch3 == "D":  # Left
+                            elif ch3 == b"D":  # Left
                                 selected = (selected - 1 + count) % count
                             else:
                                 continue
                         else:
                             # Bare ESC or unknown sequence
-                            animate_power_off(selected, shader_path)
+                            animate_power_off(selected, shader_path, slot=_picker_slot)
                             return None
                     else:
                         # Bare ESC — no more bytes within timeout
-                        animate_power_off(selected, shader_path)
+                        animate_power_off(selected, shader_path, slot=_picker_slot)
                         return None
-                elif ch == "\r" or ch == "\n":  # Enter
-                    animate_power_off(selected, shader_path)
+                elif ch == b"\r" or ch == b"\n":  # Enter
+                    animate_power_off(selected, shader_path, slot=_picker_slot)
                     break
-                elif ch == "\x03":  # Ctrl+C
-                    animate_power_off(selected, shader_path)
+                elif ch == b"\x03":  # Ctrl+C
+                    animate_power_off(selected, shader_path, slot=_picker_slot)
                     return None
                 else:
                     continue
 
-                # Update shader with new selection (only SELECTED changes, not state)
-                write_picker_state(selected, 2, shader_path, state_time=0.0)
+                # Update ONLY SELECTED — STATE=2 stays untouched so zoom
+                # remains at static 1.0 (no iTime dependency during browsing).
+                _write_shader_selected(shader_path, selected, slot=_picker_slot)
         finally:
-            termios.tcsetattr(tty, termios.TCSADRAIN, old_settings)
+            termios.tcsetattr(tty_fd, termios.TCSADRAIN, old_settings)
     except (ImportError, termios.error):
-        write_picker_state(selected, 2, shader_path, state_time=0.0)
+        _write_shader_selected(shader_path, selected, slot=_picker_slot)
     finally:
-        tty.close()
+        os.close(tty_fd)
         sys.stderr.write("\033[?25h")
         sys.stderr.flush()
 

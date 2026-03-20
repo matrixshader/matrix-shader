@@ -77,7 +77,7 @@ if [ -n "$COLOR" ]; then
 
     # Launch Ghostty — same pattern as wakeupneo launch_window()
     nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
-    local ghostty_pid=$!
+    ghostty_pid=$!
     disown
     # Register PID immediately (same pattern as wakeupneo line 427-429)
     python3 -B "$PYMOD_DIR/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
@@ -125,6 +125,7 @@ if [ "$IN_GHOSTTY" = "true" ]; then
     if [ $exit_code -ne 0 ] || [ -z "$selected" ] || [ "$selected" = "cancelled" ]; then
         # Power-off animation already played by picker on cancel
         sleep 0.5
+        rm -f "$own_shader" "$own_conf"
         exit 0
     fi
 
@@ -140,7 +141,6 @@ transition_to_rain($own_slot, $selected, construct_conf='$own_conf')
 
     # Clean up construct shader copy (keep config — Ghostty still reads it on D-Bus reload)
     rm -f "$own_shader"
-    rm -f "/tmp/ghostty-construct-${own_slot}-shader.glsl"
 
     # Register this window in the matrix system — SAME as wakeupneo does
     # Find our Ghostty parent PID (we're a child process of Ghostty)
@@ -162,8 +162,19 @@ transition_to_rain($own_slot, $selected, construct_conf='$own_conf')
         matrix_conf="/tmp/ghostty-matrix-${own_slot}.conf"
         [ ! -f "$matrix_conf" ] && cp "$own_conf" "$matrix_conf"
 
-        # Apply layout — wait for compositor
-        sleep 1.0
+        # Exit fullscreen via D-Bus (uses patched Ghostty's toggle-fullscreen action)
+        busname=$(busctl --user list 2>/dev/null | awk -v p="$ghostty_pid" '$2==p && /ghostty/{print $1}')
+        if [ -n "$busname" ]; then
+            gdbus call --session --dest "$busname" \
+                --object-path /com/mitchellh/ghostty \
+                --method org.gtk.Actions.Activate \
+                "toggle-fullscreen" "[]" "{}" >/dev/null 2>&1
+        fi
+        # Wait for GNOME to complete unfullscreen animation
+        sleep 1.5
+
+        # Apply layout
+
         python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
 from layout_engine import apply_current_layout
@@ -219,8 +230,11 @@ font-family = Nimbus Mono PS
 font-style = Bold
 font-size = 16
 background-opacity = 1.0
-gtk-titlebar = true
-window-decoration = client
+gtk-titlebar = false
+window-decoration = none
+window-padding-x = 0
+window-padding-y = 0
+fullscreen = true
 desktop-notifications = false
 EOF
 

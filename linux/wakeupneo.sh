@@ -299,11 +299,11 @@ matrix_splash() {
                 if ((y >= 0 && y < height)); then
                     local c="${chars:$(( RANDOM % char_count )):1}"
                     if ((t == 0)); then
-                        buf+="\033[$((y+1));$((x+1))H\033[97m${c}"   # White head
+                        buf+="\033[$((y+1));$((x+1))H\033[38;2;110;220;170m${c}"  # Bright #6EDCAA
                     elif ((t == 1)); then
-                        buf+="\033[$((y+1));$((x+1))H\033[92m${c}"   # Bright green
+                        buf+="\033[$((y+1));$((x+1))H\033[38;2;53;179;129m${c}"   # Base #35B381
                     else
-                        buf+="\033[$((y+1));$((x+1))H\033[32m${c}"   # Green
+                        buf+="\033[$((y+1));$((x+1))H\033[38;2;30;100;72m${c}"    # Soft #1E6448
                     fi
                 fi
             done

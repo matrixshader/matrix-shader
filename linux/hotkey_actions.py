@@ -466,6 +466,58 @@ def action_cycle_layout() -> None:
         pass  # Layout engine may not be available yet
 
 
+def _swap_config_foregrounds(slot_a: int, slot_b: int) -> None:
+    """Swap the foreground color between two slots' Ghostty config files.
+
+    When windows swap positions, the foreground text color in each config
+    must follow the shader so the text color matches the rain color.
+    """
+    import re as _re
+    conf_a = f"/tmp/ghostty-matrix-{slot_a}.conf"
+    conf_b = f"/tmp/ghostty-matrix-{slot_b}.conf"
+    try:
+        with open(conf_a) as f:
+            content_a = f.read()
+        with open(conf_b) as f:
+            content_b = f.read()
+    except FileNotFoundError:
+        return
+
+    fg_pattern = _re.compile(r"^(foreground\s*=\s*)(.+)$", _re.MULTILINE)
+    match_a = fg_pattern.search(content_a)
+    match_b = fg_pattern.search(content_b)
+    if not match_a or not match_b:
+        return
+
+    fg_a = match_a.group(2).strip()
+    fg_b = match_b.group(2).strip()
+    if fg_a == fg_b:
+        return
+
+    content_a = fg_pattern.sub(f"\\g<1>{fg_b}", content_a)
+    content_b = fg_pattern.sub(f"\\g<1>{fg_a}", content_b)
+    try:
+        with open(conf_a, "w") as f:
+            f.write(content_a)
+        with open(conf_b, "w") as f:
+            f.write(content_b)
+    except OSError:
+        pass
+
+    # Also update construct configs if they exist (construct-originated windows
+    # have Ghostty reading /tmp/ghostty-construct-{slot}.conf)
+    for slot, new_fg in [(slot_a, fg_b), (slot_b, fg_a)]:
+        cconf = f"/tmp/ghostty-construct-{slot}.conf"
+        try:
+            with open(cconf) as f:
+                cc = f.read()
+            cc = fg_pattern.sub(f"\\g<1>{new_fg}", cc)
+            with open(cconf, "w") as f:
+                f.write(cc)
+        except (FileNotFoundError, OSError):
+            pass
+
+
 def _swap_with_neighbor(direction: str) -> None:
     """Swap the focused window's position with its left or right neighbor.
 
@@ -531,6 +583,9 @@ def _swap_with_neighbor(direction: str) -> None:
         neighbor_slot, current_geo["x"], current_geo["y"],
         current_geo["width"], current_geo["height"]
     )
+
+    # Swap foreground colors in Ghostty config files so text color follows the window
+    _swap_config_foregrounds(current_slot, neighbor_slot)
 
     # Update layout cache with new positions
     result_layout = []

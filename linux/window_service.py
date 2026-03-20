@@ -106,6 +106,31 @@ def load_mapping():
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
+    # VACCINE 3: Recover missing config files for registered windows.
+    # If a Ghostty process is alive but its config was deleted, recreate it
+    # so hotkeys/reloads don't crash with config errors.
+    for slot, entry in clean.items():
+        pid = entry.get('pid')
+        if not pid or not _pid_alive(pid):
+            continue
+        slot_num = int(slot)
+        matrix_conf = f"/tmp/ghostty-matrix-{slot_num}.conf"
+        if not os.path.isfile(matrix_conf):
+            _recover_config(slot_num)
+        # Also check construct config (post-transition it mirrors matrix config)
+        construct_conf = f"/tmp/ghostty-construct-{slot_num}.conf"
+        # Only recover construct conf if the process was launched with it
+        try:
+            with open(f"/proc/{pid}/cmdline") as f:
+                cmdline = f.read()
+            if f"ghostty-construct-{slot_num}" in cmdline and not os.path.isfile(construct_conf):
+                # Copy matrix config — post-transition they're identical
+                if os.path.isfile(matrix_conf):
+                    import shutil
+                    shutil.copy2(matrix_conf, construct_conf)
+        except (FileNotFoundError, PermissionError, OSError):
+            pass
+
     # Write back if anything changed
     if clean != raw:
         try:
@@ -126,9 +151,24 @@ def register_window(slot, pid):
     """Register a slot-to-PID mapping after launching a window.
 
     Purges any stale entries first to prevent ghost slots.
+    SAFETY: refuses to overwrite a slot that has a DIFFERENT live PID.
     """
     mapping = load_mapping()  # auto-purges dead PIDs
-    mapping[str(slot)] = {'pid': int(pid)}
+    slot_str = str(slot)
+    pid = int(pid)
+    existing = mapping.get(slot_str)
+    if existing:
+        existing_pid = existing.get('pid')
+        if existing_pid and existing_pid != pid and _pid_alive(existing_pid):
+            # Slot occupied by a different live process — find a free slot instead
+            for alt in range(1, 9):
+                if str(alt) not in mapping:
+                    slot_str = str(alt)
+                    break
+            else:
+                # All slots full — refuse registration
+                return
+    mapping[slot_str] = {'pid': pid}
     save_mapping(mapping)
 
 
@@ -140,13 +180,162 @@ def unregister_window(slot):
 
 
 def get_focused_slot():
-    """Get the currently active/focused slot from state. Returns None if unknown."""
+    """Get the slot of the currently focused Ghostty window.
+
+    Strategy (tried in order):
+    1. GNOME Shell extension GetFocusedPid (Wayland-native, needs extension reload)
+    2. GNOME Shell extension ListWindows with focused field (works after extension update)
+    3. Ghostty is-focused D-Bus action (poll each instance, works immediately)
+    4. state.json active_tab (stale fallback)
+    """
+    # Strategy 1: GNOME Shell extension GetFocusedPid D-Bus call
+    try:
+        result = subprocess.run(
+            ["gdbus", "call", "--session",
+             "--dest", DBUS_DEST,
+             "--object-path", DBUS_PATH,
+             "--method", f"{DBUS_IFACE}.GetFocusedPid"],
+            capture_output=True, text=True, timeout=2,
+            stdin=subprocess.DEVNULL,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            import re as _re
+            match = _re.search(r'\d+', result.stdout)
+            if match:
+                focused_pid = int(match.group())
+                if focused_pid > 0:
+                    mapping = load_mapping()
+                    for slot_str, entry in mapping.items():
+                        if entry.get('pid') == focused_pid:
+                            return int(slot_str)
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, ValueError):
+        pass
+
+    # Strategy 2: ListWindows with focused field (works once extension is reloaded)
+    focused_slot = _check_list_windows_focus()
+    if focused_slot is not None:
+        return focused_slot
+
+    # Strategy 3: Poll Ghostty instances via is-focused D-Bus action
+    focused_pid = _poll_ghostty_focus()
+    if focused_pid:
+        mapping = load_mapping()
+        for slot_str, entry in mapping.items():
+            if entry.get('pid') == focused_pid:
+                return int(slot_str)
+
+    # Strategy 4: state.json active_tab (stale fallback)
     try:
         import state_service
         state = state_service.load_state()
         return state.get("active_tab")
     except Exception:
         return None
+
+
+def _check_list_windows_focus():
+    """Check ListWindows response for a focused Ghostty window.
+
+    The GNOME extension's ListWindows includes a 'focused' boolean per window
+    (added after the GetFocusedPid method). Returns the slot number of the
+    focused window, or None if ListWindows doesn't include focus data.
+    """
+    try:
+        result = subprocess.run(
+            ["gdbus", "call", "--session",
+             "--dest", DBUS_DEST,
+             "--object-path", DBUS_PATH,
+             "--method", f"{DBUS_IFACE}.ListWindows"],
+            capture_output=True, text=True, timeout=2,
+            stdin=subprocess.DEVNULL,
+        )
+        if result.returncode != 0:
+            return None
+        # Response format: ('[ { "pid": 123, "focused": true, ... }, ... ]',)
+        import json as _json
+        raw = result.stdout.strip()
+        # Extract the JSON string from GVariant tuple
+        start = raw.find("'")
+        end = raw.rfind("'")
+        if start < 0 or end <= start:
+            return None
+        json_str = raw[start + 1:end].replace("\\'", "'")
+        windows = _json.loads(json_str)
+        # Find the focused window
+        focused_pid = None
+        for w in windows:
+            if w.get('focused'):
+                focused_pid = w.get('pid')
+                break
+        if not focused_pid:
+            return None
+        # Map PID to slot
+        mapping = load_mapping()
+        for slot_str, entry in mapping.items():
+            if entry.get('pid') == focused_pid:
+                return int(slot_str)
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, ValueError,
+            KeyError, _json.JSONDecodeError):
+        pass
+    return None
+
+
+def _poll_ghostty_focus():
+    """Poll all Ghostty D-Bus instances to find which one is focused.
+
+    Calls Activate("is-focused") to refresh state, then Describe("is-focused")
+    to read it. Returns the PID of the focused instance, or None.
+    """
+    # Get all Ghostty bus names and their PIDs
+    try:
+        result = subprocess.run(
+            ["busctl", "--user", "list"],
+            capture_output=True, text=True, timeout=2,
+            stdin=subprocess.DEVNULL,
+        )
+        if result.returncode != 0:
+            return None
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+
+    bus_entries = []
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and 'ghostty' in line:
+            bus_name = parts[0]
+            try:
+                pid = int(parts[1])
+                bus_entries.append((bus_name, pid))
+            except (ValueError, IndexError):
+                continue
+
+    for bus_name, pid in bus_entries:
+        try:
+            # Activate is-focused to refresh its state
+            subprocess.run(
+                ["gdbus", "call", "--session",
+                 "--dest", bus_name,
+                 "--object-path", "/com/mitchellh/ghostty",
+                 "--method", "org.gtk.Actions.Activate",
+                 "is-focused", "[]", "{}"],
+                capture_output=True, text=True, timeout=1,
+                stdin=subprocess.DEVNULL,
+            )
+            # Read the updated state
+            desc = subprocess.run(
+                ["gdbus", "call", "--session",
+                 "--dest", bus_name,
+                 "--object-path", "/com/mitchellh/ghostty",
+                 "--method", "org.gtk.Actions.Describe",
+                 "is-focused"],
+                capture_output=True, text=True, timeout=1,
+                stdin=subprocess.DEVNULL,
+            )
+            if desc.returncode == 0 and 'true' in desc.stdout.lower():
+                return pid
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            continue
+    return None
 
 
 def get_pid_for_slot(slot):
@@ -165,6 +354,83 @@ def _pid_alive(pid):
         return True
     except (ProcessLookupError, PermissionError, ValueError, TypeError):
         return False
+
+
+def _recover_config(slot):
+    """Recreate a missing /tmp/ghostty-matrix-{slot}.conf from state or defaults.
+
+    VACCINE 3 helper: rebuilds the config file so hotkeys/reloads don't crash.
+    Uses foreground color from state.json shader_configs if available.
+    """
+    shader_dir = os.path.expanduser("~/.config/matrix-shader/shaders")
+    shader_path = os.path.join(shader_dir, f"matrix-{slot}.glsl")
+    fg_color = "#00ff4d"  # Default green
+
+    # Try to get foreground color from state
+    try:
+        state_file = os.path.expanduser("~/.config/matrix-shader/state.json")
+        with open(state_file) as f:
+            state = json.load(f)
+        sc = state.get("shader_configs", {}).get(str(slot), {})
+        r = sc.get("RAIN_R", 0.0)
+        g = sc.get("RAIN_G", 1.0)
+        b = sc.get("RAIN_B", 0.3)
+        # Map RAIN RGB back to nearest preset foreground color.
+        # Uses Euclidean distance instead of per-channel threshold so
+        # user-adjusted colors (e.g. gold R bumped from 0.85→1.0) still
+        # match the closest preset rather than falling back to default green.
+        # RGB values must match shader_service.PRESET_COLORS (single source of truth)
+        presets = [
+            (0.0, 1.0, 0.3, "#00ff4d"),   # Green
+            (0.0, 0.6, 1.0, "#0099ff"),   # Blue
+            (1.0, 0.1, 0.1, "#ff1a1a"),   # Red
+            (0.7, 0.0, 1.0, "#b300ff"),   # Purple
+            (1.0, 0.7, 0.0, "#ffb300"),   # Gold
+            (0.0, 0.9, 0.9, "#00e6e6"),   # Teal
+        ]
+        best_dist = float('inf')
+        for pr, pg, pb, color in presets:
+            dist = (r - pr)**2 + (g - pg)**2 + (b - pb)**2
+            if dist < best_dist:
+                best_dist = dist
+                fg_color = color
+    except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
+        pass
+
+    conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
+    content = (
+        f"custom-shader = {shader_path}\n"
+        f"background = #000000\n"
+        f"foreground = {fg_color}\n"
+        f"font-family = Nimbus Mono PS\n"
+        f"font-style = Bold\n"
+        f"background-opacity = 0\n"
+        f"gtk-titlebar = true\n"
+        f"window-decoration = client\n"
+        f"custom-shader-animation = always\n"
+        f"desktop-notifications = false\n"
+        f"keybind = ctrl+shift+j=unbind\n"
+        f"keybind = ctrl+shift+k=unbind\n"
+        f"keybind = ctrl+shift+b=unbind\n"
+        f"keybind = ctrl+shift+h=unbind\n"
+        f"keybind = ctrl+shift+l=unbind\n"
+        f"keybind = ctrl+shift+one=unbind\n"
+        f"keybind = ctrl+shift+two=unbind\n"
+        f"keybind = ctrl+shift+three=unbind\n"
+        f"keybind = ctrl+shift+up=unbind\n"
+        f"keybind = ctrl+shift+down=unbind\n"
+        f"keybind = ctrl+shift+left=unbind\n"
+        f"keybind = ctrl+shift+right=unbind\n"
+        f"keybind = ctrl+shift+f5=unbind\n"
+        f"keybind = ctrl+shift+s=unbind\n"
+        f"keybind = ctrl+shift+r=unbind\n"
+        f"keybind = ctrl+shift+g=unbind\n"
+    )
+    try:
+        with open(conf_path, "w") as f:
+            f.write(content)
+    except OSError:
+        pass
 
 
 # --- GNOME Shell Extension D-Bus Client ---

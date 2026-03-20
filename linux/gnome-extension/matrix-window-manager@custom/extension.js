@@ -28,6 +28,9 @@ const DBUS_INTERFACE_XML = `
     <method name="ListWindows">
       <arg type="s" direction="out" name="json"/>
     </method>
+    <method name="GetFocusedPid">
+      <arg type="u" direction="out" name="pid"/>
+    </method>
     <method name="Ping">
       <arg type="b" direction="out" name="alive"/>
     </method>
@@ -85,7 +88,7 @@ class MatrixWindowManager {
         return !!(win.maximizedHorizontally || win.maximizedVertically);
     }
 
-    _windowToJson(win) {
+    _windowToJson(win, focusedWin) {
         const rect = win.get_frame_rect();
         return {
             pid: win.get_pid(),
@@ -94,6 +97,7 @@ class MatrixWindowManager {
             width: rect.width,
             height: rect.height,
             maximized: this._isMaximized(win),
+            focused: focusedWin ? win === focusedWin : false,
             title: win.get_title() || '',
             wm_class: win.get_wm_class() || '',
         };
@@ -121,7 +125,7 @@ class MatrixWindowManager {
                 const win = this._findWindowByPid(pid);
                 if (win) {
                     invocation.return_value(
-                        new GLib.Variant('(s)', [JSON.stringify(this._windowToJson(win))])
+                        new GLib.Variant('(s)', [JSON.stringify(this._windowToJson(win, null))])
                     );
                 } else {
                     invocation.return_value(new GLib.Variant('(s)', ['{}']));
@@ -130,10 +134,18 @@ class MatrixWindowManager {
             }
 
             case 'ListWindows': {
-                const windows = this._findGhosttyWindows().map(w => this._windowToJson(w));
+                const focusedWin = global.display.get_focus_window();
+                const windows = this._findGhosttyWindows().map(w => this._windowToJson(w, focusedWin));
                 invocation.return_value(
                     new GLib.Variant('(s)', [JSON.stringify(windows)])
                 );
+                break;
+            }
+
+            case 'GetFocusedPid': {
+                const focused = global.display.get_focus_window();
+                const pid = focused ? focused.get_pid() : 0;
+                invocation.return_value(new GLib.Variant('(u)', [pid]));
                 break;
             }
 
