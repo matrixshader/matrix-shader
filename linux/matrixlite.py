@@ -60,7 +60,7 @@ RESET = '\x1b[0m'
 # ---------------------------------------------------------------------------
 
 COLOR_PRESETS = [
-    ('Green',  (0, 255, 77)),    # (0.0, 1.0, 0.3)
+    ('Green',  (53, 179, 129)),   # Brand BASE #35B381
     ('Blue',   (0, 153, 255)),   # (0.0, 0.6, 1.0)
     ('Red',    (255, 26, 26)),   # (1.0, 0.1, 0.1)
     ('Purple', (179, 0, 255)),   # (0.7, 0.0, 1.0)
@@ -323,21 +323,9 @@ class TextMatrixRenderer:
                         b = 1.0
                     bright[y][col_x] = b
 
-        # Background diffusion glow pass
-        for y in range(h):
-            for x in range(w):
-                b = bright[y][x]
-                if b > 0.5:
-                    glow = int(b * 10)
-                    # Spread to 4 neighbors
-                    if y > 0 and bg_glow[y - 1][x] < glow:
-                        bg_glow[y - 1][x] = glow
-                    if y < h - 1 and bg_glow[y + 1][x] < glow:
-                        bg_glow[y + 1][x] = glow
-                    if x > 0 and bg_glow[y][x - 1] < glow:
-                        bg_glow[y][x - 1] = glow
-                    if x < w - 1 and bg_glow[y][x + 1] < glow:
-                        bg_glow[y][x + 1] = glow
+        # Background diffusion glow disabled — causes boxy artifacts
+        # in terminal rendering. The foreground color gradient is
+        # sufficient for the visual effect.
 
         # Build output with dirty-cell rendering
         buf = []
