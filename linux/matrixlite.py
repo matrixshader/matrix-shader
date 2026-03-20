@@ -564,7 +564,7 @@ class LiteMenu:
             '',
             '  \x1b[90mPress a key...\x1b[0m',
         ]
-        sys.stdout.write(CLEAR_SCREEN + HOME + '\n'.join(lines))
+        sys.stdout.write(CLEAR_SCREEN + HOME + '\r\n'.join(lines))
         sys.stdout.flush()
 
     def _enter_raw(self):
