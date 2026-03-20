@@ -714,37 +714,43 @@ def _typewriter(text, delay=0.07):
 
 def _show_help():
     """Show help text and exit. Port of Program.ShowHelp()."""
+    BR = '\x1b[38;2;110;220;170m'  # BRIGHT
+    SF = '\x1b[38;2;30;100;72m'    # SOFT
+    RS = '\x1b[0m'
+    DM = '\x1b[2m'
     sys.stdout.write('\n')
-    sys.stdout.write('\x1b[32m MATRIXLITE - Text-based Matrix Rain\x1b[0m\n')
+    sys.stdout.write(f'{BR} MATRIXLITE — Text-based Matrix Rain{RS}\n')
     sys.stdout.write('\n')
-    sys.stdout.write('\x1b[90m Usage: matrixlite [options]\x1b[0m\n')
+    sys.stdout.write(f'{SF} Usage:{RS} {DM}matrixlite [options]{RS}\n')
     sys.stdout.write('\n')
-    sys.stdout.write('\x1b[90m Options:\x1b[0m\n')
-    sys.stdout.write('\x1b[90m   --help, -h     Show this help message\x1b[0m\n')
-    sys.stdout.write('\x1b[90m   --quiet, -q    Skip intro animation\x1b[0m\n')
-    sys.stdout.write('\x1b[90m   --menu, -m     Go directly to control menu\x1b[0m\n')
-    sys.stdout.write('\x1b[90m   --rain, -r     Start rain immediately (for scripts)\x1b[0m\n')
+    sys.stdout.write(f'{SF} Options:{RS}\n')
+    sys.stdout.write(f'{DM}   --help, -h     Show this help message{RS}\n')
+    sys.stdout.write(f'{DM}   --quiet, -q    Skip intro animation{RS}\n')
+    sys.stdout.write(f'{DM}   --menu, -m     Go directly to control menu{RS}\n')
+    sys.stdout.write(f'{DM}   --rain, -r     Start rain immediately (for scripts){RS}\n')
     sys.stdout.write('\n')
-    sys.stdout.write('\x1b[90m Controls (during animation):\x1b[0m\n')
-    sys.stdout.write('\x1b[90m   [1-6]          Color presets\x1b[0m\n')
-    sys.stdout.write('\x1b[90m   [E/R]          Speed -/+\x1b[0m\n')
-    sys.stdout.write('\x1b[90m   [D/F]          Density -/+\x1b[0m\n')
-    sys.stdout.write('\x1b[90m   [Q/Escape]     Return to menu / Quit\x1b[0m\n')
+    sys.stdout.write(f'{SF} Controls (during animation):{RS}\n')
+    sys.stdout.write(f'{DM}   [1-6]          Color presets{RS}\n')
+    sys.stdout.write(f'{DM}   [E/R]          Speed -/+{RS}\n')
+    sys.stdout.write(f'{DM}   [D/F]          Density -/+{RS}\n')
+    sys.stdout.write(f'{DM}   [Q/Escape]     Return to menu / Quit{RS}\n')
     sys.stdout.write('\n')
     sys.stdout.flush()
 
 
 def _show_intro():
     """Matrix-style intro. Port of Program.ShowIntro()."""
+    BR = '\x1b[38;2;110;220;170m'  # BRIGHT
+    RS = '\x1b[0m'
     sys.stdout.write(CLEAR_SCREEN + HOME + '\n')
-    sys.stdout.write('\x1b[32m')
+    sys.stdout.write(BR)
     _typewriter(' Wake up, Neo...', 0.08)
     time.sleep(0.8)
     _typewriter(' The Matrix has you...', 0.06)
     time.sleep(0.8)
     _typewriter(' Follow the white rabbit.', 0.06)
     time.sleep(1.0)
-    sys.stdout.write('\n\x1b[0m')
+    sys.stdout.write('\n' + RS)
     sys.stdout.flush()
 
 
@@ -754,26 +760,30 @@ def _show_pill_choice():
     Port of Program.ShowPillChoiceAsync().
     """
     sys.stdout.write(CLEAR_SCREEN + HOME)
+    BR = '\x1b[38;2;110;220;170m'  # BRIGHT
+    SF = '\x1b[38;2;30;100;72m'    # SOFT
+    RS = '\x1b[0m'
+    DM = '\x1b[2m'
     lines = [
         '',
-        '\x1b[32m  +==================================================+\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m  \x1b[1;32m"This is your last chance. After this,\x1b[0m          \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m   \x1b[1;32mthere is no turning back."\x1b[0m                     \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  +--------------------------------------------------+\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m  \x1b[34m[B] BLUE PILL\x1b[0m - Straight to the Matrix          \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m      Start the rain immediately                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m  \x1b[31m[R] RED PILL\x1b[0m - Control the Code                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m      Open the control menu                       \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m  \x1b[90m[Q] EXIT\x1b[0m - Leave the Matrix                     \x1b[32m|\x1b[0m',
-        '\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m',
-        '\x1b[32m  +==================================================+\x1b[0m',
+        f'{BR}  +==================================================+{RS}',
+        f'{BR}  |{RS}                                                  {BR}|{RS}',
+        f'{BR}  |{RS}  {BR}"This is your last chance. After this,{RS}          {BR}|{RS}',
+        f'{BR}  |{RS}   {BR}there is no turning back."{RS}                     {BR}|{RS}',
+        f'{BR}  |{RS}                                                  {BR}|{RS}',
+        f'{BR}  +--------------------------------------------------+{RS}',
+        f'{BR}  |{RS}                                                  {BR}|{RS}',
+        f'{BR}  |{RS}  \x1b[38;2;0;153;255m[B] BLUE PILL{RS} {DM}- Straight to the Matrix{RS}          {BR}|{RS}',
+        f'{BR}  |{RS}      {DM}Start the rain immediately{RS}                  {BR}|{RS}',
+        f'{BR}  |{RS}                                                  {BR}|{RS}',
+        f'{BR}  |{RS}  \x1b[38;2;255;26;26m[R] RED PILL{RS} {DM}- Control the Code{RS}                  {BR}|{RS}',
+        f'{BR}  |{RS}      {DM}Open the control menu{RS}                       {BR}|{RS}',
+        f'{BR}  |{RS}                                                  {BR}|{RS}',
+        f'{BR}  |{RS}  {SF}[Q] EXIT{RS} {DM}- Leave the Matrix{RS}                     {BR}|{RS}',
+        f'{BR}  |{RS}                                                  {BR}|{RS}',
+        f'{BR}  +==================================================+{RS}',
         '',
-        '  \x1b[90mChoose your path [B/R/Q]: \x1b[0m',
+        f'  {DM}Choose your path [B/R/Q]: {RS}',
     ]
     sys.stdout.write('\n'.join(lines))
     sys.stdout.flush()
