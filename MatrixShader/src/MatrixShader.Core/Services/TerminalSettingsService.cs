@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using MatrixShader.Core.Constants;
 using MatrixShader.Core.Models;
@@ -443,6 +444,406 @@ public class TerminalSettingsService : ITerminalSettingsService
         {
             DiagnosticLogger.Warn("TERMINAL", $"ForceShaderReload failed: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Surgically upserts a single profile in settings.json using JsonNode.
+    /// This preserves ALL other content: formatting, comments, unknown properties,
+    /// property ordering, and non-Matrix profiles are completely untouched.
+    ///
+    /// This avoids the destructive full-deserialization approach where:
+    /// - Non-Matrix profiles get extra properties injected (opacity, useAcrylic, etc.)
+    /// - The "source" property is stripped from generated profiles (WSL, Azure, VS)
+    /// - Property ordering and indentation are changed
+    /// - Special characters get Unicode-escaped (e.g. ctrl+c → ctrl\u002Bc)
+    /// </summary>
+    public void UpsertProfileSurgical(TerminalProfile profile)
+    {
+        // Named mutex serializes settings.json writes across concurrent construct.exe processes.
+        // Without this, rapid launches (construct --green & --red & --blue) create a TOCTOU race:
+        // Process A reads, Process B reads (same content), A writes (adds Matrix-1),
+        // B writes (adds Matrix-3 but overwrites A's file, losing Matrix-1) → WT closes A's window.
+        using var mutex = new Mutex(false, @"Global\MatrixShader_SettingsWrite");
+        try { mutex.WaitOne(TimeSpan.FromSeconds(10)); }
+        catch (AbandonedMutexException) { /* Safe to proceed */ }
+
+        try
+        {
+            UpsertProfileSurgicalCore(profile);
+        }
+        finally
+        {
+            mutex.ReleaseMutex();
+        }
+    }
+
+    private void UpsertProfileSurgicalCore(TerminalProfile profile)
+    {
+        if (!SettingsExist)
+        {
+            var settings = CreateDefaultSettings();
+            UpsertProfile(settings, profile);
+            SaveSettings(settings);
+            return;
+        }
+
+        var json = File.ReadAllText(SettingsPath);
+        var profileObj = BuildProfileJsonObject(profile);
+
+        // PRIMARY: Text-based splice — preserves comments, formatting, other profiles byte-for-byte.
+        // Only the target profile's JSON object is replaced; everything else is untouched.
+        // This prevents the "tab kill" bug where full re-serialization strips JSONC comments
+        // and reformats indentation, causing WT to see a massive diff and reload aggressively.
+        if (TrySpliceProfileText(json, profile.Name, profileObj, out var modified))
+        {
+            var tempPath = SettingsPath + ".tmp";
+            File.WriteAllText(tempPath, modified, new UTF8Encoding(false));
+            File.Move(tempPath, SettingsPath, overwrite: true);
+            DiagnosticLogger.Debug("TERMINAL", $"Text splice complete for {profile.Name}");
+            return;
+        }
+
+        // FALLBACK: Full JsonNode re-serialization (strips comments, reformats, but always works)
+        _logger.LogDebug("Text splice failed for {Name}, falling back to JsonNode", profile.Name);
+        var root = JsonNode.Parse(json, documentOptions: new JsonDocumentOptions
+        {
+            CommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true
+        });
+        if (root == null)
+        {
+            var settings = LoadSettings();
+            UpsertProfile(settings, profile);
+            SaveSettings(settings);
+            return;
+        }
+
+        var profiles = root["profiles"] as JsonObject;
+        if (profiles == null)
+        {
+            profiles = new JsonObject { ["list"] = new JsonArray(), ["defaults"] = new JsonObject() };
+            root["profiles"] = profiles;
+        }
+        var list = profiles["list"] as JsonArray;
+        if (list == null)
+        {
+            list = new JsonArray();
+            profiles["list"] = list;
+        }
+
+        int existingIndex = -1;
+        for (int i = 0; i < list!.Count; i++)
+        {
+            var name = list[i]?["name"]?.GetValue<string>();
+            if (string.Equals(name, profile.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                existingIndex = i;
+                break;
+            }
+        }
+
+        if (existingIndex >= 0)
+            list[existingIndex] = profileObj;
+        else
+            list.Insert(0, profileObj);
+
+        WriteSurgicalResult(root!);
+        DiagnosticLogger.Debug("TERMINAL", $"JsonNode upsert complete for {profile.Name}");
+    }
+
+    /// <summary>
+    /// Text-based profile splice: finds the target profile's { } object in the raw JSON text
+    /// and replaces it in-place. Everything else (comments, formatting, other profiles) is
+    /// preserved byte-for-byte. If the profile doesn't exist, inserts at the start of the list.
+    /// Returns false only if the JSON structure can't be parsed (malformed file).
+    /// </summary>
+    private static bool TrySpliceProfileText(string json, string profileName, JsonObject newProfile, out string result)
+    {
+        result = json;
+
+        // Detect file's indentation by finding the first indented line
+        int indentSize = 4; // WT default
+        foreach (var line in json.Split('\n'))
+        {
+            int s = 0;
+            while (s < line.Length && line[s] == ' ') s++;
+            if (s >= 2 && s <= 8) { indentSize = s; break; }
+        }
+
+        // Build the replacement profile JSON with matching indentation
+        // Profiles in WT's settings.json are at indent level 3: root > profiles > list > [item]
+        var baseIndent = new string(' ', indentSize * 3);
+        var innerIndent = new string(' ', indentSize * 4);
+        var newProfileStr = FormatProfileObject(newProfile, baseIndent, innerIndent);
+
+        // Try to find and replace an existing profile
+        var range = FindProfileObjectRange(json, profileName);
+        if (range.HasValue)
+        {
+            var (start, end) = range.Value;
+            result = json.Substring(0, start) + newProfileStr + json.Substring(end + 1);
+            return true;
+        }
+
+        // Profile doesn't exist — insert at start of "list" array
+        int listBracket = FindListArrayBracket(json);
+        if (listBracket < 0) return false;
+
+        int insertPos = listBracket + 1;
+        // Check if list is empty (only whitespace/] after [)
+        int peek = insertPos;
+        while (peek < json.Length && char.IsWhiteSpace(json[peek])) peek++;
+        bool emptyList = peek < json.Length && json[peek] == ']';
+
+        if (emptyList)
+        {
+            result = json.Substring(0, insertPos)
+                + "\n" + newProfileStr + "\n" + new string(' ', indentSize * 2)
+                + json.Substring(peek);
+        }
+        else
+        {
+            result = json.Substring(0, insertPos)
+                + "\n" + newProfileStr + ","
+                + json.Substring(insertPos);
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Finds the byte range (start, end inclusive) of a profile object by name in the JSON text.
+    /// Walks the "list" array tracking brace depth to find each object's boundaries,
+    /// then checks if the object contains the target "name" key-value pair.
+    /// </summary>
+    private static (int start, int end)? FindProfileObjectRange(string json, string profileName)
+    {
+        int listStart = FindListArrayBracket(json);
+        if (listStart < 0) return null;
+
+        int pos = listStart + 1;
+        while (pos < json.Length)
+        {
+            while (pos < json.Length && (char.IsWhiteSpace(json[pos]) || json[pos] == ',')) pos++;
+            if (pos >= json.Length || json[pos] == ']') break;
+            if (json[pos] != '{') break;
+
+            int objStart = pos;
+            int objEnd = FindMatchingBrace(json, pos);
+            if (objEnd < 0) break;
+
+            // Check if this object contains "name": "profileName"
+            var segment = json.AsSpan(objStart, objEnd - objStart + 1);
+            var namePattern = $"\"name\"\\s*:\\s*\"{Regex.Escape(profileName)}\"";
+            if (Regex.IsMatch(segment.ToString(), namePattern, RegexOptions.IgnoreCase))
+            {
+                return (objStart, objEnd);
+            }
+
+            pos = objEnd + 1;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Finds the position of the '[' bracket for the profiles.list array.
+    /// </summary>
+    private static int FindListArrayBracket(string json)
+    {
+        // Find "profiles" section first, then "list" within it
+        var profilesMatch = Regex.Match(json, @"""profiles""\s*:\s*\{");
+        if (!profilesMatch.Success) return -1;
+
+        var listMatch = Regex.Match(json, @"""list""\s*:\s*\[", RegexOptions.None, TimeSpan.FromSeconds(1));
+        if (!listMatch.Success || listMatch.Index < profilesMatch.Index) return -1;
+
+        return listMatch.Index + listMatch.Length - 1; // Position of '['
+    }
+
+    /// <summary>
+    /// Finds the matching '}' for a '{' at the given position, correctly handling
+    /// nested braces and JSON string escaping (won't be fooled by braces inside strings).
+    /// </summary>
+    private static int FindMatchingBrace(string json, int openPos)
+    {
+        int depth = 0;
+        bool inStr = false;
+        bool escaped = false;
+
+        for (int i = openPos; i < json.Length; i++)
+        {
+            char c = json[i];
+            if (escaped) { escaped = false; continue; }
+            if (c == '\\' && inStr) { escaped = true; continue; }
+            if (c == '"') inStr = !inStr;
+            if (!inStr)
+            {
+                if (c == '{') depth++;
+                else if (c == '}')
+                {
+                    depth--;
+                    if (depth == 0) return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// Serializes a profile JsonObject with specific indentation to match the file's style.
+    /// </summary>
+    private static string FormatProfileObject(JsonObject profile, string baseIndent, string innerIndent)
+    {
+        var sb = new StringBuilder();
+        sb.Append(baseIndent).Append('{').Append('\n');
+
+        var entries = new List<string>();
+        foreach (var kv in profile)
+        {
+            var valueStr = kv.Value?.ToJsonString() ?? "null";
+            entries.Add($"{innerIndent}\"{kv.Key}\": {valueStr}");
+        }
+        sb.Append(string.Join(",\n", entries));
+        sb.Append('\n').Append(baseIndent).Append('}');
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Surgically upserts multiple profiles in a single settings.json write.
+    /// More efficient than calling UpsertProfileSurgical multiple times.
+    /// </summary>
+    public void UpsertProfilesSurgical(IEnumerable<TerminalProfile> profilesToUpsert)
+    {
+        if (!SettingsExist)
+        {
+            var settings = CreateDefaultSettings();
+            foreach (var p in profilesToUpsert)
+                UpsertProfile(settings, p);
+            SaveSettings(settings);
+            return;
+        }
+
+        var json = File.ReadAllText(SettingsPath);
+        var root = JsonNode.Parse(json, documentOptions: new JsonDocumentOptions
+        {
+            CommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true
+        });
+        if (root == null)
+        {
+            var settings = LoadSettings();
+            foreach (var p in profilesToUpsert)
+                UpsertProfile(settings, p);
+            SaveSettings(settings);
+            return;
+        }
+
+        var profiles = root["profiles"] as JsonObject;
+        if (profiles == null)
+        {
+            profiles = new JsonObject { ["list"] = new JsonArray(), ["defaults"] = new JsonObject() };
+            root["profiles"] = profiles;
+        }
+        var list = profiles["list"] as JsonArray;
+        if (list == null)
+        {
+            list = new JsonArray();
+            profiles["list"] = list;
+        }
+
+        foreach (var profile in profilesToUpsert)
+        {
+            var profileObj = BuildProfileJsonObject(profile);
+
+            int existingIndex = -1;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var name = list[i]?["name"]?.GetValue<string>();
+                if (string.Equals(name, profile.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    existingIndex = i;
+                    break;
+                }
+            }
+
+            if (existingIndex >= 0)
+                list[existingIndex] = profileObj;
+            else
+                list.Insert(0, profileObj);
+        }
+
+        WriteSurgicalResult(root);
+    }
+
+    /// <summary>
+    /// Gets the GUID of an existing profile by name, reading directly from JSON.
+    /// Returns null if the profile doesn't exist.
+    /// </summary>
+    public string? GetProfileGuid(string profileName)
+    {
+        if (!SettingsExist) return null;
+        try
+        {
+            var json = File.ReadAllText(SettingsPath);
+            var root = JsonNode.Parse(json, documentOptions: new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true
+            });
+            var list = root?["profiles"]?["list"]?.AsArray();
+            if (list == null) return null;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var name = list[i]?["name"]?.GetValue<string>();
+                if (string.Equals(name, profileName, StringComparison.OrdinalIgnoreCase))
+                    return list[i]?["guid"]?.GetValue<string>();
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("TERMINAL", $"GetProfileGuid failed: {ex.Message}");
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Builds a JsonObject from a TerminalProfile, only including non-null optional properties.
+    /// </summary>
+    private static JsonObject BuildProfileJsonObject(TerminalProfile profile)
+    {
+        var obj = new JsonObject
+        {
+            ["name"] = profile.Name,
+            ["guid"] = profile.Guid,
+        };
+        if (profile.Commandline != null) obj["commandline"] = profile.Commandline;
+        obj["hidden"] = profile.Hidden;
+        obj["opacity"] = profile.Opacity;
+        obj["useAcrylic"] = profile.UseAcrylic;
+        if (profile.PixelShaderPath != null) obj["experimental.pixelShaderPath"] = profile.PixelShaderPath;
+        if (profile.TabColor != null) obj["tabColor"] = profile.TabColor;
+        if (profile.BackgroundImage != null) obj["backgroundImage"] = profile.BackgroundImage;
+        if (profile.BackgroundImageStretchMode != null) obj["backgroundImageStretchMode"] = profile.BackgroundImageStretchMode;
+        if (profile.BackgroundImageAlignment != null) obj["backgroundImageAlignment"] = profile.BackgroundImageAlignment;
+        if (profile.BackgroundImageOpacity != null) obj["backgroundImageOpacity"] = profile.BackgroundImageOpacity.Value;
+        if (profile.Foreground != null) obj["foreground"] = profile.Foreground;
+        if (profile.Background != null) obj["background"] = profile.Background;
+        if (profile.Padding != null) obj["padding"] = profile.Padding;
+        obj["suppressApplicationTitle"] = profile.SuppressApplicationTitle;
+        return obj;
+    }
+
+    /// <summary>
+    /// Writes the modified JsonNode back to settings.json via atomic temp file + move.
+    /// </summary>
+    private void WriteSurgicalResult(JsonNode root)
+    {
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        var result = root.ToJsonString(options);
+
+        var tempPath = SettingsPath + ".tmp";
+        File.WriteAllText(tempPath, result, new UTF8Encoding(false));
+        File.Move(tempPath, SettingsPath, overwrite: true);
     }
 
     /// <summary>

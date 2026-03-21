@@ -58,6 +58,7 @@ public class IdentityService : IIdentityService
     private const string WindowsTerminalProcessName = "WindowsTerminal";
     private const string ControlPanelTitle = "Matrix Control Panel";
     private const string RedpillProfileName = "Redpill";
+    private const string ConstructProfileName = "Construct";
 
     public IdentityService()
     {
@@ -219,7 +220,7 @@ public class IdentityService : IIdentityService
         var title = WindowsApi.GetWindowTitle(hwnd);
         var processId = WindowsApi.GetWindowProcessId(hwnd);
 
-        // Check if this is the control panel or Redpill window
+        // Check if this is the control panel, Redpill, or Construct window
         if (title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, "ControlPanel", 0, IdentitySource.Title);
@@ -227,6 +228,10 @@ public class IdentityService : IIdentityService
         if (title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, RedpillProfileName, 0, IdentitySource.Title);
+        }
+        if (title.Equals(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWindowInfo(hwnd, title, processId, ConstructProfileName, 0, IdentitySource.Title);
         }
 
         // Layer 0: Handle cache (instant, survives title changes from agents)
@@ -606,6 +611,12 @@ public class IdentityService : IIdentityService
                     return CreateWindowInfo(hwnd, title, processId, RedpillProfileName, 0, IdentitySource.CommandLine);
                 }
 
+                // Detect Construct profile — exclude from Glitch tiling
+                if (profileArg.Equals(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return CreateWindowInfo(hwnd, title, processId, ConstructProfileName, 0, IdentitySource.CommandLine);
+                }
+
                 var matrixMatch = MatrixProfileRegex.Match(profileArg);
                 if (matrixMatch.Success)
                 {
@@ -692,6 +703,12 @@ public class IdentityService : IIdentityService
     {
         if (string.IsNullOrEmpty(title))
             return null;
+
+        // Construct window — detected by exact title match
+        if (title.Equals(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWindowInfo(hwnd, title, processId, ConstructProfileName, 0, IdentitySource.Title);
+        }
 
         var match = MatrixProfileRegex.Match(title);
         if (match.Success)
@@ -800,7 +817,7 @@ public class IdentityService : IIdentityService
             return null;
         }
 
-        // Check if this is the control panel or Redpill window
+        // Check if this is the control panel, Redpill, or Construct window
         if (title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, "ControlPanel", 0, IdentitySource.Title);
@@ -808,6 +825,10 @@ public class IdentityService : IIdentityService
         if (title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, RedpillProfileName, 0, IdentitySource.Title);
+        }
+        if (title.Equals(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWindowInfo(hwnd, title, processId, ConstructProfileName, 0, IdentitySource.Title);
         }
 
         // Layer 0: Handle cache (instant, survives title changes from agents)
@@ -858,6 +879,12 @@ public class IdentityService : IIdentityService
             if (profileArg.Equals(RedpillProfileName, StringComparison.OrdinalIgnoreCase))
             {
                 return CreateWindowInfo(hwnd, title, processId, RedpillProfileName, 0, IdentitySource.CommandLine);
+            }
+
+            // Detect Construct profile — exclude from Glitch tiling
+            if (profileArg.Equals(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateWindowInfo(hwnd, title, processId, ConstructProfileName, 0, IdentitySource.CommandLine);
             }
 
             if (TryParseMatrixProfile(profileArg, out var shaderIndex))
@@ -922,7 +949,7 @@ public class IdentityService : IIdentityService
             || title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase);
 
         var isConstruct = profileName.Equals("Construct", StringComparison.OrdinalIgnoreCase)
-            || profileName.StartsWith("Construct-", StringComparison.OrdinalIgnoreCase);
+            || title.Equals("Construct", StringComparison.OrdinalIgnoreCase);
 
         return new WindowInfo
         {

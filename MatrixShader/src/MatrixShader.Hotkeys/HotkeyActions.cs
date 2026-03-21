@@ -113,7 +113,7 @@ public sealed class HotkeyActions
 
             // Get tiled windows (exclude fullscreen)
             var windows = _identityService.FindMatrixWindows()
-                .Where(w => !w.IsControlPanel && !WindowsApi.IsZoomed(w.Handle))
+                .Where(w => !w.IsControlPanel && !w.IsConstruct && !WindowsApi.IsZoomed(w.Handle))
                 .OrderBy(w => w.Position.Left)
                 .ToList();
 
@@ -175,7 +175,7 @@ public sealed class HotkeyActions
 
             // Get tiled windows (exclude fullscreen)
             var windows = _identityService.FindMatrixWindows()
-                .Where(w => !w.IsControlPanel && !WindowsApi.IsZoomed(w.Handle))
+                .Where(w => !w.IsControlPanel && !w.IsConstruct && !WindowsApi.IsZoomed(w.Handle))
                 .OrderBy(w => w.Position.Left)
                 .ToList();
 
@@ -237,7 +237,7 @@ public sealed class HotkeyActions
 
             // Find windows and apply new layout
             var windows = _identityService.FindMatrixWindows()
-                .Where(w => !w.IsControlPanel)
+                .Where(w => !w.IsControlPanel && !w.IsConstruct)
                 .ToList();
 
             if (windows.Count == 0)
@@ -781,7 +781,7 @@ public sealed class HotkeyActions
             return _cachedFocusedIdentity;
 
         var identity = _identityService.ResolveIdentity(foreground);
-        if (identity == null || identity.IsControlPanel)
+        if (identity == null || identity.IsControlPanel || identity.IsConstruct)
         {
             _cachedFocusedHandle = nint.Zero;
             _cachedFocusedIdentity = null;

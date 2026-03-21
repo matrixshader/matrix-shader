@@ -109,4 +109,22 @@ public interface ITerminalSettingsService
     /// but it always detects settings.json writes.
     /// </summary>
     void ForceShaderReload();
+
+    /// <summary>
+    /// Surgically upserts a single profile using JsonNode, preserving all other
+    /// content in settings.json (other profiles, comments, property ordering).
+    /// Prevents the tab-kill bug caused by full deserialization stripping/adding
+    /// properties on non-Matrix profiles.
+    /// </summary>
+    void UpsertProfileSurgical(TerminalProfile profile);
+
+    /// <summary>
+    /// Surgically upserts multiple profiles in a single settings.json write.
+    /// </summary>
+    void UpsertProfilesSurgical(IEnumerable<TerminalProfile> profiles);
+
+    /// <summary>
+    /// Gets the GUID of an existing profile by name, reading directly from JSON.
+    /// </summary>
+    string? GetProfileGuid(string profileName);
 }

@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 using MatrixShader.Core.Constants;
 using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
-using MatrixShader.Core.Startup;
 using MatrixShader.Core.Native;
 using MatrixShader.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,41 +32,58 @@ public static class Program
 
     public static int Main(string[] args)
     {
-        try
+        // Earliest possible window manipulation — runs before DI overhead.
+        // WT's --fullscreen flag should have already handled this. F11 is only a
+        // fallback if --fullscreen didn't work (otherwise F11 toggles OUT).
+        if (args.Length >= 1 && args[0] == "--pick")
         {
-            var services = new ServiceCollection();
-            services.AddSingleton<IConfigService, ConfigService>();
-            services.AddSingleton<IShaderService, ShaderService>();
-            services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
-            services.AddSingleton<IIdentityService, IdentityService>();
-            services.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
-            var provider = services.BuildServiceProvider();
-
-            var configService = provider.GetRequiredService<IConfigService>();
-            var shaderService = provider.GetRequiredService<IShaderService>();
-            var terminalService = provider.GetRequiredService<ITerminalSettingsService>();
-            var identityService = provider.GetRequiredService<IIdentityService>();
-
-            if (args.Length >= 1 && args[0] == "--pick")
+            var wtHwnd = WindowsApi.GetForegroundWindow();
+            if (wtHwnd != nint.Zero)
             {
-                var profileArg = args.SkipWhile(a => a != "--profile").Skip(1).FirstOrDefault() ?? "Construct";
-                return RunPicker(profileArg, configService, shaderService, terminalService, identityService);
+                int screenW = WindowsApi.GetSystemMetrics(WindowsApi.SM_CXSCREEN);
+                int screenH = WindowsApi.GetSystemMetrics(WindowsApi.SM_CYSCREEN);
+                // Check if window is already fullscreen (--fullscreen flag worked)
+                WindowsApi.GetWindowRect(wtHwnd, out var rect);
+                bool alreadyFullscreen = rect.Width >= screenW && rect.Height >= screenH;
+                if (!alreadyFullscreen)
+                {
+                    // Fallback: force fullscreen manually
+                    WindowsApi.SetWindowPos(wtHwnd, WindowsApi.HWND_TOP, 0, 0, screenW, screenH, 0);
+                    WindowsApi.ShowWindow(wtHwnd, WindowsApi.SW_SHOWMAXIMIZED);
+                    Thread.Sleep(50);
+                    WindowsApi.keybd_event(WindowsApi.VK_F11, 0, 0, 0);
+                    WindowsApi.keybd_event(WindowsApi.VK_F11, 0, WindowsApi.KEYEVENTF_KEYUP, 0);
+                }
             }
-
-            var color = ParseColor(args);
-            if (color == null) { ShowHelp(); return 1; }
-
-            if (args.Length == 0)
-                return RunWhiteRoom(terminalService);
-
-            return LaunchWithColor(color.Value, configService, shaderService, terminalService, identityService);
         }
-        catch (Exception ex)
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfigService, ConfigService>();
+        services.AddSingleton<IShaderService, ShaderService>();
+        services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
+        services.AddSingleton<IIdentityService, IdentityService>();
+        services.AddSingleton<ILayoutService, LayoutService>();
+        services.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
+        var provider = services.BuildServiceProvider();
+
+        var configService = provider.GetRequiredService<IConfigService>();
+        var shaderService = provider.GetRequiredService<IShaderService>();
+        var terminalService = provider.GetRequiredService<ITerminalSettingsService>();
+        var identityService = provider.GetRequiredService<IIdentityService>();
+        var layoutService = provider.GetRequiredService<ILayoutService>();
+
+        if (args.Length >= 1 && args[0] == "--pick")
         {
-            DiagnosticLogger.Error("CONSTRUCT", $"Unhandled exception: {ex.Message}");
-            MatrixErrorHandler.ShowError(ex.Message);
-            return 1;
+            return RunPicker(configService, shaderService, terminalService, identityService);
         }
+
+        var color = ParseColor(args);
+        if (color == null) { ShowHelp(); return 1; }
+
+        if (args.Length == 0)
+            return RunWhiteRoom(terminalService);
+
+        return LaunchWithColor(color.Value, configService, shaderService, terminalService, identityService, layoutService);
     }
 
     private static int LaunchWithColor(
@@ -75,10 +91,14 @@ public static class Program
         IConfigService configService,
         IShaderService shaderService,
         ITerminalSettingsService terminalService,
-        IIdentityService identityService)
+        IIdentityService identityService,
+        ILayoutService layoutService)
     {
+        // Enable ANSI escape codes for colored output in cmd.exe / PowerShell
+        ConsoleHelper.EnableAnsiEscapeCodes();
+
         var state = configService.LoadState();
-        int slot = FindAvailableSlot(state, shaderService, identityService);
+        int slot = FindAndReserveSlot(shaderService, identityService);
         if (slot == -1)
         {
             Console.WriteLine("\x1b[31mAll 8 shader slots are in use. Close a Matrix window first.\x1b[0m");
@@ -92,17 +112,31 @@ public static class Program
             shaderService.CreateShader(slot, config);
 
         var shadersDir = CliBootstrap.GetShadersDirectory();
-        var settings = terminalService.LoadSettings();
-        terminalService.CreateMatrixProfiles(settings, 8, shadersDir);
 
+        // Surgical upsert: only touches the ONE target profile in settings.json.
+        // Preserves all other profiles, properties, and formatting untouched.
+        // This prevents killing the calling tab (full deserialize+serialize was
+        // stripping "source" from WSL/Azure profiles and injecting default values
+        // like opacity/useAcrylic into non-Matrix profiles, causing WT to see a
+        // massive diff and reload/kill all tabs).
         var profileName = $"Matrix-{slot}";
-        var profile = terminalService.GetProfile(settings, profileName);
-        if (profile != null)
+        var existingGuid = terminalService.GetProfileGuid(profileName);
+        var (r, g, b) = color.ToRgb();
+        var profile = new TerminalProfile
         {
-            var (r, g, b) = color.ToRgb();
-            terminalService.UpsertProfile(settings, profile with { TabColor = $"#{r:X2}{g:X2}{b:X2}" });
-        }
-        terminalService.SaveSettings(settings);
+            Name = profileName,
+            Guid = existingGuid ?? $"{{{Guid.NewGuid()}}}",
+            // Set window title to "Matrix-{slot}" for Layer 3 identity detection.
+            Commandline = $"powershell.exe -NoExit -Command \"$host.UI.RawUI.WindowTitle = 'Matrix-{slot}'; Write-Host ' Matrix Terminal {slot}' -ForegroundColor Green\"",
+            Hidden = true,
+            Opacity = 85,
+            UseAcrylic = false,
+            PixelShaderPath = Path.Combine(shadersDir, $"Matrix-{slot}.hlsl"),
+            TabColor = $"#{r:X2}{g:X2}{b:X2}",
+            Foreground = $"#{r:X2}{g:X2}{b:X2}",
+            SuppressApplicationTitle = false  // Allow commandline to set window title
+        };
+        terminalService.UpsertProfileSurgical(profile);
 
         state.ShaderConfigs[slot] = config;
         configService.SaveState(state);
@@ -110,10 +144,24 @@ public static class Program
         var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
         try
         {
-            Process.Start(new ProcessStartInfo { FileName = wtPath, Arguments = $"-p \"{profileName}\"", UseShellExecute = true });
-            var (cr, cg, cb) = color.ToRgb();
-            Console.WriteLine($"\x1b[38;2;{cr};{cg};{cb}m{color.Name}\x1b[0m Matrix window launched (slot {slot}).");
+            // Unique window ID forces a new WT window (prevents opening as a tab
+            // in an existing WT window, which could confuse the user).
+            var windowId = $"_matrix_{Guid.NewGuid():N}";
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = wtPath,
+                Arguments = $"-w {windowId} -p \"{profileName}\"",
+                UseShellExecute = true
+            });
+            Console.WriteLine($"\x1b[38;2;{r};{g};{b}m{color.Name}\x1b[0m Matrix window launched (slot {slot}).");
             ConsoleHelper.ShowCommandBanner();
+
+            // Wait for the new window to appear, then run the same layout pass
+            // that bluepill uses — CalculateLayout distributes across monitors.
+            WaitForWindowThenLayout(slot, identityService, layoutService, configService);
+
+            // Ensure the hotkeys/Glitch system is running for ongoing management.
+            EnsureHotkeyProcessRunning();
         }
         catch (Exception ex)
         {
@@ -121,6 +169,76 @@ public static class Program
             return 1;
         }
         return 0;
+    }
+
+    /// <summary>
+    /// Waits for a newly launched WT window to appear, then runs the same layout
+    /// pass that bluepill uses: CalculateLayout distributes windows evenly across
+    /// all monitors, then ApplyLayout positions them.
+    /// </summary>
+    private static void WaitForWindowThenLayout(
+        int slot,
+        IIdentityService identityService,
+        ILayoutService layoutService,
+        IConfigService configService)
+    {
+        var targetTitle = $"Matrix-{slot}";
+        var sw = Stopwatch.StartNew();
+        const int maxWaitMs = 5000;
+        const int pollIntervalMs = 250;
+
+        // Poll for the new window by title
+        while (sw.ElapsedMilliseconds < maxWaitMs)
+        {
+            Thread.Sleep(pollIntervalMs);
+            var windows = identityService.FindMatrixWindows();
+            foreach (var w in windows)
+            {
+                if (w.ShaderIndex == slot)
+                {
+                    // New window found — clear reservation and run layout
+                    ClearReservation(slot);
+                    Thread.Sleep(500); // Let window finish initializing
+                    var allWindows = identityService.FindMatrixWindows()
+                        .Where(mw => !mw.IsControlPanel && !mw.IsConstruct)
+                        .ToList();
+                    if (allWindows.Count > 0)
+                    {
+                        var layoutConfig = configService.LoadState().Layout;
+                        var positions = layoutService.CalculateLayout(allWindows, layoutConfig);
+                        layoutService.ApplyLayout(positions);
+                    }
+                    return;
+                }
+            }
+        }
+        // Timeout — not fatal, Glitch will handle it eventually
+    }
+
+    /// <summary>
+    /// Ensures matrix-hotkeys.exe is running so the Glitch system can detect
+    /// and auto-tile new Matrix windows with any existing ones.
+    /// </summary>
+    private static void EnsureHotkeyProcessRunning()
+    {
+        // Check if already running
+        var existing = Process.GetProcessesByName("matrix-hotkeys");
+        if (existing.Length > 0) return;
+
+        // Primary: same directory as construct.exe
+        var hotkeyPath = Path.Combine(AppContext.BaseDirectory, "matrix-hotkeys.exe");
+        if (!File.Exists(hotkeyPath)) return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = hotkeyPath,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                UseShellExecute = true
+            });
+        }
+        catch { /* Non-fatal — window just won't auto-tile */ }
     }
 
     private static int RunWhiteRoom(ITerminalSettingsService terminalService)
@@ -139,34 +257,33 @@ public static class Program
         var exePath = Process.GetCurrentProcess().MainModule?.FileName
                       ?? Path.Combine(AppContext.BaseDirectory, "construct.exe");
 
-        // Each Construct launch gets a unique profile so multiple windows don't share state.
-        // After transition, this profile gets replaced by Matrix-{slot} via GUID swap.
-        var instanceId = Guid.NewGuid().ToString("N")[..6];
-        var profileName = $"Construct-{instanceId}";
-
-        var settings = terminalService.LoadSettings();
+        // Surgical upsert: only touches the Construct profile, preserves everything else.
+        var existingGuid = terminalService.GetProfileGuid("Construct");
         var constructProfile = new TerminalProfile
         {
-            Name = profileName,
-            Guid = $"{{{Guid.NewGuid()}}}",
-            Commandline = $"\"{exePath}\" --pick --profile {profileName}",
+            Name = "Construct",
+            Guid = existingGuid ?? $"{{{Guid.NewGuid()}}}",
+            Commandline = $"\"{exePath}\" --pick",
             Hidden = true,
             Opacity = 100,
             UseAcrylic = false,
-            PixelShaderPath = whiteRoomPath,
-            TabColor = "#FFFFFF",
-            SuppressApplicationTitle = true
+            PixelShaderPath = whiteRoomPath,  // Shader defaults to BLACK until C# writes state (R=0 guard)
+            TabColor = "#000000",
+            Background = "#000000",        // Pure black until shader loads
+            Foreground = "#000000",        // Hide any console output
+            SuppressApplicationTitle = false
         };
-        terminalService.UpsertProfile(settings, constructProfile);
-        terminalService.SaveSettings(settings);
+        terminalService.UpsertProfileSurgical(constructProfile);
 
         var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
         try
         {
+            // Unique window ID forces a truly new WT window (prevents opening as a tab)
+            var windowId = $"_construct_{Guid.NewGuid():N}";
             Process.Start(new ProcessStartInfo
             {
                 FileName = wtPath,
-                Arguments = $"-p \"{profileName}\"",
+                Arguments = $"-w {windowId} --fullscreen -p \"Construct\"",
                 UseShellExecute = true
             });
         }
@@ -184,7 +301,6 @@ public static class Program
     /// not via file writes. The shader reads shaderTexture to determine selection.
     /// </summary>
     private static int RunPicker(
-        string constructProfileName,
         IConfigService configService,
         IShaderService shaderService,
         ITerminalSettingsService terminalService,
@@ -196,11 +312,20 @@ public static class Program
 
         int selected = 0;
         try { Console.CursorVisible = false; } catch { }
+        try { Console.Title = "Construct"; } catch { }
 
-        // --- Zoom-in animation: TV starts small/far, approaches viewer ---
-        // 1.5 seconds, ease-out curve, ~60fps
+        // Write picker state — this sets shaderTexture R > 0, which signals the
+        // WhiteRoom shader to start rendering (it stays BLACK while R = 0).
+        WritePickerState(selected, 0);
+        Thread.Sleep(1500); // Hold white void before showing TV dot
+
+        // Show tiny dot, hold briefly
+        WritePickerState(selected, 1); // zoom=1/255 ≈ 0.02 (tiny speck)
+        Thread.Sleep(500);
+
+        // Quick zoom in over 1.2 seconds, ease-out curve, ~60fps
         var sw = Stopwatch.StartNew();
-        const double zoomDurationMs = 1500.0;
+        const double zoomDurationMs = 1200.0;
         while (sw.ElapsedMilliseconds < zoomDurationMs)
         {
             double t = sw.ElapsedMilliseconds / zoomDurationMs;
@@ -232,8 +357,7 @@ public static class Program
                         break;
                     case ConsoleKey.Enter:
                         // Check slot availability BEFORE starting the irreversible animation
-                        var preState = configService.LoadState();
-                        int slot = FindAvailableSlot(preState, shaderService, identityService);
+                        int slot = FindAndReserveSlot(shaderService, identityService);
                         if (slot == -1)
                         {
                             // All 8 slots full — flash error and continue picking
@@ -243,10 +367,29 @@ public static class Program
                         // CRT power-off animation via shaderTexture
                         AnimatePowerOff(selected);
 
-                        // Same-window transition: Construct profile becomes Matrix-{slot}
+                        // Exit fullscreen before transition (glitch needs to position the window)
+                        WindowsApi.keybd_event(WindowsApi.VK_F11, 0, 0, 0);
+                        WindowsApi.keybd_event(WindowsApi.VK_F11, 0, WindowsApi.KEYEVENTF_KEYUP, 0);
+
+                        // Same-window transition (no new window!)
                         var selectedColor = ColorPresets.All[selected];
-                        TransitionToRain(selectedColor, slot, constructProfileName, configService,
-                                         shaderService, terminalService, identityService, shadersDir);
+                        TransitionToRain(selectedColor, slot, configService, shaderService,
+                                         terminalService, identityService, shadersDir);
+                        // Restore console mode — Console.ReadKey disables LINE_INPUT and
+                        // ECHO_INPUT, which makes the inherited console unusable for PowerShell.
+                        try { Console.CursorVisible = true; } catch { }
+                        WindowsApi.RestoreConsoleMode();
+
+                        // Hand off to an interactive shell so the terminal is usable.
+                        // PowerShell inherits our console handle (UseShellExecute=false).
+                        // When the user exits the shell, construct.exe exits and WT closes the tab.
+                        var shell = Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "powershell.exe",
+                            Arguments = "-NoExit",
+                            UseShellExecute = false,
+                        });
+                        shell?.WaitForExit();
                         return 0;
 
                     case ConsoleKey.Escape:
@@ -311,80 +454,84 @@ public static class Program
 
     /// <summary>
     /// Performs same-window transition from Construct white room to Matrix rain.
-    /// The Construct profile's GUID is transferred to the Matrix-{slot} profile,
-    /// making WT associate the already-open tab with Matrix-{slot}. The old
-    /// Construct profile is removed. This ensures each Construct-launched window
-    /// has its own identity and doesn't interfere with other windows.
+    /// Modifies the Construct profile IN PLACE in settings.json — swapping the shader
+    /// path, opacity, and tab color. WT detects the change and loads the new shader
+    /// into the already-open window. The profile name stays "Construct" to avoid
+    /// GUID conflicts with UpsertProfile.
     /// </summary>
     private static void TransitionToRain(
         MatrixColor color,
         int slot,
-        string constructProfileName,
         IConfigService configService,
         IShaderService shaderService,
         ITerminalSettingsService terminalService,
         IIdentityService identityService,
         string shadersDir)
     {
-        // 1. Create/configure the rain shader file for this slot
+        // 1. Create rain shader — identical to a normal Matrix launch (FADE_DURATION=0)
         var config = new ShaderConfig().WithColor(color.R, color.G, color.B);
-        if (shaderService.ShaderExists(slot))
-            shaderService.WriteConfig(slot, config);
-        else
-            shaderService.CreateShader(slot, config);
+        shaderService.CreateShader(slot, config);
 
-        // 2. GUID swap: transfer the Construct window's GUID to Matrix-{slot}
-        //    so WT maps the running tab to the Matrix profile.
-        var settings = terminalService.LoadSettings();
-        terminalService.CreateMatrixProfiles(settings, 8, shadersDir);
-
-        var constructProfile = terminalService.GetProfile(settings, constructProfileName);
-        var matrixProfileName = $"Matrix-{slot}";
-        var (r, g, b) = color.ToRgb();
-
-        if (constructProfile != null)
+        // 2. Surgically modify only the Construct profile in settings.json.
+        //    CRITICAL: Keep Name = "Construct" — surgical upsert matches by name.
+        //    This preserves all other profiles untouched (no tab kill).
+        var existingGuid = terminalService.GetProfileGuid("Construct");
+        if (existingGuid != null)
         {
-            // Remove all Construct profiles (this instance + any stale ones from prior launches)
-            settings.Profiles?.List?.RemoveAll(p =>
-                p.Name != null && (p.Name.Equals("Construct", StringComparison.OrdinalIgnoreCase)
-                    || p.Name.StartsWith("Construct-", StringComparison.OrdinalIgnoreCase)));
-
-            // Update Matrix-{slot} with the Construct window's GUID and new visuals
-            var matrixProfile = terminalService.GetProfile(settings, matrixProfileName);
-            var updated = new TerminalProfile
+            var (r, g, b) = color.ToRgb();
+            var transitioned = new TerminalProfile
             {
-                Name = matrixProfileName,
-                Guid = constructProfile.Guid,  // GUID swap: WT follows this
-                Commandline = matrixProfile?.Commandline ?? $"powershell.exe -NoExit -Command \"Write-Host ' Matrix Terminal {slot}' -ForegroundColor Green\"",
+                Name = "Construct",
+                Guid = existingGuid,
+                Commandline = null,  // Will be omitted from JSON (WhenWritingNull equivalent)
                 Hidden = true,
+                PixelShaderPath = Path.Combine(shadersDir, $"Matrix-{slot}.hlsl"),
                 Opacity = 85,
                 UseAcrylic = false,
-                PixelShaderPath = Path.Combine(shadersDir, $"Matrix-{slot}.hlsl"),
                 TabColor = $"#{r:X2}{g:X2}{b:X2}",
-                SuppressApplicationTitle = false,  // Allow title changes for identity detection
+                SuppressApplicationTitle = false
             };
-            terminalService.UpsertProfile(settings, updated);
+            terminalService.UpsertProfileSurgical(transitioned);
         }
 
-        terminalService.SaveSettings(settings);
-
-        // 3. Set console title for identity detection (Layer 3: title matching)
-        try { Console.Title = matrixProfileName; } catch { }
-
-        // 4. Persist shader state
+        // 3. Persist shader state
         var state = configService.LoadState();
         state.ShaderConfigs[slot] = config;
         configService.SaveState(state);
 
-        // 5. Register window identity so Redpill and hotkeys can find it
+        // 4. Register window identity so Redpill and hotkeys can find it
         var hwnd = WindowsApi.GetForegroundWindow();
         if (hwnd != nint.Zero)
         {
-            identityService.RegisterWindowHandle(hwnd, matrixProfileName, slot);
+            identityService.RegisterWindowHandle(hwnd, $"Matrix-{slot}", slot);
         }
 
-        // 6. Wait for WT to detect settings.json change and load new shader
-        Thread.Sleep(500);
+        // 5. Wait for WT to detect settings.json change and load new shader.
+        //    Must be long enough for WT file watcher + shader compilation.
+        //    Screen is held at powerOff=255 (black) so the delay is invisible.
+        //    Too short → WhiteRoom shader is still active when we clear terminal,
+        //    causing a flash of the small TV (zoom=0, powerOff=0).
+        Thread.Sleep(1500);
+
+        // 6. Position window to fill the monitor's work area.
+        //    After F11 exit, WT uses its default restored size. The Glitch system only
+        //    repositions when 2+ windows overlap, so a single window needs explicit sizing.
+        if (hwnd != nint.Zero)
+        {
+            var monitorHandle = WindowsApi.MonitorFromWindow(hwnd, WindowsApi.MONITOR_DEFAULTTONEAREST);
+            var monitors = WindowsApi.GetMonitors();
+            var monitor = monitors.FirstOrDefault(m => m.Handle == monitorHandle);
+            if (monitor != null)
+            {
+                WindowsApi.PositionWindowExact(hwnd, monitor.WorkArea);
+            }
+        }
+
+        // 7. Clear leftover ANSI background (prevents pink bar in shaderTexture)
+        //    and set window title for Layer 3 identity detection.
+        //    Safe now because Matrix rain shader is loaded (doesn't read zoom/powerOff).
+        Console.Write("\x1b[0m\x1b[2J\x1b[H");
+        Console.Title = $"Matrix-{slot}";
     }
 
     /// <summary>
@@ -444,14 +591,65 @@ public static class Program
         return 0f;
     }
 
-    private static int FindAvailableSlot(MatrixState state, IShaderService shaderService, IIdentityService identityService)
+    /// <summary>
+    /// Finds an available shader slot AND atomically reserves it via a lock file.
+    /// Uses a named Mutex so concurrent construct.exe processes don't claim the same slot.
+    /// Without this, rapid launches (construct --green & construct --red & ...) all see
+    /// slot 1 as available because the previous window hasn't set its title yet.
+    /// </summary>
+    private static int FindAndReserveSlot(IShaderService shaderService, IIdentityService identityService)
     {
-        var usedSlots = new HashSet<int>(identityService.FindMatrixWindows()
-            .Where(w => w.ShaderIndex > 0 && !w.IsControlPanel)
-            .Select(w => w.ShaderIndex));
-        for (int i = 1; i <= 8; i++)
-            if (!usedSlots.Contains(i)) return i;
-        return -1;
+        using var mutex = new Mutex(false, @"Global\MatrixShader_SlotReservation");
+        try { mutex.WaitOne(TimeSpan.FromSeconds(5)); }
+        catch (AbandonedMutexException) { /* Previous process crashed — safe to proceed */ }
+
+        try
+        {
+            var usedSlots = new HashSet<int>(identityService.FindMatrixWindows()
+                .Where(w => w.ShaderIndex > 0 && !w.IsControlPanel)
+                .Select(w => w.ShaderIndex));
+
+            for (int i = 1; i <= 8; i++)
+            {
+                if (!usedSlots.Contains(i) && !IsSlotReserved(i))
+                {
+                    ReserveSlot(i);
+                    return i;
+                }
+            }
+            return -1;
+        }
+        finally
+        {
+            mutex.ReleaseMutex();
+        }
+    }
+
+    private static string GetSlotLockPath(int slot)
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(localAppData, "MatrixShader", $"slot-{slot}.lock");
+    }
+
+    private static bool IsSlotReserved(int slot)
+    {
+        var lockPath = GetSlotLockPath(slot);
+        if (!File.Exists(lockPath)) return false;
+        var age = DateTime.UtcNow - File.GetLastWriteTimeUtc(lockPath);
+        return age.TotalSeconds < 30;
+    }
+
+    private static void ReserveSlot(int slot)
+    {
+        var lockPath = GetSlotLockPath(slot);
+        var dir = Path.GetDirectoryName(lockPath)!;
+        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+        File.WriteAllText(lockPath, DateTime.UtcNow.ToString("O"));
+    }
+
+    private static void ClearReservation(int slot)
+    {
+        try { var p = GetSlotLockPath(slot); if (File.Exists(p)) File.Delete(p); } catch { }
     }
 
     private static MatrixColor? ParseColor(string[] args)

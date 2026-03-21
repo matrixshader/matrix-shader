@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MatrixShader.Core.Models;
@@ -32,7 +33,23 @@ public record TerminalProfile
     // Tab color (hex format like "#00FF4C")
     public string? TabColor { get; init; }
 
+    // Background image (path to image file)
+    public string? BackgroundImage { get; init; }
+    public string? BackgroundImageStretchMode { get; init; }
+    public string? BackgroundImageAlignment { get; init; }
+    public double? BackgroundImageOpacity { get; init; }
+
+    // Text colors (hex format like "#FFFFFF")
+    public string? Foreground { get; init; }
+    public string? Background { get; init; }
+
+    // Terminal padding (e.g. "0" to remove padding)
+    public string? Padding { get; init; }
+
     // Prevent shell from overriding profile name in tab title.
     // Required for hotkey identity resolution (Layer 3: title pattern matching).
     public bool SuppressApplicationTitle { get; init; } = true;
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }

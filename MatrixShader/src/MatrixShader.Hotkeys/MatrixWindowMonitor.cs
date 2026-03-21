@@ -134,11 +134,11 @@ public sealed class MatrixWindowMonitor : IDisposable
         {
             var windows = _identityService.FindMatrixWindows();
 
-            // Filter out control panel - only count shader windows
+            // Filter out control panel and Construct - only count shader windows
             var shaderWindows = new List<WindowInfo>();
             foreach (var window in windows)
             {
-                if (!window.IsControlPanel)
+                if (!window.IsControlPanel && !window.IsConstruct)
                 {
                     shaderWindows.Add(window);
                 }
@@ -284,8 +284,32 @@ public sealed class MatrixWindowMonitor : IDisposable
 
             try
             {
-                // Reposition by current monitor — respects user drags
-                var positions = _layoutService.CalculateLayoutByCurrentMonitor(tiledWindows, state.Layout);
+                // Check if all windows are crammed on one monitor when multiple monitors exist.
+                // This happens after rapid launches — new WT windows always open on primary.
+                // In that case, use CalculateLayout (cross-monitor distribution) to spread them.
+                var monitors = _layoutService.GetMonitors();
+                bool allOnOneMonitor = false;
+                if (monitors.Count > 1 && tiledWindows.Count > 1)
+                {
+                    var monitorHandles = tiledWindows
+                        .Select(w => WindowsApi.MonitorFromWindow(w.Handle, WindowsApi.MONITOR_DEFAULTTONEAREST))
+                        .Distinct()
+                        .Count();
+                    allOnOneMonitor = monitorHandles == 1;
+                }
+
+                IReadOnlyList<WindowPosition> positions;
+                if (allOnOneMonitor)
+                {
+                    // All windows on one monitor with multiple available — distribute across monitors
+                    DiagnosticLogger.Info("HOTKEYS", $"All {tiledWindows.Count} windows on one monitor, distributing across {monitors.Count} monitors");
+                    positions = _layoutService.CalculateLayout(tiledWindows, state.Layout);
+                }
+                else
+                {
+                    // Windows already spread — reposition per current monitor to respect user arrangement
+                    positions = _layoutService.CalculateLayoutByCurrentMonitor(tiledWindows, state.Layout);
+                }
                 _layoutService.ApplyLayout(positions, state.Layout, force: true);
 
                 // Update truth positions after layout apply
@@ -348,7 +372,7 @@ public sealed class MatrixWindowMonitor : IDisposable
         try
         {
             var allWindows = _identityService.FindMatrixWindows()
-                .Where(w => !w.IsControlPanel)
+                .Where(w => !w.IsControlPanel && !w.IsConstruct)
                 .ToList();
 
             // Filter out fullscreen windows - only reposition tiled windows

@@ -78,6 +78,12 @@ public static partial class WindowsApi
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool IsWindow(nint hWnd);
 
+    /// <summary>
+    /// Retrieves the ancestor of the specified window.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    public static partial nint GetAncestor(nint hwnd, uint gaFlags);
+
     #endregion
 
     #region Window Positioning
@@ -117,12 +123,36 @@ public static partial class WindowsApi
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool SetForegroundWindow(nint hWnd);
 
+    /// <summary>
+    /// Retrieves system metrics or system configuration settings.
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    public static partial int GetSystemMetrics(int nIndex);
+
+    // GetAncestor flags
+    public const uint GA_PARENT = 1;
+    public const uint GA_ROOT = 2;
+    public const uint GA_ROOTOWNER = 3;
+
+    // GetSystemMetrics indices
+    public const int SM_CXSCREEN = 0;
+    public const int SM_CYSCREEN = 1;
+
     // SetWindowPos flags
     public const uint SWP_NOSIZE = 0x0001;
     public const uint SWP_NOMOVE = 0x0002;
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;
     public const uint SWP_SHOWWINDOW = 0x0040;
+
+    /// <summary>
+    /// Synthesizes a keystroke (key down or up event).
+    /// </summary>
+    [LibraryImport("user32.dll")]
+    public static partial void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
+
+    public const byte VK_F11 = 0x7A;
+    public const uint KEYEVENTF_KEYUP = 0x0002;
 
     // ShowWindow commands
     public const int SW_HIDE = 0;
@@ -188,6 +218,42 @@ public static partial class WindowsApi
     public static partial nint MonitorFromWindow(nint hwnd, uint dwFlags);
 
     public const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    #endregion
+
+    #region Console Functions
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    public static partial nint GetStdHandle(int nStdHandle);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetConsoleMode(nint hConsoleHandle, out uint lpMode);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetConsoleMode(nint hConsoleHandle, uint dwMode);
+
+    public const int STD_INPUT_HANDLE = -10;
+    public const uint ENABLE_ECHO_INPUT = 0x0004;
+    public const uint ENABLE_LINE_INPUT = 0x0002;
+    public const uint ENABLE_PROCESSED_INPUT = 0x0001;
+    public const uint ENABLE_WINDOW_INPUT = 0x0008;
+    public const uint ENABLE_MOUSE_INPUT = 0x0010;
+    public const uint ENABLE_VIRTUAL_TERMINAL_INPUT = 0x0200;
+
+    /// <summary>
+    /// Restores the console input mode to the default state expected by interactive shells.
+    /// Call this after using Console.ReadKey which disables LINE_INPUT and ECHO_INPUT.
+    /// </summary>
+    public static void RestoreConsoleMode()
+    {
+        var hStdIn = GetStdHandle(STD_INPUT_HANDLE);
+        if (hStdIn == nint.Zero) return;
+        // Default console mode: echo, line input, processed input, VT input
+        uint defaultMode = ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_VIRTUAL_TERMINAL_INPUT;
+        SetConsoleMode(hStdIn, defaultMode);
+    }
 
     #endregion
 
