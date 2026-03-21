@@ -115,7 +115,8 @@ def load_mapping():
             continue
         slot_num = int(slot)
         matrix_conf = f"/tmp/ghostty-matrix-{slot_num}.conf"
-        if not os.path.isfile(matrix_conf):
+        construct_conf = f"/tmp/ghostty-construct-{slot_num}.conf"
+        if not os.path.isfile(matrix_conf) and not os.path.isfile(construct_conf):
             _recover_config(slot_num)
         # Also check construct config (post-transition it mirrors matrix config)
         construct_conf = f"/tmp/ghostty-construct-{slot_num}.conf"
@@ -366,36 +367,46 @@ def _recover_config(slot):
     shader_path = os.path.join(shader_dir, f"matrix-{slot}.glsl")
     fg_color = "#00ff4d"  # Default green
 
-    # Try to get foreground color from state
-    try:
-        state_file = os.path.expanduser("~/.config/matrix-shader/state.json")
-        with open(state_file) as f:
-            state = json.load(f)
-        sc = state.get("shader_configs", {}).get(str(slot), {})
-        r = sc.get("RAIN_R", 0.0)
-        g = sc.get("RAIN_G", 1.0)
-        b = sc.get("RAIN_B", 0.3)
-        # Map RAIN RGB back to nearest preset foreground color.
-        # Uses Euclidean distance instead of per-channel threshold so
-        # user-adjusted colors (e.g. gold R bumped from 0.85→1.0) still
-        # match the closest preset rather than falling back to default green.
-        # RGB values must match shader_service.PRESET_COLORS (single source of truth)
-        presets = [
-            (0.0, 1.0, 0.3, "#00ff4d"),   # Green
-            (0.0, 0.6, 1.0, "#0099ff"),   # Blue
-            (1.0, 0.1, 0.1, "#ff1a1a"),   # Red
-            (0.7, 0.0, 1.0, "#b300ff"),   # Purple
-            (1.0, 0.7, 0.0, "#ffb300"),   # Gold
-            (0.0, 0.9, 0.9, "#00e6e6"),   # Teal
-        ]
-        best_dist = float('inf')
-        for pr, pg, pb, color in presets:
-            dist = (r - pr)**2 + (g - pg)**2 + (b - pb)**2
-            if dist < best_dist:
-                best_dist = dist
-                fg_color = color
-    except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
-        pass
+    # Try to read foreground from the existing config of a related process
+    # (e.g., construct conf might exist even if matrix conf doesn't)
+    for pattern in [f"/tmp/ghostty-matrix-{slot}.conf", f"/tmp/ghostty-construct-{slot}.conf"]:
+        try:
+            with open(pattern) as f:
+                for line in f:
+                    if line.strip().startswith("foreground"):
+                        fg_color = line.split("=", 1)[1].strip()
+                        break
+                if fg_color != "#00ff4d":
+                    break
+        except FileNotFoundError:
+            continue
+
+    # Fallback: map RAIN RGB from state.json to nearest preset foreground
+    if fg_color == "#00ff4d":
+        try:
+            state_file = os.path.expanduser("~/.config/matrix-shader/state.json")
+            with open(state_file) as f:
+                state = json.load(f)
+            sc = state.get("shader_configs", {}).get(str(slot), {})
+            r = sc.get("RAIN_R", 0.0)
+            g = sc.get("RAIN_G", 1.0)
+            b = sc.get("RAIN_B", 0.3)
+            presets = [
+                (0.0, 1.0, 0.3, "#00ff4d"),   # Green
+                (0.0, 0.6, 1.0, "#0099ff"),   # Blue
+                (1.0, 0.1, 0.1, "#ff1a1a"),   # Red
+                (0.7, 0.0, 1.0, "#b300ff"),   # Purple
+                (1.0, 0.7, 0.0, "#ffb300"),   # Gold
+                (0.0, 0.9, 0.9, "#00e6e6"),   # Teal
+            ]
+            best_dist = float('inf')
+            for pr, pg, pb, color in presets:
+                dist = (r - pr)**2 + (g - pg)**2 + (b - pb)**2
+                if dist < best_dist:
+                    best_dist = dist
+                    fg_color = color
+        except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
+            pass
 
     conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
     content = (
