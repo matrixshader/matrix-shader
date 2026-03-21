@@ -1030,7 +1030,15 @@ def main():
             user_input = ""
 
         if user_input:
-            sys.exit(_handle_activation(user_input))
+            code = _handle_activation(user_input)
+            if code == 0:
+                print(" Close this window when ready.")
+                import signal
+                signal.pause()  # Wait forever — user closes window
+            else:
+                print(" Try again or close this window.")
+                import signal
+                signal.pause()
         sys.exit(0)
 
     tui = RedpillTUI()

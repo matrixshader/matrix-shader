@@ -182,7 +182,13 @@ def _check_server_activation(key):
             urllib.request.urlopen(req, timeout=SERVER_TIMEOUT)
         except urllib.error.HTTPError as e:
             if e.code == 403:
-                return ActivationResult.ACTIVATION_LIMIT_EXCEEDED
+                try:
+                    body = json.loads(e.read().decode())
+                    if body.get("error") == "activation_limit":
+                        return ActivationResult.ACTIVATION_LIMIT_EXCEEDED
+                except Exception:
+                    pass
+                return ActivationResult.INVALID_KEY
             # Server error (500, 503, etc.) — don't let activation bypass the check
             return ActivationResult.SERVER_UNREACHABLE
         return ActivationResult.SUCCESS
