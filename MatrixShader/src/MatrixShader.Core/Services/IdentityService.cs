@@ -229,7 +229,7 @@ public class IdentityService : IIdentityService
         {
             return CreateWindowInfo(hwnd, title, processId, RedpillProfileName, 0, IdentitySource.Title);
         }
-        if (title.Equals(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
+        if (title.StartsWith(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, ConstructProfileName, 0, IdentitySource.Title);
         }
@@ -321,6 +321,9 @@ public class IdentityService : IIdentityService
 
             // Store by handle (more reliable than PID)
             _launchRegistry[hwnd.ToString()] = entry;
+
+            // Clear stale handle cache entry (e.g. IsConstruct flag from pre-transition)
+            _handleCache.TryRemove(hwnd, out _);
 
             // Persist to disk
             SaveRegistry();
@@ -612,7 +615,7 @@ public class IdentityService : IIdentityService
                 }
 
                 // Detect Construct profile — exclude from Glitch tiling
-                if (profileArg.Equals(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
+                if (profileArg.StartsWith(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
                 {
                     return CreateWindowInfo(hwnd, title, processId, ConstructProfileName, 0, IdentitySource.CommandLine);
                 }
@@ -704,8 +707,8 @@ public class IdentityService : IIdentityService
         if (string.IsNullOrEmpty(title))
             return null;
 
-        // Construct window — detected by exact title match
-        if (title.Equals(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
+        // Construct window — detected by title prefix match (handles Construct-{id})
+        if (title.StartsWith(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, ConstructProfileName, 0, IdentitySource.Title);
         }
@@ -826,7 +829,7 @@ public class IdentityService : IIdentityService
         {
             return CreateWindowInfo(hwnd, title, processId, RedpillProfileName, 0, IdentitySource.Title);
         }
-        if (title.Equals(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
+        if (title.StartsWith(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, ConstructProfileName, 0, IdentitySource.Title);
         }
@@ -882,7 +885,7 @@ public class IdentityService : IIdentityService
             }
 
             // Detect Construct profile — exclude from Glitch tiling
-            if (profileArg.Equals(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
+            if (profileArg.StartsWith(ConstructProfileName, StringComparison.OrdinalIgnoreCase))
             {
                 return CreateWindowInfo(hwnd, title, processId, ConstructProfileName, 0, IdentitySource.CommandLine);
             }
@@ -948,8 +951,8 @@ public class IdentityService : IIdentityService
             || title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase)
             || title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase);
 
-        var isConstruct = profileName.Equals("Construct", StringComparison.OrdinalIgnoreCase)
-            || title.Equals("Construct", StringComparison.OrdinalIgnoreCase);
+        var isConstruct = profileName.StartsWith("Construct", StringComparison.OrdinalIgnoreCase)
+            || title.StartsWith("Construct", StringComparison.OrdinalIgnoreCase);
 
         return new WindowInfo
         {

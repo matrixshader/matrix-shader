@@ -127,4 +127,11 @@ public interface ITerminalSettingsService
     /// Gets the GUID of an existing profile by name, reading directly from JSON.
     /// </summary>
     string? GetProfileGuid(string profileName);
+
+    /// <summary>
+    /// Surgically removes a profile by name from settings.json using text splice.
+    /// Preserves all other content (comments, formatting, other profiles) byte-for-byte.
+    /// Used to clean up orphaned Construct profiles after GUID swap transition.
+    /// </summary>
+    void RemoveProfileSurgical(string profileName);
 }

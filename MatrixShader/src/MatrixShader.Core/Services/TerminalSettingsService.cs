@@ -776,6 +776,75 @@ public class TerminalSettingsService : ITerminalSettingsService
     }
 
     /// <summary>
+    /// Surgically removes a profile by name from settings.json using text splice.
+    /// Finds the profile object by name, removes it and its trailing/leading comma,
+    /// preserving all other content byte-for-byte. Uses the same mutex as
+    /// UpsertProfileSurgical to prevent concurrent write races.
+    /// </summary>
+    public void RemoveProfileSurgical(string profileName)
+    {
+        using var mutex = new Mutex(false, @"Global\MatrixShader_SettingsWrite");
+        try { mutex.WaitOne(TimeSpan.FromSeconds(10)); }
+        catch (AbandonedMutexException) { /* Safe to proceed */ }
+
+        try
+        {
+            if (!SettingsExist) return;
+
+            var json = File.ReadAllText(SettingsPath);
+            var range = FindProfileObjectRange(json, profileName);
+            if (!range.HasValue)
+            {
+                DiagnosticLogger.Debug("TERMINAL", $"RemoveProfileSurgical: profile '{profileName}' not found, nothing to remove");
+                return;
+            }
+
+            var (start, end) = range.Value;
+
+            // Expand removal range to include trailing comma+whitespace, or leading comma+whitespace
+            int removeStart = start;
+            int removeEnd = end;
+
+            // Try to consume trailing comma and whitespace first
+            int afterObj = end + 1;
+            while (afterObj < json.Length && char.IsWhiteSpace(json[afterObj])) afterObj++;
+            if (afterObj < json.Length && json[afterObj] == ',')
+            {
+                removeEnd = afterObj; // include the trailing comma
+            }
+            else
+            {
+                // No trailing comma — consume leading comma and whitespace instead
+                int beforeObj = start - 1;
+                while (beforeObj >= 0 && char.IsWhiteSpace(json[beforeObj])) beforeObj--;
+                if (beforeObj >= 0 && json[beforeObj] == ',')
+                {
+                    removeStart = beforeObj; // include the leading comma
+                }
+            }
+
+            // Also consume whitespace (newlines) around the removed section
+            while (removeEnd + 1 < json.Length && (json[removeEnd + 1] == '\r' || json[removeEnd + 1] == '\n'))
+                removeEnd++;
+
+            var modified = json.Substring(0, removeStart) + json.Substring(removeEnd + 1);
+
+            var tempPath = SettingsPath + ".tmp";
+            File.WriteAllText(tempPath, modified, new UTF8Encoding(false));
+            File.Move(tempPath, SettingsPath, overwrite: true);
+            DiagnosticLogger.Info("TERMINAL", $"Removed profile '{profileName}' from settings.json");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("TERMINAL", $"RemoveProfileSurgical failed for '{profileName}': {ex.Message}");
+        }
+        finally
+        {
+            mutex.ReleaseMutex();
+        }
+    }
+
+    /// <summary>
     /// Gets the GUID of an existing profile by name, reading directly from JSON.
     /// Returns null if the profile doesn't exist.
     /// </summary>

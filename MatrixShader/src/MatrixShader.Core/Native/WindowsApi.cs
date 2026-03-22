@@ -574,4 +574,65 @@ public static partial class WindowsApi
     }
 
     #endregion
+
+    #region Process Working Directory
+
+    /// <summary>
+    /// Gets the current working directory of a process by its PID.
+    /// Uses WMI to find child shell processes of Windows Terminal
+    /// and reads their current directory.
+    /// Returns null if the CWD cannot be determined.
+    /// </summary>
+    public static string? GetProcessWorkingDirectory(int processId)
+    {
+        try
+        {
+            var process = System.Diagnostics.Process.GetProcessById(processId);
+            // WT hosts shell processes as children. Find the child shell.
+            // The shell's MainModule path tells us it's powershell/cmd.
+            // Unfortunately .NET can't read CWD of another process directly.
+            // Use a temp file approach: write a marker and have the shell report its CWD.
+            // For now, return null — the CWD will be captured via the construct launch path.
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Gets the current working directory of a WT window by querying
+    /// the shell process's title (PowerShell includes CWD in title by default
+    /// when SuppressApplicationTitle is false).
+    /// </summary>
+    public static string? GetWorkingDirectoryFromTitle(nint hwnd)
+    {
+        try
+        {
+            var title = GetWindowTitle(hwnd);
+            if (string.IsNullOrEmpty(title)) return null;
+
+            // PowerShell default title format: "PS C:\Users\foo\bar>"
+            // or just "C:\Users\foo\bar" depending on config
+            if (title.StartsWith("PS ", StringComparison.OrdinalIgnoreCase))
+            {
+                var path = title.Substring(3).TrimEnd('>', ' ');
+                if (System.IO.Directory.Exists(path)) return path;
+            }
+            // Plain path in title
+            if (title.Length >= 3 && title[1] == ':' && title[2] == '\\')
+            {
+                var path = title.TrimEnd('>', ' ');
+                if (System.IO.Directory.Exists(path)) return path;
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    #endregion
 }

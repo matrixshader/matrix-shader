@@ -74,7 +74,8 @@ public static class Program
 
         if (args.Length >= 1 && args[0] == "--pick")
         {
-            return RunPicker(configService, shaderService, terminalService, identityService);
+            var profileArg = args.SkipWhile(a => a != "--profile").Skip(1).FirstOrDefault() ?? "Construct";
+            return RunPicker(profileArg, configService, shaderService, terminalService, identityService);
         }
 
         var color = ParseColor(args);
@@ -257,13 +258,14 @@ public static class Program
         var exePath = Process.GetCurrentProcess().MainModule?.FileName
                       ?? Path.Combine(AppContext.BaseDirectory, "construct.exe");
 
-        // Surgical upsert: only touches the Construct profile, preserves everything else.
-        var existingGuid = terminalService.GetProfileGuid("Construct");
+        // Each launch gets a unique profile so it doesn't overwrite running windows.
+        var instanceId = Guid.NewGuid().ToString("N")[..6];
+        var profileName = $"Construct-{instanceId}";
         var constructProfile = new TerminalProfile
         {
-            Name = "Construct",
-            Guid = existingGuid ?? $"{{{Guid.NewGuid()}}}",
-            Commandline = $"\"{exePath}\" --pick",
+            Name = profileName,
+            Guid = $"{{{Guid.NewGuid()}}}",
+            Commandline = $"\"{exePath}\" --pick --profile {profileName}",
             Hidden = true,
             Opacity = 100,
             UseAcrylic = false,
@@ -283,7 +285,7 @@ public static class Program
             Process.Start(new ProcessStartInfo
             {
                 FileName = wtPath,
-                Arguments = $"-w {windowId} --fullscreen -p \"Construct\"",
+                Arguments = $"-w {windowId} --fullscreen -p \"{profileName}\"",
                 UseShellExecute = true
             });
         }
@@ -301,6 +303,7 @@ public static class Program
     /// not via file writes. The shader reads shaderTexture to determine selection.
     /// </summary>
     private static int RunPicker(
+        string constructProfileName,
         IConfigService configService,
         IShaderService shaderService,
         ITerminalSettingsService terminalService,
@@ -373,12 +376,16 @@ public static class Program
 
                         // Same-window transition (no new window!)
                         var selectedColor = ColorPresets.All[selected];
-                        TransitionToRain(selectedColor, slot, configService, shaderService,
-                                         terminalService, identityService, shadersDir);
+                        TransitionToRain(selectedColor, slot, constructProfileName,
+                                         configService, shaderService, terminalService,
+                                         identityService, shadersDir);
                         // Restore console mode — Console.ReadKey disables LINE_INPUT and
                         // ECHO_INPUT, which makes the inherited console unusable for PowerShell.
                         try { Console.CursorVisible = true; } catch { }
                         WindowsApi.RestoreConsoleMode();
+
+                        // Ensure hotkeys + Glitch system are running
+                        EnsureHotkeyProcessRunning();
 
                         // Hand off to an interactive shell so the terminal is usable.
                         // PowerShell inherits our console handle (UseShellExecute=false).
@@ -462,6 +469,7 @@ public static class Program
     private static void TransitionToRain(
         MatrixColor color,
         int slot,
+        string constructProfileName,
         IConfigService configService,
         IShaderService shaderService,
         ITerminalSettingsService terminalService,
@@ -472,26 +480,33 @@ public static class Program
         var config = new ShaderConfig().WithColor(color.R, color.G, color.B);
         shaderService.CreateShader(slot, config);
 
-        // 2. Surgically modify only the Construct profile in settings.json.
-        //    CRITICAL: Keep Name = "Construct" — surgical upsert matches by name.
-        //    This preserves all other profiles untouched (no tab kill).
-        var existingGuid = terminalService.GetProfileGuid("Construct");
-        if (existingGuid != null)
+        // 2. GUID swap via surgical upsert: update Matrix-{slot} profile with
+        //    the Construct window's GUID. WT follows the GUID, so the running
+        //    tab seamlessly becomes a Matrix-{slot} window. Then remove the old
+        //    Construct profile to prevent duplicate GUID errors.
+        var constructGuid = terminalService.GetProfileGuid(constructProfileName);
+        var matrixProfileName = $"Matrix-{slot}";
+        if (constructGuid != null)
         {
             var (r, g, b) = color.ToRgb();
-            var transitioned = new TerminalProfile
+            var matrixProfile = new TerminalProfile
             {
-                Name = "Construct",
-                Guid = existingGuid,
-                Commandline = null,  // Will be omitted from JSON (WhenWritingNull equivalent)
+                Name = matrixProfileName,
+                Guid = constructGuid,  // GUID swap: WT follows this to the new profile
+                Commandline = $"powershell.exe -NoExit -Command \"$host.UI.RawUI.WindowTitle = 'Matrix-{slot}'; Write-Host ' Matrix Terminal {slot}' -ForegroundColor Green\"",
                 Hidden = true,
                 PixelShaderPath = Path.Combine(shadersDir, $"Matrix-{slot}.hlsl"),
                 Opacity = 85,
                 UseAcrylic = false,
                 TabColor = $"#{r:X2}{g:X2}{b:X2}",
+                Foreground = $"#{r:X2}{g:X2}{b:X2}",
                 SuppressApplicationTitle = false
             };
-            terminalService.UpsertProfileSurgical(transitioned);
+            terminalService.UpsertProfileSurgical(matrixProfile);
+
+            // Remove old Construct profile to prevent duplicate GUID error.
+            // WT throws "Found multiple profiles with the same GUID" if both exist.
+            terminalService.RemoveProfileSurgical(constructProfileName);
         }
 
         // 3. Persist shader state

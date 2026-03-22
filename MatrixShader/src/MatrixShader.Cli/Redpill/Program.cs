@@ -3,6 +3,7 @@ using System.Text;
 using MatrixShader.Core.Constants;
 using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
+using MatrixShader.Core.Native;
 using MatrixShader.Core.Services;
 using MatrixShader.Core.Startup;
 using MatrixShader.Lite;
@@ -763,13 +764,31 @@ public class ControlPanel
                 break;
 
             case KeyAction.SnapbackSave:
-                // Save current window positions to layout service
+                // Save current window positions + working directories
                 {
-                    var snapWindows = _identityService.FindMatrixWindows();
+                    var snapWindows = _identityService.FindMatrixWindows()
+                        .Where(w => w.ShaderIndex > 0 && !w.IsControlPanel && !w.IsConstruct)
+                        .ToList();
                     var snapState = _configService.LoadState();
                     var snapPositions = _layoutService.CalculateLayout(snapWindows, snapState.Layout);
                     _layoutService.SaveWindowSlots(snapPositions);
-                    DiagnosticLogger.Info("REDPILL", $"Saved {snapPositions.Count} window positions");
+
+                    // Also save working directories by reading window titles
+                    foreach (var w in snapWindows)
+                    {
+                        var cwd = WindowsApi.GetWorkingDirectoryFromTitle(w.Handle);
+                        if (cwd != null)
+                        {
+                            var slotKey = $"slot-{w.ShaderIndex}";
+                            var existingSlot = snapState.WindowSlots.GetValueOrDefault(slotKey);
+                            if (existingSlot != null)
+                            {
+                                snapState.WindowSlots[slotKey] = existingSlot with { WorkingDirectory = cwd };
+                            }
+                        }
+                    }
+                    _configService.SaveState(snapState);
+                    DiagnosticLogger.Info("REDPILL", $"Saved {snapPositions.Count} window positions with working directories");
                 }
                 break;
 

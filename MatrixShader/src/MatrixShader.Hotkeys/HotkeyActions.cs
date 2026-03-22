@@ -313,7 +313,9 @@ public sealed class HotkeyActions
             // Apply to ALL Matrix windows
             // NOTE: Overflow/underflow counters are intentionally NOT reset here.
             // User decision: counters are preserved across toggle cycles.
+            // Use surgical upsert to avoid corrupting non-Matrix profiles.
             var allSettings = _terminalSettingsService.LoadSettings();
+            var profilesToUpsert = new List<TerminalProfile>();
             string logLabel = "?";
 
             foreach (var window in matrixWindows)
@@ -336,7 +338,7 @@ public sealed class HotkeyActions
                 }
 
                 var updatedProfile = profile with { Opacity = perWindowOpacity, UseAcrylic = false };
-                _terminalSettingsService.UpsertProfile(allSettings, updatedProfile);
+                profilesToUpsert.Add(updatedProfile);
 
                 // Track state per profile
                 _transparencyStates[window.ProfileName] = nextState;
@@ -347,7 +349,8 @@ public sealed class HotkeyActions
                 if (nextState == TransparencyState.Custom && !_customOpacity.ContainsKey(window.ProfileName))
                     _customOpacity[window.ProfileName] = DefaultCustomOpacity;
             }
-            _terminalSettingsService.SaveSettings(allSettings);
+            if (profilesToUpsert.Count > 0)
+                _terminalSettingsService.UpsertProfilesSurgical(profilesToUpsert);
 
             logLabel = nextState switch
             {
@@ -432,7 +435,9 @@ public sealed class HotkeyActions
         bool allCapped = true;
         int? representativeOpacity = null;
 
+        // Read current settings for opacity detection, but use surgical upsert for writes
         var allSettings = _terminalSettingsService.LoadSettings();
+        var profilesToUpsert = new List<TerminalProfile>();
 
         foreach (var window in matrixWindows)
         {
@@ -507,7 +512,7 @@ public sealed class HotkeyActions
             if (newOpacity != currentOpacity)
             {
                 var updatedProfile = profile with { Opacity = newOpacity };
-                _terminalSettingsService.UpsertProfile(allSettings, updatedProfile);
+                profilesToUpsert.Add(updatedProfile);
             }
 
             // Track what we set as the base for Redpill change detection
@@ -530,18 +535,17 @@ public sealed class HotkeyActions
             return null;
         }
 
-        _terminalSettingsService.SaveSettings(allSettings);
+        // Surgical upsert: only touches Matrix profiles, preserves non-Matrix profiles byte-for-byte
+        if (profilesToUpsert.Count > 0)
+            _terminalSettingsService.UpsertProfilesSurgical(profilesToUpsert);
 
         // If no representative was captured (e.g., all were draining counters),
         // fall back to first window's current opacity
         if (representativeOpacity == null)
         {
-            var firstProfileName = matrixWindows[0].ProfileName;
-            if (!string.IsNullOrEmpty(firstProfileName))
-            {
-                var firstProfile = _terminalSettingsService.GetProfile(allSettings, firstProfileName);
-                representativeOpacity = firstProfile?.Opacity;
-            }
+            representativeOpacity = matrixWindows[0].ProfileName is { } fpn
+                ? _baseOpacity.TryGetValue(fpn, out var bo) ? bo : (int?)null
+                : null;
         }
 
         DiagnosticLogger.Debug("HOTKEYS", $"AdjustOpacity: representative opacity = {representativeOpacity}%");

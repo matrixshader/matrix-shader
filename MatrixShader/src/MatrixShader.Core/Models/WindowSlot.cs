@@ -17,4 +17,7 @@ public record WindowSlot
 
     /// <summary>Last known position for validation</summary>
     public WindowRect? LastPosition { get; init; }
+
+    /// <summary>Working directory the shell was in when saved</summary>
+    public string? WorkingDirectory { get; init; }
 }
