@@ -81,6 +81,26 @@ ffmpeg.exe
 
 # Planning docs (private — launch strategy, campaigns, session state)
 .planning/
+.planning-v1/
+
+# Test artifacts and rapid-test output directories
+rapid_test/
+rapid_test2/
+rapid_test3/
+rapid_test_final/
+rapid_test_secondlaunch/
+rapid_test_thirdlaunch/
+rapid_test_v105/
+
+# Playwright MCP logs
+.playwright-mcp/
+
+# ffmpeg pass logs
+*.mbtree
+
+# Video files (large — keep locally, not in repo)
+video-review/*.mp4
+video-review/*.webm
 
 # Dev docs at root
 /AGENTS.md

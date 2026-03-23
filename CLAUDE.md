@@ -78,3 +78,40 @@ Patched Ghostty binary is pre-built and bundled in release tarballs.
 
 - Repo: `matrixshader/matrix-shader`
 - Releases include Windows installer (.exe) and Linux tarball (.tar.gz)
+
+## Current Project State (updated 2026-03-22)
+
+### Version
+- Latest released: v1.0.5
+- In progress: v1.0.6 (construct stability fixes)
+
+### Windows Status: STABILIZATION IN PROGRESS
+All regression fixes from the 2026-03-21 team investigation are committed (7010d9b, 6df48cb).
+The system is functional but has three remaining stability gaps:
+
+1. **deploy-local.ps1 does not restart hotkeys** — kills processes, never restarts them.
+   Fix needed: add `Start-Process matrix-hotkeys.exe` and `Start-Process matrix-monitor.exe`
+   at the end of `installer/deploy-local.ps1`.
+
+2. **No orphan recovery** — when hotkeys restart, windows whose registry entries were lost
+   become invisible. Linux has Vaccine 2 (pgrep scan). Windows needs the equivalent in
+   `FindMatrixWindows`: scan all `WindowsTerminal` processes, match unregistered hwnds to
+   Matrix profiles via settings.json GUID lookup.
+
+3. **Title overwrite breaks Layer 3** — apps like Claude Code, vim, htop change the terminal
+   title, breaking title-based identity. Layer 1 (hwnd registry) is reliable but lost on restart.
+   Long-term: persist identity registry to disk and reload on startup.
+
+### Next Session Actions (Priority Order)
+1. Fix deploy-local.ps1 to restart hotkeys after deploy
+2. Add orphan recovery to FindMatrixWindows
+3. Do clean end-to-end test (close all → fresh deploy → construct x3 → verify hotkeys)
+4. Cut v1.0.6 release
+
+### Session Log
+| Date | Phase | Accomplishments | Next Steps |
+|------|-------|-----------------|------------|
+| 2026-03-22 | Construct stability | Fixed 5 regressions (UpsertProfilesSurgical, CalculateLayoutByCurrentMonitor, StartsWith identity, cache invalidation, RemoveProfileSurgical). Added foreground color + dead window vaccine. | deploy-local restart, orphan recovery, clean test, v1.0.6 |
+| 2026-03-21 | Construct fix plan | Team investigation identified 5 regressions from previous rebases. Full plan in openmind. | Fix and commit regressions |
+| 2026-03-17 | Construct fix | Construct multi-window slot system rebuilt | Regression testing needed |
+| 2026-03-14 | Windows launch | v1.0.4 released. Website launched. Pricing confirmed ($10/$5 founding). | Marketing launch |
