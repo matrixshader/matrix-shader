@@ -423,16 +423,23 @@ public class IdentityService : IIdentityService
                 {
                     foreach (var (key, entry) in registry.Entries)
                     {
+                        var entryHwnd = nint.TryParse(entry.WindowHandle, out var h) ? h : nint.Zero;
+
+                        // VACCINE: Purge entries with dead window handles.
+                        // Without this, stale entries accumulate and confuse
+                        // FindMatrixWindows, slot detection, and hotkey targeting.
+                        if (entryHwnd != nint.Zero && !WindowsApi.IsWindow(entryHwnd))
+                            continue;
+
                         _launchRegistry[key] = new LaunchEntry
                         {
                             ProfileName = entry.ProfileName,
                             ShaderIndex = entry.ShaderIndex,
                             ProcessId = entry.ProcessId,
-                            WindowHandle = nint.TryParse(entry.WindowHandle, out var hwnd) ? hwnd : nint.Zero,
+                            WindowHandle = entryHwnd,
                             LaunchTime = entry.LaunchTime,
                             CorrelationId = entry.CorrelationId
                         };
-                        // Track that this entry was loaded from disk (recovered)
                         _recoveredKeys.Add(key);
                     }
                 }

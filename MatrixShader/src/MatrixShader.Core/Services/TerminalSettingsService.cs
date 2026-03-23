@@ -258,12 +258,14 @@ public class TerminalSettingsService : ITerminalSettingsService
             {
                 Name = profileName,
                 Guid = existing?.Guid ?? $"{{{Guid.NewGuid()}}}",
-                Commandline = $"powershell.exe -NoExit -Command \"Write-Host ' Matrix Terminal {i}' -ForegroundColor Green\"",
+                Commandline = $"powershell.exe -NoExit -Command \"$host.UI.RawUI.WindowTitle = 'Matrix-{i}'; Write-Host ' Matrix Terminal {i}' -ForegroundColor Green\"",
                 Hidden = true,
                 Opacity = 85,  // 85% opacity for Matrix windows only
                 UseAcrylic = false,  // Plain transparency (no blur) - desktop shows clearly
                 PixelShaderPath = Path.Combine(shadersDirectory, $"Matrix-{i}.hlsl"),
-                TabColor = tabColor
+                TabColor = tabColor,
+                Foreground = tabColor,  // Text color matches rain color
+                SuppressApplicationTitle = false
             };
 
             UpsertProfile(settings, profile);
