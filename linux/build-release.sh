@@ -186,8 +186,8 @@ echo -e "${DIM}  Staging installer...${RESET}"
 cp "$SCRIPT_DIR/install.sh" "$RELEASE_DIR/"
 chmod +x "$RELEASE_DIR/install.sh"
 
-# Write version stamp from package.json
-PACKAGE_VERSION=$(node -p "require('$PROJECT_DIR/package.json').version" 2>/dev/null || echo "1.0.0")
+# Write version stamp from Directory.Build.props (package.json moved to private repo)
+PACKAGE_VERSION=$(grep -oP '<Version>\K[^<]+' "$PROJECT_DIR/MatrixShader/Directory.Build.props" 2>/dev/null || echo "1.0.0")
 echo "$PACKAGE_VERSION" > "$RELEASE_DIR/VERSION"
 echo -e "${DIM}  Version: $PACKAGE_VERSION${RESET}"
 
