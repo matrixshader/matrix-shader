@@ -37,6 +37,7 @@ Thumbs.db
 
 # Large binaries
 ffmpeg.exe
+*.tar.gz
 
 # PowerShell dev scripts (local dev environment only)
 /*.ps1
