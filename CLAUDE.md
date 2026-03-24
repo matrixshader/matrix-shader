@@ -43,9 +43,10 @@ wakeupneo → spawns patched Ghostty instances → per-window GLSL shaders → D
 - `linux/i.sh` - One-liner bootstrap for `curl | bash`
 - `shaders-glsl/` - GLSL shader ports (matrix-green.glsl, matrix-red.glsl, etc.)
 
-### Website
-- `Website/` - Static site deployed to Vercel (matrixshader.com)
-- `api/` - Vercel serverless functions (tracking, subscriptions, validation)
+### Website (SEPARATE PRIVATE REPO)
+- Repo: `Ehomey/matrixshader.com` (private, Vercel auto-deploys)
+- Website and API moved out of public repo on 2026-03-17
+- DO NOT look for Website/ or api/ in the public repo — they're gone
 
 ## Technical Details
 
@@ -66,24 +67,46 @@ dotnet publish MatrixShader/MatrixShader.sln -c Release /p:PublishAot=false
 ```
 
 ### Linux
-Patched Ghostty binary is pre-built and bundled in release tarballs.
+```bash
+./linux/build-release.sh          # tarball
+./linux/build-packages.sh         # .deb + .rpm (requires fpm, rpmbuild, dpkg-deb)
+```
+Patched Ghostty binary is pre-built and bundled in release tarballs and packages.
+
+## Install URLs
+- `matrixshader.com/install.ps1` → Windows PowerShell script
+- `matrixshader.com/linux` → Linux shell script (i.sh)
+- `matrixshader.com/install` → Website download section (platform-neutral)
 
 ## Testing
 
 - Windows: Run `matrix_control.ps1` in PowerShell, or use `MatrixShaderTest.wsb` for sandbox testing
-- Linux: Run `wakeupneo` after installing via `linux/install.sh`
-- Website: Push to `master` triggers Vercel auto-deploy
+- Linux: Run `wakeupneo` after installing via `linux/install.sh` or .deb/.rpm package
+- Website: Push to `master` of `Ehomey/matrixshader.com` triggers Vercel auto-deploy
 
 ## GitHub
 
-- Repo: `matrixshader/matrix-shader`
-- Releases include Windows installer (.exe) and Linux tarball (.tar.gz)
+- Repo: `matrixshader/matrix-shader` (public, source-available BSL 1.1)
+- Website repo: `Ehomey/matrixshader.com` (private, Vercel Hobby)
+- Releases include: Windows installer (.exe), Windows zip (.zip), Linux tarball (.tar.gz), Linux .deb, Linux .rpm
 
-## Current Project State (updated 2026-03-22)
+## Current Project State (updated 2026-03-24)
 
 ### Version
 - Latest released: v1.0.5
-- In progress: v1.0.6 (construct stability fixes)
+- Windows in progress: v1.0.6 (construct stability fixes)
+
+### Linux Status: v1.0.5 SHIPPED
+All features working. Construct white room, 4 Ghostty patches, matrixlite rewrite, stale PID vaccine.
+Release assets on GitHub: tarball (.tar.gz), .deb (Ubuntu/Debian), .rpm (Fedora/RHEL).
+
+Recent fixes (2026-03-24):
+- build-release.sh reads version from Directory.Build.props (was broken since repo split)
+- Update URL fixed from /install (404) to /linux
+- Tarball removed from git tracking (lives on GitHub Releases only)
+- .deb and .rpm package builder added (linux/build-packages.sh)
+- Website updated: Linux tab has .deb/.rpm downloads, "Preview" label removed
+- /install rewrite added to vercel.json (redirects to /#get-started)
 
 ### Windows Status: STABILIZATION IN PROGRESS
 All regression fixes from the 2026-03-21 team investigation are committed (7010d9b, 6df48cb).
@@ -102,16 +125,12 @@ The system is functional but has three remaining stability gaps:
    title, breaking title-based identity. Layer 1 (hwnd registry) is reliable but lost on restart.
    Long-term: persist identity registry to disk and reload on startup.
 
-### Next Session Actions (Priority Order)
-1. Fix deploy-local.ps1 to restart hotkeys after deploy
-2. Add orphan recovery to FindMatrixWindows
-3. Do clean end-to-end test (close all → fresh deploy → construct x3 → verify hotkeys)
-4. Cut v1.0.6 release
-
 ### Session Log
 | Date | Phase | Accomplishments | Next Steps |
 |------|-------|-----------------|------------|
-| 2026-03-22 | Construct stability | Fixed 5 regressions (UpsertProfilesSurgical, CalculateLayoutByCurrentMonitor, StartsWith identity, cache invalidation, RemoveProfileSurgical). Added foreground color + dead window vaccine. | deploy-local restart, orphan recovery, clean test, v1.0.6 |
-| 2026-03-21 | Construct fix plan | Team investigation identified 5 regressions from previous rebases. Full plan in openmind. | Fix and commit regressions |
-| 2026-03-17 | Construct fix | Construct multi-window slot system rebuilt | Regression testing needed |
-| 2026-03-14 | Windows launch | v1.0.4 released. Website launched. Pricing confirmed ($10/$5 founding). | Marketing launch |
+| 2026-03-24 | Linux release polish | Fixed build version bug, /install URL, added .deb/.rpm packages, updated website, removed tarball from git | Test install, marketing |
+| 2026-03-22 | Construct stability (Win) | Fixed 5 regressions, foreground color + dead window vaccine | deploy-local restart, orphan recovery, v1.0.6 |
+| 2026-03-21 | Construct fix plan (Win) | Team investigation identified 5 regressions | Fix and commit regressions |
+| 2026-03-20 | Linux v1.0.5 ship | Construct working, 4 Ghostty patches, matrixlite rewrite, tarball deployed | Testing, marketing |
+| 2026-03-17 | Repo split + license rotation | Website to private repo, secret rotated, BSL 1.1 license | Rebuild tarballs with new secret |
+| 2026-03-14 | v1.0.4 launch | Windows + Linux released. Website launched. Pricing confirmed. | Marketing launch |
