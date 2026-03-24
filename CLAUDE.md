@@ -93,8 +93,8 @@ Patched Ghostty binary is pre-built and bundled in release tarballs and packages
 ## Current Project State (updated 2026-03-24)
 
 ### Version
-- Latest released: v1.0.5
-- Windows in progress: v1.0.6 (construct stability fixes)
+- Latest released: v1.0.5 (both platforms rebuilt 2026-03-24 with all fixes)
+- No version increment planned — current work is stabilization of v1.0.5
 
 ### Linux Status: v1.0.5 SHIPPED
 All features working. Construct white room, 4 Ghostty patches, matrixlite rewrite, stale PID vaccine.
@@ -108,29 +108,47 @@ Recent fixes (2026-03-24):
 - Website updated: Linux tab has .deb/.rpm downloads, "Preview" label removed
 - /install rewrite added to vercel.json (redirects to /#get-started)
 
-### Windows Status: STABILIZATION IN PROGRESS
-All regression fixes from the 2026-03-21 team investigation are committed (7010d9b, 6df48cb).
-The system is functional but has three remaining stability gaps:
+### Windows Status: STABILIZED — READY FOR E2E TEST
+v1.0.5 Windows release rebuilt and uploaded to GitHub (zip + installer) on 2026-03-24.
+All regression fixes from 2026-03-21 team investigation + 2026-03-24 session are committed and shipped.
 
-1. **deploy-local.ps1 does not restart hotkeys** — kills processes, never restarts them.
-   Fix needed: add `Start-Process matrix-hotkeys.exe` and `Start-Process matrix-monitor.exe`
-   at the end of `installer/deploy-local.ps1`.
+**Fixed (shipped in v1.0.5 rebuild):**
+- deploy-local.ps1 restarts background processes after deploy
+- ProcessCleanup utility: kill-before-launch prevents duplicate hotkeys/monitor
+- Monitor: single-instance check, auto-exit after 30s with no windows, watchdog respects clean exit
+- Construct: deduplicates hotkey processes
+- Foreground text color syncs with shader/tab color in all launch paths (wakeupneo, redpill, construct)
+- Hotkeys use WriteDefines() — speed/layer changes can never corrupt shader color defines
+- Speed hotkey (Ctrl+Shift+Up/Down) is global to all windows
+- 5 regression fixes from team investigation (UpsertProfilesSurgical, CalculateLayoutByCurrentMonitor, StartsWith identity, cache invalidation, RemoveProfileSurgical)
+- Dead window vaccine in LoadRegistry
 
-2. **No orphan recovery** — when hotkeys restart, windows whose registry entries were lost
-   become invisible. Linux has Vaccine 2 (pgrep scan). Windows needs the equivalent in
-   `FindMatrixWindows`: scan all `WindowsTerminal` processes, match unregistered hwnds to
-   Matrix profiles via settings.json GUID lookup.
+**Known issues (not blocking release):**
+1. **Orphan recovery** — when hotkeys restart, windows without registry entries become invisible.
+   Linux has Vaccine 2 (pgrep scan). Windows needs the equivalent in FindMatrixWindows.
+2. **Title overwrite breaks Layer 3** — apps that change terminal title break title-based detection.
+   Layer 1 (hwnd registry) works while hotkeys are alive. Long-term: persist registry to disk.
+3. **WT shader reload unreliable from file writes** — Ctrl+Shift+F5 works but programmatic
+   file changes don't always trigger WT to recompile. Need better reload mechanism.
 
-3. **Title overwrite breaks Layer 3** — apps like Claude Code, vim, htop change the terminal
-   title, breaking title-based identity. Layer 1 (hwnd registry) is reliable but lost on restart.
-   Long-term: persist identity registry to disk and reload on startup.
+### Release Pipeline
+1. Install + e2e test on BOTH Windows and Linux (founder tests personally)
+2. Fix what breaks, repeat until passing
+3. Marketing push (launch posts via Agent Smith, demo video)
+
+### Next Session Actions (Priority Order)
+1. Clean end-to-end test: fresh install from v1.0.5 zip/exe → wakeupneo → construct x3 → verify hotkeys + Glitch
+2. Clean end-to-end test on Linux: .deb/.rpm install + tarball
+3. Fix any issues found in e2e
+4. Once both platforms pass: marketing push
 
 ### Session Log
 | Date | Phase | Accomplishments | Next Steps |
 |------|-------|-----------------|------------|
-| 2026-03-24 | Linux release polish | Fixed build version bug, /install URL, added .deb/.rpm packages, updated website, removed tarball from git | Test install, marketing |
-| 2026-03-22 | Construct stability (Win) | Fixed 5 regressions, foreground color + dead window vaccine | deploy-local restart, orphan recovery, v1.0.6 |
+| 2026-03-24 | Windows stabilization | ProcessCleanup, foreground sync, shader-safe hotkeys, global speed, deploy-local restart, v1.0.5 rebuilt and uploaded | E2E test |
+| 2026-03-24 | Linux release polish | Fixed build version bug, /install URL, added .deb/.rpm packages, updated website, removed tarball from git | E2E test |
+| 2026-03-22 | Construct stability (Win) | Fixed 5 regressions, foreground color + dead window vaccine | deploy-local restart, orphan recovery |
 | 2026-03-21 | Construct fix plan (Win) | Team investigation identified 5 regressions | Fix and commit regressions |
-| 2026-03-20 | Linux v1.0.5 ship | Construct working, 4 Ghostty patches, matrixlite rewrite, tarball deployed | Testing, marketing |
-| 2026-03-17 | Repo split + license rotation | Website to private repo, secret rotated, BSL 1.1 license | Rebuild tarballs with new secret |
+| 2026-03-20 | Linux v1.0.5 ship | Construct working, 4 Ghostty patches, matrixlite rewrite, tarball deployed | Testing |
+| 2026-03-17 | Repo split + license rotation | Website to private repo, secret rotated, BSL 1.1 license | Rebuild tarballs |
 | 2026-03-14 | v1.0.4 launch | Windows + Linux released. Website launched. Pricing confirmed. | Marketing launch |
