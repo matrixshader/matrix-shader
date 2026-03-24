@@ -611,32 +611,41 @@ public sealed class HotkeyActions
     }
 
     /// <summary>
-    /// Adjusts speed by the specified delta.
+    /// Adjusts speed by the specified delta on ALL Matrix windows.
+    /// Only writes RAIN_SPEED — never touches color defines.
     /// </summary>
     private void AdjustSpeed(float delta)
     {
-        var focusedWindow = GetFocusedMatrixWindow();
-        DiagnosticLogger.Debug("HOTKEYS", $"AdjustSpeed({delta}): focused window = {(focusedWindow == null ? "null" : $"shader={focusedWindow.ShaderIndex}, profile={focusedWindow.ProfileName}")}");
-        if (focusedWindow == null || focusedWindow.ShaderIndex < 1)
+        var matrixWindows = GetMatrixWindowsCached();
+        if (matrixWindows.Count == 0)
             return;
 
-        var shaderIndex = focusedWindow.ShaderIndex;
+        DiagnosticLogger.Debug("HOTKEYS", $"AdjustSpeed({delta}): applying to {matrixWindows.Count} windows");
 
-        // Read current config, modify, write back
-        var config = _shaderService.ReadConfig(shaderIndex);
-        var newSpeed = Math.Clamp(config.Speed + delta, MinSpeed, MaxSpeed);
-        var updatedConfig = config with { Speed = newSpeed };
+        var state = _configService.LoadState();
+        bool anyChanged = false;
 
-        _shaderService.WriteConfig(shaderIndex, updatedConfig);
+        foreach (var window in matrixWindows)
+        {
+            if (window.ShaderIndex < 1) continue;
+
+            var config = _shaderService.ReadConfig(window.ShaderIndex);
+            var newSpeed = Math.Clamp(config.Speed + delta, MinSpeed, MaxSpeed);
+
+            // ONLY write speed — never touch RAIN_R/G/B
+            _shaderService.WriteDefines(window.ShaderIndex, ("RAIN_SPEED", newSpeed));
+
+            if (state.ShaderConfigs.ContainsKey(window.ShaderIndex))
+            {
+                state.ShaderConfigs[window.ShaderIndex] = config with { Speed = newSpeed };
+                anyChanged = true;
+            }
+        }
+
         _terminalSettingsService.ForceShaderReload();
 
-        // Also update state for persistence
-        var state = _configService.LoadState();
-        if (state.ShaderConfigs.ContainsKey(shaderIndex))
-        {
-            state.ShaderConfigs[shaderIndex] = updatedConfig;
+        if (anyChanged)
             _configService.SaveState(state);
-        }
     }
 
     /// <summary>
@@ -689,6 +698,7 @@ public sealed class HotkeyActions
 
     /// <summary>
     /// Toggles a layer using the provided update function.
+    /// Only writes SHOW_L1/L2/L3 — never touches color defines.
     /// </summary>
     private void ToggleLayer(Func<ShaderConfig, ShaderConfig> updateFunc)
     {
@@ -703,12 +713,17 @@ public sealed class HotkeyActions
 
         var shaderIndex = focusedWindow.ShaderIndex;
 
-        // Read current config, apply toggle, write back
+        // Read current config, apply toggle
         var config = _shaderService.ReadConfig(shaderIndex);
         var updatedConfig = updateFunc(config);
 
-        DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer: Writing config for shader {shaderIndex}, Layer1={updatedConfig.Layer1}, Layer2={updatedConfig.Layer2}, Layer3={updatedConfig.Layer3}");
-        _shaderService.WriteConfig(shaderIndex, updatedConfig);
+        DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer: Writing defines for shader {shaderIndex}, Layer1={updatedConfig.Layer1}, Layer2={updatedConfig.Layer2}, Layer3={updatedConfig.Layer3}");
+
+        // ONLY write layer toggles — never touch RAIN_R/G/B
+        _shaderService.WriteDefines(shaderIndex,
+            ("SHOW_L1", updatedConfig.Layer1 ? 1.0f : 0.0f),
+            ("SHOW_L2", updatedConfig.Layer2 ? 1.0f : 0.0f),
+            ("SHOW_L3", updatedConfig.Layer3 ? 1.0f : 0.0f));
         _terminalSettingsService.ForceShaderReload();
 
         // Also update state for persistence

@@ -46,4 +46,10 @@ public interface IShaderService
     /// <param name="shaderIndex">Shader index (1-8)</param>
     /// <param name="config">Configuration for the new shader</param>
     void CreateShader(int shaderIndex, ShaderConfig config);
+
+    /// <summary>
+    /// Writes only specific #define values to a shader file without touching any other defines.
+    /// Use this instead of WriteConfig when changing speed, layers, etc. to avoid contaminating colors.
+    /// </summary>
+    void WriteDefines(int shaderIndex, params (string name, float value)[] defines);
 }

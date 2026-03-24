@@ -96,6 +96,9 @@ public static class Program
                 return 1;
             }
 
+            // Kill any orphaned background processes before launching fresh ones
+            ProcessCleanup.KillBackgroundProcesses();
+
             // Start background monitor for drag-snap functionality
             StartMonitorProcess();
 

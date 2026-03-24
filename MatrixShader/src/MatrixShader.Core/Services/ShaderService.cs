@@ -212,6 +212,31 @@ public partial class ShaderService : IShaderService
         return Regex.Replace(content, pattern, m => m.Groups[1].Value + replacement);
     }
 
+    public void WriteDefines(int shaderIndex, params (string name, float value)[] defines)
+    {
+        var path = GetShaderPath(shaderIndex);
+        if (!File.Exists(path)) return;
+
+        var content = File.ReadAllText(path);
+        foreach (var (name, value) in defines)
+        {
+            content = ReplaceDefine(content, name, value);
+        }
+
+        var tempPath = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(tempPath, content, new UTF8Encoding(false));
+            File.Move(tempPath, path, overwrite: true);
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
+        }
+        catch
+        {
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+            throw;
+        }
+    }
+
     public void TouchShader(int shaderIndex)
     {
         var path = GetShaderPath(shaderIndex);

@@ -69,3 +69,22 @@ if (Test-Path $coreDll) {
     $info = Get-Item $coreDll
     Write-Host "  OK: MatrixShader.Core.dll ($($info.Length) bytes, $($info.LastWriteTime))" -ForegroundColor Green
 }
+
+# Restart background processes if Matrix windows are open
+$matrixWindows = Get-Process -Name 'WindowsTerminal' -ErrorAction SilentlyContinue
+if ($matrixWindows -and $Killed.Count -gt 0) {
+    Write-Host ""
+    Write-Host "=== Restarting Background Processes ===" -ForegroundColor Yellow
+
+    # Start monitor only — its watchdog starts hotkeys automatically.
+    # Starting both directly causes a race where two hotkeys instances spawn.
+    $monitorExe = Join-Path $installDir 'matrix-monitor.exe'
+
+    if (Test-Path $monitorExe) {
+        Start-Process $monitorExe -WindowStyle Hidden
+        Write-Host "  Started: matrix-monitor.exe (watchdog will start hotkeys)" -ForegroundColor Green
+    }
+} elseif ($Killed.Count -gt 0) {
+    Write-Host ""
+    Write-Host "  No Matrix windows open - skipping background process restart" -ForegroundColor DarkGray
+}

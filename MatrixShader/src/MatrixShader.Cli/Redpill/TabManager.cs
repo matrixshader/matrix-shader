@@ -213,7 +213,7 @@ public class TabManager
 
             if (profile != null)
             {
-                var updatedProfile = profile with { TabColor = hexColor };
+                var updatedProfile = profile with { TabColor = hexColor, Foreground = hexColor };
                 _terminalSettingsService.UpsertProfile(settings, updatedProfile);
                 _terminalSettingsService.SaveSettings(settings);
                 DiagnosticLogger.Info("TABMANAGER", $"Synced tab color to {hexColor} for {profileName}");

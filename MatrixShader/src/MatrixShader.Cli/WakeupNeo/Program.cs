@@ -341,7 +341,8 @@ public class SetupWizard
                 var r = (int)(shaderCfg.R * 255);
                 var g = (int)(shaderCfg.G * 255);
                 var b = (int)(shaderCfg.B * 255);
-                var updatedProfile = profile with { TabColor = $"#{r:X2}{g:X2}{b:X2}" };
+                var color = $"#{r:X2}{g:X2}{b:X2}";
+                var updatedProfile = profile with { TabColor = color, Foreground = color };
                 _terminalService.UpsertProfile(terminalSettings, updatedProfile);
             }
         }
@@ -451,6 +452,9 @@ public class SetupWizard
         }
 
         _identityService.SaveRegistry();
+
+        // Kill any orphaned background processes before launching fresh ones
+        ProcessCleanup.KillBackgroundProcesses();
 
         // Start background monitor (watchdog for matrix-hotkeys)
         StartMonitorProcess();

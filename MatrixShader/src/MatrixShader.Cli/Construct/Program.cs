@@ -217,16 +217,33 @@ public static class Program
     }
 
     /// <summary>
-    /// Ensures matrix-hotkeys.exe is running so the Glitch system can detect
+    /// Ensures exactly one matrix-hotkeys.exe is running so the Glitch system can detect
     /// and auto-tile new Matrix windows with any existing ones.
+    /// Kills duplicates if multiple instances exist (orphan cleanup).
     /// </summary>
     private static void EnsureHotkeyProcessRunning()
     {
-        // Check if already running
         var existing = Process.GetProcessesByName("matrix-hotkeys");
-        if (existing.Length > 0) return;
 
-        // Primary: same directory as construct.exe
+        if (existing.Length == 1)
+        {
+            // Exactly one running — all good
+            foreach (var p in existing) p.Dispose();
+            return;
+        }
+
+        if (existing.Length > 1)
+        {
+            // Duplicates — kill all, will restart one fresh below
+            DiagnosticLogger.Debug("CONSTRUCT", $"Found {existing.Length} hotkey processes, cleaning up");
+            foreach (var p in existing)
+            {
+                try { p.Kill(); p.WaitForExit(3000); } catch { }
+                p.Dispose();
+            }
+        }
+
+        // Start one fresh instance
         var hotkeyPath = Path.Combine(AppContext.BaseDirectory, "matrix-hotkeys.exe");
         if (!File.Exists(hotkeyPath)) return;
 

@@ -16,6 +16,12 @@ public static class Program
 {
     public static async Task Main(string[] args)
     {
+        // Single-instance check — exit if another monitor is already running
+        if (ProcessCleanup.IsAnotherInstanceRunning())
+        {
+            return;
+        }
+
         var builder = Host.CreateApplicationBuilder(args);
 
         builder.Services.AddLogging(logging =>
@@ -113,10 +119,19 @@ public sealed class HotkeyWatchdog : IDisposable
         }
         else if (_hotkeyProcess.HasExited)
         {
-            needsStart = true;
-            reason = $"crashed (exit code: {_hotkeyProcess.ExitCode})";
+            var exitCode = _hotkeyProcess.ExitCode;
             _hotkeyProcess.Dispose();
             _hotkeyProcess = null;
+
+            if (exitCode == 0)
+            {
+                // Clean exit (no Matrix windows left) — don't restart
+                _logger.LogInformation("Hotkey process exited cleanly (code 0), not restarting");
+                return;
+            }
+
+            needsStart = true;
+            reason = $"crashed (exit code: {exitCode})";
         }
 
         if (needsStart)
@@ -172,14 +187,18 @@ public class MonitorService : BackgroundService
 {
     private readonly ILogger<MonitorService> _logger;
     private readonly IConfigService _configService;
+    private readonly IHostApplicationLifetime _lifetime;
     private readonly Dictionary<nint, WindowRect> _lastPositions = new();
     private const int PollIntervalMs = 500;
+    private const int AutoExitSeconds = 30;
     private HotkeyWatchdog? _hotkeyWatchdog;
+    private DateTime? _noWindowsSince;
 
-    public MonitorService(ILogger<MonitorService> logger, IConfigService configService)
+    public MonitorService(ILogger<MonitorService> logger, IConfigService configService, IHostApplicationLifetime lifetime)
     {
         _logger = logger;
         _configService = configService;
+        _lifetime = lifetime;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -205,6 +224,22 @@ public class MonitorService : BackgroundService
                 try
                 {
                     CheckWindows();
+
+                    // Auto-exit when no Matrix windows for 30 seconds
+                    if (_lastPositions.Count == 0)
+                    {
+                        _noWindowsSince ??= DateTime.UtcNow;
+                        if ((DateTime.UtcNow - _noWindowsSince.Value).TotalSeconds >= AutoExitSeconds)
+                        {
+                            _logger.LogInformation("No Matrix windows for {Seconds}s, shutting down", AutoExitSeconds);
+                            _lifetime.StopApplication();
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        _noWindowsSince = null;
+                    }
                 }
                 catch (Exception ex)
                 {
