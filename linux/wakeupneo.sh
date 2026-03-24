@@ -252,7 +252,7 @@ sys.exit(0 if v1 > v2 else 1)
         echo
         echo -e " \033[33m UPDATE AVAILABLE: v${latest}\033[0m"
         echo -e " \033[90m Current: v${current_version}\033[0m"
-        echo -e " \033[90m Update:  curl -sL matrixshader.com/install | bash\033[0m"
+        echo -e " \033[90m Update:  curl -sL matrixshader.com/linux | bash\033[0m"
         echo
     fi
 }
