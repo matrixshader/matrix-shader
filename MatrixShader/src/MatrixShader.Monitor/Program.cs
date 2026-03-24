@@ -31,6 +31,9 @@ public static class Program
 
         builder.Services.AddHostedService<MonitorService>();
         builder.Services.AddSingleton<IConfigService, ConfigService>();
+        builder.Services.AddSingleton<IIdentityService, IdentityService>();
+        builder.Services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
+        builder.Services.AddSingleton<IShaderService, ShaderService>();
 
         var host = builder.Build();
         await host.RunAsync();
@@ -187,6 +190,7 @@ public class MonitorService : BackgroundService
 {
     private readonly ILogger<MonitorService> _logger;
     private readonly IConfigService _configService;
+    private readonly IIdentityService _identityService;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly Dictionary<nint, WindowRect> _lastPositions = new();
     private const int PollIntervalMs = 500;
@@ -194,10 +198,11 @@ public class MonitorService : BackgroundService
     private HotkeyWatchdog? _hotkeyWatchdog;
     private DateTime? _noWindowsSince;
 
-    public MonitorService(ILogger<MonitorService> logger, IConfigService configService, IHostApplicationLifetime lifetime)
+    public MonitorService(ILogger<MonitorService> logger, IConfigService configService, IIdentityService identityService, IHostApplicationLifetime lifetime)
     {
         _logger = logger;
         _configService = configService;
+        _identityService = identityService;
         _lifetime = lifetime;
     }
 
@@ -293,13 +298,22 @@ public class MonitorService : BackgroundService
         if (!OperatingSystem.IsWindows())
             return;
 
-        var windows = FindMatrixWindows();
+        // Use the identity service (Layer 1 hwnd + Layer 2 commandline + Layer 3 title)
+        // instead of title-only matching. Titles change when apps like Claude Code run.
+        var matrixWindows = _identityService.FindMatrixWindows();
+        var windows = new Dictionary<nint, WindowRect>();
+        foreach (var w in matrixWindows)
+        {
+            if (!w.IsControlPanel && !w.IsConstruct)
+            {
+                windows[w.Handle] = w.Position;
+            }
+        }
 
         foreach (var (hwnd, currentPos) in windows)
         {
             if (_lastPositions.TryGetValue(hwnd, out var lastPos))
             {
-                // Check if window was moved (user drag)
                 if (HasMoved(lastPos, currentPos))
                 {
                     _logger.LogDebug("Window {Handle} moved from {Old} to {New}",
@@ -310,7 +324,6 @@ public class MonitorService : BackgroundService
             }
             else
             {
-                // New window detected
                 _logger.LogInformation("New Matrix window detected: {Handle}", hwnd);
             }
 
@@ -327,33 +340,6 @@ public class MonitorService : BackgroundService
             _logger.LogInformation("Matrix window closed: {Handle}", hwnd);
             _lastPositions.Remove(hwnd);
         }
-    }
-
-    private static Dictionary<nint, WindowRect> FindMatrixWindows()
-    {
-        var result = new Dictionary<nint, WindowRect>();
-
-        var handles = WindowsApi.GetVisibleWindows();
-
-        foreach (var hwnd in handles)
-        {
-            var title = WindowsApi.GetWindowTitle(hwnd);
-            var className = WindowsApi.GetWindowClassName(hwnd);
-
-            // Look for Windows Terminal windows with Matrix in title
-            if (className == "CASCADIA_HOSTING_WINDOW_CLASS" &&
-                (title.Contains("Matrix", StringComparison.OrdinalIgnoreCase) ||
-                 title.Contains("Redpill", StringComparison.OrdinalIgnoreCase)))
-            {
-                var pos = WindowsApi.GetWindowPosition(hwnd);
-                if (pos != null)
-                {
-                    result[hwnd] = pos;
-                }
-            }
-        }
-
-        return result;
     }
 
     private static bool HasMoved(WindowRect old, WindowRect current)
