@@ -5,6 +5,8 @@
 
 SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
 
 # Detect Ghostty binary
 if [ -x "/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
@@ -29,7 +31,7 @@ fi
 
 # Without --show flag: spawn a new Ghostty window and exit immediately
 if [ "$1" != "--show" ]; then
-    conf="/tmp/ghostty-hotkey-help.conf"
+    conf="$MATRIX_TMP/ghostty-hotkey-help.conf"
     cat > "$conf" <<CONFEOF
 background = #000000
 foreground = #35B381

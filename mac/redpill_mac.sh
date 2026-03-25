@@ -6,6 +6,8 @@
 SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 TUI_SCRIPT="${SCRIPT_DIR}/../linux/redpill_tui.py"
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
 
 # Detect Ghostty binary
 if [ -x "/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
@@ -44,7 +46,7 @@ if [ "$1" != "--in-ghostty" ]; then
 
     REDPILL_SHADER="$(cd "$SCRIPT_DIR/../shaders-glsl" && pwd)/matrix-codevision-ghostty.glsl"
 
-    conf="/tmp/ghostty-redpill.conf"
+    conf="$MATRIX_TMP/ghostty-redpill.conf"
     cat > "$conf" <<EOF
 custom-shader = ${REDPILL_SHADER}
 custom-shader-animation = always

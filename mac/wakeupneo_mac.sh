@@ -9,7 +9,9 @@ SHADER_SERVICE="$SCRIPT_DIR/shader_service_mac.py"
 STATE_DIR="$HOME/.config/matrix-shader"
 STATE_FILE="$STATE_DIR/state.json"
 MATRIX_KEYS="$SCRIPT_DIR/matrix_keys_mac.py"
-MATRIX_KEYS_PID="/tmp/matrix-keys.pid"
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
+MATRIX_KEYS_PID="$MATRIX_TMP/matrix-keys.pid"
 
 # Detect Ghostty binary
 if [ -x "/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
@@ -48,7 +50,7 @@ done
 # Self-relaunch inside Ghostty if not already there
 if [ "$IN_GHOSTTY" != "true" ]; then
     if [[ "$MODE" != "update" && "$MODE" != "agent-smith" ]]; then
-        setup_conf="/tmp/ghostty-wakeupneo.conf"
+        setup_conf="$MATRIX_TMP/ghostty-wakeupneo.conf"
         cat > "$setup_conf" <<SETUPEOF
 background = #000000
 foreground = #6EDCAA
@@ -123,7 +125,7 @@ color_swatch() {
 
 get_open_slots() {
     local open=()
-    for conf in /tmp/ghostty-matrix-*.conf; do
+    for conf in $MATRIX_TMP/ghostty-matrix-*.conf; do
         [ -f "$conf" ] || continue
         local slot=$(echo "$conf" | grep -oE 'ghostty-matrix-[0-9]+' | grep -oE '[0-9]+')
         # macOS: use ps instead of pgrep -f
@@ -179,7 +181,7 @@ agent_smith_mode() {
     sleep 1
 
     local count=0
-    for conf in /tmp/ghostty-matrix-*.conf; do
+    for conf in $MATRIX_TMP/ghostty-matrix-*.conf; do
         [ -f "$conf" ] || continue
         local slot=$(echo "$conf" | grep -oE 'ghostty-matrix-[0-9]+' | grep -oE '[0-9]+')
         # Generate random RGB and speed
@@ -390,7 +392,7 @@ launch_window() {
         return 1
     fi
 
-    local conf="/tmp/ghostty-matrix-${slot}.conf"
+    local conf="$MATRIX_TMP/ghostty-matrix-${slot}.conf"
     cat > "$conf" <<EOF
 custom-shader = ${shader_file}
 background = #000000
@@ -405,7 +407,7 @@ EOF
     echo -ne "   Waiting for Matrix-${slot}..."
 
     if [ -n "$GHOSTTY_BIN" ]; then
-        nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+        nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > $MATRIX_TMP/ghostty-matrix-${slot}.log 2>&1 &
     else
         open -na Ghostty --args --config-default-files=false --config-file="$conf" 2>/dev/null &
     fi
@@ -416,7 +418,7 @@ EOF
 }
 
 go_transparent() {
-    setup_conf="/tmp/ghostty-wakeupneo.conf"
+    setup_conf="$MATRIX_TMP/ghostty-wakeupneo.conf"
     cat > "$setup_conf" <<TRANSEOF
 background = #000000
 foreground = #6EDCAA
@@ -448,7 +450,7 @@ show_post_launch() {
     fi
 
     if [ -f "$MATRIX_KEYS" ]; then
-        nohup python3 "$MATRIX_KEYS" > /tmp/matrix-keys.log 2>&1 &
+        nohup python3 "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
         disown
         echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
     else

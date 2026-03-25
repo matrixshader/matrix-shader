@@ -55,7 +55,9 @@ hotkey_actions.show_toast = show_toast_mac
 # Constants
 # ---------------------------------------------------------------------------
 
-PIDFILE = "/tmp/matrix-keys.pid"
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+os.makedirs(MATRIX_TMP, exist_ok=True)
+PIDFILE = f"{MATRIX_TMP}/matrix-keys.pid"
 
 # CGEvent constants
 kCGHIDEventTap = 0

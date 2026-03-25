@@ -11,7 +11,9 @@ SHADER_DIR="$SCRIPT_DIR/../shaders-glsl"
 STATE_DIR="$HOME/.config/matrix-shader"
 STATE_FILE="$STATE_DIR/state.json"
 MATRIX_KEYS="$SCRIPT_DIR/matrix_keys_mac.py"
-MATRIX_KEYS_PID="/tmp/matrix-keys.pid"
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
+MATRIX_KEYS_PID="$MATRIX_TMP/matrix-keys.pid"
 
 # Detect Ghostty binary
 if [ -x "/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
@@ -59,7 +61,7 @@ if [ "$1" != "--in-ghostty" ]; then
         echo "Error: Ghostty not found"
         exit 1
     fi
-    setup_conf="/tmp/ghostty-bluepill.conf"
+    setup_conf="$MATRIX_TMP/ghostty-bluepill.conf"
     cat > "$setup_conf" <<SETUPEOF
 background = #000000
 foreground = #6EDCAA
@@ -78,7 +80,7 @@ fi
 
 get_open_slots() {
     local open=()
-    for conf in /tmp/ghostty-matrix-*.conf; do
+    for conf in $MATRIX_TMP/ghostty-matrix-*.conf; do
         [ -f "$conf" ] || continue
         local slot=$(echo "$conf" | grep -oE 'ghostty-matrix-[0-9]+' | grep -oE '[0-9]+')
         # Check if a ghostty process is using this config
@@ -90,7 +92,7 @@ get_open_slots() {
 }
 
 go_transparent() {
-    setup_conf="/tmp/ghostty-bluepill.conf"
+    setup_conf="$MATRIX_TMP/ghostty-bluepill.conf"
     cat > "$setup_conf" <<TRANSEOF
 background = #000000
 foreground = #6EDCAA
@@ -172,7 +174,7 @@ r, g, b = c.get('RAIN_R', 0), c.get('RAIN_G', 1), c.get('RAIN_B', 0.3)
 print('#%02x%02x%02x' % (int(r*255), int(g*255), int(b*255)))
 " 2>/dev/null || echo "#00ff4d")
 
-    local conf="/tmp/ghostty-matrix-${slot}.conf"
+    local conf="$MATRIX_TMP/ghostty-matrix-${slot}.conf"
     cat > "$conf" <<EOF
 custom-shader = ${shader_file}
 background = #000000
@@ -186,7 +188,7 @@ desktop-notifications = false
 EOF
 
     echo -ne "   Waiting for Matrix-${slot}..."
-    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > $MATRIX_TMP/ghostty-matrix-${slot}.log 2>&1 &
     local ghostty_pid=$!
     sleep 0.3
     echo -e " ${GREEN}OK${RESET}"
@@ -278,12 +280,12 @@ if [ -f "$MATRIX_KEYS_PID" ]; then
         echo -e "${GREEN} Hotkeys...${RESET} ${DIM}already running${RESET}"
     else
         rm -f "$MATRIX_KEYS_PID"
-        nohup python3 -B "$MATRIX_KEYS" > /tmp/matrix-keys.log 2>&1 &
+        nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
         disown
         echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
     fi
 else
-    nohup python3 -B "$MATRIX_KEYS" > /tmp/matrix-keys.log 2>&1 &
+    nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
     disown
     echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
 fi

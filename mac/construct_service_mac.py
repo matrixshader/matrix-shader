@@ -14,6 +14,9 @@ import subprocess
 import sys
 import tempfile
 
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+os.makedirs(MATRIX_TMP, exist_ok=True)
+
 # Add linux/ and mac/ to path for imports
 _linux_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "linux")
 if _linux_dir not in sys.path:
@@ -94,7 +97,7 @@ def _write_ghostty_config_mac(slot: int, shader_path: str,
     Uses macos-titlebar-style instead of gtk-titlebar.
     Returns the config file path.
     """
-    conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
+    conf_path = f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
     content = (
         f"custom-shader = {shader_path}\n"
         f"background = #000000\n"
@@ -192,7 +195,7 @@ def transition_to_rain_mac(slot: int, preset_idx: int) -> bool:
     shader_path = shader_service.create_slot_shader(slot, preset_idx=preset_idx)
 
     # 2. Rewrite Ghostty config
-    conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
+    conf_path = f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
     try:
         with open(conf_path) as f:
             content = f.read()

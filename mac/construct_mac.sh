@@ -15,6 +15,8 @@ SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 PYMOD_DIR="$SCRIPT_DIR"
 SHADER_DIR="$SCRIPT_DIR/../shaders-glsl"
 CONFIG_DIR="$HOME/.config/matrix-shader"
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
 
 # Detect Ghostty binary
 if [ -x "/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
@@ -96,7 +98,7 @@ if [ -n "$COLOR" ]; then
 
     # Launch Ghostty
     if [ -n "$GHOSTTY_BIN" ]; then
-        nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+        nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > $MATRIX_TMP/ghostty-matrix-${slot}.log 2>&1 &
     else
         open -na Ghostty --args --config-default-files=false --config-file="$conf" 2>/dev/null &
     fi
@@ -128,7 +130,7 @@ if [ "$IN_GHOSTTY" = "true" ]; then
     own_conf=""
     own_slot=""
     for s in $(seq 1 8); do
-        conf="/tmp/ghostty-construct-${s}.conf"
+        conf="$MATRIX_TMP/ghostty-construct-${s}.conf"
         if [ -f "$conf" ]; then
             own_pid=$$
             parent_pid=$(ps -o ppid= -p $own_pid 2>/dev/null | tr -d ' ')
@@ -143,7 +145,7 @@ if [ "$IN_GHOSTTY" = "true" ]; then
     # Fallback: find the construct config that exists
     if [ -z "$own_slot" ]; then
         for s in $(seq 1 8); do
-            conf="/tmp/ghostty-construct-${s}.conf"
+            conf="$MATRIX_TMP/ghostty-construct-${s}.conf"
             if [ -f "$conf" ]; then
                 own_slot="$s"
                 own_conf="$conf"
@@ -159,7 +161,7 @@ if [ "$IN_GHOSTTY" = "true" ]; then
     fi
 
     # Rename the construct config to matrix config for slot tracking
-    matrix_conf="/tmp/ghostty-matrix-${own_slot}.conf"
+    matrix_conf="$MATRIX_TMP/ghostty-matrix-${own_slot}.conf"
     cp "$own_conf" "$matrix_conf"
 
     # Transition to rain: swap shader + opacity + reload (Mac: SIGHUP)
@@ -210,7 +212,7 @@ if [ ! -f "$white_room_shader" ]; then
 fi
 
 # Write Ghostty config for white room (opaque, white foreground)
-construct_conf="/tmp/ghostty-construct-${next_slot}.conf"
+construct_conf="$MATRIX_TMP/ghostty-construct-${next_slot}.conf"
 cat > "$construct_conf" <<EOF
 custom-shader = ${white_room_shader}
 custom-shader-animation = always

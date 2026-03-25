@@ -18,7 +18,9 @@ import re
 import subprocess
 import sys
 
-MAP_FILE = '/tmp/matrix-window-map.json'
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+os.makedirs(MATRIX_TMP, exist_ok=True)
+MAP_FILE = f'{MATRIX_TMP}/matrix-window-map.json'
 
 
 # --- Slot-to-PID Mapping ---
