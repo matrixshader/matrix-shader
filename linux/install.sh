@@ -85,8 +85,13 @@ if [ -n "$CURRENT_VERSION" ] && [ -n "$RELEASE_VERSION" ]; then
         [ "$CHOICE" = "n" ] || [ "$CHOICE" = "N" ] && exit 0
     else
         echo -e "  ${DIM}Already up to date.${RESET}"
-        read -p "  Reinstall? (y/N) " CHOICE
-        [ "$CHOICE" != "y" ] && [ "$CHOICE" != "Y" ] && exit 0
+        if [ -t 0 ]; then
+            read -p "  Reinstall? (y/N) " CHOICE
+            [ "$CHOICE" != "y" ] && [ "$CHOICE" != "Y" ] && exit 0
+        else
+            # Non-interactive (curl pipe) — always reinstall same version
+            echo -e "  ${DIM}Reinstalling (non-interactive)...${RESET}"
+        fi
     fi
     echo
 fi
