@@ -469,7 +469,12 @@ show_post_launch() {
     fi
 
     if [ -f "$MATRIX_KEYS" ]; then
-        nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
+        if id -nG 2>/dev/null | grep -qw input; then
+            nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
+        else
+            # input group not active in this session — use sg to activate it
+            nohup sg input -c "python3 -B '$MATRIX_KEYS'" > $MATRIX_TMP/matrix-keys.log 2>&1 &
+        fi
         disown
         echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
     else
@@ -813,12 +818,24 @@ fi
 
 # Apply pillars layout to position windows with proper gaps
 sleep 0.5
-python3 -c "
+LAYOUT_RESULT=$(python3 -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
 from layout_engine import apply_current_layout
 n = apply_current_layout()
 if n > 0:
     print(f'   Positioned {n} window(s) in layout')
-" 2>/dev/null || true
+else:
+    print('   Layout: no windows positioned')
+" 2>&1) || true
+if [ -n "$LAYOUT_RESULT" ]; then
+    echo "$LAYOUT_RESULT"
+fi
+# If GNOME extension isn't loaded, warn the user
+if command -v gnome-extensions &>/dev/null; then
+    EXT_STATE=$(gnome-extensions info matrix-window-manager@custom 2>/dev/null | grep "State:" | awk '{print $2}')
+    if [ "$EXT_STATE" = "ERROR" ] || [ "$EXT_STATE" = "OUT_OF_DATE" ]; then
+        echo -e "${DIM} Note: Window positioning needs a logout/login to activate.${RESET}"
+    fi
+fi
 
 show_post_launch "$is_redpill"

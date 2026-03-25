@@ -26,6 +26,16 @@ WHITE='\033[1;37m'
 DIM='\033[2m'
 RESET='\033[0m'
 
+# Launch matrix_keys with input group access (handles pre-relogin sessions)
+launch_matrix_keys() {
+    if id -nG 2>/dev/null | grep -qw input; then
+        nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
+    else
+        nohup sg input -c "python3 -B '$MATRIX_KEYS'" > $MATRIX_TMP/matrix-keys.log 2>&1 &
+    fi
+    disown
+}
+
 # Presets for foreground color lookup
 PRESETS=(
     "Classic Green:0.0:1.0:0.3:#00ff4d"
@@ -283,13 +293,11 @@ if [ -f "$MATRIX_KEYS_PID" ]; then
         echo -e "${GREEN} Hotkeys...${RESET} ${DIM}already running${RESET}"
     else
         rm -f "$MATRIX_KEYS_PID"
-        nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
-        disown
+        launch_matrix_keys
         echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
     fi
 else
-    nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
-    disown
+    launch_matrix_keys
     echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
 fi
 
