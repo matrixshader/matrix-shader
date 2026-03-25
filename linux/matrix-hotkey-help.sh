@@ -12,8 +12,11 @@ for gb in "$HOME/.local/share/matrixshader/ghostty" "$(which ghostty 2>/dev/null
 done
 [ -z "$GHOSTTY_BIN" ] && exit 1
 
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
+
 # Generate help text
-HELP_FILE=$(mktemp /tmp/matrix-help-XXXXXX.txt)
+HELP_FILE=$(mktemp "$MATRIX_TMP/matrix-help-XXXXXX.txt")
 python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
 from hotkey_actions import _build_help_text
@@ -42,7 +45,7 @@ HELP
 fi
 
 # Write temp config for help window
-HELP_CONF=$(mktemp /tmp/ghostty-help-XXXXXX.conf)
+HELP_CONF=$(mktemp "$MATRIX_TMP/ghostty-help-XXXXXX.conf")
 cat > "$HELP_CONF" <<EOF
 background = #000000
 foreground = #00ff4d

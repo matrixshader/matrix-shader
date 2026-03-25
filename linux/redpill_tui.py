@@ -15,6 +15,8 @@ import subprocess
 import sys
 import tempfile
 
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+
 # Ensure linux/ directory is in sys.path for sibling imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -750,7 +752,7 @@ class RedpillTUI:
     def _launch_ghostty_window(self, slot):
         """Spawn a Ghostty window for the given slot."""
         shader_path = os.path.join(SLOT_SHADER_DIR, f"matrix-{slot}.glsl")
-        conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
+        conf_path = f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
 
         conf_content = f"""custom-shader = {shader_path}
 background = #000000

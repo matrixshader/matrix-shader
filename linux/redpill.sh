@@ -6,6 +6,8 @@ SCRIPT_PATH="$(realpath "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 TUI_SCRIPT="${SCRIPT_DIR}/redpill_tui.py"
 GHOSTTY_BIN="/home/neo/ghostty-build/zig-out/bin/ghostty"
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
 
 # Handle --activate without launching Ghostty window
 if [ "$1" = "--activate" ]; then
@@ -24,7 +26,7 @@ if [ "$1" != "--in-ghostty" ]; then
 
     REDPILL_SHADER="$(realpath "${SCRIPT_DIR}/../shaders-glsl/matrix-codevision-ghostty.glsl")"
 
-    conf="/tmp/ghostty-redpill.conf"
+    conf="$MATRIX_TMP/ghostty-redpill.conf"
     cat > "$conf" <<EOF
 custom-shader = ${REDPILL_SHADER}
 custom-shader-animation = always

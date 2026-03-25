@@ -6,7 +6,7 @@ CHECK_INTERVAL seconds. If the process is dead, restarts it.
 Implements exponential backoff on repeated rapid failures.
 
 Launched by: bluepill.sh, wakeupneo.sh
-Logs to: /tmp/matrix-watchdog.log
+Logs to: $MATRIX_TMP/matrix-watchdog.log
 """
 
 import os
@@ -15,10 +15,12 @@ import subprocess
 import sys
 import time
 
-# Constants
-PIDFILE = "/tmp/matrix-keys.pid"
-WATCHDOG_PIDFILE = "/tmp/matrix-watchdog.pid"
-LOGFILE = "/tmp/matrix-watchdog.log"
+# Constants — per-user temp dir to avoid multi-user conflicts
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+os.makedirs(MATRIX_TMP, exist_ok=True)
+PIDFILE = f"{MATRIX_TMP}/matrix-keys.pid"
+WATCHDOG_PIDFILE = f"{MATRIX_TMP}/matrix-watchdog.pid"
+LOGFILE = f"{MATRIX_TMP}/matrix-watchdog.log"
 MATRIX_KEYS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "matrix_keys.py")
 
 CHECK_INTERVAL = 5      # seconds between health checks
@@ -59,7 +61,7 @@ def read_pid(path):
 def start_matrix_keys():
     """Start matrix_keys.py as a background process."""
     try:
-        log_fh = open("/tmp/matrix-keys.log", "a")
+        log_fh = open(f"{MATRIX_TMP}/matrix-keys.log", "a")
         subprocess.Popen(
             [sys.executable, MATRIX_KEYS],
             stdout=log_fh,

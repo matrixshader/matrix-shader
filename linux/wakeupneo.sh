@@ -12,7 +12,9 @@ STATE_DIR="$HOME/.config/matrix-shader"
 STATE_FILE="$STATE_DIR/state.json"
 HOTKEY_HELP="$HOME/.local/bin/matrix-hotkey-help.sh"
 MATRIX_KEYS="$(dirname "$SCRIPT_PATH")/matrix_keys.py"
-MATRIX_KEYS_PID="/tmp/matrix-keys.pid"
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
+MATRIX_KEYS_PID="$MATRIX_TMP/matrix-keys.pid"
 
 # Parse flags
 MODE=""
@@ -39,7 +41,7 @@ if [ "$IN_GHOSTTY" != "true" ]; then
         :  # Handled after function definitions below
     fi
     if [[ "$MODE" != "update" && "$MODE" != "agent-smith" ]]; then
-        setup_conf="/tmp/ghostty-wakeupneo.conf"
+        setup_conf="$MATRIX_TMP/ghostty-wakeupneo.conf"
         cat > "$setup_conf" <<'SETUPEOF'
 background = #000000
 foreground = #6EDCAA
@@ -115,7 +117,7 @@ color_swatch() {
 # Returns space-separated list of open slot numbers
 get_open_slots() {
     local open=()
-    for conf in /tmp/ghostty-matrix-*.conf; do
+    for conf in $MATRIX_TMP/ghostty-matrix-*.conf; do
         [ -f "$conf" ] || continue
         local slot=$(echo "$conf" | grep -oP 'ghostty-matrix-\K\d+')
         # Filter to actual ghostty processes — pgrep -f matches claude/editor transcripts too
@@ -175,7 +177,7 @@ agent_smith_mode() {
     sleep 1
 
     local count=0
-    for conf in /tmp/ghostty-matrix-*.conf; do
+    for conf in $MATRIX_TMP/ghostty-matrix-*.conf; do
         [ -f "$conf" ] || continue
         local slot=$(echo "$conf" | grep -oP 'ghostty-matrix-\K\d+')
         # Generate random RGB and speed
@@ -388,7 +390,7 @@ launch_window() {
         shader_file="${SHADER_DIR}/${PRESET_FILES[$preset_idx]}"
         echo -e "   ${DIM}(using preset file fallback)${RESET}"
     fi
-    local conf="/tmp/ghostty-matrix-${slot}.conf"
+    local conf="$MATRIX_TMP/ghostty-matrix-${slot}.conf"
 
     cat > "$conf" <<EOF
 custom-shader = ${shader_file}
@@ -423,7 +425,7 @@ EOF
     # Default ~/.config/ghostty/config stays clean so normal Ghostty opens are normal
 
     echo -ne "   Waiting for Matrix-${slot}..."
-    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > $MATRIX_TMP/ghostty-matrix-${slot}.log 2>&1 &
     local ghostty_pid=$!
     # Register PID with window service for positioning (Phase 5)
     python3 "$PYMOD_DIR/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
@@ -434,7 +436,7 @@ EOF
 
 # Turn wizard window 100% transparent (glass pane)
 go_transparent() {
-    setup_conf="/tmp/ghostty-wakeupneo.conf"
+    setup_conf="$MATRIX_TMP/ghostty-wakeupneo.conf"
     cat > "$setup_conf" <<TRANSEOF
 background = #000000
 foreground = #6EDCAA
@@ -467,7 +469,7 @@ show_post_launch() {
     fi
 
     if [ -f "$MATRIX_KEYS" ]; then
-        nohup python3 -B "$MATRIX_KEYS" > /tmp/matrix-keys.log 2>&1 &
+        nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
         disown
         echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
     else
@@ -477,7 +479,7 @@ show_post_launch() {
     # Start watchdog to auto-restart hotkey listener on crash
     WATCHDOG_SCRIPT="$PYMOD_DIR/matrix_watchdog.py"
     if [ -f "$WATCHDOG_SCRIPT" ]; then
-        watchdog_pid="/tmp/matrix-watchdog.pid"
+        watchdog_pid="$MATRIX_TMP/matrix-watchdog.pid"
         if [ -f "$watchdog_pid" ] && kill -0 "$(cat "$watchdog_pid")" 2>/dev/null; then
             : # Watchdog already running
         else

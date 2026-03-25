@@ -12,7 +12,9 @@ CONFIG_DIR="$HOME/.config/ghostty"
 STATE_DIR="$HOME/.config/matrix-shader"
 STATE_FILE="$STATE_DIR/state.json"
 MATRIX_KEYS="$(dirname "$SCRIPT_PATH")/matrix_keys.py"
-MATRIX_KEYS_PID="/tmp/matrix-keys.pid"
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
+MATRIX_KEYS_PID="$MATRIX_TMP/matrix-keys.pid"
 WATCHDOG_SCRIPT="$(dirname "$SCRIPT_PATH")/matrix_watchdog.py"
 
 # Colors
@@ -36,7 +38,7 @@ PRESETS=(
 
 # Self-relaunch inside Ghostty if not already there
 if [ "$1" != "--in-ghostty" ]; then
-    setup_conf="/tmp/ghostty-bluepill.conf"
+    setup_conf="$MATRIX_TMP/ghostty-bluepill.conf"
     cat > "$setup_conf" <<'SETUPEOF'
 background = #000000
 foreground = #6EDCAA
@@ -56,7 +58,7 @@ fi
 
 get_open_slots() {
     local open=()
-    for conf in /tmp/ghostty-matrix-*.conf; do
+    for conf in $MATRIX_TMP/ghostty-matrix-*.conf; do
         [ -f "$conf" ] || continue
         local slot=$(echo "$conf" | grep -oP 'ghostty-matrix-\K\d+')
         # Filter to actual ghostty processes — pgrep -f matches claude/editor transcripts too
@@ -72,7 +74,7 @@ get_open_slots() {
 }
 
 go_transparent() {
-    setup_conf="/tmp/ghostty-bluepill.conf"
+    setup_conf="$MATRIX_TMP/ghostty-bluepill.conf"
     cat > "$setup_conf" <<TRANSEOF
 background = #000000
 foreground = #6EDCAA
@@ -158,7 +160,7 @@ r, g, b = c.get('RAIN_R', 0), c.get('RAIN_G', 1), c.get('RAIN_B', 0.3)
 print('#%02x%02x%02x' % (int(r*255), int(g*255), int(b*255)))
 " 2>/dev/null || echo "#00ff4d")
 
-    local conf="/tmp/ghostty-matrix-${slot}.conf"
+    local conf="$MATRIX_TMP/ghostty-matrix-${slot}.conf"
     cat > "$conf" <<EOF
 custom-shader = ${shader_file}
 background = #000000
@@ -189,7 +191,7 @@ keybind = ctrl+shift+g=unbind
 EOF
 
     echo -ne "   Waiting for Matrix-${slot}..."
-    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > $MATRIX_TMP/ghostty-matrix-${slot}.log 2>&1 &
     local ghostty_pid=$!
     # Register PID with window service for positioning (Phase 5/6)
     python3 "$PYMOD_DIR/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
@@ -281,19 +283,19 @@ if [ -f "$MATRIX_KEYS_PID" ]; then
         echo -e "${GREEN} Hotkeys...${RESET} ${DIM}already running${RESET}"
     else
         rm -f "$MATRIX_KEYS_PID"
-        nohup python3 -B "$MATRIX_KEYS" > /tmp/matrix-keys.log 2>&1 &
+        nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
         disown
         echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
     fi
 else
-    nohup python3 -B "$MATRIX_KEYS" > /tmp/matrix-keys.log 2>&1 &
+    nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
     disown
     echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
 fi
 
 # Start watchdog if not running
 if [ -f "$WATCHDOG_SCRIPT" ]; then
-    watchdog_pid="/tmp/matrix-watchdog.pid"
+    watchdog_pid="$MATRIX_TMP/matrix-watchdog.pid"
     if [ -f "$watchdog_pid" ] && kill -0 "$(cat "$watchdog_pid")" 2>/dev/null; then
         : # Watchdog already running
     else

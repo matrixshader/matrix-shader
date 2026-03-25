@@ -27,7 +27,9 @@ from hotkey_config import (
 from hotkey_conflicts import detect_conflicts, notify_conflicts
 
 
-PIDFILE = "/tmp/matrix-keys.pid"
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+os.makedirs(MATRIX_TMP, exist_ok=True)
+PIDFILE = f"{MATRIX_TMP}/matrix-keys.pid"
 
 # Single-instance lock file descriptor (kept open for lifetime of process)
 _lock_fd = None

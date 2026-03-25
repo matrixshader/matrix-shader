@@ -15,6 +15,8 @@ PYMOD_DIR="$(dirname "$SCRIPT_PATH")"
 SHADER_DIR="$(dirname "$SCRIPT_PATH")/../shaders-glsl"
 GHOSTTY_BIN="/home/neo/ghostty-build/zig-out/bin/ghostty"
 CONFIG_DIR="$HOME/.config/matrix-shader"
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
 
 # Colors
 GREEN='\033[0;32m'
@@ -76,7 +78,7 @@ if [ -n "$COLOR" ]; then
     conf="${result#*:}"
 
     # Launch Ghostty — same pattern as wakeupneo launch_window()
-    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > /tmp/ghostty-matrix-${slot}.log 2>&1 &
+    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > $MATRIX_TMP/ghostty-matrix-${slot}.log 2>&1 &
     ghostty_pid=$!
     disown
     # Register PID immediately (same pattern as wakeupneo line 427-429)
@@ -108,8 +110,8 @@ fi
 if [ "$IN_GHOSTTY" = "true" ]; then
     # Slot was passed via --slot=N by the launcher
     own_slot="$PICK_SLOT"
-    own_conf="/tmp/ghostty-construct-${own_slot}.conf"
-    own_shader="/tmp/ghostty-construct-${own_slot}-shader.glsl"
+    own_conf="$MATRIX_TMP/ghostty-construct-${own_slot}.conf"
+    own_shader="$MATRIX_TMP/ghostty-construct-${own_slot}-shader.glsl"
 
     if [ -z "$own_slot" ] || [ ! -f "$own_conf" ] || [ ! -f "$own_shader" ]; then
         echo -e "${RED} Could not determine window slot (got: ${own_slot}).${RESET}" >&2
@@ -159,7 +161,7 @@ transition_to_rain($own_slot, $selected, construct_conf='$own_conf')
         python3 -B "$PYMOD_DIR/window_service.py" register "$own_slot" "$ghostty_pid" 2>/dev/null
 
         # Create ghostty-matrix-{slot}.conf so get_ghostty_bus_names finds us
-        matrix_conf="/tmp/ghostty-matrix-${own_slot}.conf"
+        matrix_conf="$MATRIX_TMP/ghostty-matrix-${own_slot}.conf"
         [ ! -f "$matrix_conf" ] && cp "$own_conf" "$matrix_conf"
 
         # Exit fullscreen via D-Bus (uses patched Ghostty's toggle-fullscreen action)
@@ -216,11 +218,11 @@ if [ ! -f "$white_room_source" ]; then
     echo -e "${RED} White room shader not found at $white_room_source${RESET}"
     exit 1
 fi
-white_room_shader="/tmp/ghostty-construct-${next_slot}-shader.glsl"
+white_room_shader="$MATRIX_TMP/ghostty-construct-${next_slot}-shader.glsl"
 cp "$white_room_source" "$white_room_shader"
 
 # Write Ghostty config for white room (opaque, white foreground)
-construct_conf="/tmp/ghostty-construct-${next_slot}.conf"
+construct_conf="$MATRIX_TMP/ghostty-construct-${next_slot}.conf"
 cat > "$construct_conf" <<EOF
 custom-shader = ${white_room_shader}
 custom-shader-animation = always

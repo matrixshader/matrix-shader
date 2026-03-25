@@ -13,6 +13,9 @@ import os
 import re
 import json
 import shutil
+
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+os.makedirs(MATRIX_TMP, exist_ok=True)
 import tempfile
 import subprocess
 from pathlib import Path
@@ -322,7 +325,7 @@ def get_ghostty_bus_names() -> dict:
 
     # Fall back to window_service mapping for slots not found via cmdline
     try:
-        win_map_path = "/tmp/matrix-window-map.json"
+        win_map_path = f"{MATRIX_TMP}/matrix-window-map.json"
         with open(win_map_path) as f:
             win_map = json.load(f)
         for slot_str, entry in win_map.items():
@@ -364,7 +367,7 @@ def resolve_config_path(slot: int) -> str:
                         return part.split("=", 1)[1]
             except (FileNotFoundError, PermissionError):
                 pass
-    return f"/tmp/ghostty-matrix-{slot}.conf"
+    return f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
 
 
 def get_all_ghostty_configs():

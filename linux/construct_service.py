@@ -23,6 +23,9 @@ import shutil
 import subprocess
 import tempfile
 
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+os.makedirs(MATRIX_TMP, exist_ok=True)
+
 # Import sibling shader_service
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import shader_service
@@ -141,7 +144,7 @@ def _write_ghostty_config(slot: int, shader_path: str,
 
     Returns the config file path.
     """
-    conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
+    conf_path = f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
     content = (
         f"custom-shader = {shader_path}\n"
         f"background = #000000\n"
@@ -243,13 +246,13 @@ def transition_to_rain(slot: int, preset_idx: int,
 
     # 2. Find the construct config that Ghostty is ACTUALLY reading
     if construct_conf is None:
-        construct_conf = f"/tmp/ghostty-construct-{slot}.conf"
+        construct_conf = f"{MATRIX_TMP}/ghostty-construct-{slot}.conf"
     if not os.path.isfile(construct_conf):
         return False
 
     # 3. Write a proper matrix rain config (not patching — full rewrite)
     #    This matches what _write_ghostty_config produces for quick-launch
-    matrix_conf = f"/tmp/ghostty-matrix-{slot}.conf"
+    matrix_conf = f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
     _write_ghostty_config(slot, shader_path, fg_color=fg_color, opacity="0")
 
     # 4. ALSO overwrite the construct config with the same content
@@ -556,7 +559,7 @@ def white_room_picker(shader_path=None) -> int | None:
     if shader_path is None:
         # Fallback: find any construct shader copy in /tmp
         for s in range(1, 9):
-            p = f"/tmp/ghostty-construct-{s}-shader.glsl"
+            p = f"{MATRIX_TMP}/ghostty-construct-{s}-shader.glsl"
             if os.path.isfile(p):
                 shader_path = p
                 break
@@ -564,7 +567,7 @@ def white_room_picker(shader_path=None) -> int | None:
         return 0  # Can't find shader, bail
 
     # Extract slot number from shader path for targeted bus name matching.
-    # Path format: /tmp/ghostty-construct-{slot}-shader.glsl
+    # Path format: $MATRIX_TMP/ghostty-construct-{slot}-shader.glsl
     _picker_slot = None
     m = re.search(r"ghostty-construct-(\d+)-shader", shader_path)
     if m:

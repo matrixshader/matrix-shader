@@ -19,7 +19,9 @@ import re
 import subprocess
 import sys
 
-MAP_FILE = '/tmp/matrix-window-map.json'
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+os.makedirs(MATRIX_TMP, exist_ok=True)
+MAP_FILE = f'{MATRIX_TMP}/matrix-window-map.json'
 
 # GNOME Shell Extension D-Bus coordinates
 DBUS_DEST = 'org.gnome.Shell'
@@ -50,7 +52,7 @@ def load_mapping():
 
     # VACCINE 2: Recover orphaned matrix windows not in mapping
     # Only scan when using the real production map file
-    _do_orphan_scan = (MAP_FILE == "/tmp/matrix-window-map.json")
+    _do_orphan_scan = ("matrixshader-" in MAP_FILE)
     if not _do_orphan_scan:
         if clean != raw:
             try:
@@ -114,12 +116,12 @@ def load_mapping():
         if not pid or not _pid_alive(pid):
             continue
         slot_num = int(slot)
-        matrix_conf = f"/tmp/ghostty-matrix-{slot_num}.conf"
-        construct_conf = f"/tmp/ghostty-construct-{slot_num}.conf"
+        matrix_conf = f"{MATRIX_TMP}/ghostty-matrix-{slot_num}.conf"
+        construct_conf = f"{MATRIX_TMP}/ghostty-construct-{slot_num}.conf"
         if not os.path.isfile(matrix_conf) and not os.path.isfile(construct_conf):
             _recover_config(slot_num)
         # Also check construct config (post-transition it mirrors matrix config)
-        construct_conf = f"/tmp/ghostty-construct-{slot_num}.conf"
+        construct_conf = f"{MATRIX_TMP}/ghostty-construct-{slot_num}.conf"
         # Only recover construct conf if the process was launched with it
         try:
             with open(f"/proc/{pid}/cmdline") as f:
@@ -358,7 +360,7 @@ def _pid_alive(pid):
 
 
 def _recover_config(slot):
-    """Recreate a missing /tmp/ghostty-matrix-{slot}.conf from state or defaults.
+    """Recreate a missing ghostty-matrix-{slot}.conf from state or defaults.
 
     VACCINE 3 helper: rebuilds the config file so hotkeys/reloads don't crash.
     Uses foreground color from state.json shader_configs if available.
@@ -369,7 +371,7 @@ def _recover_config(slot):
 
     # Try to read foreground from the existing config of a related process
     # (e.g., construct conf might exist even if matrix conf doesn't)
-    for pattern in [f"/tmp/ghostty-matrix-{slot}.conf", f"/tmp/ghostty-construct-{slot}.conf"]:
+    for pattern in [f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf", f"{MATRIX_TMP}/ghostty-construct-{slot}.conf"]:
         try:
             with open(pattern) as f:
                 for line in f:
@@ -408,7 +410,7 @@ def _recover_config(slot):
         except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
             pass
 
-    conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
+    conf_path = f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
     content = (
         f"custom-shader = {shader_path}\n"
         f"background = #000000\n"

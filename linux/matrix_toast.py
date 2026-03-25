@@ -11,7 +11,9 @@ import os
 import signal
 import sys
 
-PID_FILE = "/tmp/matrix-toast.pid"
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+os.makedirs(MATRIX_TMP, exist_ok=True)
+PID_FILE = f"{MATRIX_TMP}/matrix-toast.pid"
 DISMISS_MS = 1500
 BOTTOM_OFFSET = 60
 

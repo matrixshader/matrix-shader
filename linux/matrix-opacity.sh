@@ -7,7 +7,9 @@
 # Ctrl+Shift+K: Opacity up 5% (saves as custom)
 
 CONFIG="$HOME/.config/ghostty/config"
-CUSTOM_FILE="/tmp/matrix-opacity-custom"
+MATRIX_TMP="/tmp/matrixshader-$(id -u)"
+mkdir -p "$MATRIX_TMP"
+CUSTOM_FILE="$MATRIX_TMP/matrix-opacity-custom"
 STEP=5
 MIN=0
 MAX=100
@@ -25,7 +27,7 @@ else
 fi
 
 # Read current opacity from first matrix config (or default)
-first_matrix=$(ls /tmp/ghostty-matrix-*.conf 2>/dev/null | head -1)
+first_matrix=$(ls $MATRIX_TMP/ghostty-matrix-*.conf 2>/dev/null | head -1)
 if [ -n "$first_matrix" ]; then
     raw=$(grep -oP 'background-opacity\s*=\s*\K[0-9.]+' "$first_matrix" 2>/dev/null)
 else
@@ -70,7 +72,7 @@ newf=$(awk "BEGIN {printf \"%.2f\", $new / 100.0}")
 [ "$newf" = "1.00" ] && newf="1"
 
 # Update ONLY matrix window configs (NOT construct, preview, wakeupneo, or other windows)
-for conf in /tmp/ghostty-matrix-*.conf; do
+for conf in $MATRIX_TMP/ghostty-matrix-*.conf; do
     [ -f "$conf" ] && sed -i "s/background-opacity = .*/background-opacity = $newf/" "$conf"
 done
 

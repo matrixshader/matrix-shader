@@ -17,6 +17,8 @@ import subprocess
 import sys
 import tempfile
 
+MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
+
 from shader_service import (
     get_all_ghostty_configs,
     get_ghostty_bus_names,
@@ -473,8 +475,8 @@ def _swap_config_foregrounds(slot_a: int, slot_b: int) -> None:
     must follow the shader so the text color matches the rain color.
     """
     import re as _re
-    conf_a = f"/tmp/ghostty-matrix-{slot_a}.conf"
-    conf_b = f"/tmp/ghostty-matrix-{slot_b}.conf"
+    conf_a = f"{MATRIX_TMP}/ghostty-matrix-{slot_a}.conf"
+    conf_b = f"{MATRIX_TMP}/ghostty-matrix-{slot_b}.conf"
     try:
         with open(conf_a) as f:
             content_a = f.read()
@@ -505,9 +507,9 @@ def _swap_config_foregrounds(slot_a: int, slot_b: int) -> None:
         pass
 
     # Also update construct configs if they exist (construct-originated windows
-    # have Ghostty reading /tmp/ghostty-construct-{slot}.conf)
+    # have Ghostty reading $MATRIX_TMP/ghostty-construct-{slot}.conf)
     for slot, new_fg in [(slot_a, fg_b), (slot_b, fg_a)]:
-        cconf = f"/tmp/ghostty-construct-{slot}.conf"
+        cconf = f"{MATRIX_TMP}/ghostty-construct-{slot}.conf"
         try:
             with open(cconf) as f:
                 cc = f.read()
