@@ -64,7 +64,7 @@ def load_mapping():
     mapped_pids = {entry['pid'] for entry in clean.values()}
     try:
         result = subprocess.run(
-            ["pgrep", "-f", "ghostty.*ghostty-matrix-[0-9]"],
+            ["pgrep", "-u", str(os.getuid()), "-f", "ghostty.*ghostty-matrix-[0-9]"],
             capture_output=True, text=True, timeout=3,
             stdin=subprocess.DEVNULL,
         )
@@ -86,7 +86,7 @@ def load_mapping():
                 continue
         # Also check construct windows (post-transition)
         result2 = subprocess.run(
-            ["pgrep", "-f", "ghostty.*ghostty-construct-[0-9]"],
+            ["pgrep", "-u", str(os.getuid()), "-f", "ghostty.*ghostty-construct-[0-9]"],
             capture_output=True, text=True, timeout=3,
             stdin=subprocess.DEVNULL,
         )

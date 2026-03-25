@@ -72,7 +72,7 @@ get_open_slots() {
         [ -f "$conf" ] || continue
         local slot=$(echo "$conf" | grep -oP 'ghostty-matrix-\K\d+')
         # Filter to actual ghostty processes — pgrep -f matches claude/editor transcripts too
-        for pid in $(pgrep -f "config-file=$conf" 2>/dev/null); do
+        for pid in $(pgrep -u "$(id -u)" -f "config-file=$conf" 2>/dev/null); do
             local exe=$(readlink /proc/$pid/exe 2>/dev/null)
             if [[ "$exe" == *ghostty* ]]; then
                 open+=("$slot")

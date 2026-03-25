@@ -111,6 +111,7 @@ if [ -f "$SCRIPT_DIR/redpill.sh" ]; then
     chmod +x "$STAGING$BIN_DEST/redpill"
     sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$BIN_DEST/ghostty\"|" "$STAGING$BIN_DEST/redpill"
     sed -i "s|TUI_SCRIPT=.*|TUI_SCRIPT=\"$PYLIB_DEST/redpill_tui.py\"|" "$STAGING$BIN_DEST/redpill"
+    sed -i "s|\${SCRIPT_DIR}/../shaders-glsl|$SHADER_DEST|g" "$STAGING$BIN_DEST/redpill"
 fi
 
 # construct

@@ -105,7 +105,7 @@ def _get_occupied_slots() -> set:
                 continue
             try:
                 result = subprocess.run(
-                    ["pgrep", "-f", f"config-file={conf}"],
+                    ["pgrep", "-u", str(os.getuid()), "-f", f"config-file={conf}"],
                     capture_output=True, text=True, timeout=3,
                     stdin=subprocess.DEVNULL,
                 )

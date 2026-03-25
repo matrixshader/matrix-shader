@@ -77,7 +77,7 @@ for conf in $MATRIX_TMP/ghostty-matrix-*.conf; do
 done
 
 # Reload ONLY matrix windows (match by config filename pattern)
-for pid in $(pgrep -f "ghostty.*ghostty-matrix-[0-9]"); do
+for pid in $(pgrep -u "$(id -u)" -f "ghostty.*ghostty-matrix-[0-9]"); do
     busname=$(busctl --user list 2>/dev/null | awk -v p="$pid" '$2==p && /ghostty/{print $1}')
     [ -n "$busname" ] && gdbus call --session --dest "$busname" \
         --object-path /com/mitchellh/ghostty \

@@ -382,7 +382,7 @@ def get_all_ghostty_configs():
     configs = set()
     try:
         result = subprocess.run(
-            ["pgrep", "-f", "ghostty.*config-file"],
+            ["pgrep", "-u", str(os.getuid()), "-f", "ghostty.*config-file"],
             capture_output=True, text=True, timeout=3,
             stdin=subprocess.DEVNULL,
         )

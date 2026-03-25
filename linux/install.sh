@@ -209,6 +209,7 @@ sed -i "s|WATCHDOG_SCRIPT=.*|WATCHDOG_SCRIPT=\"$BIN_DIR/matrix_watchdog.py\"|" "
 if [ -f "$BIN_DIR/redpill" ]; then
     sed -i "s|GHOSTTY_BIN=.*|GHOSTTY_BIN=\"$GHOSTTY_BIN\"|" "$BIN_DIR/redpill"
     sed -i "s|TUI_SCRIPT=.*|TUI_SCRIPT=\"$PYMOD_DIR/redpill_tui.py\"|" "$BIN_DIR/redpill"
+    sed -i "s|\${SCRIPT_DIR}/../shaders-glsl|$SHADER_DIR|g" "$BIN_DIR/redpill"
 fi
 
 # Patch construct paths
