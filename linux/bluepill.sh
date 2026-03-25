@@ -28,10 +28,12 @@ RESET='\033[0m'
 
 # Launch matrix_keys with input group access (handles pre-relogin sessions)
 launch_matrix_keys() {
+    # Ensure D-Bus session address is passed to background process
+    export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
     if id -nG 2>/dev/null | grep -qw input; then
         nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
     else
-        nohup sg input -c "python3 -B '$MATRIX_KEYS'" > $MATRIX_TMP/matrix-keys.log 2>&1 &
+        nohup sg input -c "DBUS_SESSION_BUS_ADDRESS='$DBUS_SESSION_BUS_ADDRESS' python3 -B '$MATRIX_KEYS'" > $MATRIX_TMP/matrix-keys.log 2>&1 &
     fi
     disown
 }

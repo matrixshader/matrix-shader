@@ -62,10 +62,13 @@ def start_matrix_keys():
     """Start matrix_keys.py as a background process."""
     try:
         log_fh = open(f"{MATRIX_TMP}/matrix-keys.log", "a")
+        env = os.environ.copy()
+        env.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path=/run/user/{os.getuid()}/bus")
         subprocess.Popen(
             [sys.executable, MATRIX_KEYS],
             stdout=log_fh,
             stderr=subprocess.STDOUT,
+            env=env,
         )
         log("Started matrix_keys.py")
         return True

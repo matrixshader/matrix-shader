@@ -469,11 +469,13 @@ show_post_launch() {
     fi
 
     if [ -f "$MATRIX_KEYS" ]; then
+        # Ensure D-Bus session address is passed to background process (nohup can strip it)
+        export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
         if id -nG 2>/dev/null | grep -qw input; then
             nohup python3 -B "$MATRIX_KEYS" > $MATRIX_TMP/matrix-keys.log 2>&1 &
         else
             # input group not active in this session — use sg to activate it
-            nohup sg input -c "python3 -B '$MATRIX_KEYS'" > $MATRIX_TMP/matrix-keys.log 2>&1 &
+            nohup sg input -c "DBUS_SESSION_BUS_ADDRESS='$DBUS_SESSION_BUS_ADDRESS' python3 -B '$MATRIX_KEYS'" > $MATRIX_TMP/matrix-keys.log 2>&1 &
         fi
         disown
         echo -e "${GREEN} Starting hotkeys...${RESET} ${WHITE}OK${RESET}"
