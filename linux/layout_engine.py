@@ -74,9 +74,12 @@ def load_layout_config():
     """
     state = _load_state()
     layout = state.get("layout", {})
+    gap = layout.get("gap_size", DEFAULT_GAP_SIZE)
+    # Cap gap to sane range — old versions could save scaled values
+    gap = min(gap, MAX_GAP_SIZE)
     return {
         "mode": layout.get("mode", "pillars"),
-        "gap_size": layout.get("gap_size", DEFAULT_GAP_SIZE),
+        "gap_size": gap,
         "glitch_enabled": layout.get("glitch_enabled", True),
         "overlap_percent": layout.get("overlap_percent", DEFAULT_OVERLAP_PERCENT),
     }

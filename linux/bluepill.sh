@@ -51,7 +51,7 @@ PRESETS=(
 # Activate GNOME extension if needed (first install only)
 if [ "$1" != "--in-ghostty" ] && command -v gnome-extensions &>/dev/null; then
     EXT_STATE=$(gnome-extensions info matrix-window-manager@custom 2>/dev/null | grep "State:" | awk '{print $2}')
-    if [ "$EXT_STATE" = "ERROR" ] || [ "$EXT_STATE" = "INITIALIZED" ]; then
+    if [ -n "$EXT_STATE" ] && [ "$EXT_STATE" != "ACTIVE" ] && [ "$EXT_STATE" != "ENABLED" ]; then
         echo -e "\033[32m  Activating window snapping...\033[0m"
         sleep 1
         pkill -SIGTERM -u "$(id -u)" gnome-shell 2>/dev/null

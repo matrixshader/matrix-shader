@@ -33,7 +33,7 @@ done
 # Must happen BEFORE self-relaunch — restarting gnome-shell kills all windows
 if [ "$IN_GHOSTTY" != "true" ] && command -v gnome-extensions &>/dev/null; then
     EXT_STATE=$(gnome-extensions info matrix-window-manager@custom 2>/dev/null | grep "State:" | awk '{print $2}')
-    if [ "$EXT_STATE" = "ERROR" ] || [ "$EXT_STATE" = "INITIALIZED" ]; then
+    if [ -n "$EXT_STATE" ] && [ "$EXT_STATE" != "ACTIVE" ] && [ "$EXT_STATE" != "ENABLED" ]; then
         echo -e "\033[32m  Activating window snapping...\033[0m"
         echo -e "\033[2m  Screen will flash — the Matrix is taking over.\033[0m"
         sleep 1
@@ -861,14 +861,11 @@ for i in "${!selected_presets[@]}"; do
     sleep 0.3
 done
 
-# Desktop notification
+# Desktop notification — use our branded toast instead of system notification
 WINDOW_COUNT=${#selected_presets[@]}
-if command -v notify-send &>/dev/null; then
-    notify-send \
-        --app-name="Matrix Shader" \
-        --expire-time=5000 \
-        "The Matrix has you" \
-        "$WINDOW_COUNT window(s) deployed" 2>/dev/null || true
+if [ -f "$PYMOD_DIR/matrix_toast.py" ]; then
+    python3 "$PYMOD_DIR/matrix_toast.py" "The Matrix has you" 2>/dev/null &
+    disown
 fi
 
 # Save state with slot info
