@@ -16,6 +16,62 @@ import shutil
 
 MATRIX_TMP = f"/tmp/matrixshader-{os.getuid()}"
 os.makedirs(MATRIX_TMP, exist_ok=True)
+
+COLOR_PARAMS = {"RAIN_R", "RAIN_G", "RAIN_B"}
+
+
+def _update_window_css(slot: int) -> None:
+    """Regenerate color-matched headerbar CSS for a window slot.
+
+    Reads current RGB from the slot's shader file and writes matching CSS.
+    Called automatically when RAIN_R/G/B change via write_shader_param(s).
+    """
+    shader_path = os.path.join(SLOT_SHADER_DIR, f"matrix-{slot}.glsl")
+    conf_path = f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
+    css_path = f"{MATRIX_TMP}/ghostty-matrix-{slot}.css"
+
+    if not os.path.isfile(shader_path):
+        return
+
+    # Read current colors from shader
+    config = read_shader_config(shader_path)
+    r = config.get("RAIN_R", 0.0)
+    g = config.get("RAIN_G", 1.0)
+    b = config.get("RAIN_B", 0.3)
+    cr, cg, cb = int(r * 255), int(g * 255), int(b * 255)
+    fg = f"#{cr:02x}{cg:02x}{cb:02x}"
+
+    css = f"""@define-color headerbar_bg_color rgba({cr}, {cg}, {cb}, 0.15);
+@define-color headerbar_backdrop_color rgba({cr}, {cg}, {cb}, 0.1);
+@define-color headerbar_fg_color {fg};
+@define-color headerbar_border_color rgba({cr}, {cg}, {cb}, 0.3);
+@define-color headerbar_shade_color rgba(0, 0, 0, 0);
+headerbar {{ min-height: 22px; padding: 0 4px; border-bottom: 1px solid rgba({cr}, {cg}, {cb}, 0.2); }}
+headerbar button.titlebutton {{ min-height: 16px; min-width: 16px; padding: 2px; margin: 1px; color: {fg}; opacity: 0.7; }}
+headerbar button.titlebutton:hover {{ opacity: 1; }}
+headerbar button.titlebutton.close:hover {{ color: #ff1a1a; }}
+headerbar .title {{ color: {fg}; font-size: 10px; opacity: 0.6; }}
+"""
+    try:
+        with open(css_path, "w") as f:
+            f.write(css)
+        # Also update foreground in Ghostty config
+        if os.path.isfile(conf_path):
+            with open(conf_path) as f:
+                lines = f.readlines()
+            with open(conf_path, "w") as f:
+                for line in lines:
+                    if line.strip().startswith("foreground"):
+                        f.write(f"foreground = {fg}\n")
+                    elif line.strip().startswith("gtk-custom-css"):
+                        f.write(f"gtk-custom-css = {css_path}\n")
+                    else:
+                        f.write(line)
+                # Add gtk-custom-css if not present
+                if not any("gtk-custom-css" in l for l in lines):
+                    f.write(f"gtk-custom-css = {css_path}\n")
+    except OSError:
+        pass
 import tempfile
 import subprocess
 from pathlib import Path
@@ -244,6 +300,10 @@ def write_shader_param(slot: int, param: str, value: float) -> None:
     content = replace_define(content, param, value)
     atomic_write(shader_path, content)
 
+    # Regenerate window CSS if color changed
+    if param in COLOR_PARAMS:
+        _update_window_css(slot)
+
     # Trigger targeted reload
     mapping = get_ghostty_bus_names()
     if slot in mapping:
@@ -270,6 +330,10 @@ def write_shader_params(slot: int, params: dict) -> None:
         content = replace_define(content, param, value)
 
     atomic_write(shader_path, content)
+
+    # Regenerate window CSS if any color changed
+    if COLOR_PARAMS & set(params.keys()):
+        _update_window_css(slot)
 
     # Trigger targeted reload (single reload for all params)
     mapping = get_ghostty_bus_names()
