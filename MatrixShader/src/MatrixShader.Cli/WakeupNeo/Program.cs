@@ -141,7 +141,7 @@ public static class Program
 /// <summary>
 /// Color preset definition for wizard.
 /// </summary>
-public record ColorPreset(string Name, float R, float G, float B, string Key);
+public record ColorPreset(string Name, float R, float G, float B, string Key, string AnsiColor = "\x1b[32m");
 
 /// <summary>
 /// Tab configuration created during setup.
@@ -162,12 +162,12 @@ public class SetupWizard
 
     private static readonly ColorPreset[] Presets =
     {
-        new("Classic Green", 0.0f, 1.0f, 0.3f, "1"),
-        new("Cyber Blue", 0.0f, 0.6f, 1.0f, "2"),
-        new("Blood Red", 1.0f, 0.1f, 0.1f, "3"),
-        new("Purple", 0.7f, 0.0f, 1.0f, "4"),
-        new("Gold", 1.0f, 0.7f, 0.0f, "5"),
-        new("Teal", 0.0f, 0.9f, 0.9f, "6")
+        new("Classic Green", 0.0f, 1.0f, 0.3f, "1", "\x1b[32m"),
+        new("Cyber Blue", 0.0f, 0.6f, 1.0f, "2", "\x1b[34m"),
+        new("Blood Red", 1.0f, 0.1f, 0.1f, "3", "\x1b[31m"),
+        new("Purple", 0.7f, 0.0f, 1.0f, "4", "\x1b[35m"),
+        new("Gold", 1.0f, 0.7f, 0.0f, "5", "\x1b[33m"),
+        new("Teal", 0.0f, 0.9f, 0.9f, "6", "\x1b[36m")
     };
 
     public SetupWizard(
@@ -197,7 +197,7 @@ public class SetupWizard
             return 0;
         }
 
-        // Dramatic intro
+        // Dramatic intro — matches Linux wakeupneo timing
         Console.Clear();
         Console.WriteLine();
         await CliBootstrap.TypewriterAsync(" Wake up, Neo...", 100);
@@ -209,21 +209,22 @@ public class SetupWizard
         await CliBootstrap.TypewriterAsync(" Follow the white rabbit.", 80);
         await Task.Delay(500);
 
-        // Header
-        Console.Clear();
-        Console.WriteLine();
-        ConsoleHelper.WriteLineMatrixGreen(" WAKE UP, NEO...");
-        ConsoleHelper.WriteLineDim(" ----------------------------------------");
-        Console.WriteLine();
-
-        // Show random quote
+        // Show random quote before header (matches Linux flow)
         CliBootstrap.ShowRandomQuote();
+        await Task.Delay(1000);
 
-        // Morpheus mode intro
+        // Morpheus mode: extended philosophical intro
         if (morpheusMode)
         {
             await ShowMorpheusIntro();
         }
+
+        // Clear and show header
+        Console.Clear();
+        Console.WriteLine();
+        Console.WriteLine(" WAKE UP, NEO...");
+        ConsoleHelper.WriteLineDim(" ----------------------------------------");
+        Console.WriteLine();
 
         // Check for previous session
         // IMPORTANT: Use IsFirstRun first! The default MatrixState() has 8 ShaderConfigs,
@@ -279,12 +280,12 @@ public class SetupWizard
         foreach (var cfg in tabConfigs)
         {
             var swatch = GetColorSwatch(cfg.R, cfg.G, cfg.B);
-            Console.WriteLine($"   Tab {cfg.Slot}: {swatch} {cfg.ColorName}");
+            var ansiColor = GetPresetAnsiColor(cfg.R, cfg.G, cfg.B);
+            Console.WriteLine($"   Tab {cfg.Slot}: {swatch} {ansiColor}{cfg.ColorName}\x1b[0m");
         }
 
         Console.WriteLine();
         ConsoleHelper.WriteLineDim(" ----------------------------------------");
-        Console.WriteLine();
 
         // Blue Pill / Red Pill choice using arrow-key menu
         // Check license to show appropriate Red Pill label
@@ -292,16 +293,16 @@ public class SetupWizard
         var isLicensed = licenseService.IsLicensed;
 
         var redPillLabel = isLicensed
-            ? "RED PILL - Full Customization (opens control panel)"
-            : "RED PILL - Full Control Panel (requires license)";
+            ? "\x1b[31mRED PILL\x1b[0m  - Full Customization (control panel)"
+            : "\x1b[31mRED PILL\x1b[0m  - Full Control Panel (requires license)";
 
         var pillOptions = new[]
         {
-            "BLUE PILL - Enter the Matrix",
+            "\x1b[34mBLUE PILL\x1b[0m - Enter the Matrix",
             redPillLabel
         };
 
-        var pillChoice = CliBootstrap.ArrowKeyMenu(pillOptions, "This is your last chance. After this, there is no turning back.");
+        var pillChoice = CliBootstrap.ArrowKeyMenu(pillOptions, "Choose your path:");
 
         if (pillChoice == -1)
         {
@@ -311,16 +312,11 @@ public class SetupWizard
 
         var isRedPill = pillChoice == 1;
 
-        // Create shaders
-        Console.WriteLine();
-        ConsoleHelper.WriteMatrixGreen(" Creating shaders...");
-        Console.WriteLine();
-
+        // Create shaders (silent — Linux doesn't show this step)
         foreach (var cfg in tabConfigs)
         {
             var config = new ShaderConfig().WithColor(cfg.R, cfg.G, cfg.B);
             _shaderService.WriteConfig(cfg.Slot, config);
-            ConsoleHelper.WriteLineDim($"   Matrix-{cfg.Slot}.hlsl created");
         }
 
         // Ensure profiles exist in Windows Terminal
@@ -385,15 +381,9 @@ public class SetupWizard
         _configService.SaveState(newState);
 
         // Launch windows
-        await Task.Delay(500);
-
+        Console.Clear();
         Console.WriteLine();
-        if (isRedPill)
-        {
-            ConsoleHelper.WriteLineMatrixGreen(" Follow the white rabbit...");
-        }
-        Console.WriteLine();
-        ConsoleHelper.WriteMatrixGreen(" Opening windows...");
+        ConsoleHelper.WriteLineMatrixGreen(" Opening windows...");
         Console.WriteLine();
 
         _identityService.CleanStaleEntries();
@@ -402,7 +392,7 @@ public class SetupWizard
         foreach (var cfg in tabConfigs)
         {
             var profileName = $"Matrix-{cfg.Slot}";
-            Console.Write($"   Waiting for {profileName}...");
+            Console.Write($"   Waiting for Matrix-{cfg.Slot}...");
 
             var existingHandles = GetExistingWindowHandles();
 
@@ -428,7 +418,9 @@ public class SetupWizard
             if (newHandle != IntPtr.Zero)
             {
                 _identityService.RegisterWindowHandle(newHandle, profileName, cfg.Slot);
-                ConsoleHelper.WriteLineMatrixGreen(" OK");
+                var swatch = GetColorSwatch(cfg.R, cfg.G, cfg.B);
+                var ansiColor = GetPresetAnsiColor(cfg.R, cfg.G, cfg.B);
+                Console.WriteLine($" {swatch} {ansiColor}{cfg.ColorName}\x1b[0m \x1b[38;2;0;255;77mOK\x1b[0m");
             }
             else
             {
@@ -437,10 +429,6 @@ public class SetupWizard
         }
 
         // Position windows
-        Console.WriteLine();
-        ConsoleHelper.WriteMatrixGreen(" Positioning windows...");
-        Console.WriteLine();
-
         await Task.Delay(500);
 
         var allWindows = _identityService.FindMatrixWindows();
@@ -448,7 +436,7 @@ public class SetupWizard
         {
             var positions = _layoutService.CalculateLayout(allWindows, newState.Layout);
             _layoutService.ApplyLayout(positions);
-            ConsoleHelper.WriteLineDim($"   Positioned {allWindows.Count} windows");
+            Console.WriteLine($"   Positioned {allWindows.Count} window(s) in layout");
         }
 
         _identityService.SaveRegistry();
@@ -461,11 +449,11 @@ public class SetupWizard
 
         // Launch hotkeys background process (includes Glitch auto-snap)
         Console.WriteLine();
-        ConsoleHelper.WriteMatrixGreen(" Starting hotkeys & Glitch...");
+        ConsoleHelper.WriteMatrixGreen(" Starting hotkeys...");
         var hotkeyStarted = LaunchHotkeysProcess();
         if (hotkeyStarted)
         {
-            ConsoleHelper.WriteLineMatrixGreen(" OK");
+            Console.WriteLine(" \x1b[1;37mOK\x1b[0m");
         }
         else
         {
@@ -496,41 +484,36 @@ public class SetupWizard
             }
         }
 
-        // Final message
+        // Final message (matches Linux flow)
         Console.WriteLine();
         if (isRedPill)
         {
             if (isLicensed)
             {
                 ConsoleHelper.WriteLineMatrixGreen(" THE MATRIX HAS YOU.");
-                ConsoleHelper.WriteLineDim(" Control panel ready for live adjustments.");
+                ConsoleHelper.WriteLineDim(" Launching control panel...");
             }
             else
             {
-                ConsoleHelper.WriteLineMatrixGreen(" THE MATRIX HAS YOU.");
+                ConsoleHelper.WriteLineMatrixGreen(" THE RED PILL");
                 Console.WriteLine();
-                ConsoleHelper.WriteLineDim(" The Red Pill control panel requires a license:");
+                ConsoleHelper.WriteLineDim(" Opening purchase page...");
+                Console.WriteLine();
                 Console.WriteLine(" \x1b]8;;https://matrixshader.com/redpill\x07\x1b[36mmatrixshader.com/redpill\x1b[0m\x1b]8;;\x07");
             }
         }
         else
         {
             ConsoleHelper.WriteLineMatrixGreen(" FOLLOW THE WHITE RABBIT.");
-            if (isLicensed)
-            {
-                ConsoleHelper.WriteLineDim(" Type 'redpill' to customize.");
-            }
-            else
-            {
-                ConsoleHelper.WriteLineDim(" Unlock the Red Pill control panel:");
-                Console.WriteLine("   \x1b]8;;https://matrixshader.com/redpill\x07\x1b[36mmatrixshader.com/redpill\x1b[0m\x1b]8;;\x07");
-            }
+            Console.WriteLine();
+            ConsoleHelper.WriteLineDim(" Unlock the Red Pill control panel:");
+            Console.WriteLine(" \x1b[36m matrixshader.com/redpill\x1b[0m");
         }
 
-        // Show global hotkeys summary
+        // Show global hotkeys summary (matches Linux format)
         Console.WriteLine();
         ConsoleHelper.WriteLineDim(" ----------------------------------------");
-        Console.WriteLine(" \x1b[36mGLOBAL HOTKEYS\x1b[0m \x1b[90m(active when Matrix windows exist)\x1b[0m");
+        Console.WriteLine(" \x1b[36mGLOBAL HOTKEYS\x1b[0m \x1b[90m(Ctrl+Shift+H for full reference)\x1b[0m");
         Console.WriteLine();
         ConsoleHelper.WriteLineDim("   Ctrl+Shift+Left/Right   Rotate windows");
         ConsoleHelper.WriteLineDim("   Ctrl+Shift+L            Cycle layout mode");
@@ -556,10 +539,20 @@ public class SetupWizard
     private async Task ShowMorpheusIntro()
     {
         Console.WriteLine();
+        await CliBootstrap.TypewriterAsync(" I imagine that right now, you're feeling a bit like Alice.", 50);
+        await Task.Delay(500);
+        await CliBootstrap.TypewriterAsync(" Tumbling down the rabbit hole.", 50);
+        await Task.Delay(500);
+        Console.WriteLine();
         await CliBootstrap.TypewriterAsync(" You take the red pill, you stay in Wonderland...", 60);
         await Task.Delay(300);
         await CliBootstrap.TypewriterAsync(" and I show you how deep the rabbit hole goes.", 60);
-        await Task.Delay(500);
+        await Task.Delay(800);
+        Console.WriteLine();
+        await CliBootstrap.TypewriterAsync(" Remember, all I'm offering is the truth.", 50);
+        await Task.Delay(300);
+        await CliBootstrap.TypewriterAsync(" Nothing more.", 60);
+        await Task.Delay(1000);
         Console.WriteLine();
     }
 
@@ -589,7 +582,9 @@ public class SetupWizard
             _shaderService.WriteConfig(window.ShaderIndex, chaosConfig);
         }
 
-        ConsoleHelper.WriteLineMatrixGreen($" Chaos applied to {windows.Count} windows.");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineMatrixGreen($" Chaos applied to {windows.Count} window(s).");
+        ConsoleHelper.WriteLineDim(" There is no spoon.");
     }
 
     private async Task<List<TabConfig>> ConfigureNewWindowsAsync(bool morpheusMode)
@@ -617,9 +612,8 @@ public class SetupWizard
             return new List<TabConfig>();
         }
 
-        // Ask for window count
+        // Ask for window count (matches Linux — no slot listing)
         Console.WriteLine();
-        ConsoleHelper.WriteLineDim($" Available slots: [{string.Join(", ", availableSlots)}]");
         Console.Write($" How many NEW Matrix tabs? (1-{maxNewWindows}): ");
         var countInput = Console.ReadLine() ?? "1";
 
@@ -640,15 +634,15 @@ public class SetupWizard
             ConsoleHelper.WriteLineDim(" ----------------------------------------");
             Console.WriteLine();
 
-            // Show color presets
+            // Show color presets with colored names (matches Linux)
             foreach (var preset in Presets)
             {
                 var swatch = GetColorSwatch(preset.R, preset.G, preset.B);
-                Console.WriteLine($"   [{preset.Key}] {swatch} {preset.Name}");
+                Console.WriteLine($"   [{preset.Key}] {swatch} {preset.AnsiColor}{preset.Name}\x1b[0m");
             }
 
             Console.WriteLine();
-            Console.Write(" Color (1-6): ");
+            Console.Write($" Color (1-{Presets.Length}): ");
             var colorInput = Console.ReadLine() ?? "1";
 
             var selectedPreset = Presets.FirstOrDefault(p => p.Key == colorInput) ?? Presets[0];
@@ -664,7 +658,7 @@ public class SetupWizard
 
             var swatch2 = GetColorSwatch(selectedPreset.R, selectedPreset.G, selectedPreset.B);
             Console.WriteLine();
-            ConsoleHelper.WriteMatrixGreen($" Tab {i} -> Matrix-{assignedSlot} - {swatch2} {selectedPreset.Name}");
+            Console.WriteLine($" Tab {i} -> Matrix-{assignedSlot} {swatch2} {selectedPreset.AnsiColor}{selectedPreset.Name}\x1b[0m");
             await Task.Delay(300);
         }
 
@@ -708,11 +702,28 @@ public class SetupWizard
 
     private static string GetColorSwatch(float r, float g, float b)
     {
-        // Create a colored block using ANSI 24-bit color
+        // Create a colored block using ANSI 24-bit color (3 chars wide, matches Linux)
         var ri = (int)(r * 255);
         var gi = (int)(g * 255);
         var bi = (int)(b * 255);
-        return $"\x1b[48;2;{ri};{gi};{bi}m  \x1b[0m";
+        return $"\x1b[48;2;{ri};{gi};{bi}m   \x1b[0m";
+    }
+
+    /// <summary>
+    /// Returns the ANSI color escape for a preset matching the given RGB, or green as default.
+    /// </summary>
+    private static string GetPresetAnsiColor(float r, float g, float b)
+    {
+        foreach (var preset in Presets)
+        {
+            if (Math.Abs(preset.R - r) < 0.05f &&
+                Math.Abs(preset.G - g) < 0.05f &&
+                Math.Abs(preset.B - b) < 0.05f)
+            {
+                return preset.AnsiColor;
+            }
+        }
+        return "\x1b[32m"; // Default green
     }
 
     private List<int> GetActiveSlots(MatrixState state)

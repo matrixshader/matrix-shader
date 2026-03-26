@@ -659,7 +659,7 @@ public class LayoutService : ILayoutService
     /// <summary>
     /// Calculates scaled gap size based on window count.
     /// More windows = proportionally smaller gaps, but never below 20px minimum.
-    /// Formula: 1-2 windows: 100%, 3 windows: 90%, 4+ windows: 80% of base gap
+    /// Formula: 1-2 windows: 100%, 3 windows: 80%, 4+ windows: 60% of base gap
     /// </summary>
     private static int CalculateScaledGap(int baseGap, int windowCount)
     {

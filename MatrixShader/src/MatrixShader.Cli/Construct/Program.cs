@@ -75,7 +75,7 @@ public static class Program
         if (args.Length >= 1 && args[0] == "--pick")
         {
             var profileArg = args.SkipWhile(a => a != "--profile").Skip(1).FirstOrDefault() ?? "Construct";
-            return RunPicker(profileArg, configService, shaderService, terminalService, identityService);
+            return RunPicker(profileArg, configService, shaderService, terminalService, identityService, layoutService);
         }
 
         var color = ParseColor(args);
@@ -145,13 +145,13 @@ public static class Program
         var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
         try
         {
-            // Unique window ID forces a new WT window (prevents opening as a tab
-            // in an existing WT window, which could confuse the user).
-            var windowId = $"_matrix_{Guid.NewGuid():N}";
+            // -w -1 forces a NEW WT window regardless of windowingBehavior setting.
+            // Named window IDs (e.g. _matrix_{guid}) are subject to windowingBehavior
+            // and can silently merge into an existing window as a tab.
             Process.Start(new ProcessStartInfo
             {
                 FileName = wtPath,
-                Arguments = $"-w {windowId} -p \"{profileName}\"",
+                Arguments = $"-w -1 -p \"{profileName}\"",
                 UseShellExecute = true
             });
             Console.WriteLine($"\x1b[38;2;{r};{g};{b}m{color.Name}\x1b[0m Matrix window launched (slot {slot}).");
@@ -304,12 +304,15 @@ public static class Program
         var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
         try
         {
-            // Unique window ID forces a truly new WT window (prevents opening as a tab)
-            var windowId = $"_construct_{Guid.NewGuid():N}";
+            // -w -1 forces a NEW WT window regardless of windowingBehavior setting.
+            // --fullscreen (-F) launches it directly in fullscreen mode.
+            // Named window IDs (e.g. _construct_{guid}) are subject to windowingBehavior
+            // and can silently merge into an existing window as a tab before --fullscreen
+            // takes effect, causing the "opens as tab then resizes" bug.
             Process.Start(new ProcessStartInfo
             {
                 FileName = wtPath,
-                Arguments = $"-w {windowId} --fullscreen -p \"{profileName}\"",
+                Arguments = $"-w -1 --fullscreen -p \"{profileName}\"",
                 UseShellExecute = true
             });
         }
@@ -331,7 +334,8 @@ public static class Program
         IConfigService configService,
         IShaderService shaderService,
         ITerminalSettingsService terminalService,
-        IIdentityService identityService)
+        IIdentityService identityService,
+        ILayoutService layoutService)
     {
         var shadersDir = CliBootstrap.GetShadersDirectory();
         var whiteRoomPath = Path.Combine(shadersDir, "WhiteRoom.hlsl");
@@ -402,7 +406,7 @@ public static class Program
                         var selectedColor = ColorPresets.All[selected];
                         TransitionToRain(selectedColor, slot, constructProfileName,
                                          configService, shaderService, terminalService,
-                                         identityService, shadersDir);
+                                         identityService, layoutService, shadersDir);
                         // Restore console mode — Console.ReadKey disables LINE_INPUT and
                         // ECHO_INPUT, which makes the inherited console unusable for PowerShell.
                         try { Console.CursorVisible = true; } catch { }
@@ -501,6 +505,7 @@ public static class Program
         IShaderService shaderService,
         ITerminalSettingsService terminalService,
         IIdentityService identityService,
+        ILayoutService layoutService,
         string shadersDir)
     {
         // 1. Create rain shader — identical to a normal Matrix launch (FADE_DURATION=0)
@@ -555,18 +560,18 @@ public static class Program
         //    causing a flash of the small TV (zoom=0, powerOff=0).
         Thread.Sleep(1500);
 
-        // 6. Position window to fill the monitor's work area.
-        //    After F11 exit, WT uses its default restored size. The Glitch system only
-        //    repositions when 2+ windows overlap, so a single window needs explicit sizing.
-        if (hwnd != nint.Zero)
+        // 6. Snap into layout alongside existing Matrix windows.
+        //    After F11 exit, WT uses its default restored size. Run the full layout
+        //    pass so this window joins the pillar layout with others.
+        Thread.Sleep(300); // Let WT settle after F11 exit
+        var allWindows = identityService.FindMatrixWindows()
+            .Where(w => !w.IsControlPanel && !w.IsConstruct)
+            .ToList();
+        if (allWindows.Count > 0)
         {
-            var monitorHandle = WindowsApi.MonitorFromWindow(hwnd, WindowsApi.MONITOR_DEFAULTTONEAREST);
-            var monitors = WindowsApi.GetMonitors();
-            var monitor = monitors.FirstOrDefault(m => m.Handle == monitorHandle);
-            if (monitor != null)
-            {
-                WindowsApi.PositionWindowExact(hwnd, monitor.WorkArea);
-            }
+            var layoutState = configService.LoadState();
+            var positions = layoutService.CalculateLayout(allWindows, layoutState.Layout);
+            layoutService.ApplyLayout(positions);
         }
 
         // 7. Clear leftover ANSI background (prevents pink bar in shaderTexture)

@@ -235,10 +235,21 @@ public sealed class MatrixWindowMonitor : IDisposable
             DiagnosticLogger.Debug("HOTKEYS", $"Excluding {fullscreenCount} fullscreen/minimized window(s) from glitch detection");
         }
 
+        // Get VISIBLE bounds for overlap detection.
+        // WindowInfo.Position uses GetWindowRect which includes invisible DWM borders
+        // (~7px left/right/bottom on Windows 10/11). Using those for overlap detection
+        // causes false positives — adjacent windows with proper gaps between their
+        // visible edges will appear to overlap due to invisible borders.
+        var visibleBounds = new Dictionary<nint, WindowRect>();
+        foreach (var window in tiledWindows)
+        {
+            visibleBounds[window.Handle] = WindowsApi.GetVisibleWindowBounds(window.Handle);
+        }
+
         // Detect user drags — update truth instead of snapping back
         foreach (var window in tiledWindows)
         {
-            var currentPos = window.Position;
+            var currentPos = visibleBounds[window.Handle];
             if (_truthPositions.TryGetValue(window.Handle, out var truth))
             {
                 var dx = Math.Abs(currentPos.Left - truth.Left);
@@ -261,13 +272,15 @@ public sealed class MatrixWindowMonitor : IDisposable
         if (tiledWindows.Count < 2)
             return;
 
-        // Check for overlap between any two tiled windows using current positions
+        // Check for overlap between any two tiled windows using VISIBLE bounds
         bool hasOverlap = false;
         for (int i = 0; i < tiledWindows.Count && !hasOverlap; i++)
         {
             for (int j = i + 1; j < tiledWindows.Count && !hasOverlap; j++)
             {
-                var overlapArea = CalculateOverlapArea(tiledWindows[i].Position, tiledWindows[j].Position);
+                var boundsI = visibleBounds[tiledWindows[i].Handle];
+                var boundsJ = visibleBounds[tiledWindows[j].Handle];
+                var overlapArea = CalculateOverlapArea(boundsI, boundsJ);
                 if (overlapArea >= MinOverlapArea)
                 {
                     hasOverlap = true;

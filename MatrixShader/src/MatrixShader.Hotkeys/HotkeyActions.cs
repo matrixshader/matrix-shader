@@ -126,15 +126,17 @@ public sealed class HotkeyActions
             if (currentIdx < 0)
                 return; // Focused window not in Matrix windows
 
+            // Get VISIBLE bounds for all windows (excludes invisible DWM borders).
+            // Using GetWindowRect positions with PositionWindowExact causes windows to
+            // grow by 2x border margins each rotation, eventually causing overlap.
+            var visibleBounds = windows.Select(w => WindowsApi.GetVisibleWindowBounds(w.Handle)).ToArray();
+
             // Calculate target position (one to the left, wrap to end)
             var targetIdx = (currentIdx - 1 + windows.Count) % windows.Count;
 
-            // Get target position
-            var targetPos = windows[targetIdx].Position;
-
-            // Shift all windows between target and current to the right
-            // This creates the rotation effect
-            var currentPos = windows[currentIdx].Position;
+            // Get target visible position
+            var targetPos = visibleBounds[targetIdx];
+            var currentPos = visibleBounds[currentIdx];
 
             // Move focused window to target position
             WindowsApi.PositionWindowExact(windows[currentIdx].Handle, targetPos);
@@ -151,8 +153,9 @@ public sealed class HotkeyActions
                     MatrixWindowMonitor.UpdateTruth(windows[i].Handle, currentPos);
                     break;
                 }
-                WindowsApi.PositionWindowExact(windows[i].Handle, windows[nextIdx].Position);
-                MatrixWindowMonitor.UpdateTruth(windows[i].Handle, windows[nextIdx].Position);
+                var nextVisiblePos = visibleBounds[nextIdx];
+                WindowsApi.PositionWindowExact(windows[i].Handle, nextVisiblePos);
+                MatrixWindowMonitor.UpdateTruth(windows[i].Handle, nextVisiblePos);
             }
         }
         catch (Exception ex)
@@ -188,11 +191,16 @@ public sealed class HotkeyActions
             if (currentIdx < 0)
                 return;
 
+            // Get VISIBLE bounds for all windows (excludes invisible DWM borders).
+            // Using GetWindowRect positions with PositionWindowExact causes windows to
+            // grow by 2x border margins each rotation, eventually causing overlap.
+            var visibleBounds = windows.Select(w => WindowsApi.GetVisibleWindowBounds(w.Handle)).ToArray();
+
             // Calculate target position (one to the right, wrap to start)
             var targetIdx = (currentIdx + 1) % windows.Count;
 
-            var targetPos = windows[targetIdx].Position;
-            var currentPos = windows[currentIdx].Position;
+            var targetPos = visibleBounds[targetIdx];
+            var currentPos = visibleBounds[currentIdx];
 
             // Move focused window to target position
             WindowsApi.PositionWindowExact(windows[currentIdx].Handle, targetPos);
@@ -208,8 +216,9 @@ public sealed class HotkeyActions
                     MatrixWindowMonitor.UpdateTruth(windows[i].Handle, currentPos);
                     break;
                 }
-                WindowsApi.PositionWindowExact(windows[prevIdx].Handle, windows[i].Position);
-                MatrixWindowMonitor.UpdateTruth(windows[prevIdx].Handle, windows[i].Position);
+                var prevVisiblePos = visibleBounds[i];
+                WindowsApi.PositionWindowExact(windows[prevIdx].Handle, prevVisiblePos);
+                MatrixWindowMonitor.UpdateTruth(windows[prevIdx].Handle, prevVisiblePos);
             }
         }
         catch (Exception ex)
