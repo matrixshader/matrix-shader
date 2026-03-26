@@ -29,6 +29,29 @@ for arg in "$@"; do
     esac
 done
 
+# Activate GNOME extension if needed (first install only)
+# Must happen BEFORE self-relaunch — restarting gnome-shell kills all windows
+if [ "$IN_GHOSTTY" != "true" ] && command -v gnome-extensions &>/dev/null; then
+    EXT_STATE=$(gnome-extensions info matrix-window-manager@custom 2>/dev/null | grep "State:" | awk '{print $2}')
+    if [ "$EXT_STATE" = "ERROR" ] || [ "$EXT_STATE" = "INITIALIZED" ]; then
+        echo -e "\033[32m  Activating window snapping...\033[0m"
+        echo -e "\033[2m  Screen will flash — the Matrix is taking over.\033[0m"
+        sleep 1
+        # SIGTERM gnome-shell — gnome-session auto-restarts it within the session
+        pkill -SIGTERM -u "$(id -u)" gnome-shell 2>/dev/null
+        # Wait for shell to restart and extension to load
+        for i in $(seq 1 20); do
+            sleep 0.5
+            NEW_STATE=$(gnome-extensions info matrix-window-manager@custom 2>/dev/null | grep "State:" | awk '{print $2}')
+            if [ "$NEW_STATE" = "ACTIVE" ] || [ "$NEW_STATE" = "ENABLED" ]; then
+                echo -e "\033[32m  Window snapping activated.\033[0m"
+                break
+            fi
+        done
+        sleep 1
+    fi
+fi
+
 # Self-relaunch inside Ghostty if not already there
 # Uses --in-ghostty flag (not env var) to avoid leaking through child processes
 if [ "$IN_GHOSTTY" != "true" ]; then

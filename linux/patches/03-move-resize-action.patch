@@ -1,0 +1,70 @@
+diff --git a/src/apprt/gtk/App.zig b/src/apprt/gtk/App.zig
+index abcdef1..1234567 100644
+--- a/src/apprt/gtk/App.zig
++++ b/src/apprt/gtk/App.zig
+@@ -1817,6 +1817,7 @@ fn initActions(self: *App) void {
+         .{ "reload-config", &gtkActionReloadConfig, null },
+         .{ "present-surface", &gtkActionPresentSurface, c.G_VARIANT_TYPE("t") },
+         .{ "toggle-fullscreen", &gtkActionToggleFullscreen, null },
++        .{ "move-resize", &gtkActionMoveResize, c.G_VARIANT_TYPE("s") },
+     };
+
+     inline for (actions) |entry| {
+@@ -1802,6 +1803,72 @@ fn gtkActionToggleFullscreen(
+     }
+ }
+
++fn gtkActionMoveResize(
++    _: *c.GSimpleAction,
++    parameter: *c.GVariant,
++    ud: ?*anyopaque,
++) callconv(.C) void {
++    const self: *App = @ptrCast(@alignCast(ud orelse return));
++    const active_window = c.gtk_application_get_active_window(self.app) orelse return;
++
++    // Parse "x,y,w,h" string parameter
++    var len: c.gsize = 0;
++    const str = c.g_variant_get_string(parameter, &len);
++    if (str == null) return;
++
++    // Parse x,y,w,h from the string
++    var x: c_int = 0;
++    var y: c_int = 0;
++    var w: c_int = 0;
++    var h: c_int = 0;
++    const n = c.sscanf(str, "%d,%d,%d,%d", &x, &y, &w, &h);
++    if (n != 4) return;
++
++    // Unmaximize first
++    if (c.gtk_window_is_maximized(active_window) != 0) {
++        c.gtk_window_unmaximize(active_window);
++    }
++    if (c.gtk_window_is_fullscreen(active_window) != 0) {
++        c.gtk_window_unfullscreen(active_window);
++    }
++
++    // Set size
++    c.gtk_window_set_default_size(active_window, w, h);
++
++    // Get the GDK surface to initiate move
++    const surface = c.gtk_native_get_surface(@ptrCast(active_window));
++    if (surface == null) return;
++
++    // Synthesize a begin_move from the app side — compositor will honor this
++    // Use GDK_BUTTON_PRIMARY (1) and current timestamp
++    const display = c.gtk_widget_get_display(@ptrCast(active_window));
++    const seat = c.gdk_display_get_default_seat(display);
++    const device = c.gdk_seat_get_pointer(seat);
++    if (device == null) return;
++
++    c.gdk_toplevel_begin_move(
++        @ptrCast(surface),
++        device,
++        1,  // GDK_BUTTON_PRIMARY
++        @floatFromInt(x),
++        @floatFromInt(y),
++        c.GDK_CURRENT_TIME,
++    );
++}
++
+ /// This is called to setup the action map that this application supports.
