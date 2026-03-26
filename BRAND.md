@@ -77,7 +77,7 @@ These are EXACT. Never deviate.
 ### Website (dark theme)
 | Name | Hex | Usage |
 |------|-----|-------|
-| Matrix Green | `#00ff4d` | Primary accent, success states, headings, code text |
+| Matrix Green | `#6EDCAA` | Primary accent, success states, headings, code text (matches Ghostty foreground) |
 | Matrix Red | `#ff0040` | Redpill elements, buy buttons, price cards |
 | Matrix Cyan | `#00ffff` | Secondary accent, Bluepill/free labels |
 | Matrix Gold | `#ffd700` | Prices, special callouts |

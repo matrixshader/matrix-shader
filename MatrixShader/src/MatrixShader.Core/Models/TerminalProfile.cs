@@ -43,6 +43,11 @@ public record TerminalProfile
     public string? Foreground { get; init; }
     public string? Background { get; init; }
 
+    // Font settings (WT uses nested "font" object)
+    public string? FontFace { get; init; }
+    public int? FontSize { get; init; }
+    public string? FontWeight { get; init; }
+
     // Terminal padding (e.g. "0" to remove padding)
     public string? Padding { get; init; }
 

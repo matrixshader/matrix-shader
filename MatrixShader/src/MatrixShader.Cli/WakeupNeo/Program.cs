@@ -41,6 +41,27 @@ public static class Program
                 DiagnosticLogger.Initialize(true);
             }
 
+            // If not running inside Windows Terminal, relaunch in WT.
+            // Shaders and transparency only work in WT — a regular console is useless.
+            if (!EnvironmentService.IsWindowsTerminal())
+            {
+                var wtPath = CliBootstrap.GetWindowsTerminalExePath();
+                if (wtPath != null)
+                {
+                    var self = Process.GetCurrentProcess().MainModule?.FileName
+                               ?? Path.Combine(AppContext.BaseDirectory, "wakeupneo.exe");
+                    var wtArgs = string.Join(" ", args.Select(a => a.Contains(' ') ? $"\"{a}\"" : a));
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = wtPath,
+                        Arguments = $"-w -1 \"{self}\" {wtArgs}".Trim(),
+                        UseShellExecute = true
+                    });
+                    DiagnosticLogger.Info("WAKEUPNEO", "Relaunched in Windows Terminal");
+                    return 0;
+                }
+            }
+
             // Bootstrap — CliBootstrap handles WT detection + auto-install (winget → Store → GitHub)
             var bootstrap = await CliBootstrap.InitializeAsync(verbose: options.Debug);
             if (!bootstrap.Success)

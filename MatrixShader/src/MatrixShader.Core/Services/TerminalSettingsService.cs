@@ -265,6 +265,9 @@ public class TerminalSettingsService : ITerminalSettingsService
                 PixelShaderPath = Path.Combine(shadersDirectory, $"Matrix-{i}.hlsl"),
                 TabColor = tabColor,
                 Foreground = tabColor,  // Text color matches rain color
+                FontFace = "Nimbus Mono PS",
+                FontSize = 16,
+                FontWeight = "bold",
                 SuppressApplicationTitle = false
             };
 
@@ -1080,6 +1083,14 @@ public class TerminalSettingsService : ITerminalSettingsService
         if (profile.Foreground != null) obj["foreground"] = profile.Foreground;
         if (profile.Background != null) obj["background"] = profile.Background;
         if (profile.Padding != null) obj["padding"] = profile.Padding;
+        if (profile.FontFace != null || profile.FontSize != null || profile.FontWeight != null)
+        {
+            var fontObj = new JsonObject();
+            if (profile.FontFace != null) fontObj["face"] = profile.FontFace;
+            if (profile.FontSize != null) fontObj["size"] = profile.FontSize.Value;
+            if (profile.FontWeight != null) fontObj["weight"] = profile.FontWeight;
+            obj["font"] = fontObj;
+        }
         obj["suppressApplicationTitle"] = profile.SuppressApplicationTitle;
         return obj;
     }

@@ -233,6 +233,20 @@ try {
         }
     }
 
+    # Install brand font (Nimbus Mono PS Bold) if not already present
+    $FontSource = Join-Path $SourceDir "fonts\NimbusMonoPS-Bold.otf"
+    if (Test-Path $FontSource) {
+        $FontsDest = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+        if (-not (Test-Path $FontsDest)) { New-Item -ItemType Directory -Path $FontsDest -Force | Out-Null }
+        $FontDest = Join-Path $FontsDest "NimbusMonoPS-Bold.otf"
+        if (-not (Test-Path $FontDest)) {
+            Copy-Item $FontSource $FontDest -Force
+            # Register font for current user
+            $null = New-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts" -Name "Nimbus Mono PS Bold (OpenType)" -Value $FontDest -PropertyType String -Force -ErrorAction SilentlyContinue
+            Write-Host "  Installed font: Nimbus Mono PS Bold" -ForegroundColor Green
+        }
+    }
+
     # Bundle uninstall script locally (so uninstall works offline)
     Write-Host "  Downloading uninstall script..." -ForegroundColor Gray
     $UninstallScriptDest = Join-Path $InstallDir "uninstall.ps1"

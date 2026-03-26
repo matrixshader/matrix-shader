@@ -33,6 +33,8 @@ english.WelcomeLabel2=Real-time GPU-powered Matrix rain effects for Windows Term
 Source: "publish\*"; DestDir: "{app}"; Excludes: "shaders"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Shaders go directly to LocalAppData (where code looks for them)
 Source: "publish\shaders\*.hlsl"; DestDir: "{localappdata}\MatrixShader\shaders"; Flags: ignoreversion
+; Brand font — Nimbus Mono PS Bold (matches Linux Ghostty)
+Source: "fonts\NimbusMonoPS-Bold.otf"; DestDir: "{autofonts}"; FontInstall: "Nimbus Mono PS Bold"; Flags: onlyifdoesntexist uninsneveruninstall
 
 [Run]
 ; No xcopy needed - shaders installed directly to LocalAppData above
