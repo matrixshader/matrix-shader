@@ -48,6 +48,22 @@ PRESETS=(
     "Teal:0.0:0.9:0.9:#00e6e6"
 )
 
+# Activate GNOME extension if needed (first install only)
+if [ "$1" != "--in-ghostty" ] && command -v gnome-extensions &>/dev/null; then
+    EXT_STATE=$(gnome-extensions info matrix-window-manager@custom 2>/dev/null | grep "State:" | awk '{print $2}')
+    if [ "$EXT_STATE" = "ERROR" ] || [ "$EXT_STATE" = "INITIALIZED" ]; then
+        echo -e "\033[32m  Activating window snapping...\033[0m"
+        sleep 1
+        pkill -SIGTERM -u "$(id -u)" gnome-shell 2>/dev/null
+        for i in $(seq 1 20); do
+            sleep 0.5
+            NEW_STATE=$(gnome-extensions info matrix-window-manager@custom 2>/dev/null | grep "State:" | awk '{print $2}')
+            [ "$NEW_STATE" = "ACTIVE" ] || [ "$NEW_STATE" = "ENABLED" ] && break
+        done
+        sleep 1
+    fi
+fi
+
 # Self-relaunch inside Ghostty if not already there
 if [ "$1" != "--in-ghostty" ]; then
     setup_conf="$MATRIX_TMP/ghostty-bluepill.conf"
