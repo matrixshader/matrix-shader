@@ -316,6 +316,11 @@ if command -v gnome-extensions &>/dev/null; then
         rm -rf "$EXTENSION_DST"
         mkdir -p "$(dirname "$EXTENSION_DST")"
         cp -r "$EXTENSION_SRC" "$EXTENSION_DST"
+        # Set shell-version to match installed GNOME version exactly
+        GNOME_VER=$(gnome-shell --version 2>/dev/null | grep -oP '\d+' | head -1)
+        if [ -n "$GNOME_VER" ]; then
+            sed -i "s/\"shell-version\": \[.*\]/\"shell-version\": [\"$GNOME_VER\"]/" "$EXTENSION_DST/metadata.json"
+        fi
         gnome-extensions enable matrix-window-manager@custom 2>/dev/null || true
         echo -e "${DIM}  GNOME extension installed (logout/login may be needed to activate)${RESET}"
     fi
