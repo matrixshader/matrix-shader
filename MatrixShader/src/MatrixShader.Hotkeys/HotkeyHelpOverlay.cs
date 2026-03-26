@@ -112,7 +112,7 @@ public static class HotkeyHelpOverlay
             if (!licenseService.IsLicensed)
             {
                 sb.AppendLine(BoxLine(""));
-                sb.AppendLine(BoxLine($"  {YELLOW}Unlock full control panel \u2014 {WHITE}$5{RESET}"));
+                sb.AppendLine(BoxLine($"  {YELLOW}Unlock the full control panel{RESET}"));
                 sb.AppendLine(BoxLine($"  {CYAN}matrixshader.com/redpill{RESET}"));
             }
             else

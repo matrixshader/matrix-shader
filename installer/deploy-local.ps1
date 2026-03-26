@@ -33,10 +33,11 @@ Get-ChildItem -Path $src -Directory | Where-Object { $_.Name -ne 'shaders' } | F
     Copy-Item $_.FullName $destSub -Recurse -Force
 }
 
-# Copy shaders to data dir
+# Copy non-Matrix shaders only (Redpill-Neo, WhiteRoom, etc.)
+# Matrix-N.hlsl files are user-customized at runtime — never overwrite them on deploy
 $srcShaders = Join-Path $src 'shaders'
 if (Test-Path $srcShaders) {
-    Get-ChildItem -Path $srcShaders -Filter '*.hlsl' | ForEach-Object {
+    Get-ChildItem -Path $srcShaders -Filter '*.hlsl' | Where-Object { $_.Name -notmatch '^Matrix-\d+\.hlsl$' } | ForEach-Object {
         Copy-Item $_.FullName (Join-Path $shadersDir $_.Name) -Force
     }
 }

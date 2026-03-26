@@ -320,7 +320,7 @@ public static class Program
         ConsoleHelper.WriteLineDim("   - Neo vision shader background");
         Console.WriteLine();
 
-        Console.WriteLine(" \x1b[33m$5 — one-time purchase, yours forever.\x1b[0m");
+        Console.WriteLine(" \x1b[33mOne-time purchase. Yours forever.\x1b[0m");
         Console.WriteLine();
         Console.WriteLine(" \x1b]8;;https://matrixshader.com/redpill\x07\x1b[36mmatrixshader.com/redpill\x1b[0m\x1b]8;;\x07");
         Console.WriteLine();

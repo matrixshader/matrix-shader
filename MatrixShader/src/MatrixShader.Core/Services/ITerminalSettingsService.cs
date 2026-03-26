@@ -134,4 +134,18 @@ public interface ITerminalSettingsService
     /// Used to clean up orphaned Construct profiles after GUID swap transition.
     /// </summary>
     void RemoveProfileSurgical(string profileName);
+
+    /// <summary>
+    /// Atomically replaces one profile with another in a single settings.json write.
+    /// Removes the old profile by name and upserts the new profile in one operation.
+    /// This prevents the duplicate-GUID error that occurs when WT's file watcher
+    /// detects an intermediate state where two profiles share the same GUID.
+    /// </summary>
+    void ReplaceProfileSurgical(string oldProfileName, TerminalProfile newProfile);
+
+    /// <summary>
+    /// Removes all profiles whose names start with the given prefix.
+    /// Used to clean up stale Construct-{id} profiles from previous sessions.
+    /// </summary>
+    void RemoveProfilesByPrefixSurgical(string namePrefix);
 }

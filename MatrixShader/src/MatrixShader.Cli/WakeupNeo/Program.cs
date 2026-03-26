@@ -293,7 +293,7 @@ public class SetupWizard
 
         var redPillLabel = isLicensed
             ? "RED PILL - Full Customization (opens control panel)"
-            : "RED PILL - Full Control Panel ($5)";
+            : "RED PILL - Full Control Panel (requires license)";
 
         var pillOptions = new[]
         {
@@ -509,7 +509,7 @@ public class SetupWizard
             {
                 ConsoleHelper.WriteLineMatrixGreen(" THE MATRIX HAS YOU.");
                 Console.WriteLine();
-                ConsoleHelper.WriteLineDim(" The Red Pill control panel requires a license ($5):");
+                ConsoleHelper.WriteLineDim(" The Red Pill control panel requires a license:");
                 Console.WriteLine(" \x1b]8;;https://matrixshader.com/redpill\x07\x1b[36mmatrixshader.com/redpill\x1b[0m\x1b]8;;\x07");
             }
         }

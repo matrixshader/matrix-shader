@@ -7,10 +7,11 @@
 #define FONT_SCALE     1.0
 #define CHAR_WIDTH     10.0
 #define TRAIL_POWER    8.0
-#define RAIN_DENSITY   0.4
+#define RAIN_DENSITY   0.2
 #define SHOW_L1        1.0
 #define SHOW_L2        1.0
 #define SHOW_L3        1.0
+#define FADE_DURATION  0.0
 
 Texture2D shaderTexture;
 SamplerState samplerState;
@@ -76,6 +77,11 @@ float4 main(float4 pos : SV_POSITION, float2 tex : TEXCOORD) : SV_TARGET {
     if (SHOW_L1 > 0.5) totalRain += DrawLayer(tex, 1.5, 0.8, 0.3, 100.0);
     if (SHOW_L2 > 0.5) totalRain += DrawLayer(tex, 1.2, 0.9, 0.6, 200.0);
     if (SHOW_L3 > 0.5) totalRain += DrawLayer(tex, 0.9, 1.0, 1.0, 300.0);
+    // Fade-in when spawned via Construct transition (FADE_DURATION > 0).
+    // Normal launches have FADE_DURATION=0 so fadeIn=1 immediately.
+    // WT resets Time to 0 when a new shader loads via settings.json swap.
+    float fadeIn = (FADE_DURATION > 0.001) ? saturate(Time / FADE_DURATION) : 1.0;
+    totalRain *= fadeIn;
     float4 text = shaderTexture.Sample(samplerState, tex);
     return text + float4(totalRain * GLOW_STRENGTH, 0.0);
 }

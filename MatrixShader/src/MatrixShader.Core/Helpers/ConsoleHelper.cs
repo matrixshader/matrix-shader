@@ -11,9 +11,9 @@ public static partial class ConsoleHelper
     private const int STD_OUTPUT_HANDLE = -11;
     private const uint ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;
 
-    // Matrix green ANSI code
-    private const string MATRIX_GREEN = "\x1b[32m";
-    private const string MATRIX_BRIGHT_GREEN = "\x1b[92m";
+    // Matrix green — truecolor #00ff4d (matches Linux wakeupneo + brand guidelines)
+    private const string MATRIX_GREEN = "\x1b[38;2;0;255;77m";
+    private const string MATRIX_BRIGHT_GREEN = "\x1b[38;2;0;255;77m";
     private const string RESET = "\x1b[0m";
     private const string DIM = "\x1b[90m";
     private const string WARNING_YELLOW = "\x1b[33m";

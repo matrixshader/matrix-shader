@@ -77,7 +77,7 @@ These are EXACT. Never deviate.
 ### Website (dark theme)
 | Name | Hex | Usage |
 |------|-----|-------|
-| Matrix Green | `#00ff41` | Primary accent, success states, headings, code text |
+| Matrix Green | `#00ff4d` | Primary accent, success states, headings, code text |
 | Matrix Red | `#ff0040` | Redpill elements, buy buttons, price cards |
 | Matrix Cyan | `#00ffff` | Secondary accent, Bluepill/free labels |
 | Matrix Gold | `#ffd700` | Prices, special callouts |
@@ -100,19 +100,21 @@ These are EXACT. Never deviate.
 | Otherwise | blacks and greys | Background, text |
 
 ### Glow Effects
-- Green glow: `0 0 30px rgba(0, 255, 65, 0.7)`
+- Green glow: `0 0 30px rgba(0, 255, 77, 0.7)`
 - Red glow: `0 0 30px rgba(255, 0, 64, 0.5)`
 
 ---
 
 ## Typography
 
-| Context | Font |
-|---------|------|
-| Headings, code, prices, buttons, Matrix-styled text | `'Courier New', 'Consolas', 'Monaco', monospace` |
-| Body text, descriptions | `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif` |
+| Context | Font | Platform |
+|---------|------|----------|
+| Terminal / CLI output | **Nimbus Mono PS Bold** 16pt | Linux (Ghostty) |
+| Terminal / CLI output | **Cascadia Mono** (WT default) | Windows |
+| Website headings, code, prices, buttons | `'Courier New', 'Consolas', 'Monaco', monospace` | Web |
+| Website body text, descriptions | `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif` | Web |
 
-**Rule:** Anything that feels "inside the Matrix" uses monospace. Anything that's just normal reading uses sans-serif.
+**Brand font:** Nimbus Mono PS Bold is the canonical brand font (used in Linux wakeupneo). Cascadia Mono is the Windows equivalent. Anything that feels "inside the Matrix" uses monospace. Anything that's just normal reading uses sans-serif.
 
 ---
 

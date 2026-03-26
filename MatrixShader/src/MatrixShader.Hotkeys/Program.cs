@@ -142,14 +142,6 @@ public static class Program
         using var monitor = new MatrixWindowMonitor(identityService, layoutService, coreConfigService, hotkeyWindow.Stop);
         monitor.StartMonitoring();
 
-        // Auto-show help overlay on first launch
-        var state = coreConfigService.LoadState();
-        if (!state.HelpShownOnce)
-        {
-            HotkeyHelpOverlay.SpawnOverlay();
-            coreConfigService.SaveState(state with { HelpShownOnce = true });
-        }
-
         // Subscribe to display changes for auto-repositioning
         hotkeyWindow.DisplayChanged += (bpp, width, height) =>
         {

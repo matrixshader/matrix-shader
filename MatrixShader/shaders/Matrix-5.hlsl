@@ -7,10 +7,11 @@
 #define FONT_SCALE     1.0
 #define CHAR_WIDTH     10.0
 #define TRAIL_POWER    8.0
-#define RAIN_DENSITY   0.4
+#define RAIN_DENSITY   0.2
 #define SHOW_L1        1.0
 #define SHOW_L2        1.0
 #define SHOW_L3        1.0
+#define FADE_DURATION  0.0
 
 Texture2D shaderTexture;
 SamplerState samplerState;
@@ -61,14 +62,8 @@ float3 DrawLayer(float2 uv, float depth, float speed_mult, float brightness, flo
     float shape = glyph * border;
     float col_rnd = random(float2(cell_id.x, seed_shift));
     if (col_rnd > RAIN_DENSITY) return float3(0,0,0);
-
-    // HIGH VARIATION: Use high-frequency hash for unique phase per column
-    // This prevents the "breathing" sync where all columns animate together
-    float col_hash = frac(sin(cell_id.x * 127.1 + seed_shift * 311.7) * 43758.5453);
-    float phase_offset = col_hash * grid_dims.y * 2.5;  // 2.5x screen height variation
-
     float final_speed = ((col_rnd * 0.5 + 0.2) * 10.0 * RAIN_SPEED * speed_mult) / depth;
-    float rain_pos = cell_id.y - (Time * final_speed) + phase_offset;
+    float rain_pos = cell_id.y - (Time * final_speed) + (col_rnd * 1000.0);
     float cycle = frac(rain_pos / grid_dims.y * 1.5);
     float trail = pow(cycle, TRAIL_POWER);
     float is_head = step(0.97, cycle);
@@ -82,6 +77,11 @@ float4 main(float4 pos : SV_POSITION, float2 tex : TEXCOORD) : SV_TARGET {
     if (SHOW_L1 > 0.5) totalRain += DrawLayer(tex, 1.5, 0.8, 0.3, 100.0);
     if (SHOW_L2 > 0.5) totalRain += DrawLayer(tex, 1.2, 0.9, 0.6, 200.0);
     if (SHOW_L3 > 0.5) totalRain += DrawLayer(tex, 0.9, 1.0, 1.0, 300.0);
+    // Fade-in when spawned via Construct transition (FADE_DURATION > 0).
+    // Normal launches have FADE_DURATION=0 so fadeIn=1 immediately.
+    // WT resets Time to 0 when a new shader loads via settings.json swap.
+    float fadeIn = (FADE_DURATION > 0.001) ? saturate(Time / FADE_DURATION) : 1.0;
+    totalRain *= fadeIn;
     float4 text = shaderTexture.Sample(samplerState, tex);
     return text + float4(totalRain * GLOW_STRENGTH, 0.0);
 }

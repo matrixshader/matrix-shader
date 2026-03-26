@@ -261,6 +261,13 @@ public static class Program
 
     private static int RunWhiteRoom(ITerminalSettingsService terminalService)
     {
+        // Clean up any stale Construct profiles from previous sessions that were
+        // not properly removed (user pressed Escape without cleanup, process crashed,
+        // etc.). Each construct launch creates a unique "Construct-{id}" profile,
+        // and orphans accumulate over time, eventually causing GUID conflicts or bloat.
+        try { terminalService.RemoveProfilesByPrefixSurgical("Construct-"); }
+        catch { /* Non-fatal cleanup */ }
+
         var shadersDir = CliBootstrap.GetShadersDirectory();
         var whiteRoomPath = DeployWhiteRoomShader(shadersDir);
         if (whiteRoomPath == null)
@@ -418,6 +425,9 @@ public static class Program
 
                     case ConsoleKey.Escape:
                         AnimatePowerOff(selected);
+                        // Clean up Construct profile — without this, the profile stays
+                        // in settings.json as an orphan with a unique GUID.
+                        terminalService.RemoveProfileSurgical(constructProfileName);
                         return 0;
 
                     default:
@@ -497,10 +507,12 @@ public static class Program
         var config = new ShaderConfig().WithColor(color.R, color.G, color.B);
         shaderService.CreateShader(slot, config);
 
-        // 2. GUID swap via surgical upsert: update Matrix-{slot} profile with
-        //    the Construct window's GUID. WT follows the GUID, so the running
-        //    tab seamlessly becomes a Matrix-{slot} window. Then remove the old
-        //    Construct profile to prevent duplicate GUID errors.
+        // 2. GUID swap via ATOMIC replace: remove the Construct profile and create
+        //    the Matrix-{slot} profile in a SINGLE file write. WT follows the GUID,
+        //    so the running tab seamlessly becomes a Matrix-{slot} window.
+        //    Using ReplaceProfileSurgical prevents the duplicate-GUID popup that
+        //    occurred when separate upsert+remove left an intermediate state where
+        //    two profiles shared the same GUID and WT's file watcher detected it.
         var constructGuid = terminalService.GetProfileGuid(constructProfileName);
         var matrixProfileName = $"Matrix-{slot}";
         if (constructGuid != null)
@@ -519,11 +531,9 @@ public static class Program
                 Foreground = $"#{r:X2}{g:X2}{b:X2}",
                 SuppressApplicationTitle = false
             };
-            terminalService.UpsertProfileSurgical(matrixProfile);
 
-            // Remove old Construct profile to prevent duplicate GUID error.
-            // WT throws "Found multiple profiles with the same GUID" if both exist.
-            terminalService.RemoveProfileSurgical(constructProfileName);
+            // Atomic: remove Construct + upsert Matrix in one write — no intermediate duplicate GUID state.
+            terminalService.ReplaceProfileSurgical(constructProfileName, matrixProfile);
         }
 
         // 3. Persist shader state

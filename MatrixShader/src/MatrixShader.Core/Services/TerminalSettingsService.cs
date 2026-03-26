@@ -847,6 +847,186 @@ public class TerminalSettingsService : ITerminalSettingsService
     }
 
     /// <summary>
+    /// Atomically replaces one profile with another in a single settings.json write.
+    /// Removes the old profile (by name) and upserts the new profile in one file write.
+    /// This prevents the duplicate-GUID popup that occurs when WT's file watcher detects
+    /// an intermediate state where two profiles share the same GUID (e.g., during
+    /// Construct → Matrix transition where the GUID is swapped between profiles).
+    /// </summary>
+    public void ReplaceProfileSurgical(string oldProfileName, TerminalProfile newProfile)
+    {
+        using var mutex = new Mutex(false, @"Global\MatrixShader_SettingsWrite");
+        try { mutex.WaitOne(TimeSpan.FromSeconds(10)); }
+        catch (AbandonedMutexException) { /* Safe to proceed */ }
+
+        try
+        {
+            if (!SettingsExist) return;
+
+            var json = File.ReadAllText(SettingsPath);
+
+            // Step 1: Remove the old profile from the text
+            var oldRange = FindProfileObjectRange(json, oldProfileName);
+            if (oldRange.HasValue)
+            {
+                var (start, end) = oldRange.Value;
+
+                // Expand removal range to include trailing or leading comma
+                int removeStart = start;
+                int removeEnd = end;
+
+                int afterObj = end + 1;
+                while (afterObj < json.Length && char.IsWhiteSpace(json[afterObj])) afterObj++;
+                if (afterObj < json.Length && json[afterObj] == ',')
+                {
+                    removeEnd = afterObj;
+                }
+                else
+                {
+                    int beforeObj = start - 1;
+                    while (beforeObj >= 0 && char.IsWhiteSpace(json[beforeObj])) beforeObj--;
+                    if (beforeObj >= 0 && json[beforeObj] == ',')
+                    {
+                        removeStart = beforeObj;
+                    }
+                }
+
+                // Consume surrounding newlines
+                while (removeEnd + 1 < json.Length && (json[removeEnd + 1] == '\r' || json[removeEnd + 1] == '\n'))
+                    removeEnd++;
+
+                json = json.Substring(0, removeStart) + json.Substring(removeEnd + 1);
+                DiagnosticLogger.Debug("TERMINAL", $"ReplaceProfileSurgical: removed old profile '{oldProfileName}'");
+            }
+
+            // Step 2: Upsert the new profile into the (now modified) text
+            var profileObj = BuildProfileJsonObject(newProfile);
+
+            if (TrySpliceProfileText(json, newProfile.Name, profileObj, out var modified))
+            {
+                var tempPath = SettingsPath + ".tmp";
+                File.WriteAllText(tempPath, modified, new UTF8Encoding(false));
+                File.Move(tempPath, SettingsPath, overwrite: true);
+                DiagnosticLogger.Info("TERMINAL", $"ReplaceProfileSurgical: atomic swap '{oldProfileName}' → '{newProfile.Name}'");
+                return;
+            }
+
+            // Fallback to JsonNode
+            var root = JsonNode.Parse(json, documentOptions: new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true
+            });
+            if (root == null) return;
+
+            var list = root["profiles"]?["list"]?.AsArray();
+            if (list == null) return;
+
+            int existingIndex = -1;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var name = list[i]?["name"]?.GetValue<string>();
+                if (string.Equals(name, newProfile.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    existingIndex = i;
+                    break;
+                }
+            }
+
+            if (existingIndex >= 0)
+                list[existingIndex] = profileObj;
+            else
+                list.Insert(0, profileObj);
+
+            WriteSurgicalResult(root);
+            DiagnosticLogger.Info("TERMINAL", $"ReplaceProfileSurgical (JsonNode fallback): '{oldProfileName}' → '{newProfile.Name}'");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("TERMINAL", $"ReplaceProfileSurgical failed: {ex.Message}");
+        }
+        finally
+        {
+            mutex.ReleaseMutex();
+        }
+    }
+
+    /// <summary>
+    /// Removes all profiles whose names start with the given prefix.
+    /// Used to clean up stale Construct-{id} profiles from previous sessions
+    /// that were not properly removed (e.g., user pressed Escape, process crashed).
+    /// </summary>
+    public void RemoveProfilesByPrefixSurgical(string namePrefix)
+    {
+        using var mutex = new Mutex(false, @"Global\MatrixShader_SettingsWrite");
+        try { mutex.WaitOne(TimeSpan.FromSeconds(10)); }
+        catch (AbandonedMutexException) { /* Safe to proceed */ }
+
+        try
+        {
+            if (!SettingsExist) return;
+
+            var json = File.ReadAllText(SettingsPath);
+
+            // Find all profile names matching the prefix
+            var profilesToRemove = new List<string>();
+            var namePattern = new Regex($@"""name""\s*:\s*""({Regex.Escape(namePrefix)}[^""]*?)""");
+            foreach (Match m in namePattern.Matches(json))
+            {
+                profilesToRemove.Add(m.Groups[1].Value);
+            }
+
+            if (profilesToRemove.Count == 0) return;
+
+            // Remove each one from the text (re-find range each time since offsets shift)
+            foreach (var profileName in profilesToRemove)
+            {
+                var range = FindProfileObjectRange(json, profileName);
+                if (!range.HasValue) continue;
+
+                var (start, end) = range.Value;
+                int removeStart = start;
+                int removeEnd = end;
+
+                int afterObj = end + 1;
+                while (afterObj < json.Length && char.IsWhiteSpace(json[afterObj])) afterObj++;
+                if (afterObj < json.Length && json[afterObj] == ',')
+                {
+                    removeEnd = afterObj;
+                }
+                else
+                {
+                    int beforeObj = start - 1;
+                    while (beforeObj >= 0 && char.IsWhiteSpace(json[beforeObj])) beforeObj--;
+                    if (beforeObj >= 0 && json[beforeObj] == ',')
+                    {
+                        removeStart = beforeObj;
+                    }
+                }
+
+                while (removeEnd + 1 < json.Length && (json[removeEnd + 1] == '\r' || json[removeEnd + 1] == '\n'))
+                    removeEnd++;
+
+                json = json.Substring(0, removeStart) + json.Substring(removeEnd + 1);
+                DiagnosticLogger.Debug("TERMINAL", $"RemoveProfilesByPrefix: removed '{profileName}'");
+            }
+
+            var tempPath = SettingsPath + ".tmp";
+            File.WriteAllText(tempPath, json, new UTF8Encoding(false));
+            File.Move(tempPath, SettingsPath, overwrite: true);
+            DiagnosticLogger.Info("TERMINAL", $"RemoveProfilesByPrefix: cleaned up {profilesToRemove.Count} profiles with prefix '{namePrefix}'");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("TERMINAL", $"RemoveProfilesByPrefix failed: {ex.Message}");
+        }
+        finally
+        {
+            mutex.ReleaseMutex();
+        }
+    }
+
+    /// <summary>
     /// Gets the GUID of an existing profile by name, reading directly from JSON.
     /// Returns null if the profile doesn't exist.
     /// </summary>

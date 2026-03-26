@@ -40,14 +40,9 @@ foreach ($proj in $projects) {
     }
 }
 
-# Now copy shaders
-$shadersDir = Join-Path $ProjectRoot "MatrixShader\shaders"
-$destShaders = Join-Path $Dest "shaders"
-if (-not (Test-Path $destShaders)) { New-Item -ItemType Directory -Path $destShaders -Force | Out-Null }
-Get-ChildItem -Path $shadersDir -Filter "*.hlsl" | ForEach-Object {
-    Copy-Item $_.FullName (Join-Path $destShaders $_.Name) -Force
-    Write-Host "  Shader: $($_.Name)" -ForegroundColor Green
-}
+# Generate Matrix shaders from ShaderTemplate.cs (single source of truth)
+# and copy non-Matrix shaders (Redpill-Neo, WhiteRoom, etc.) from source
+& (Join-Path $PSScriptRoot "generate-shaders.ps1")
 
 # Verify key executables
 $exes = @('wakeupneo.exe', 'bluepill.exe', 'redpill.exe', 'construct.exe', 'matrixlite.exe', 'matrix-hotkeys.exe', 'matrix-monitor.exe')
