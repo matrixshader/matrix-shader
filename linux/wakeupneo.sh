@@ -381,10 +381,6 @@ arrow_menu() {
 launch_window() {
     local preset_idx=$1
     local slot=$2
-    local win_x=${3:-}
-    local win_y=${4:-}
-    local win_w=${5:-}
-    local win_h=${6:-}
     IFS=':' read -r name r g b fg <<< "${PRESETS[$preset_idx]}"
     # Create per-slot shader from template with preset colors
     local shader_file
@@ -425,15 +421,6 @@ keybind = ctrl+shift+r=unbind
 keybind = ctrl+shift+g=unbind
 EOF
 
-    # Write window position into config if provided (Ghostty native positioning)
-    if [ -n "$win_x" ] && [ -n "$win_y" ] && [ -n "$win_w" ] && [ -n "$win_h" ]; then
-        cat >> "$conf" <<EOF
-window-position-x = ${win_x}
-window-position-y = ${win_y}
-window-width = ${win_w}
-window-height = ${win_h}
-EOF
-    fi
 
     # NOTE: Do NOT overwrite default config - matrix windows use their own config files
     # Default ~/.config/ghostty/config stays clean so normal Ghostty opens are normal
@@ -806,34 +793,8 @@ echo
 echo -e "${GREEN} Opening windows...${RESET}"
 echo
 
-# Pre-calculate layout positions so windows open in the right place
-WINDOW_COUNT=${#selected_presets[@]}
-POSITIONS_JSON=$(python3 -c "
-import sys, json; sys.path.insert(0, '$PYMOD_DIR')
-import window_service
-from layout_engine import calculate_pillars_layout, load_layout_config
-monitors = window_service.get_monitors()
-if not monitors:
-    # Fallback: single monitor from xrandr/wayland
-    monitors = [{'x': 0, 'y': 0, 'width': 1920, 'height': 1080, 'primary': True}]
-monitors = sorted(monitors, key=lambda m: (not m.get('primary', False), m['x']))
-config = load_layout_config()
-positions = calculate_pillars_layout($WINDOW_COUNT, monitors, config)
-print(json.dumps(positions))
-" 2>/dev/null) || POSITIONS_JSON="[]"
-
 for i in "${!selected_presets[@]}"; do
-    # Extract position for this window from pre-calculated layout
-    POS=$(echo "$POSITIONS_JSON" | python3 -c "
-import sys, json
-positions = json.loads(sys.stdin.read())
-idx = $i
-if idx < len(positions):
-    p = positions[idx]
-    print(f\"{p['x']} {p['y']} {p['width']} {p['height']}\")
-" 2>/dev/null) || POS=""
-    read -r wx wy ww wh <<< "$POS"
-    launch_window "${selected_presets[$i]}" "${selected_slots[$i]}" "$wx" "$wy" "$ww" "$wh"
+    launch_window "${selected_presets[$i]}" "${selected_slots[$i]}"
     sleep 0.3
 done
 
@@ -858,7 +819,14 @@ fi
     echo ']}'
 } > "$STATE_FILE"
 
-# Layout is applied at launch time via Ghostty config (window-position-x/y)
-# GNOME extension is only needed for post-launch hotkey layout changes
+# Apply layout to position windows
+sleep 0.5
+python3 -c "
+import sys; sys.path.insert(0, '$PYMOD_DIR')
+from layout_engine import apply_current_layout
+n = apply_current_layout()
+if n > 0:
+    print(f'   Positioned {n} window(s) in layout')
+" 2>/dev/null || true
 
 show_post_launch "$is_redpill"
