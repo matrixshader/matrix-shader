@@ -162,12 +162,12 @@ public class SetupWizard
 
     private static readonly ColorPreset[] Presets =
     {
-        new("Classic Green", 0.0f, 1.0f, 0.3f, "1", "\x1b[32m"),
-        new("Cyber Blue", 0.0f, 0.6f, 1.0f, "2", "\x1b[34m"),
-        new("Blood Red", 1.0f, 0.1f, 0.1f, "3", "\x1b[31m"),
-        new("Purple", 0.7f, 0.0f, 1.0f, "4", "\x1b[35m"),
-        new("Gold", 1.0f, 0.7f, 0.0f, "5", "\x1b[33m"),
-        new("Teal", 0.0f, 0.9f, 0.9f, "6", "\x1b[36m")
+        new("Classic Green", 0.0f, 1.0f, 0.3f, "1", "\x1b[38;2;0;255;77m"),
+        new("Cyber Blue", 0.0f, 0.6f, 1.0f, "2", "\x1b[38;2;0;153;255m"),
+        new("Blood Red", 1.0f, 0.1f, 0.1f, "3", "\x1b[38;2;255;26;26m"),
+        new("Purple", 0.7f, 0.0f, 1.0f, "4", "\x1b[38;2;178;0;255m"),
+        new("Gold", 1.0f, 0.7f, 0.0f, "5", "\x1b[38;2;255;178;0m"),
+        new("Teal", 0.0f, 0.9f, 0.9f, "6", "\x1b[38;2;0;230;230m")
     };
 
     public SetupWizard(

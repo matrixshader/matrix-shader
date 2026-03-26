@@ -73,8 +73,9 @@ float3 DrawLayer(float2 uv, float depth, float speed_mult, float brightness, flo
     float shape = glyph * border;
     float col_rnd = random(float2(cell_id.x, seed_shift));
     if (col_rnd > RAIN_DENSITY) return float3(0,0,0);
+    float col_phase = frac(sin(cell_id.x * 127.1 + seed_shift * 311.7) * 43758.5453);
     float final_speed = ((col_rnd * 0.5 + 0.2) * 10.0 * RAIN_SPEED * speed_mult) / depth;
-    float rain_pos = cell_id.y - (Time * final_speed) + (col_rnd * 1000.0);
+    float rain_pos = cell_id.y - (Time * final_speed) + (col_phase * grid_dims.y * 2.5);
     float cycle = frac(rain_pos / grid_dims.y * 1.5);
     float trail = pow(cycle, TRAIL_POWER);
     float is_head = step(0.97, cycle);
