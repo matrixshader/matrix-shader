@@ -413,6 +413,45 @@ launch_window() {
         shader_file="${SHADER_DIR}/${PRESET_FILES[$preset_idx]}"
         echo -e "   ${DIM}(using preset file fallback)${RESET}"
     fi
+
+    # Generate color-matched borderless CSS for this window
+    # Convert 0.0-1.0 color to 0-255 for CSS rgba
+    local css_r=$(awk "BEGIN {printf \"%d\", $r * 255}")
+    local css_g=$(awk "BEGIN {printf \"%d\", $g * 255}")
+    local css_b=$(awk "BEGIN {printf \"%d\", $b * 255}")
+    local css_file="$MATRIX_TMP/ghostty-matrix-${slot}.css"
+    cat > "$css_file" <<CSSEOF
+@define-color headerbar_bg_color rgba(${css_r}, ${css_g}, ${css_b}, 0.15);
+@define-color headerbar_backdrop_color rgba(${css_r}, ${css_g}, ${css_b}, 0.1);
+@define-color headerbar_fg_color ${fg};
+@define-color headerbar_border_color rgba(${css_r}, ${css_g}, ${css_b}, 0.3);
+@define-color headerbar_shade_color rgba(0, 0, 0, 0);
+headerbar {
+  min-height: 22px;
+  padding: 0 4px;
+  border-bottom: 1px solid rgba(${css_r}, ${css_g}, ${css_b}, 0.2);
+}
+headerbar button.titlebutton {
+  min-height: 16px;
+  min-width: 16px;
+  padding: 2px;
+  margin: 1px;
+  color: ${fg};
+  opacity: 0.7;
+}
+headerbar button.titlebutton:hover {
+  opacity: 1;
+}
+headerbar button.titlebutton.close:hover {
+  color: #ff1a1a;
+}
+headerbar .title {
+  color: ${fg};
+  font-size: 10px;
+  opacity: 0.6;
+}
+CSSEOF
+
     local conf="$MATRIX_TMP/ghostty-matrix-${slot}.conf"
 
     cat > "$conf" <<EOF
@@ -424,6 +463,7 @@ font-style = Bold
 background-opacity = 0.85
 gtk-titlebar = true
 window-decoration = client
+gtk-custom-css = ${css_file}
 custom-shader-animation = always
 desktop-notifications = false
 keybind = ctrl+shift+j=unbind

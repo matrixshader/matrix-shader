@@ -188,6 +188,25 @@ r, g, b = c.get('RAIN_R', 0), c.get('RAIN_G', 1), c.get('RAIN_B', 0.3)
 print('#%02x%02x%02x' % (int(r*255), int(g*255), int(b*255)))
 " 2>/dev/null || echo "#00ff4d")
 
+    # Generate color-matched borderless CSS
+    local css_r css_g css_b
+    css_r=$(python3 -c "import json; c=json.loads('''$shader_config''') if '''$shader_config'''!='{}' else {}; print(int(c.get('RAIN_R',0)*255))" 2>/dev/null || echo 0)
+    css_g=$(python3 -c "import json; c=json.loads('''$shader_config''') if '''$shader_config'''!='{}' else {}; print(int(c.get('RAIN_G',1)*255))" 2>/dev/null || echo 255)
+    css_b=$(python3 -c "import json; c=json.loads('''$shader_config''') if '''$shader_config'''!='{}' else {}; print(int(c.get('RAIN_B',0.3)*255))" 2>/dev/null || echo 77)
+    local css_file="$MATRIX_TMP/ghostty-matrix-${slot}.css"
+    cat > "$css_file" <<CSSEOF
+@define-color headerbar_bg_color rgba(${css_r}, ${css_g}, ${css_b}, 0.15);
+@define-color headerbar_backdrop_color rgba(${css_r}, ${css_g}, ${css_b}, 0.1);
+@define-color headerbar_fg_color ${fg};
+@define-color headerbar_border_color rgba(${css_r}, ${css_g}, ${css_b}, 0.3);
+@define-color headerbar_shade_color rgba(0, 0, 0, 0);
+headerbar { min-height: 22px; padding: 0 4px; border-bottom: 1px solid rgba(${css_r}, ${css_g}, ${css_b}, 0.2); }
+headerbar button.titlebutton { min-height: 16px; min-width: 16px; padding: 2px; margin: 1px; color: ${fg}; opacity: 0.7; }
+headerbar button.titlebutton:hover { opacity: 1; }
+headerbar button.titlebutton.close:hover { color: #ff1a1a; }
+headerbar .title { color: ${fg}; font-size: 10px; opacity: 0.6; }
+CSSEOF
+
     local conf="$MATRIX_TMP/ghostty-matrix-${slot}.conf"
     cat > "$conf" <<EOF
 custom-shader = ${shader_file}
@@ -198,6 +217,7 @@ font-style = Bold
 background-opacity = ${opacity_val}
 gtk-titlebar = true
 window-decoration = client
+gtk-custom-css = ${css_file}
 custom-shader-animation = always
 desktop-notifications = false
 keybind = ctrl+shift+j=unbind
