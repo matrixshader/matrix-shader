@@ -313,6 +313,7 @@ if command -v gnome-extensions &>/dev/null; then
     EXTENSION_DST="$HOME/.local/share/gnome-shell/extensions/matrix-window-manager@custom"
     if [ -d "$EXTENSION_SRC" ]; then
         echo -e "${DIM}  Installing GNOME Shell extension for window positioning...${RESET}"
+        rm -rf "$EXTENSION_DST"
         mkdir -p "$(dirname "$EXTENSION_DST")"
         cp -r "$EXTENSION_SRC" "$EXTENSION_DST"
         gnome-extensions enable matrix-window-manager@custom 2>/dev/null || true

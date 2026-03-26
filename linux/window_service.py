@@ -600,17 +600,55 @@ def _check_extension():
     return _extension_cache
 
 
+def _position_via_ghostty_config(slot, x, y, width, height):
+    """Move window by writing position to Ghostty config and triggering reload.
+
+    Works without GNOME extension — uses Ghostty's native window-position config
+    and D-Bus reload-config (same mechanism used for shader changes).
+    """
+    conf_path = f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
+    if not os.path.isfile(conf_path):
+        return False
+    try:
+        with open(conf_path) as f:
+            lines = f.readlines()
+        # Remove existing position lines
+        lines = [l for l in lines if not l.strip().startswith(('window-position-x', 'window-position-y', 'window-width', 'window-height'))]
+        # Add new position
+        lines.append(f"window-position-x = {x}\n")
+        lines.append(f"window-position-y = {y}\n")
+        lines.append(f"window-width = {width}\n")
+        lines.append(f"window-height = {height}\n")
+        with open(conf_path, 'w') as f:
+            f.writelines(lines)
+        # Trigger Ghostty to reload config via D-Bus
+        pid = get_pid_for_slot(slot)
+        if pid:
+            from shader_service import reload_ghostty, get_ghostty_bus_names
+            mapping = get_ghostty_bus_names()
+            if slot in mapping:
+                reload_ghostty(mapping[slot]["bus_name"])
+                return True
+    except (OSError, ImportError):
+        pass
+    return False
+
+
 def position_window(slot, x, y, width, height):
     """Move a Matrix window to exact coordinates.
 
-    Tries GNOME Shell extension first, falls back to xdotool.
+    Tries GNOME Shell extension first, then xdotool, then Ghostty config reload.
     """
     pid = get_pid_for_slot(slot)
     if pid is None:
         return False
     if _check_extension():
         return move_resize_gnome(pid, x, y, width, height)
-    return move_resize_xwayland(pid, x, y, width, height)
+    result = move_resize_xwayland(pid, x, y, width, height)
+    if result:
+        return True
+    # Last resort: write position to Ghostty config and reload
+    return _position_via_ghostty_config(slot, x, y, width, height)
 
 
 def get_position(slot):
