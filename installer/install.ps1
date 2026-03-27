@@ -352,6 +352,7 @@ if (Test-Path $WakeupNeo) {
     Write-Host "  Launching wakeupneo..." -ForegroundColor Green
     Start-Process $WakeupNeo
     Start-Sleep -Seconds 2
-    # Kill this terminal window — not just the script, the actual process
+    # Kill the parent cmd.exe window too (irm|iex runs PS inside cmd)
+    try { Stop-Process -Id (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId -Force -ErrorAction SilentlyContinue } catch {}
     [Environment]::Exit(0)
 }
