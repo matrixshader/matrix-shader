@@ -563,7 +563,7 @@ public class SetupWizard
                 var prof = settings.Profiles?.List?.FirstOrDefault(p =>
                     string.Equals(p.Guid, wakeupGuid, StringComparison.OrdinalIgnoreCase));
                 if (prof != null)
-                    _terminalService.UpsertProfileSurgical(prof with { Opacity = 85 });
+                    _terminalService.UpsertProfileSurgical(prof with { Opacity = 0 });
             }
         }
         catch { }
