@@ -71,7 +71,7 @@ public static class TuiRenderer
         var pct = Math.Clamp((val - min) / (max - min), 0f, 1f);
         var filled = (int)(pct * width);
         var empty = width - filled;
-        return $"\x1b[32m{new string('=', filled)}\x1b[90m{new string('-', empty)}\x1b[0m";
+        return $"\x1b[38;2;110;220;170m{new string('=', filled)}\x1b[90m{new string('-', empty)}\x1b[0m";
     }
 
     /// <summary>

@@ -75,8 +75,8 @@ float3 DrawLayer(float2 uv, float depth, float speed_mult, float brightness, flo
     if (col_rnd > RAIN_DENSITY) return float3(0,0,0);
     float col_hash = frac(sin(cell_id.x * 127.1 + seed_shift * 311.7) * 43758.5453);
     float speed_hash = frac(sin(cell_id.x * 269.5 + seed_shift * 183.3) * 28461.7231);
-    float phase_offset = col_hash * grid_dims.y * 4.0;
-    float final_speed = ((speed_hash * 0.7 + 0.15) * 10.0 * RAIN_SPEED * speed_mult) / depth;
+    float phase_offset = col_hash * grid_dims.y * 6.0 + speed_hash * grid_dims.y * 3.0;
+    float final_speed = ((speed_hash * 0.8 + 0.1) * 10.0 * RAIN_SPEED * speed_mult) / depth;
     float rain_pos = cell_id.y - (Time * final_speed) + phase_offset;
     float cycle = frac(rain_pos / grid_dims.y * 1.5);
     float trail = pow(cycle, TRAIL_POWER);

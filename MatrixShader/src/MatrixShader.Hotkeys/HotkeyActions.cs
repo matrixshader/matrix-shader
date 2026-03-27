@@ -706,43 +706,48 @@ public sealed class HotkeyActions
     }
 
     /// <summary>
-    /// Toggles a layer using the provided update function.
+    /// Toggles a layer using the provided update function on ALL Matrix windows.
     /// Only writes SHOW_L1/L2/L3 — never touches color defines.
+    /// Same global pattern as AdjustSpeed.
     /// </summary>
     private void ToggleLayer(Func<ShaderConfig, ShaderConfig> updateFunc)
     {
-        var focusedWindow = GetFocusedMatrixWindow();
-        DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer called for window shader index: {focusedWindow?.ShaderIndex ?? -1}");
-
-        if (focusedWindow == null || focusedWindow.ShaderIndex < 1)
-        {
-            DiagnosticLogger.Debug("HOTKEYS", "ToggleLayer: No valid focused window found, returning");
+        var matrixWindows = GetMatrixWindowsCached();
+        if (matrixWindows.Count == 0)
             return;
+
+        DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer: applying to {matrixWindows.Count} windows");
+
+        var state = _configService.LoadState();
+        bool anyChanged = false;
+
+        foreach (var window in matrixWindows)
+        {
+            if (window.ShaderIndex < 1) continue;
+
+            // Read current config, apply toggle
+            var config = _shaderService.ReadConfig(window.ShaderIndex);
+            var updatedConfig = updateFunc(config);
+
+            DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer: Writing defines for shader {window.ShaderIndex}, Layer1={updatedConfig.Layer1}, Layer2={updatedConfig.Layer2}, Layer3={updatedConfig.Layer3}");
+
+            // ONLY write layer toggles — never touch RAIN_R/G/B
+            _shaderService.WriteDefines(window.ShaderIndex,
+                ("SHOW_L1", updatedConfig.Layer1 ? 1.0f : 0.0f),
+                ("SHOW_L2", updatedConfig.Layer2 ? 1.0f : 0.0f),
+                ("SHOW_L3", updatedConfig.Layer3 ? 1.0f : 0.0f));
+
+            if (state.ShaderConfigs.ContainsKey(window.ShaderIndex))
+            {
+                state.ShaderConfigs[window.ShaderIndex] = updatedConfig;
+                anyChanged = true;
+            }
         }
 
-        var shaderIndex = focusedWindow.ShaderIndex;
-
-        // Read current config, apply toggle
-        var config = _shaderService.ReadConfig(shaderIndex);
-        var updatedConfig = updateFunc(config);
-
-        DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer: Writing defines for shader {shaderIndex}, Layer1={updatedConfig.Layer1}, Layer2={updatedConfig.Layer2}, Layer3={updatedConfig.Layer3}");
-
-        // ONLY write layer toggles — never touch RAIN_R/G/B
-        _shaderService.WriteDefines(shaderIndex,
-            ("SHOW_L1", updatedConfig.Layer1 ? 1.0f : 0.0f),
-            ("SHOW_L2", updatedConfig.Layer2 ? 1.0f : 0.0f),
-            ("SHOW_L3", updatedConfig.Layer3 ? 1.0f : 0.0f));
         _terminalSettingsService.ForceShaderReload();
 
-        // Also update state for persistence
-        var state = _configService.LoadState();
-        if (state.ShaderConfigs.ContainsKey(shaderIndex))
-        {
-            state.ShaderConfigs[shaderIndex] = updatedConfig;
+        if (anyChanged)
             _configService.SaveState(state);
-            DiagnosticLogger.Debug("HOTKEYS", $"ToggleLayer: State saved for shader {shaderIndex}");
-        }
     }
 
     #endregion

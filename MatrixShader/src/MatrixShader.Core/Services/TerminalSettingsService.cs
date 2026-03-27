@@ -266,7 +266,6 @@ public class TerminalSettingsService : ITerminalSettingsService
                 TabColor = tabColor,
                 Foreground = tabColor,  // Text color matches rain color
                 FontFace = "Nimbus Mono PS",
-                FontSize = 16,
                 FontWeight = "bold",
                 SuppressApplicationTitle = false
             };

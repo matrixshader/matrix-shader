@@ -194,27 +194,27 @@ public class FallbackMenu
     {
         Console.Clear();
         Console.WriteLine();
-        Console.WriteLine("  \x1b[32m+==================================================+\x1b[0m");
-        Console.WriteLine("  \x1b[32m|      MATRIX SHADER - LITE MODE                   |\x1b[0m");
-        Console.WriteLine("  \x1b[32m+==================================================+\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m  COLOR PRESETS                                   \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m  [1] Green   [2] Blue   [3] Red                  \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m  [4] Purple  [5] Gold   [6] Teal                 \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m  CONTROLS                                        \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m  [Enter] Start Rain (fullscreen)                 \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m  [B] Background Mode (rain behind commands)      \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m  [E/R] Speed -/+                                 \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m  [D/F] Density -/+                               \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m  [Q] Quit                                        \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m|\x1b[0m                                                  \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m+--------------------------------------------------+\x1b[0m");
-        Console.Write("  \x1b[32m|\x1b[0m  Color: ");
+        Console.WriteLine("  \x1b[38;2;110;220;170m+==================================================+\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|      MATRIX SHADER - LITE MODE                   |\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m+==================================================+\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  COLOR PRESETS                                   \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [1] Green   [2] Blue   [3] Red                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [4] Purple  [5] Gold   [6] Teal                 \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  CONTROLS                                        \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [Enter] Start Rain (fullscreen)                 \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [B] Background Mode (rain behind commands)      \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [E/R] Speed -/+                                 \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [D/F] Density -/+                               \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [Q] Quit                                        \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m+--------------------------------------------------+\x1b[0m");
+        Console.Write("  \x1b[38;2;110;220;170m|\x1b[0m  Color: ");
         WriteColoredText(_currentColor.Name, _currentColor);
         Console.Write($"  Speed: {_speed:F1}x  Density: {_density:F1}");
-        Console.WriteLine("  \x1b[32m|\x1b[0m");
-        Console.WriteLine("  \x1b[32m+==================================================+\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m+==================================================+\x1b[0m");
         Console.WriteLine();
         Console.Write("  \x1b[90mPress a key...\x1b[0m");
     }
@@ -347,7 +347,7 @@ public class FallbackMenu
         {
             // Background mode: start animation, then return control
             // The animation runs in background while user can still type
-            Console.WriteLine("\x1b[32mBackground mode - rain runs behind your commands\x1b[0m");
+            Console.WriteLine("\x1b[38;2;110;220;170mBackground mode - rain runs behind your commands\x1b[0m");
             Console.WriteLine("\x1b[90mPress Ctrl+C to stop\x1b[0m");
             Console.WriteLine();
         }

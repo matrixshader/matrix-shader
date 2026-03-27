@@ -78,7 +78,7 @@ public static class Program
             if (choice == PillChoice.Exit)
             {
                 Console.Clear();
-                Console.WriteLine("\x1b[32m  You take the exit... The story ends.\x1b[0m");
+                Console.WriteLine("\x1b[38;2;110;220;170m  You take the exit... The story ends.\x1b[0m");
                 Console.WriteLine();
                 break;
             }
@@ -113,7 +113,7 @@ public static class Program
         Console.WriteLine();
 
         // Matrix-style intro
-        Console.Write("\x1b[32m");
+        Console.Write("\x1b[38;2;110;220;170m");
         await TypewriterAsync(" Wake up, Neo...", 80);
         await Task.Delay(800);
 
@@ -131,25 +131,25 @@ public static class Program
     {
         Console.Clear();
         Console.WriteLine();
-        Console.WriteLine("\x1b[32m  +==================================================+\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m  \x1b[1;32m\"This is your last chance. After this,\x1b[0m          \x1b[32m|\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m   \x1b[1;32mthere is no turning back.\"\x1b[0m                     \x1b[32m|\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m");
-        Console.WriteLine("\x1b[32m  +--------------------------------------------------+\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m  \x1b[34m[B] BLUE PILL\x1b[0m - Straight to the Matrix          \x1b[32m|\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m      Start the rain immediately                  \x1b[32m|\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m  \x1b[31m[R] RED PILL\x1b[0m - Control the Code                  \x1b[32m|\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m      Open the control menu                       \x1b[32m|\x1b[0m");
-        Console.WriteLine("\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  +==================================================+\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m  \x1b[38;2;110;220;170m\"This is your last chance. After this,\x1b[0m          \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m   \x1b[38;2;110;220;170mthere is no turning back.\"\x1b[0m                     \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  +--------------------------------------------------+\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m  \x1b[34m[B] BLUE PILL\x1b[0m - Straight to the Matrix          \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m      Start the rain immediately                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m  \x1b[31m[R] RED PILL\x1b[0m - Control the Code                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m      Open the control menu                       \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
         if (showExitOption)
         {
-            Console.WriteLine("\x1b[32m  |\x1b[0m  \x1b[90m[Q] EXIT\x1b[0m - Leave the Matrix                     \x1b[32m|\x1b[0m");
-            Console.WriteLine("\x1b[32m  |\x1b[0m                                                  \x1b[32m|\x1b[0m");
+            Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m  \x1b[90m[Q] EXIT\x1b[0m - Leave the Matrix                     \x1b[38;2;110;220;170m|\x1b[0m");
+            Console.WriteLine("\x1b[38;2;110;220;170m  |\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
         }
-        Console.WriteLine("\x1b[32m  +==================================================+\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m  +==================================================+\x1b[0m");
         Console.WriteLine();
         var promptSuffix = showExitOption ? "[B/R/Q]: " : "[B/R]: ";
         Console.Write($"  \x1b[90mChoose your path {promptSuffix}\x1b[0m");
@@ -199,7 +199,7 @@ public static class Program
     private static void ShowHelp()
     {
         Console.WriteLine();
-        Console.WriteLine("\x1b[32m MATRIXLITE - Text-based Matrix Rain\x1b[0m");
+        Console.WriteLine("\x1b[38;2;110;220;170m MATRIXLITE - Text-based Matrix Rain\x1b[0m");
         Console.WriteLine();
         Console.WriteLine("\x1b[90m Usage: matrixlite [options]\x1b[0m");
         Console.WriteLine();

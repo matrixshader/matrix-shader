@@ -136,7 +136,6 @@ public static class Program
             TabColor = $"#{r:X2}{g:X2}{b:X2}",
             Foreground = $"#{r:X2}{g:X2}{b:X2}",
             FontFace = "Nimbus Mono PS",
-            FontSize = 16,
             FontWeight = "bold",
             SuppressApplicationTitle = false  // Allow commandline to set window title
         };

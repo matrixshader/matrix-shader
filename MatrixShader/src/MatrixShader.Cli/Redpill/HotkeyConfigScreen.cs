@@ -57,7 +57,7 @@ public class HotkeyConfigScreen
 
         // Header
         sb.AppendLine();
-        sb.AppendLine("\x1b[32m HOTKEY CONFIGURATION \x1b[0m");
+        sb.AppendLine("\x1b[38;2;110;220;170m HOTKEY CONFIGURATION \x1b[0m");
         sb.AppendLine("\x1b[90m Use arrows to navigate, Enter to edit, D to disable, R to reset all \x1b[0m");
         sb.AppendLine();
 
@@ -69,7 +69,7 @@ public class HotkeyConfigScreen
             var isSelected = i == _selectedIndex;
 
             // Selection indicator
-            sb.Append(isSelected ? "\x1b[32m > \x1b[0m" : "   ");
+            sb.Append(isSelected ? "\x1b[38;2;110;220;170m > \x1b[0m" : "   ");
 
             // Action name (padded)
             var actionName = GetActionDisplayName(action);

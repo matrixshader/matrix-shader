@@ -218,8 +218,39 @@ public class SetupWizard
             return 0;
         }
 
+        // Force opaque black background for the wizard window.
+        // If wakeupneo is launched from a Matrix profile that has opacity<100 or a shader,
+        // the typewriter text would appear over the transparent/shader background.
+        // ANSI \x1b[40m sets text bg to black; we also need to set the WT profile
+        // to opacity=100 since ANSI bg color doesn't affect WT window compositing.
+        int? originalOpacity = null;
+        string? currentProfileGuid = null;
+        try
+        {
+            currentProfileGuid = Environment.GetEnvironmentVariable("WT_PROFILE_ID");
+            if (!string.IsNullOrEmpty(currentProfileGuid))
+            {
+                var settings = _terminalService.LoadSettings();
+                var currentProfile = settings.Profiles?.List?.FirstOrDefault(p =>
+                    string.Equals(p.Guid, currentProfileGuid, StringComparison.OrdinalIgnoreCase));
+                if (currentProfile != null && currentProfile.Opacity < 100)
+                {
+                    originalOpacity = currentProfile.Opacity;
+                    _terminalService.UpsertProfileSurgical(currentProfile with { Opacity = 100 });
+                    DiagnosticLogger.Info("WAKEUPNEO", $"Set profile '{currentProfile.Name}' to opacity 100 (was {originalOpacity})");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Debug("WAKEUPNEO", $"Could not set opaque background: {ex.Message}");
+        }
+
+        try
+        {
         // Dramatic intro — matches Linux wakeupneo timing
-        Console.Clear();
+        // Set black background, clear screen, and home cursor to ensure solid black canvas
+        Console.Write("\x1b[40m\x1b[2J\x1b[H");
         Console.WriteLine();
         await CliBootstrap.TypewriterAsync(" Wake up, Neo...", 100);
         await Task.Delay(1000);
@@ -555,6 +586,40 @@ public class SetupWizard
         DiagnosticLogger.Info("WAKEUPNEO", "Setup wizard complete");
 
         return 0;
+
+        } // end try (opaque background)
+        finally
+        {
+            // Restore original profile opacity if we changed it.
+            // This runs on normal exit, early cancel (return 2), and exceptions.
+            RestoreProfileOpacity(originalOpacity, currentProfileGuid);
+        }
+    }
+
+    /// <summary>
+    /// Restores the original opacity on the current WT profile after the wizard finishes.
+    /// Called from the finally block so it runs on both normal exit and early cancel.
+    /// </summary>
+    private void RestoreProfileOpacity(int? originalOpacity, string? profileGuid)
+    {
+        if (originalOpacity == null || string.IsNullOrEmpty(profileGuid))
+            return;
+
+        try
+        {
+            var settings = _terminalService.LoadSettings();
+            var profile = settings.Profiles?.List?.FirstOrDefault(p =>
+                string.Equals(p.Guid, profileGuid, StringComparison.OrdinalIgnoreCase));
+            if (profile != null)
+            {
+                _terminalService.UpsertProfileSurgical(profile with { Opacity = originalOpacity.Value });
+                DiagnosticLogger.Info("WAKEUPNEO", $"Restored profile '{profile.Name}' opacity to {originalOpacity.Value}");
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Debug("WAKEUPNEO", $"Could not restore opacity: {ex.Message}");
+        }
     }
 
     private async Task ShowMorpheusIntro()

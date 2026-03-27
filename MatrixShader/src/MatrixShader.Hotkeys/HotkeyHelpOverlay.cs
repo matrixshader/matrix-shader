@@ -191,8 +191,8 @@ public static class HotkeyHelpOverlay
 
             var psi = new ProcessStartInfo
             {
-                FileName = exePath,
-                Arguments = "--help-overlay",
+                FileName = "wt.exe",
+                Arguments = $"-w -1 \"{exePath}\" --help-overlay",
                 UseShellExecute = true,
                 CreateNoWindow = false
             };
