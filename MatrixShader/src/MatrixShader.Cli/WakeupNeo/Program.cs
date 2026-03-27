@@ -162,7 +162,7 @@ public static class Program
 /// <summary>
 /// Color preset definition for wizard.
 /// </summary>
-public record ColorPreset(string Name, float R, float G, float B, string Key, string AnsiColor = "\x1b[32m");
+public record ColorPreset(string Name, float R, float G, float B, string Key, string AnsiColor = "\x1b[38;2;110;220;170m");
 
 /// <summary>
 /// Tab configuration created during setup.
@@ -744,7 +744,7 @@ public class SetupWizard
                 return preset.AnsiColor;
             }
         }
-        return "\x1b[32m"; // Default green
+        return "\x1b[38;2;110;220;170m"; // Default green
     }
 
     private List<int> GetActiveSlots(MatrixState state)

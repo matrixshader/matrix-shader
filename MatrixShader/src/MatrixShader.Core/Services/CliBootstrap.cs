@@ -744,7 +744,7 @@ public static class CliBootstrap
         CancellationToken ct = default)
     {
         if (useMatrixGreen)
-            Console.Write("\x1b[32m");
+            Console.Write("\x1b[38;2;110;220;170m");
 
         foreach (char c in text)
         {

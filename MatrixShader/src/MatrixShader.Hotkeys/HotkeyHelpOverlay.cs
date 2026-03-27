@@ -13,8 +13,8 @@ namespace MatrixShader.Hotkeys;
 public static class HotkeyHelpOverlay
 {
     // ANSI color codes
-    private const string GREEN = "\x1b[32m";
-    private const string BRIGHT_GREEN = "\x1b[92m";
+    private const string GREEN = "\x1b[38;2;110;220;170m";
+    private const string BRIGHT_GREEN = "\x1b[38;2;110;220;170m";
     private const string DIM = "\x1b[90m";
     private const string YELLOW = "\x1b[33m";
     private const string CYAN = "\x1b[36m";

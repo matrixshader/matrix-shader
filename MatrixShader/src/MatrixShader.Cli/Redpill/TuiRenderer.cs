@@ -25,7 +25,7 @@ public static class TuiRenderer
     public const string RESET = "\x1b[0m";
 
     /// <summary>Green foreground color.</summary>
-    public const string GREEN = "\x1b[32m";
+    public const string GREEN = "\x1b[38;2;110;220;170m";
 
     /// <summary>Gray/bright black foreground color.</summary>
     public const string GRAY = "\x1b[90m";

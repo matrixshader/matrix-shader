@@ -8,7 +8,7 @@ public static class MatrixErrorHandler
 {
     // ANSI escape codes
     private const string Red = "\x1b[31m";
-    private const string Green = "\x1b[32m";
+    private const string Green = "\x1b[38;2;110;220;170m";
     private const string DarkGray = "\x1b[90m";
     private const string Reset = "\x1b[0m";
 

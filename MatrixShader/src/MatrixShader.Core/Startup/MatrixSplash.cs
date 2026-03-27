@@ -13,9 +13,9 @@ public static class MatrixSplash
 
     // ANSI escape codes
     private const string BrightWhite = "\x1b[97m";
-    private const string BrightGreen = "\x1b[92m";
-    private const string Green = "\x1b[32m";
-    private const string DarkGreen = "\x1b[2;32m";
+    private const string BrightGreen = "\x1b[38;2;110;220;170m";
+    private const string Green = "\x1b[38;2;110;220;170m";
+    private const string DarkGreen = "\x1b[38;2;70;140;110m";
     private const string Reset = "\x1b[0m";
 
     /// <summary>

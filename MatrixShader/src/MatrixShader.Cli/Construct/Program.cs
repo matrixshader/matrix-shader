@@ -719,7 +719,7 @@ public static class Program
     private static void ShowHelp()
     {
         Console.WriteLine();
-        Console.WriteLine("\x1b[32m CONSTRUCT\x1b[0m \u2014 Enter the Construct. Pick your reality.");
+        Console.WriteLine("\x1b[38;2;110;220;170m CONSTRUCT\x1b[0m \u2014 Enter the Construct. Pick your reality.");
         Console.WriteLine();
         Console.WriteLine(" Usage: construct          Launch white room color picker");
         Console.WriteLine("        construct --[color] Launch with specific color");
