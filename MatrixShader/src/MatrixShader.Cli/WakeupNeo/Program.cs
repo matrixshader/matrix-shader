@@ -51,10 +51,25 @@ public static class Program
                     var self = Process.GetCurrentProcess().MainModule?.FileName
                                ?? Path.Combine(AppContext.BaseDirectory, "wakeupneo.exe");
                     var wtArgs = string.Join(" ", args.Select(a => a.Contains(' ') ? $"\"{a}\"" : a));
+                    // Create a WakeupNeo profile with opacity 100 (opaque black world)
+                    var termSvc = new TerminalSettingsService(
+                        Microsoft.Extensions.Logging.Abstractions.NullLogger<TerminalSettingsService>.Instance);
+                    var wakeupProfile = new TerminalProfile
+                    {
+                        Name = "WakeupNeo",
+                        Guid = termSvc.GetProfileGuid("WakeupNeo") ?? $"{{{Guid.NewGuid()}}}",
+                        Commandline = $"\"{self}\" {wtArgs}".Trim(),
+                        Hidden = true,
+                        Opacity = 100,
+                        UseAcrylic = false,
+                        FontFace = "Nimbus Mono PS",
+                        FontWeight = "bold",
+                    };
+                    termSvc.UpsertProfileSurgical(wakeupProfile);
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = wtPath,
-                        Arguments = $"-w -1 \"{self}\" {wtArgs}".Trim(),
+                        Arguments = $"-w -1 --fullscreen -p \"WakeupNeo\"",
                         UseShellExecute = true
                     });
                     DiagnosticLogger.Info("WAKEUPNEO", "Relaunched in Windows Terminal");
@@ -539,18 +554,19 @@ public class SetupWizard
         // Final message (matches Linux flow)
         // The choice is made. The veil lifts — make this window transparent.
         // The user now sees through the boring black terminal world they started in.
-        if (!string.IsNullOrEmpty(currentProfileGuid))
+        try
         {
-            try
+            var wakeupGuid = _terminalService.GetProfileGuid("WakeupNeo");
+            if (wakeupGuid != null)
             {
                 var settings = _terminalService.LoadSettings();
                 var prof = settings.Profiles?.List?.FirstOrDefault(p =>
-                    string.Equals(p.Guid, currentProfileGuid, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(p.Guid, wakeupGuid, StringComparison.OrdinalIgnoreCase));
                 if (prof != null)
                     _terminalService.UpsertProfileSurgical(prof with { Opacity = 85 });
             }
-            catch { }
         }
+        catch { }
 
         Console.WriteLine();
         if (isRedPill)
