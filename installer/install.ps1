@@ -352,7 +352,12 @@ if (Test-Path $WakeupNeo) {
     Write-Host "  Launching wakeupneo..." -ForegroundColor Green
     Start-Process $WakeupNeo
     Start-Sleep -Seconds 2
-    # Kill the parent cmd.exe window too (irm|iex runs PS inside cmd)
-    try { Stop-Process -Id (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId -Force -ErrorAction SilentlyContinue } catch {}
+    # Close this console window — works from cmd, PowerShell, WT, anything
+    Add-Type -Name Win -Namespace Native -MemberDefinition '[DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();'
+    $hwnd = [Native.Win]::GetConsoleWindow()
+    [Native.Win]::PostMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)  # WM_CLOSE
+    Start-Sleep -Milliseconds 500
+    # If still alive, minimize it
+    [Native.Win]::ShowWindow($hwnd, 6)  # SW_MINIMIZE
     [Environment]::Exit(0)
 }
