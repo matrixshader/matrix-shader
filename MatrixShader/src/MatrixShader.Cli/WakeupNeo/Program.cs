@@ -2,6 +2,7 @@ using System.Diagnostics;
 using MatrixShader.Core.Constants;
 using MatrixShader.Core.Helpers;
 using MatrixShader.Core.Models;
+using MatrixShader.Core.Native;
 using MatrixShader.Core.Services;
 using MatrixShader.Core.Startup;
 using MatrixShader.Lite;
@@ -73,6 +74,7 @@ public static class Program
                         UseShellExecute = true
                     });
                     DiagnosticLogger.Info("WAKEUPNEO", "Relaunched in Windows Terminal");
+                    Environment.Exit(0);
                     return 0;
                 }
             }
@@ -275,6 +277,11 @@ public class SetupWizard
 
         await CliBootstrap.TypewriterAsync(" Follow the white rabbit.", 80);
         await Task.Delay(500);
+
+        // Exit fullscreen for the interaction part
+        WindowsApi.keybd_event(WindowsApi.VK_F11, 0, 0, 0);
+        WindowsApi.keybd_event(WindowsApi.VK_F11, 0, WindowsApi.KEYEVENTF_KEYUP, 0);
+        await Task.Delay(300);
 
         // Show random quote before header (matches Linux flow)
         CliBootstrap.ShowRandomQuote();
