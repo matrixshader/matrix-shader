@@ -21,6 +21,7 @@ public static class Program
         try
         {
             Console.OutputEncoding = Encoding.UTF8;
+            MatrixShader.Core.Helpers.ConsoleHelper.EnableAnsiEscapeCodes();
 
             // Skip intro if --quiet flag or --menu flag
             var skipIntro = args.Contains("--quiet") || args.Contains("-q");

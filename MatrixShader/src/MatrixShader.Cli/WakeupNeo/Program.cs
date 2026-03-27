@@ -537,6 +537,21 @@ public class SetupWizard
         }
 
         // Final message (matches Linux flow)
+        // The choice is made. The veil lifts — make this window transparent.
+        // The user now sees through the boring black terminal world they started in.
+        if (!string.IsNullOrEmpty(currentProfileGuid))
+        {
+            try
+            {
+                var settings = _terminalService.LoadSettings();
+                var prof = settings.Profiles?.List?.FirstOrDefault(p =>
+                    string.Equals(p.Guid, currentProfileGuid, StringComparison.OrdinalIgnoreCase));
+                if (prof != null)
+                    _terminalService.UpsertProfileSurgical(prof with { Opacity = 85 });
+            }
+            catch { }
+        }
+
         Console.WriteLine();
         if (isRedPill)
         {
@@ -581,10 +596,12 @@ public class SetupWizard
         Console.WriteLine(" \x1b]8;;https://buymeacoffee.com/IKnowKungFu\x07\x1b[33mhttps://buymeacoffee.com/IKnowKungFu\x1b[0m\x1b]8;;\x07");
 
         Console.WriteLine();
-        Console.ReadKey(intercept: true);
 
         DiagnosticLogger.Info("WAKEUPNEO", "Setup wizard complete");
 
+        // Window stays open — user closes it when they're done reading.
+        // This window is now transparent, showing the Matrix behind it.
+        await Task.Delay(Timeout.Infinite);
         return 0;
 
         } // end try (opaque background)
@@ -700,7 +717,7 @@ public class SetupWizard
 
         // Ask for window count (matches Linux — no slot listing)
         Console.WriteLine();
-        Console.Write($" How many NEW Matrix tabs? (1-{maxNewWindows}): ");
+        Console.Write($" How many NEW MatrixShader terminals? (1-{maxNewWindows}): ");
         var countInput = Console.ReadLine() ?? "1";
 
         if (!int.TryParse(countInput, out var numTabs))

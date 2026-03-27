@@ -56,8 +56,8 @@ public static class Program
         // Skip self-launch for help/hotkeys/no-relaunch modes
         if (!args.Contains("--help") && !args.Contains("--hotkeys") && !args.Contains("--no-relaunch"))
         {
-            // Check if we're in WT but NOT in Redpill profile
-            if (EnvironmentService.IsWindowsTerminal() && !IsRunningInRedpillProfile())
+            // If not in WT at all, or in WT but not in Redpill profile — relaunch in WT
+            if (!EnvironmentService.IsWindowsTerminal() || !IsRunningInRedpillProfile())
             {
                 // Launch new WT window with Redpill profile
                 var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
