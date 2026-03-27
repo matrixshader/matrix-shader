@@ -344,27 +344,13 @@ catch {
     Write-Host "  To uninstall manually: irm https://matrixshader.com/uninstall.ps1 | iex" -ForegroundColor Yellow
 }
 
-# Success!
+# Launch wakeupneo — it handles the rest
 Write-Host ""
 Write-Host "  Installation complete!" -ForegroundColor Green
-Write-Host ""
-Write-Host "  IMPORTANT: Open a NEW terminal window for commands to work." -ForegroundColor Yellow
-Write-Host ""
-Write-Host "  COMMANDS" -ForegroundColor Cyan
-Write-Host "    wakeupneo  - Start here"
-Write-Host "    construct  - Launch individual Matrix terminal (--help for colors)"
-Write-Host "    bluepill   - Quickly relaunch last saved settings"
-Write-Host "    redpill    - Full control panel (fine tuning)"
-Write-Host "    matrixlite - Visual effect only"
-Write-Host ""
-
-Write-Host "  Enjoying Matrix Shader? Buy me a coffee:" -ForegroundColor DarkGray
-Write-Host "  https://buymeacoffee.com/IKnowKungFu" -ForegroundColor Yellow
-Write-Host ""
-
-# Auto-launch wakeupneo in a new terminal window
 $WakeupNeo = Join-Path $InstallDir "wakeupneo.exe"
 if (Test-Path $WakeupNeo) {
     Write-Host "  Launching wakeupneo..." -ForegroundColor Green
     Start-Process $WakeupNeo
+    Start-Sleep -Seconds 2
+    exit
 }
