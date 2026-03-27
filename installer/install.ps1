@@ -352,5 +352,6 @@ if (Test-Path $WakeupNeo) {
     Write-Host "  Launching wakeupneo..." -ForegroundColor Green
     Start-Process $WakeupNeo
     Start-Sleep -Seconds 2
-    exit
+    # Kill this terminal window — not just the script, the actual process
+    [Environment]::Exit(0)
 }
