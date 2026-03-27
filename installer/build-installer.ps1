@@ -73,17 +73,21 @@ foreach ($project in $projects) {
     Write-Host "    $_" -ForegroundColor Gray
 }
 
-# Copy shaders from C# project (NOT PowerShell root)
-Write-Host "  Copying shaders..." -ForegroundColor Cyan
-$ShadersSource = Join-Path $ProjectRoot "MatrixShader\shaders"
-$ShadersDest = Join-Path $PublishDir "shaders"
-if (!(Test-Path $ShadersSource)) {
-    throw "Shaders not found at: $ShadersSource"
+# Generate shaders from ShaderTemplate.cs (single source of truth)
+# and copy non-Matrix shaders (Redpill-Neo, WhiteRoom, etc.)
+Write-Host "  Generating shaders from template..." -ForegroundColor Cyan
+& (Join-Path $InstallerDir "generate-shaders.ps1")
+$shaderCount = (Get-ChildItem (Join-Path $PublishDir "shaders") -Filter "*.hlsl").Count
+Write-Host "    $shaderCount shaders generated" -ForegroundColor Gray
+
+# Copy font
+$fontSrc = Join-Path $InstallerDir "fonts\NimbusMonoPS-Bold.otf"
+if (Test-Path $fontSrc) {
+    $fontDest = Join-Path $PublishDir "fonts"
+    New-Item -ItemType Directory -Force -Path $fontDest | Out-Null
+    Copy-Item $fontSrc (Join-Path $fontDest "NimbusMonoPS-Bold.otf") -Force
+    Write-Host "    Font bundled" -ForegroundColor Gray
 }
-New-Item -ItemType Directory -Force -Path $ShadersDest | Out-Null
-Copy-Item -Path "$ShadersSource\*.hlsl" -Destination $ShadersDest -Force
-$shaderCount = (Get-ChildItem "$ShadersDest\*.hlsl").Count
-Write-Host "    $shaderCount shaders copied" -ForegroundColor Gray
 
 # Build installer
 Write-Host "  Building installer..." -ForegroundColor Cyan
