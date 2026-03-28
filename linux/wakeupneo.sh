@@ -78,24 +78,25 @@ window-decoration = client
 SETUPEOF
         nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$setup_conf" -e "$SCRIPT_PATH" --in-ghostty ${MODE:+--$MODE} >/dev/null 2>&1 &
         disown
-        # Kill the parent terminal window (the one that ran curl|bash or wakeupneo)
-        # so it closes cleanly after Ghostty takes over.
-        PARENT_PID=$PPID
-        # Only kill if parent is a terminal emulator, not a login shell
-        PARENT_CMD=$(ps -p "$PARENT_PID" -o comm= 2>/dev/null)
-        case "$PARENT_CMD" in
-            bash|zsh|sh|fish|dash)
-                # Parent is a shell — kill the terminal holding it (grandparent)
-                GRANDPARENT_PID=$(ps -p "$PARENT_PID" -o ppid= 2>/dev/null | tr -d ' ')
-                GRANDPARENT_CMD=$(ps -p "$GRANDPARENT_PID" -o comm= 2>/dev/null)
-                case "$GRANDPARENT_CMD" in
-                    gnome-terminal*|xterm|konsole|alacritty|kitty|ghostty|tilix|foot)
-                        kill "$GRANDPARENT_PID" 2>/dev/null ;;
-                esac
-                ;;
-            gnome-terminal*|xterm|konsole|alacritty|kitty|ghostty|tilix|foot)
-                kill "$PARENT_PID" 2>/dev/null ;;
-        esac
+        # Kill the terminal that launched us. Walk up the process tree
+        # and kill the first ancestor that isn't bash/sh/python (the terminal emulator).
+        _pid=$$
+        while [ -n "$_pid" ] && [ "$_pid" != "1" ]; do
+            _ppid=$(ps -p "$_pid" -o ppid= 2>/dev/null | tr -d ' ')
+            [ -z "$_ppid" ] && break
+            _cmd=$(ps -p "$_ppid" -o comm= 2>/dev/null)
+            case "$_cmd" in
+                bash|zsh|sh|fish|dash|python*|install.sh|wakeupneo|curl)
+                    _pid=$_ppid
+                    continue ;;
+                systemd|gnome-session*|gdm*|init|"")
+                    break ;;  # Don't kill session managers
+                *)
+                    # This is the terminal emulator — kill it
+                    kill "$_ppid" 2>/dev/null
+                    break ;;
+            esac
+        done
         exit 0
     fi
 fi
