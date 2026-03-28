@@ -118,7 +118,7 @@ def find_keyboard():
             keys = caps[ecodes.EV_KEY]
             if ecodes.KEY_SPACE in keys and ecodes.KEY_LEFTCTRL in keys:
                 name_lower = dev.name.lower()
-                if "ydotool" not in name_lower and "virtual" not in name_lower:
+                if "ydotool" not in name_lower and "virtual" not in name_lower and "passthrough" not in name_lower and "matrix-keys" not in name_lower:
                     return dev
     return None
 
