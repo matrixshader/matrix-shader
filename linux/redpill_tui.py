@@ -940,11 +940,33 @@ def _show_purchase_prompt():
     """Open purchase page in browser and prompt for key."""
     GREEN = "\x1b[32m"
     DIM = "\x1b[2m"
+    YELLOW = "\x1b[33m"
+    CYAN = "\x1b[36m"
     RESET = "\x1b[0m"
 
     print()
     print(f" {GREEN}THE RED PILL{RESET}")
+    print(f" {DIM}----------------------------------------{RESET}")
     print()
+    print(f" {DIM}The Red Pill unlocks the full control panel:{RESET}")
+    print()
+    print(f" {DIM}  - Live parameter adjustment (speed, glow, width, trail, density){RESET}")
+    print(f" {DIM}  - Custom RGB color picker (any color, not just presets){RESET}")
+    print(f" {DIM}  - Per-window layer toggles (Far/Mid/Near){RESET}")
+    print(f" {DIM}  - Multi-tab management (up to 8 shader configs){RESET}")
+    print(f" {DIM}  - Layout mode controls (Pillars/Quads/Auto){RESET}")
+    print(f" {DIM}  - Snapback position save/restore{RESET}")
+    print(f" {DIM}  - Hotkey configuration (remap bindings){RESET}")
+    print(f" {DIM}  - Neo vision shader background{RESET}")
+    print()
+    print(f" {YELLOW}One-time purchase. Yours forever.{RESET}")
+    print()
+    print(f" \x1b]8;;https://matrixshader.com/redpill\x07{CYAN}matrixshader.com/redpill{RESET}\x1b]8;;\x07")
+    print()
+    print(f" {DIM}Already purchased? Activate with:{RESET}")
+    print(f" {DIM}  redpill --activate REDPILL-XXXX-XXXX-XXXX-XXXX{RESET}")
+    print()
+
     print(f" {DIM}Opening purchase page...{RESET}")
 
     import platform

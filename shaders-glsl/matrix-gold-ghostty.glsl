@@ -72,7 +72,8 @@ vec3 DrawLayer(vec2 uv, float depth, float speed_mult, float brightness, float s
     float speed_hash = fract(sin(cell_id.x * 269.5 + seed_shift * 183.3) * 28461.7231);
     float phase_offset = col_hash * grid_dims.y * 4.0;
 
-    float final_speed = ((speed_hash * 0.7 + 0.15) * 10.0 * RAIN_SPEED * speed_mult) / depth;
+    float height_scale = iResolution.y / 1080.0;
+    float final_speed = ((speed_hash * 0.7 + 0.15) * 10.0 * RAIN_SPEED * speed_mult * height_scale) / depth;
     float rain_pos = cell_id.y - (iTime * final_speed) + phase_offset;
     float cycle = fract(rain_pos / grid_dims.y * 1.5);
     float trail = pow(cycle, TRAIL_POWER);

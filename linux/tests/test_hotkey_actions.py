@@ -36,9 +36,9 @@ class TestSpeedActions:
     def test_speed_up_clamps_to_max(self, mock_bus, mock_read, mock_write, mock_toast):
         from hotkey_actions import action_speed_up
         mock_bus.return_value = {1: {"pid": 100, "bus_name": ":1.10"}}
-        mock_read.return_value = {"RAIN_SPEED": 4.8}
+        mock_read.return_value = {"RAIN_SPEED": 19.8}
         action_speed_up()
-        mock_write.assert_called_once_with(1, "RAIN_SPEED", 5.0)
+        mock_write.assert_called_once_with(1, "RAIN_SPEED", 20.0)
 
     @patch("hotkey_actions.show_toast")
     @patch("hotkey_actions.write_shader_param")

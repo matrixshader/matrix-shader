@@ -265,10 +265,10 @@ class TestParameterActions:
         assert tui.config["RAIN_B"] == approx(0.35)
 
     def test_speed_clamps_at_max(self):
-        tui = _make_tui(config={**shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 5.0})
+        tui = _make_tui(config={**shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 20.0})
         tui.handle_action("SpeedIncrease")
         _write_shader_param.assert_called_once()
-        assert tui.config["RAIN_SPEED"] == approx(5.0)
+        assert tui.config["RAIN_SPEED"] == approx(20.0)
 
     def test_speed_clamps_at_min(self):
         tui = _make_tui(config={**shader_service.PARAM_DEFAULTS, "RAIN_SPEED": 0.1})

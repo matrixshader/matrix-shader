@@ -137,13 +137,56 @@ def find_next_slot() -> int | None:
 # Quick launch
 # ---------------------------------------------------------------------------
 
+def _generate_css(slot: int, fg_color: str, r: float = 0.0, g: float = 1.0, b: float = 0.3) -> str:
+    """Generate color-matched headerbar CSS for a construct/quick-launch window.
+
+    Same CSS as wakeupneo and bluepill generate. Returns the CSS file path.
+    """
+    cr, cg, cb = int(r * 255), int(g * 255), int(b * 255)
+    css_path = f"{MATRIX_TMP}/ghostty-matrix-{slot}.css"
+    css = (
+        f"@define-color headerbar_bg_color rgba({cr}, {cg}, {cb}, 0.15);\n"
+        f"@define-color headerbar_backdrop_color rgba({cr}, {cg}, {cb}, 0.1);\n"
+        f"@define-color headerbar_fg_color {fg_color};\n"
+        f"@define-color headerbar_border_color rgba({cr}, {cg}, {cb}, 0.3);\n"
+        f"@define-color headerbar_shade_color rgba(0, 0, 0, 0);\n"
+        f"headerbar {{ min-height: 22px; padding: 0 4px; border-bottom: 1px solid rgba({cr}, {cg}, {cb}, 0.2); }}\n"
+        f"headerbar button.titlebutton {{ min-height: 16px; min-width: 16px; padding: 2px; margin: 1px; color: {fg_color}; opacity: 0.7; }}\n"
+        f"headerbar button.titlebutton:hover {{ opacity: 1; }}\n"
+        f"headerbar button.titlebutton.close:hover {{ color: #ff1a1a; }}\n"
+        f"headerbar .title {{ color: {fg_color}; font-size: 10px; opacity: 0.6; }}\n"
+    )
+    with open(css_path, "w") as f:
+        f.write(css)
+    return css_path
+
+
 def _write_ghostty_config(slot: int, shader_path: str,
                           fg_color: str = "#00ff4d",
-                          opacity: str = "0.85") -> str:
+                          opacity: str = "0.85",
+                          preset_rgb: tuple = None) -> str:
     """Write a Ghostty config file for a matrix slot.
+
+    Args:
+        slot: Window slot number.
+        shader_path: Path to the GLSL shader file.
+        fg_color: Foreground hex color.
+        opacity: Background opacity (0-1).
+        preset_rgb: (r, g, b) floats 0.0-1.0 for CSS generation. If None, derived from fg_color.
 
     Returns the config file path.
     """
+    # Generate color-matched CSS
+    if preset_rgb is not None:
+        r, g, b = preset_rgb
+    else:
+        # Derive from fg_color hex
+        fc = fg_color.lstrip("#")
+        r = int(fc[0:2], 16) / 255.0
+        g = int(fc[2:4], 16) / 255.0
+        b = int(fc[4:6], 16) / 255.0
+    css_path = _generate_css(slot, fg_color, r, g, b)
+
     conf_path = f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
     content = (
         f"custom-shader = {shader_path}\n"
@@ -154,6 +197,7 @@ def _write_ghostty_config(slot: int, shader_path: str,
         f"background-opacity = {opacity}\n"
         f"gtk-titlebar = true\n"
         f"window-decoration = client\n"
+        f"gtk-custom-css = {css_path}\n"
         f"custom-shader-animation = always\n"
         f"desktop-notifications = false\n"
         f"keybind = ctrl+shift+j=unbind\n"
@@ -193,10 +237,12 @@ def quick_launch(color: str) -> dict:
         return {"error": "All 8 shader slots are in use. Close a Matrix window first."}
 
     # Determine if standard color or bonus shader
+    preset_rgb = None
     if color in COLOR_MAP:
         preset_idx = COLOR_MAP[color]
         shader_path = shader_service.create_slot_shader(slot, preset_idx=preset_idx)
         fg_color = PRESET_FOREGROUNDS.get(preset_idx, "#00ff4d")
+        preset_rgb = shader_service.PRESET_COLORS[preset_idx]
     elif color in BONUS_SHADERS:
         # Copy bonus shader to slot directory as matrix-{slot}.glsl
         # (per RESEARCH.md Pitfall 6: slot naming convention must be maintained)
@@ -210,7 +256,7 @@ def quick_launch(color: str) -> dict:
     else:
         return {"error": f"Unknown color: {color}"}
 
-    conf_path = _write_ghostty_config(slot, shader_path, fg_color=fg_color)
+    conf_path = _write_ghostty_config(slot, shader_path, fg_color=fg_color, preset_rgb=preset_rgb)
 
     return {"slot": slot, "conf": conf_path, "shader": shader_path}
 
@@ -243,6 +289,7 @@ def transition_to_rain(slot: int, preset_idx: int,
     # 1. Create rain shader for this slot
     shader_path = shader_service.create_slot_shader(slot, preset_idx=preset_idx)
     fg_color = PRESET_FOREGROUNDS.get(preset_idx, "#00ff4d")
+    preset_rgb = shader_service.PRESET_COLORS[preset_idx] if 0 <= preset_idx < len(shader_service.PRESET_COLORS) and shader_service.PRESET_COLORS[preset_idx] is not None else None
 
     # 2. Find the construct config that Ghostty is ACTUALLY reading
     if construct_conf is None:
@@ -250,12 +297,26 @@ def transition_to_rain(slot: int, preset_idx: int,
     if not os.path.isfile(construct_conf):
         return False
 
-    # 3. Write a proper matrix rain config (not patching — full rewrite)
+    # 3. Read saved opacity from state (matches bluepill behavior), default 0.85
+    opacity_val = "0.85"
+    try:
+        import state_service
+        state = state_service.load_state()
+        saved_opacity = state.get("opacity", 85)
+        opacity_val = f"{int(saved_opacity) / 100:.2f}"
+        if opacity_val == "0.00":
+            opacity_val = "0"
+        elif opacity_val == "1.00":
+            opacity_val = "1"
+    except (ImportError, Exception):
+        pass
+
+    # 4. Write a proper matrix rain config (not patching — full rewrite)
     #    This matches what _write_ghostty_config produces for quick-launch
     matrix_conf = f"{MATRIX_TMP}/ghostty-matrix-{slot}.conf"
-    _write_ghostty_config(slot, shader_path, fg_color=fg_color, opacity="0")
+    _write_ghostty_config(slot, shader_path, fg_color=fg_color, opacity=opacity_val, preset_rgb=preset_rgb)
 
-    # 4. ALSO overwrite the construct config with the same content
+    # 5. ALSO overwrite the construct config with the same content
     #    (Ghostty is reading THIS file — the matrix config is for future use)
     try:
         import shutil
@@ -263,7 +324,7 @@ def transition_to_rain(slot: int, preset_idx: int,
     except OSError:
         return False
 
-    # 5. Trigger D-Bus reload on the construct window ONLY
+    # 6. Trigger D-Bus reload on the construct window ONLY
     #    Use slot-specific matching to avoid hitting stale construct windows
     #    from previous runs that already transitioned to rain.
     global _cached_construct_bus_name
@@ -272,11 +333,11 @@ def transition_to_rain(slot: int, preset_idx: int,
     if bus_name:
         shader_service.reload_ghostty(bus_name)
 
-    # 6. Window registration is handled by the CALLER (construct.sh line 159)
+    # 7. Window registration is handled by the CALLER (construct.sh line 159)
     #    which walks the process tree to find the correct Ghostty PID.
     #    Do NOT register here — pgrep matching is fragile and can find wrong PIDs.
 
-    # 7. Save shader config to state
+    # 8. Save shader config to state
     try:
         import state_service
         state = state_service.load_state()

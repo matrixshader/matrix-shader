@@ -492,6 +492,9 @@ def snapback_restore():
 # Cache of last-applied positions for drift detection
 _last_applied = {}  # slot -> {"x": ..., "y": ..., "width": ..., "height": ...}
 _last_glitch_check = 0.0
+_last_live_count = 0  # track window count for dead-slot re-layout
+_relayout_pending = 0.0  # debounce timestamp for re-layout after window close
+RELAYOUT_DEBOUNCE = 1.0  # seconds to wait before re-layout (lets rapid closes settle)
 
 
 def _update_applied_cache(slots_and_positions):
@@ -507,12 +510,15 @@ def _update_applied_cache(slots_and_positions):
 def check_and_snap():
     """Check if windows have drifted from their formation and snap back.
 
+    Also detects dead slots (closed windows) and triggers re-layout so
+    remaining windows fill the screen. Uses debounce to let rapid closes settle.
+
     Called periodically from the matrix_keys.py event loop timer.
     Only acts if glitch mode is enabled in state.json.
 
     Returns number of windows snapped, or -1 if glitch is disabled.
     """
-    global _last_glitch_check
+    global _last_glitch_check, _last_live_count, _relayout_pending
 
     config = load_layout_config()
     if not config["glitch_enabled"]:
@@ -520,22 +526,49 @@ def check_and_snap():
 
     now = time.time()
     if now - _last_glitch_check < GLITCH_CHECK_INTERVAL:
+        # Still check for pending debounced re-layout even between glitch intervals
+        if _relayout_pending > 0 and now >= _relayout_pending:
+            _relayout_pending = 0.0
+            count = apply_layout()
+            return count
         return 0
     _last_glitch_check = now
 
+    # --- Dead slot detection: purge closed windows, trigger re-layout ---
+    mapping = window_service.load_mapping()
+    live_slots = [int(s) for s in mapping.keys()
+                  if window_service.get_pid_for_slot(int(s)) is not None]
+    live_count = len(live_slots)
+
+    # Purge dead slots from the glitch cache
+    if _last_applied:
+        dead_slots = [s for s in _last_applied if s not in live_slots]
+        for s in dead_slots:
+            del _last_applied[s]
+
+    if _last_live_count > 0 and live_count < _last_live_count and live_count > 0:
+        # Window count decreased — schedule debounced re-layout
+        if _relayout_pending == 0.0:
+            _relayout_pending = now + RELAYOUT_DEBOUNCE
+    _last_live_count = live_count
+
+    # Execute pending re-layout if debounce expired
+    if _relayout_pending > 0 and now >= _relayout_pending:
+        _relayout_pending = 0.0
+        count = apply_layout()
+        return count
+
     if not _last_applied:
         # No cached positions — seed from CURRENT actual window positions
-        mapping = window_service.load_mapping()
-        slots = [int(s) for s in mapping.keys()
-                 if window_service.get_pid_for_slot(int(s)) is not None]
         layout = []
-        for s in slots:
+        for s in live_slots:
             geo = window_service.get_position(s)
             if geo:
                 layout.append((s, {"x": geo["x"], "y": geo["y"],
                                    "width": geo["width"], "height": geo["height"]}))
         if layout:
             _update_applied_cache(layout)
+        _last_live_count = live_count
         return 0
 
     # Only snap when windows overlap (skip if in overlap layout)

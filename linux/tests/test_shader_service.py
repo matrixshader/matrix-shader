@@ -103,7 +103,7 @@ class TestReadShaderConfig:
 
 class TestClampValue:
     def test_clamps_above_max(self):
-        assert shader_service.clamp_value("RAIN_SPEED", 10.0) == 5.0
+        assert shader_service.clamp_value("RAIN_SPEED", 25.0) == 20.0
 
     def test_clamps_below_min(self):
         assert shader_service.clamp_value("RAIN_SPEED", -1.0) == 0.1
@@ -280,11 +280,11 @@ class TestWriteShaderParam:
         shader_service.create_slot_shader(1)
 
         with patch.object(shader_service, "get_ghostty_bus_names", return_value={}):
-            shader_service.write_shader_param(1, "RAIN_SPEED", 99.0)  # Way above max 5.0
+            shader_service.write_shader_param(1, "RAIN_SPEED", 99.0)  # Way above max 20.0
 
         slot_path = os.path.join(tmp_slot_dir, "matrix-1.glsl")
         content = open(slot_path).read()
-        assert "#define RAIN_SPEED     5.0" in content
+        assert "#define RAIN_SPEED     20.0" in content
 
 
 # --- write_shader_params (batch) ---

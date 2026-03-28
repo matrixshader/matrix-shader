@@ -34,7 +34,7 @@ from shader_service import (
 
 SPEED_DELTA = 0.5   # Matches Windows SpeedDelta = 0.5f
 SPEED_MIN = 0.1     # From PARAM_RANGES
-SPEED_MAX = 5.0     # From PARAM_RANGES
+SPEED_MAX = 20.0    # From PARAM_RANGES
 
 # Opacity constants -- matches Windows v1.0.4 AdjustOpacity
 OPACITY_DELTA = 5   # 5% per step
