@@ -691,14 +691,18 @@ def action_snapback_restore() -> None:
 
 
 def action_glitch_toggle() -> None:
-    """Toggle glitch mode (auto-snap windows back to formation)."""
+    """Toggle glitch mode — Red Pill only. Free users get a nag."""
     try:
+        from hotkey_config import is_redpill
+        if not is_redpill():
+            show_toast("Red Pill required")
+            return
         from layout_engine import load_layout_config, save_layout_config
         config = load_layout_config()
         config["glitch_enabled"] = not config["glitch_enabled"]
         save_layout_config(config)
         state_str = "ON" if config["glitch_enabled"] else "OFF"
-        show_toast(f"Glitch mode: {state_str}")
+        show_toast(f"Glitch: {state_str}")
     except Exception:
         pass
 

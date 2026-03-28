@@ -61,7 +61,9 @@ def main():
         cr.select_font_face(
             "Nimbus Mono PS", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD
         )
-        cr.set_font_size(56)
+        # Auto-size font: big for short text (opacity %), smaller for longer text
+        font_size = 48 if len(text) <= 5 else 28 if len(text) <= 15 else 20
+        cr.set_font_size(font_size)
         extents = cr.text_extents(text)
         w = widget.get_allocated_width()
         h = widget.get_allocated_height()
@@ -73,12 +75,15 @@ def main():
         return True
 
     win.connect("draw", on_draw)
-    win.set_size_request(300, 80)
+    # Size window to fit text
+    toast_w = max(300, len(text) * 20 + 40)
+    toast_h = 70
+    win.set_size_request(toast_w, toast_h)
     win.show_all()
 
     sw = screen.get_width()
     sh = screen.get_height()
-    win.move((sw - 300) // 2, sh - 80 - BOTTOM_OFFSET)
+    win.move((sw - toast_w) // 2, sh - toast_h - BOTTOM_OFFSET)
 
     def dismiss(*_a):
         Gtk.main_quit()
