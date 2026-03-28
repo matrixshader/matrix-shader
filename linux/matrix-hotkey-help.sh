@@ -4,7 +4,14 @@
 # Closes on any keypress.
 
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
-PYMOD_DIR="$SCRIPT_DIR"
+# After install, Python modules live in ~/.local/share/matrixshader/pylib/,
+# not alongside this script in ~/.local/bin/. Fall back to SCRIPT_DIR for
+# development (running from the repo).
+PYMOD_DIR="$HOME/.local/share/matrixshader/pylib"
+if [ ! -f "$PYMOD_DIR/hotkey_actions.py" ]; then
+    PYMOD_DIR="$SCRIPT_DIR"
+fi
+export PYTHONPATH="$PYMOD_DIR:$PYTHONPATH"
 
 # Find Ghostty binary
 for gb in "$HOME/.local/share/matrixshader/ghostty" "$(which ghostty 2>/dev/null)"; do
@@ -20,7 +27,12 @@ HELP_FILE=$(mktemp "$MATRIX_TMP/matrix-help-XXXXXX.txt")
 python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
 from hotkey_actions import _build_help_text
-print(_build_help_text())
+print()
+print('  MATRIX SHADER — HOTKEY REFERENCE')
+print()
+for line in _build_help_text().splitlines():
+    print('  ' + line)
+print()
 " > "$HELP_FILE" 2>/dev/null
 
 # If Python help generation failed, write a basic reference
@@ -55,11 +67,25 @@ background-opacity = 0.9
 gtk-titlebar = true
 window-decoration = client
 desktop-notifications = false
+window-width = 60
+window-height = 20
 EOF
+
+# Write a small display script so Ghostty -e gets a single executable path
+# (avoids quoting issues with bash -c and Ghostty's argument splitting)
+HELP_DISPLAY=$(mktemp "$MATRIX_TMP/matrix-help-display-XXXXXX.sh")
+cat > "$HELP_DISPLAY" <<DISPLAYEOF
+#!/bin/bash
+cat '$HELP_FILE'
+echo
+echo '  Press any key to close...'
+read -rsn1
+DISPLAYEOF
+chmod +x "$HELP_DISPLAY"
 
 # Launch help window
 "$GHOSTTY_BIN" --config-default-files=false --config-file="$HELP_CONF" \
-    -e bash -c "cat '$HELP_FILE'; echo; echo '  Press any key to close...'; read -rsn1"
+    -e "$HELP_DISPLAY"
 
 # Cleanup
-rm -f "$HELP_CONF" "$HELP_FILE"
+rm -f "$HELP_CONF" "$HELP_FILE" "$HELP_DISPLAY"

@@ -361,5 +361,14 @@ echo -e "    ${DIM}Ctrl+Shift+B   Toggle transparency${RESET}"
 echo -e "    ${DIM}Ctrl+Shift+J/K Opacity down/up${RESET}"
 echo -e "    ${DIM}Ctrl+Shift+H   Hotkey help${RESET}"
 echo
+# Auto-launch wakeupneo instead of asking user to open a new terminal.
+# Use the full path to avoid PATH issues (login shells may not source .bashrc).
+if [ ! -t 0 ]; then
+    # curl-pipe mode: stdin is the pipe, reopen from tty
+    exec "$BIN_DIR/wakeupneo" </dev/tty
+else
+    exec "$BIN_DIR/wakeupneo"
+fi
+# Fallback if exec fails (should not reach here)
 echo -e "${DIM}  Open a new terminal, then type: ${CYAN}wakeupneo${RESET}"
 echo

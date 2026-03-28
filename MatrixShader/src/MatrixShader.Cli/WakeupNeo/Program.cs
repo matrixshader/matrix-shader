@@ -306,10 +306,15 @@ public class SetupWizard
         var isFirstRun = _configService.IsFirstRun;
         var state = _configService.LoadState();
         var previousSlots = isFirstRun ? new List<int>() : GetActiveSlots(state);
-        List<TabConfig> tabConfigs;
+        List<TabConfig> tabConfigs = new();
 
         DiagnosticLogger.Debug("WAKEUPNEO", $"IsFirstRun: {isFirstRun}, previousSlots: [{string.Join(", ", previousSlots)}]");
 
+        // Wrap in loop for back navigation
+        bool isRedPill = false;
+        bool isLicensed = false;
+        while (true)
+        {
         if (previousSlots.Count > 0)
         {
             ConsoleHelper.WriteMatrixGreen(" Previous session found:");
@@ -330,12 +335,34 @@ public class SetupWizard
             else
             {
                 Console.WriteLine();
-                tabConfigs = await ConfigureNewWindowsAsync(morpheusMode);
+                var result = await ConfigureNewWindowsAsync(morpheusMode);
+                if (result == null)
+                {
+                    // User pressed back — restart from header
+                    Console.Clear();
+                    Console.WriteLine();
+                    Console.WriteLine(" WAKE UP, NEO...");
+                    ConsoleHelper.WriteLineDim(" ----------------------------------------");
+                    Console.WriteLine();
+                    continue;
+                }
+                tabConfigs = result;
             }
         }
         else
         {
-            tabConfigs = await ConfigureNewWindowsAsync(morpheusMode);
+            var result = await ConfigureNewWindowsAsync(morpheusMode);
+            if (result == null)
+            {
+                // User pressed back — restart from header
+                Console.Clear();
+                Console.WriteLine();
+                Console.WriteLine(" WAKE UP, NEO...");
+                ConsoleHelper.WriteLineDim(" ----------------------------------------");
+                Console.WriteLine();
+                continue;
+            }
+            tabConfigs = result;
         }
 
         if (tabConfigs.Count == 0)
@@ -355,7 +382,7 @@ public class SetupWizard
         {
             var swatch = GetColorSwatch(cfg.R, cfg.G, cfg.B);
             var ansiColor = GetPresetAnsiColor(cfg.R, cfg.G, cfg.B);
-            Console.WriteLine($"   Tab {cfg.Slot}: {swatch} {ansiColor}{cfg.ColorName}\x1b[0m");
+            Console.WriteLine($"   Terminal {cfg.Slot}: {swatch} {ansiColor}{cfg.ColorName}\x1b[0m");
         }
 
         Console.WriteLine();
@@ -364,7 +391,7 @@ public class SetupWizard
         // Blue Pill / Red Pill choice using arrow-key menu
         // Check license to show appropriate Red Pill label
         var licenseService = new LicenseService();
-        var isLicensed = licenseService.IsLicensed;
+        isLicensed = licenseService.IsLicensed;
 
         var redPillLabel = isLicensed
             ? "\x1b[31mRED PILL\x1b[0m  - Full Customization (control panel)"
@@ -373,7 +400,8 @@ public class SetupWizard
         var pillOptions = new[]
         {
             "\x1b[34mBLUE PILL\x1b[0m - Enter the Matrix",
-            redPillLabel
+            redPillLabel,
+            "\x1b[90mGO BACK\x1b[0m  - Change colors or count"
         };
 
         var pillChoice = CliBootstrap.ArrowKeyMenu(pillOptions, "Choose your path:");
@@ -384,7 +412,20 @@ public class SetupWizard
             return 2;
         }
 
-        var isRedPill = pillChoice == 1;
+        if (pillChoice == 2)
+        {
+            // Go back — restart from count
+            Console.Clear();
+            Console.WriteLine();
+            Console.WriteLine(" WAKE UP, NEO...");
+            ConsoleHelper.WriteLineDim(" ----------------------------------------");
+            Console.WriteLine();
+            continue;
+        }
+
+        isRedPill = pillChoice == 1;
+        break;
+        } // end while(true) back navigation loop
 
         // Create shaders (silent — Linux doesn't show this step)
         foreach (var cfg in tabConfigs)
@@ -713,7 +754,7 @@ public class SetupWizard
         ConsoleHelper.WriteLineDim(" There is no spoon.");
     }
 
-    private async Task<List<TabConfig>> ConfigureNewWindowsAsync(bool morpheusMode)
+    private async Task<List<TabConfig>?> ConfigureNewWindowsAsync(bool morpheusMode)
     {
         // Detect currently open Matrix windows to avoid slot collisions
         var openWindows = _identityService.FindMatrixWindows();
@@ -748,15 +789,16 @@ public class SetupWizard
 
         numTabs = Math.Max(1, Math.Min(maxNewWindows, numTabs));
 
-        // Configure each tab
+        // Configure each terminal (with back navigation)
         var tabConfigs = new List<TabConfig>();
         var slotIndex = 0;
+        int i = 1;
 
-        for (int i = 1; i <= numTabs; i++)
+        while (i <= numTabs)
         {
             Console.Clear();
             Console.WriteLine();
-            ConsoleHelper.WriteLineMatrixGreen($" TAB {i} OF {numTabs}");
+            ConsoleHelper.WriteLineMatrixGreen($" TERMINAL {i} OF {numTabs}");
             ConsoleHelper.WriteLineDim(" ----------------------------------------");
             Console.WriteLine();
 
@@ -768,8 +810,30 @@ public class SetupWizard
             }
 
             Console.WriteLine();
-            Console.Write($" Color (1-{Presets.Length}): ");
-            var colorInput = Console.ReadLine() ?? "1";
+            if (i == 1)
+                ConsoleHelper.WriteLineDim("   [b] Back to terminal count");
+            else
+                ConsoleHelper.WriteLineDim("   [b] Back to previous terminal");
+            Console.WriteLine();
+            Console.Write($" Color (1-{Presets.Length}, b=back): ");
+            var colorInput = Console.ReadLine()?.Trim() ?? "1";
+
+            if (colorInput.Equals("b", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i == 1)
+                {
+                    // Back to terminal count — signal caller to restart
+                    return null;
+                }
+                else
+                {
+                    // Back to previous terminal
+                    tabConfigs.RemoveAt(tabConfigs.Count - 1);
+                    slotIndex--;
+                    i--;
+                    continue;
+                }
+            }
 
             var selectedPreset = Presets.FirstOrDefault(p => p.Key == colorInput) ?? Presets[0];
 
@@ -784,8 +848,9 @@ public class SetupWizard
 
             var swatch2 = GetColorSwatch(selectedPreset.R, selectedPreset.G, selectedPreset.B);
             Console.WriteLine();
-            Console.WriteLine($" Tab {i} -> Matrix-{assignedSlot} {swatch2} {selectedPreset.AnsiColor}{selectedPreset.Name}\x1b[0m");
+            Console.WriteLine($" Terminal {i} -> Matrix-{assignedSlot} {swatch2} {selectedPreset.AnsiColor}{selectedPreset.Name}\x1b[0m");
             await Task.Delay(300);
+            i++;
         }
 
         return tabConfigs;

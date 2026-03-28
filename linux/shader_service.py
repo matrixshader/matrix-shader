@@ -101,7 +101,7 @@ PARAM_RANGES = {
     "RAIN_R": (0.0, 1.0),
     "RAIN_G": (0.0, 1.0),
     "RAIN_B": (0.0, 1.0),
-    "RAIN_SPEED": (0.1, 5.0),
+    "RAIN_SPEED": (0.1, 20.0),
     "GLOW_STRENGTH": (0.2, 3.0),
     "CHAR_WIDTH": (6.0, 20.0),
     "TRAIL_POWER": (4.0, 15.0),

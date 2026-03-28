@@ -72,6 +72,7 @@ font-family = Nimbus Mono PS
 font-style = Bold
 font-size = 16
 background-opacity = 1
+fullscreen = true
 gtk-titlebar = true
 window-decoration = client
 SETUPEOF
@@ -100,11 +101,10 @@ PRESETS=(
     "Purple:0.7:0.0:1.0:#b300ff"
     "Gold:1.0:0.7:0.0:#ffb300"
     "Teal:0.0:0.9:0.9:#00e6e6"
-    "Redpill-Neo 3D:0.0:1.0:0.0:#00ff00"
 )
 
-PRESET_COLORS=("$GREEN" "$BLUE" "$RED" "$PURPLE" "$GOLD" "$CYAN" "$GREEN")
-PRESET_FILES=("matrix-green-ghostty.glsl" "matrix-blue-ghostty.glsl" "matrix-red-ghostty.glsl" "matrix-purple-ghostty.glsl" "matrix-gold-ghostty.glsl" "matrix-teal-ghostty.glsl" "redpill-neo-ghostty.glsl")
+PRESET_COLORS=("$GREEN" "$BLUE" "$RED" "$PURPLE" "$GOLD" "$CYAN")
+PRESET_FILES=("matrix-green-ghostty.glsl" "matrix-blue-ghostty.glsl" "matrix-red-ghostty.glsl" "matrix-purple-ghostty.glsl" "matrix-gold-ghostty.glsl" "matrix-teal-ghostty.glsl")
 
 # Matrix movie quotes (ported from MatrixQuotes.cs)
 MATRIX_QUOTES=(
@@ -295,6 +295,8 @@ if [ "$IN_GHOSTTY" != "true" ]; then
 fi
 
 matrix_splash() {
+    # Brief pause to let Ghostty finish fullscreen resize before reading terminal size
+    sleep 0.3
     local width=$(tput cols 2>/dev/null || echo 80)
     local height=$(tput lines 2>/dev/null || echo 24)
     local chars="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -319,13 +321,13 @@ matrix_splash() {
             local pos=${col_pos[$x]}
             local trail=${col_trail[$x]}
 
-            for ((t=0; t<trail && t<3; t++)); do
+            for ((t=0; t<trail; t++)); do
                 local y=$((pos - t))
                 if ((y >= 0 && y < height)); then
                     local c="${chars:$(( RANDOM % char_count )):1}"
                     if ((t == 0)); then
                         buf+="\033[$((y+1));$((x+1))H\033[38;2;110;220;170m${c}"  # Bright #6EDCAA
-                    elif ((t == 1)); then
+                    elif ((t < 3)); then
                         buf+="\033[$((y+1));$((x+1))H\033[38;2;53;179;129m${c}"   # Base #35B381
                     else
                         buf+="\033[$((y+1));$((x+1))H\033[38;2;30;100;72m${c}"    # Soft #1E6448
@@ -665,6 +667,17 @@ if [[ "$MODE" == "morpheus" ]]; then
     morpheus_intro
 fi
 
+# Exit fullscreen before interactive section
+# Find our own Ghostty's D-Bus bus name via parent PID
+own_busname=$(busctl --user list 2>/dev/null | awk -v p="$PPID" '$2==p && /ghostty/{print $1}')
+if [ -n "$own_busname" ]; then
+    gdbus call --session --dest "$own_busname" \
+        --object-path /com/mitchellh/ghostty \
+        --method org.gtk.Actions.Activate \
+        "toggle-fullscreen" "[]" "{}" >/dev/null 2>&1
+    sleep 0.5
+fi
+
 # Clear and show header
 clear
 echo
@@ -776,77 +789,120 @@ if [ "$max_new" -eq 0 ]; then
     exit 0
 fi
 
-echo -ne " How many NEW Matrix tabs? (1-${max_new}): "
-read -r num_windows
+while true; do
+    echo -ne " How many NEW MatrixShader terminals? (1-${max_new}): "
+    read -r num_windows
 
-if ! [[ "$num_windows" =~ ^[0-9]+$ ]] || [ "$num_windows" -lt 1 ]; then
-    num_windows=1
-fi
-[ "$num_windows" -gt "$max_new" ] && num_windows=$max_new
+    if ! [[ "$num_windows" =~ ^[0-9]+$ ]] || [ "$num_windows" -lt 1 ]; then
+        num_windows=1
+    fi
+    [ "$num_windows" -gt "$max_new" ] && num_windows=$max_new
 
-# Configure each tab
-declare -a selected_presets
-declare -a selected_slots
-slot_idx=0
+    # Configure each terminal (with back navigation)
+    selected_presets=()
+    selected_slots=()
+    local_restart=false
+    w=1
+    slot_idx=0
 
-for w in $(seq 1 "$num_windows"); do
+    while [ "$w" -le "$num_windows" ]; do
+        clear
+        echo
+        echo -e "${GREEN} TERMINAL $w OF $num_windows${RESET}"
+        echo -e "${DIM} ----------------------------------------${RESET}"
+        echo
+
+        # Show color presets with swatches
+        for i in "${!PRESETS[@]}"; do
+            IFS=':' read -r name r g b fg <<< "${PRESETS[$i]}"
+            local_swatch=$(color_swatch "$r" "$g" "$b")
+            echo -e "   [$((i+1))] ${local_swatch} ${PRESET_COLORS[$i]}${name}${RESET}"
+        done
+
+        echo
+        if [ "$w" -eq 1 ]; then
+            echo -e "${DIM}   [b] Back to terminal count${RESET}"
+        else
+            echo -e "${DIM}   [b] Back to previous terminal${RESET}"
+        fi
+        echo
+        echo -ne " Color (1-6, b=back): "
+        read -r choice
+
+        if [[ "$choice" == "b" || "$choice" == "B" ]]; then
+            if [ "$w" -eq 1 ]; then
+                # Back to terminal count — restart outer loop
+                local_restart=true
+                break
+            else
+                # Back to previous terminal
+                unset 'selected_presets[-1]'
+                unset 'selected_slots[-1]'
+                ((w--))
+                ((slot_idx--))
+                continue
+            fi
+        fi
+
+        if ! [[ "$choice" =~ ^[1-6]$ ]]; then
+            choice=1
+        fi
+        selected_presets+=($((choice - 1)))
+        selected_slots+=("${available_slots[$slot_idx]}")
+        ((slot_idx++))
+        ((w++))
+    done
+
+    # If user went back to count, clear screen and restart
+    if [ "$local_restart" = true ]; then
+        clear
+        echo
+        echo " WAKE UP, NEO..."
+        echo -e "${DIM} ----------------------------------------${RESET}"
+        echo
+        continue
+    fi
+
+    # Summary and pill choice
     clear
     echo
-    echo -e "${GREEN} TAB $w OF $num_windows${RESET}"
+    echo -e "${GREEN} THE MATRIX HAS YOU...${RESET}"
     echo -e "${DIM} ----------------------------------------${RESET}"
     echo
 
-    # Show color presets with swatches
-    for i in "${!PRESETS[@]}"; do
-        IFS=':' read -r name r g b fg <<< "${PRESETS[$i]}"
+    for i in "${!selected_presets[@]}"; do
+        idx=${selected_presets[$i]}
+        IFS=':' read -r name r g b fg <<< "${PRESETS[$idx]}"
         local_swatch=$(color_swatch "$r" "$g" "$b")
-        # Visual separator before Redpill-Neo (option 7)
-        if [ "$i" -eq 6 ]; then
-            echo
-        fi
-        echo -e "   [$((i+1))] ${local_swatch} ${PRESET_COLORS[$i]}${name}${RESET}"
+        echo -e "   Terminal ${selected_slots[$i]}: ${local_swatch} ${PRESET_COLORS[$idx]}${name}${RESET}"
     done
 
     echo
-    echo -ne " Color (1-7): "
-    read -r choice
+    echo -e "${DIM} ----------------------------------------${RESET}"
+    echo
+    echo -e "${DIM} This is your last chance. After this, there is no turning back.${RESET}"
 
-    if ! [[ "$choice" =~ ^[1-7]$ ]]; then
-        choice=1
+    pill_result=$(arrow_menu "Choose your path:" \
+        "${BLUE}BLUE PILL${RESET} - Enter the Matrix" \
+        "${RED}RED PILL${RESET}  - Full Customization (control panel)" \
+        "${DIM}GO BACK${RESET}  - Change colors or count")
+
+    if [[ "$pill_result" == "2" ]]; then
+        # Go back — restart from count
+        clear
+        echo
+        echo " WAKE UP, NEO..."
+        echo -e "${DIM} ----------------------------------------${RESET}"
+        echo
+        continue
+    elif [[ "$pill_result" == "1" ]]; then
+        is_redpill=1
+    else
+        is_redpill=0
     fi
-    selected_presets+=($((choice - 1)))
-    selected_slots+=("${available_slots[$slot_idx]}")
-    ((slot_idx++))
+
+    break
 done
-
-# Summary and pill choice
-clear
-echo
-echo -e "${GREEN} THE MATRIX HAS YOU...${RESET}"
-echo -e "${DIM} ----------------------------------------${RESET}"
-echo
-
-for i in "${!selected_presets[@]}"; do
-    idx=${selected_presets[$i]}
-    IFS=':' read -r name r g b fg <<< "${PRESETS[$idx]}"
-    local_swatch=$(color_swatch "$r" "$g" "$b")
-    echo -e "   Tab ${selected_slots[$i]}: ${local_swatch} ${PRESET_COLORS[$idx]}${name}${RESET}"
-done
-
-echo
-echo -e "${DIM} ----------------------------------------${RESET}"
-echo
-echo -e "${DIM} This is your last chance. After this, there is no turning back.${RESET}"
-
-pill_result=$(arrow_menu "Choose your path:" \
-    "${BLUE}BLUE PILL${RESET} - Enter the Matrix" \
-    "${RED}RED PILL${RESET}  - Full Customization (control panel)")
-
-if [[ "$pill_result" == "1" ]]; then
-    is_redpill=1
-else
-    is_redpill=0
-fi
 
 # === AFTER CHOICE: Glass pane + launch + display ===
 

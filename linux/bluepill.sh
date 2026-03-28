@@ -136,29 +136,31 @@ config = state.get('shader_configs', {}).get('$slot', {})
 print(json.dumps(config))
 " 2>/dev/null)
 
+    # Create shader with ALL saved params baked in BEFORE Ghostty launches.
+    # Single Python call: creates from template, writes RGB + speed + layers
+    # atomically. No D-Bus reload (window doesn't exist yet).
     local shader_file
-    if [ -z "$shader_config" ] || [ "$shader_config" = "{}" ]; then
-        # Fallback: use green preset
-        shader_file=$(python3 "$PYMOD_DIR/shader_service.py" create --slot "$slot" --preset 0 2>/dev/null)
-    else
-        # Create shader with saved RGB
-        local r g b
-        r=$(echo "$shader_config" | python3 -c "import sys,json; c=json.load(sys.stdin); print(c.get('RAIN_R', 0.0))")
-        g=$(echo "$shader_config" | python3 -c "import sys,json; c=json.load(sys.stdin); print(c.get('RAIN_G', 1.0))")
-        b=$(echo "$shader_config" | python3 -c "import sys,json; c=json.load(sys.stdin); print(c.get('RAIN_B', 0.3))")
-        shader_file=$(python3 "$PYMOD_DIR/shader_service.py" create --slot "$slot" --r "$r" --g "$g" --b "$b" 2>/dev/null)
-
-        # Write all non-RGB params to restore full config
-        python3 -c "
-import sys; sys.path.insert(0, '$PYMOD_DIR')
-import json
-from shader_service import write_shader_params
-config = json.loads('''$shader_config''')
-params = {k: v for k, v in config.items() if k not in ('RAIN_R', 'RAIN_G', 'RAIN_B')}
-if params:
-    write_shader_params($slot, params)
-" 2>/dev/null
-    fi
+    shader_file=$(python3 -B -c "
+import sys, json
+sys.path.insert(0, '$PYMOD_DIR')
+from shader_service import create_slot_shader, replace_define, atomic_write, SLOT_SHADER_DIR, PARAM_DEFAULTS
+import os
+config = json.loads('''$shader_config''') if '''$shader_config''' not in ('', '{}') else {}
+r = config.get('RAIN_R', 0.0)
+g = config.get('RAIN_G', 1.0)
+b = config.get('RAIN_B', 0.3)
+path = create_slot_shader($slot, r=r, g=g, b=b)
+# Now write ALL remaining params directly into the shader file
+non_rgb = {k: v for k, v in config.items() if k not in ('RAIN_R', 'RAIN_G', 'RAIN_B')}
+if non_rgb:
+    with open(path) as f:
+        content = f.read()
+    for param, value in non_rgb.items():
+        if param in PARAM_DEFAULTS:
+            content = replace_define(content, param, float(value))
+    atomic_write(path, content)
+print(path)
+" 2>/dev/null)
 
     if [ -z "$shader_file" ] || [ ! -f "$shader_file" ]; then
         echo -e "   Matrix-${slot} ${RED}FAILED${RESET} (no shader file)"
