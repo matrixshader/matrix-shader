@@ -101,7 +101,7 @@ hk() { box "  ${C}$(pad 24 "$1")${R}${W}$2${R}"; }
     if [ "$IS_REDPILL" = "0" ]; then
         box ""
         box "  ${Y}Unlock the full control panel${R}"
-        box "  ${C}matrixshader.com/redpill${R}"
+        box "  ${C}\033]8;;https://matrixshader.com/redpill\033\\matrixshader.com/redpill\033]8;;\033\\${R}"
     else
         box ""
         box "  ${G}Red Pill active. Full control unlocked.${R}"

@@ -296,7 +296,7 @@ sys.exit(0 if v1 > v2 else 1)
         echo
         echo -e " \033[33m UPDATE AVAILABLE: v${latest}\033[0m"
         echo -e " \033[90m Current: v${current_version}\033[0m"
-        echo -e " \033[90m Update:  curl -sL matrixshader.com/linux | bash\033[0m"
+        echo -e " \033[90m Update:  curl -sL \033]8;;https://matrixshader.com/linux\033\\matrixshader.com/linux\033]8;;\033\\ | bash\033[0m"
         echo
     fi
 }
@@ -636,7 +636,7 @@ print('yes' if is_licensed() else 'no')
         echo -e "${GREEN} FOLLOW THE WHITE RABBIT.${RESET}"
         echo
         echo -e "${DIM} Unlock the Red Pill control panel:${RESET}"
-        echo -e "${CYAN} matrixshader.com/redpill${RESET}"
+        echo -e "${CYAN} \033]8;;https://matrixshader.com/redpill\033\\matrixshader.com/redpill\033]8;;\033\\${RESET}"
     fi
 
     # Hotkey summary
@@ -650,7 +650,7 @@ print('yes' if is_licensed() else 'no')
 
     echo
     echo -e "${DIM} Enjoying Matrix Shader? Buy me a coffee:${RESET}"
-    echo -e "${GOLD} https://buymeacoffee.com/IKnowKungFu${RESET}"
+    echo -e "${GOLD} \033]8;;https://buymeacoffee.com/IKnowKungFu\033\\https://buymeacoffee.com/IKnowKungFu\033]8;;\033\\${RESET}"
     echo
 
     # Background update check (silent, non-blocking)
