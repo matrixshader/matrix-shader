@@ -570,7 +570,7 @@ def check_and_snap():
         _last_live_count = live_count
         return 0
 
-    # Only snap when windows overlap (skip if in overlap layout)
+    # Skip drift detection for overlap layout (overlapping is intentional)
     if config.get("mode") == "overlap":
         return 0
 
@@ -580,33 +580,31 @@ def check_and_snap():
         if geo:
             current_geos[slot] = geo
 
-    if len(current_geos) < 2:
+    if not current_geos:
         return 0
 
-    # Detect overlap between any pair
-    has_overlap = False
-    slots_list = list(current_geos.keys())
-    for i in range(len(slots_list)):
-        for j in range(i + 1, len(slots_list)):
-            a, b = current_geos[slots_list[i]], current_geos[slots_list[j]]
-            if (a["x"] < b["x"] + b["width"] and a["x"] + a["width"] > b["x"] and
-                a["y"] < b["y"] + b["height"] and a["y"] + a["height"] > b["y"]):
-                has_overlap = True
-                break
-        if has_overlap:
-            break
-
-    if not has_overlap:
-        return 0
-
-    # Overlapping — snap positions back, keep current sizes
-    snapped = 0
+    # Detect ANY deviation from target — position, size, or overlap
+    # This catches: manual drag, Super+L half-screen, fullscreen, resize, anything
+    has_drift = False
     for slot, target in _last_applied.items():
         cur = current_geos.get(slot)
-        w = cur["width"] if cur else target["width"]
-        h = cur["height"] if cur else target["height"]
+        if not cur:
+            continue
+        if (abs(cur["x"] - target["x"]) > GLITCH_DRIFT_THRESHOLD or
+            abs(cur["y"] - target["y"]) > GLITCH_DRIFT_THRESHOLD or
+            abs(cur["width"] - target["width"]) > GLITCH_DRIFT_THRESHOLD or
+            abs(cur["height"] - target["height"]) > GLITCH_DRIFT_THRESHOLD):
+            has_drift = True
+            break
+
+    if not has_drift:
+        return 0
+
+    # Something changed — force ALL windows back to correct position AND size
+    snapped = 0
+    for slot, target in _last_applied.items():
         ok = window_service.position_window(
-            slot, target["x"], target["y"], w, h
+            slot, target["x"], target["y"], target["width"], target["height"]
         )
         if ok:
             snapped += 1
