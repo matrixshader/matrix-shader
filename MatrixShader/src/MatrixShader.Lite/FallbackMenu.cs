@@ -199,8 +199,8 @@ public class FallbackMenu
         Console.WriteLine("  \x1b[38;2;110;220;170m+==================================================+\x1b[0m");
         Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
         Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  COLOR PRESETS                                   \x1b[38;2;110;220;170m|\x1b[0m");
-        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [1] Green   [2] Blue   [3] Red                  \x1b[38;2;110;220;170m|\x1b[0m");
-        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [4] Purple  [5] Gold   [6] Teal                 \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [1] \x1b[38;2;0;255;77mGreen\x1b[0m   [2] \x1b[38;2;0;153;255mBlue\x1b[0m   [3] \x1b[38;2;255;26;26mRed\x1b[0m                  \x1b[38;2;110;220;170m|\x1b[0m");
+        Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [4] \x1b[38;2;178;0;255mPurple\x1b[0m  [5] \x1b[38;2;255;178;0mGold\x1b[0m   [6] \x1b[38;2;0;230;230mTeal\x1b[0m                 \x1b[38;2;110;220;170m|\x1b[0m");
         Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m                                                  \x1b[38;2;110;220;170m|\x1b[0m");
         Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  CONTROLS                                        \x1b[38;2;110;220;170m|\x1b[0m");
         Console.WriteLine("  \x1b[38;2;110;220;170m|\x1b[0m  [Enter] Start Rain (fullscreen)                 \x1b[38;2;110;220;170m|\x1b[0m");
