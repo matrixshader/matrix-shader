@@ -79,8 +79,18 @@ def start_matrix_keys():
 
 def main():
     """Main watchdog loop: check PID, restart if dead, backoff on rapid failures."""
-    with open(WATCHDOG_PIDFILE, "w") as f:
-        f.write(str(os.getpid()))
+    import fcntl
+    # Single-instance guard via flock (same pattern as matrix_keys.py)
+    try:
+        lock_fd = open(WATCHDOG_PIDFILE, "w")
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        lock_fd.write(str(os.getpid()))
+        lock_fd.flush()
+    except (IOError, OSError):
+        # Another watchdog is running
+        sys.exit(0)
+
+    # Keep lock_fd open for lifetime (kernel releases on death)
 
     def cleanup(sig=None, frame=None):
         try:

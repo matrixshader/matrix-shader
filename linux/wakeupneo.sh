@@ -78,6 +78,24 @@ window-decoration = client
 SETUPEOF
         nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$setup_conf" -e "$SCRIPT_PATH" --in-ghostty ${MODE:+--$MODE} >/dev/null 2>&1 &
         disown
+        # Kill the parent terminal window (the one that ran curl|bash or wakeupneo)
+        # so it closes cleanly after Ghostty takes over.
+        PARENT_PID=$PPID
+        # Only kill if parent is a terminal emulator, not a login shell
+        PARENT_CMD=$(ps -p "$PARENT_PID" -o comm= 2>/dev/null)
+        case "$PARENT_CMD" in
+            bash|zsh|sh|fish|dash)
+                # Parent is a shell — kill the terminal holding it (grandparent)
+                GRANDPARENT_PID=$(ps -p "$PARENT_PID" -o ppid= 2>/dev/null | tr -d ' ')
+                GRANDPARENT_CMD=$(ps -p "$GRANDPARENT_PID" -o comm= 2>/dev/null)
+                case "$GRANDPARENT_CMD" in
+                    gnome-terminal*|xterm|konsole|alacritty|kitty|ghostty|tilix|foot)
+                        kill "$GRANDPARENT_PID" 2>/dev/null ;;
+                esac
+                ;;
+            gnome-terminal*|xterm|konsole|alacritty|kitty|ghostty|tilix|foot)
+                kill "$PARENT_PID" 2>/dev/null ;;
+        esac
         exit 0
     fi
 fi
