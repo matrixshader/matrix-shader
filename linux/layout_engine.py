@@ -74,9 +74,8 @@ def load_layout_config():
     """
     state = _load_state()
     layout = state.get("layout", {})
-    gap = layout.get("gap_size", DEFAULT_GAP_SIZE)
-    # Cap gap to sane range — old versions could save scaled values
-    gap = min(gap, MAX_GAP_SIZE)
+    # Always use current default — gap_size is a product design choice, not user preference
+    gap = DEFAULT_GAP_SIZE
     return {
         "mode": layout.get("mode", "pillars"),
         "gap_size": gap,
