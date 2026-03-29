@@ -24,13 +24,13 @@
 - [x] **LOAD-01**: User can load a preset by name from redpill TUI
 - [x] **LOAD-02**: Load applies all 11 parameters to the active shader slot
 - [x] **LOAD-03**: Load triggers D-Bus reload so changes are visible immediately
-- [ ] **LOAD-04**: construct supports --preset flag to launch with a saved preset
+- [x] **LOAD-04**: construct supports --preset flag to launch with a saved preset
 
 ### List
 
 - [x] **LIST-01**: User can list all saved presets from redpill TUI
 - [x] **LIST-02**: List shows preset name, RGB color swatch, and save date
-- [ ] **LIST-03**: bluepill can restore from a named preset instead of state.json
+- [x] **LIST-03**: bluepill can restore from a named preset instead of state.json
 
 ### Delete
 
@@ -41,8 +41,8 @@
 
 - [x] **INTG-01**: preset_service.py module with save/load/list/delete functions
 - [x] **INTG-02**: Redpill TUI has Presets menu section (save, load, list, delete)
-- [ ] **INTG-03**: construct --preset <name> launches window with preset config
-- [ ] **INTG-04**: bluepill --preset <name> restores session using preset
+- [x] **INTG-03**: construct --preset <name> launches window with preset config
+- [x] **INTG-04**: bluepill --preset <name> restores session using preset
 
 ## v2 Requirements
 
@@ -74,16 +74,16 @@
 | LOAD-01 | Phase 2 | Complete |
 | LOAD-02 | Phase 2 | Complete |
 | LOAD-03 | Phase 2 | Complete |
-| LOAD-04 | Phase 3 | Pending |
+| LOAD-04 | Phase 3 | Complete |
 | LIST-01 | Phase 2 | Complete |
 | LIST-02 | Phase 2 | Complete |
-| LIST-03 | Phase 3 | Pending |
+| LIST-03 | Phase 3 | Complete |
 | DEL-01 | Phase 2 | Complete |
 | DEL-02 | Phase 2 | Complete |
 | INTG-01 | Phase 1 | Complete |
 | INTG-02 | Phase 2 | Complete |
-| INTG-03 | Phase 3 | Pending |
-| INTG-04 | Phase 3 | Pending |
+| INTG-03 | Phase 3 | Complete |
+| INTG-04 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 21 total

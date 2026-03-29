@@ -57,10 +57,10 @@ Plans:
   1. Running construct --preset <name> spawns a new Matrix window using that preset's shader config
   2. Running bluepill --preset <name> restores the session using the named preset instead of state.json
   3. Invalid preset names produce a clear error message listing available presets
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — construct --preset and bluepill --preset flags for scriptable preset usage
 
 ## Progress
 

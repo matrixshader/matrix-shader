@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-29T13:04:05.395Z"
-last_activity: 2026-03-29 — Plan 02-02 executed (TUI preset menu wiring)
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-29T13:40:55.858Z"
+last_activity: 2026-03-29 — Plan 03-01 executed (CLI preset integration)
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 3
+  total_plans: 4
+  completed_plans: 4
   percent: 100
 ---
 
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-28)
 
 **Core value:** Custom shader configs must never be lost
-**Current focus:** Phase 2: TUI Integration (COMPLETE)
+**Current focus:** All phases complete
 
 ## Current Position
 
-Phase: 2 of 3 (TUI Integration)
-Plan: 2 of 2 in current phase (COMPLETE)
-Status: Phase 2 complete, Phase 3 next
-Last activity: 2026-03-29 — Plan 02-02 executed (TUI preset menu wiring)
+Phase: 3 of 3 (CLI Integration)
+Plan: 1 of 1 in current phase (COMPLETE)
+Status: All 3 phases complete - milestone finished
+Last activity: 2026-03-29 — Plan 03-01 executed (CLI preset integration)
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 3min
-- Total execution time: 9min
+- Total plans completed: 4
+- Average duration: 4min
+- Total execution time: 15min
 
 **By Phase:**
 
@@ -45,14 +45,16 @@ Progress: [██████████] 100%
 |-------|-------|-------|----------|
 | 01-preset-service | 1 | 3min | 3min |
 | 02-tui-integration | 2 | 6min | 3min |
+| 03-cli-integration | 1 | 6min | 6min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3min), 02-01 (4min), 02-02 (2min)
-- Trend: Stable (~3min/plan)
+- Last 5 plans: 01-01 (3min), 02-01 (4min), 02-02 (2min), 03-01 (6min)
+- Trend: Stable (~4min/plan)
 
 *Updated after each plan completion*
 | Phase 02 P01 | 4min | 1 tasks | 2 files |
 | Phase 02 P02 | 2min | 2 tasks | 4 files |
+| Phase 03 P01 | 6min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -71,6 +73,9 @@ Recent decisions affecting current work:
 - [Phase 02-01]: Load writes params even without bus name -- graceful degradation if Ghostty window closed
 - [Phase 02-02]: Remapped Shift+P from PriorityToggle to PresetsMenu (higher user priority)
 - [Phase 02-02]: Followed _show_hotkey_config pattern for sub-screen wiring with lazy import and fallback
+- [Phase 03]: Foreground color derived from preset RAIN_R/G/B (not PRESET_FOREGROUNDS lookup) for arbitrary custom colors
+- [Phase 03]: Extracted _get_session_opacity() helper to eliminate duplication between quick_launch and quick_launch_from_preset
+- [Phase 03]: bluepill --preset launches single window (not multi-window restore) matching construct behavior
 
 ### Pending Todos
 
@@ -82,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-29T13:03:07Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-03-29T13:40:55.847Z
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None
