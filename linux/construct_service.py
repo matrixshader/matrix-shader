@@ -256,7 +256,62 @@ def quick_launch(color: str) -> dict:
     else:
         return {"error": f"Unknown color: {color}"}
 
-    conf_path = _write_ghostty_config(slot, shader_path, fg_color=fg_color, preset_rgb=preset_rgb)
+    # Inherit opacity AND shader params from any running window (match current session)
+    opacity_val = "0.85"
+    try:
+        existing_configs = sorted(shader_service.get_all_ghostty_configs())
+        if existing_configs:
+            # Read opacity from running window's config (more current than state.json)
+            for conf in existing_configs:
+                if "ghostty-matrix-" in conf:
+                    try:
+                        with open(conf) as f:
+                            for line in f:
+                                if "background-opacity" in line:
+                                    opacity_val = line.split("=", 1)[1].strip()
+                                    break
+                    except OSError:
+                        pass
+                    break
+
+            # Copy speed and layer settings from running window's shader
+            for conf in existing_configs:
+                for s in range(1, 9):
+                    if f"ghostty-matrix-{s}" in conf:
+                        sp = os.path.join(SLOT_SHADER_DIR, f"matrix-{s}.glsl")
+                        if os.path.isfile(sp):
+                            ref = shader_service.read_shader_config(sp)
+                            params = {k: v for k, v in ref.items()
+                                      if k not in ("RAIN_R", "RAIN_G", "RAIN_B")}
+                            if params:
+                                with open(shader_path) as f:
+                                    content = f.read()
+                                for param, value in params.items():
+                                    if param in shader_service.PARAM_DEFAULTS:
+                                        content = shader_service.replace_define(content, param, float(value))
+                                shader_service.atomic_write(shader_path, content)
+                            break
+                else:
+                    continue
+                break
+        else:
+            # No running windows — fall back to state.json
+            try:
+                import state_service
+                state = state_service.load_state()
+                saved_opacity = state.get("opacity", 85)
+                opacity_val = f"{int(saved_opacity) / 100:.2f}"
+                if opacity_val == "0.00":
+                    opacity_val = "0"
+                elif opacity_val == "1.00":
+                    opacity_val = "1"
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    conf_path = _write_ghostty_config(slot, shader_path, fg_color=fg_color,
+                                       opacity=opacity_val, preset_rgb=preset_rgb)
 
     return {"slot": slot, "conf": conf_path, "shader": shader_path}
 

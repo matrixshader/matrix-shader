@@ -27,7 +27,7 @@ import window_service
 
 MIN_WINDOW_WIDTH = 200
 DEFAULT_MAX_PILLARS = 4
-DEFAULT_GAP_SIZE = 30
+DEFAULT_GAP_SIZE = 35
 MIN_SCALED_GAP = 20
 MAX_GAP_SIZE = 200
 DEFAULT_OVERLAP_PERCENT = 5
@@ -101,18 +101,8 @@ def save_layout_config(config):
 # ---------------------------------------------------------------------------
 
 def calculate_scaled_gap(base_gap, window_count):
-    """Scale gap size based on window count.
-
-    1-2 windows: 100%, 3 windows: 80%, 4+ windows: 60%.
-    Never below MIN_SCALED_GAP.
-    """
-    if window_count <= 2:
-        scale = 1.0
-    elif window_count == 3:
-        scale = 0.8
-    else:
-        scale = 0.6
-    return max(int(base_gap * scale), MIN_SCALED_GAP)
+    """Return fixed gap size. No scaling — gap must stay clickable."""
+    return base_gap
 
 
 # ---------------------------------------------------------------------------
