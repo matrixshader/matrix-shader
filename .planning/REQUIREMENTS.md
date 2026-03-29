@@ -40,7 +40,7 @@
 ### Integration
 
 - [x] **INTG-01**: preset_service.py module with save/load/list/delete functions
-- [ ] **INTG-02**: Redpill TUI has Presets menu section (save, load, list, delete)
+- [x] **INTG-02**: Redpill TUI has Presets menu section (save, load, list, delete)
 - [ ] **INTG-03**: construct --preset <name> launches window with preset config
 - [ ] **INTG-04**: bluepill --preset <name> restores session using preset
 
@@ -81,7 +81,7 @@
 | DEL-01 | Phase 2 | Complete |
 | DEL-02 | Phase 2 | Complete |
 | INTG-01 | Phase 1 | Complete |
-| INTG-02 | Phase 2 | Pending |
+| INTG-02 | Phase 2 | Complete |
 | INTG-03 | Phase 3 | Pending |
 | INTG-04 | Phase 3 | Pending |
 

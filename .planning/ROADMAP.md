@@ -13,7 +13,7 @@ Three-phase delivery of a persistent save/load system for custom shader configur
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Preset Service** - Standalone Python module with save/load/list/delete and persistent JSON storage
-- [ ] **Phase 2: TUI Integration** - Presets menu in redpill TUI with interactive save, load, browse, and delete
+- [x] **Phase 2: TUI Integration** - Presets menu in redpill TUI with interactive save, load, browse, and delete
 - [ ] **Phase 3: CLI Integration** - construct --preset and bluepill --preset flags for scriptable preset usage
 
 ## Phase Details
@@ -46,8 +46,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — PresetMenuScreen with list, save, load, delete flows
-- [ ] 02-02-PLAN.md — Wire presets into TUI (key binding, footer, help) + human verify
+- [x] 02-01-PLAN.md — PresetMenuScreen with list, save, load, delete flows
+- [x] 02-02-PLAN.md — Wire presets into TUI (key binding, footer, help) + human verify
 
 ### Phase 3: CLI Integration
 **Goal**: Presets are usable from construct and bluepill without opening the TUI
@@ -70,5 +70,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Preset Service | 1/1 | Complete | 2026-03-29 |
-| 2. TUI Integration | 0/2 | Planning complete | - |
+| 2. TUI Integration | 2/2 | Complete | 2026-03-29 |
 | 3. CLI Integration | 0/1 | Not started | - |
