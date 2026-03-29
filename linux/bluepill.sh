@@ -366,7 +366,7 @@ echo -e "${DIM}   Ctrl+Shift+H            Hotkey help overlay${RESET}"
 
 echo
 echo -e "${DIM} Enjoying Matrix Shader? Buy me a coffee:${RESET}"
-echo -e "${GOLD} \033]8;;https://buymeacoffee.com/IKnowKungFu\033\\https://buymeacoffee.com/IKnowKungFu\033]8;;\033\\${RESET}"
+echo -e "${GOLD} \033]8;;https://buymeacoffee.com/IKnowKungFu\007buymeacoffee.com/IKnowKungFu\033]8;;\007${RESET}"
 echo
 
 # Command reference banner
