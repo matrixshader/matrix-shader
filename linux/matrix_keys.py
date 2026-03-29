@@ -304,8 +304,11 @@ def event_loop(kbd, hotkey_table, watcher, uinput_dev):
 
                 consumed = dispatch_key_event(event, held_keys, hotkey_table, ACTION_MAP)
 
-                # Re-inject events that did NOT match any hotkey
-                if not consumed and uinput_dev is not None:
+                # Re-inject press/release events that did NOT match any hotkey.
+                # Skip repeat events (value==2) — Wayland compositor generates
+                # its own repeats from press/release timing. Forwarding repeats
+                # causes double-repeat (ours + compositor's).
+                if not consumed and uinput_dev is not None and value != 2:
                     uinput_dev.write_event(event)
                     uinput_dev.syn()
 
