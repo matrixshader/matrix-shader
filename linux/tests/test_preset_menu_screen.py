@@ -48,19 +48,27 @@ def _install_mocks():
 def _reset_mocks():
     """Reset all mocks to default state."""
     _save_preset.reset_mock()
+    _save_preset.side_effect = None
     _load_preset.reset_mock()
+    _load_preset.side_effect = None
     _load_preset.return_value = dict(shader_service.PARAM_DEFAULTS)
     _list_presets.reset_mock()
+    _list_presets.side_effect = None
     _list_presets.return_value = []
     _delete_preset.reset_mock()
+    _delete_preset.side_effect = None
     _sanitize_name.reset_mock()
     _sanitize_name.side_effect = lambda n: n.strip().lower().replace(" ", "-")
     _read_shader_config.reset_mock()
+    _read_shader_config.side_effect = None
     _read_shader_config.return_value = dict(shader_service.PARAM_DEFAULTS)
     _write_shader_params.reset_mock()
+    _write_shader_params.side_effect = None
     _get_ghostty_bus_names.reset_mock()
+    _get_ghostty_bus_names.side_effect = None
     _get_ghostty_bus_names.return_value = {}
     _reload_ghostty.reset_mock()
+    _reload_ghostty.side_effect = None
     _install_mocks()
 
 
