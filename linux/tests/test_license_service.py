@@ -1,7 +1,6 @@
 """Tests for license_service.py and machine_fingerprint.py."""
 
 import hashlib
-import hmac
 import os
 import sys
 from unittest.mock import patch, MagicMock
@@ -17,9 +16,7 @@ from license_service import (
     activate,
     get_installed_key,
     is_licensed,
-    validate_key,
-    _compute_signature,
-    _to_base36,
+    _looks_like_key,
 )
 
 
@@ -27,26 +24,8 @@ from license_service import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-DEV_SECRET = b"DEV-PLACEHOLDER-NOT-FOR-PRODUCTION"
-
-
-def _make_valid_key(secret=DEV_SECRET):
-    """Generate a valid key using the given secret."""
-    # Use a known payload
-    g1, g2, g3 = "AAAA", "BBBB", "CCCC"
-    payload = f"REDPILL-{g1}-{g2}-{g3}"
-    h = hmac.new(secret, payload.encode("utf-8"), hashlib.sha256).digest()
-    base36 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    sig = "".join(base36[h[i] % 36] for i in range(4))
-    return f"{payload}-{sig}"
-
-
-@pytest.fixture(autouse=True)
-def _reset_secret():
-    """Reset cached secret between tests."""
-    license_service._PRODUCT_SECRET = None
-    yield
-    license_service._PRODUCT_SECRET = None
+# A format-valid key (server would check HMAC; client only checks format)
+VALID_FORMAT_KEY = "REDPILL-AAAA-BBBB-CCCC-DDDD"
 
 
 @pytest.fixture(autouse=True)
@@ -87,75 +66,37 @@ class TestMachineFingerprint:
 
 
 # ---------------------------------------------------------------------------
-# ToBase36
+# _looks_like_key (format check only, no HMAC)
 # ---------------------------------------------------------------------------
 
-class TestToBase36:
-    def test_basic(self):
-        data = bytes([0, 1, 35, 36, 37])
-        result = _to_base36(data, 0, 5)
-        assert result[0] == "0"  # 0 % 36 = 0
-        assert result[1] == "1"  # 1 % 36 = 1
-        assert result[2] == "Z"  # 35 % 36 = 35
-        assert result[3] == "0"  # 36 % 36 = 0
-        assert result[4] == "1"  # 37 % 36 = 1
-
-    def test_offset(self):
-        data = bytes([99, 99, 0, 1])
-        result = _to_base36(data, 2, 2)
-        assert result == "01"
-
-    def test_out_of_bounds_pads_zero(self):
-        data = bytes([5])
-        result = _to_base36(data, 0, 3)
-        assert result[0] == "5"
-        assert result[1] == "0"  # out of bounds
-        assert result[2] == "0"
-
-
-# ---------------------------------------------------------------------------
-# ValidateKey
-# ---------------------------------------------------------------------------
-
-class TestValidateKey:
-    def test_valid_key_accepted(self):
-        key = _make_valid_key()
-        # Force dev secret
-        license_service._PRODUCT_SECRET = DEV_SECRET
-        assert validate_key(key) is True
+class TestLooksLikeKey:
+    def test_valid_format_accepted(self):
+        assert _looks_like_key("REDPILL-AAAA-BBBB-CCCC-DDDD") is True
 
     def test_empty_rejected(self):
-        assert validate_key("") is False
-        assert validate_key(None) is False
-        assert validate_key("   ") is False
+        assert _looks_like_key("") is False
+        assert _looks_like_key(None) is False
+        assert _looks_like_key("   ") is False
 
     def test_wrong_prefix_rejected(self):
-        assert validate_key("BLUEPILL-AAAA-BBBB-CCCC-DDDD") is False
+        assert _looks_like_key("BLUEPILL-AAAA-BBBB-CCCC-DDDD") is False
 
     def test_wrong_part_count_rejected(self):
-        assert validate_key("REDPILL-AAAA-BBBB") is False
-        assert validate_key("REDPILL-AAAA-BBBB-CCCC-DDDD-EEEE") is False
+        assert _looks_like_key("REDPILL-AAAA-BBBB") is False
+        assert _looks_like_key("REDPILL-AAAA-BBBB-CCCC-DDDD-EEEE") is False
 
     def test_non_alnum_rejected(self):
-        assert validate_key("REDPILL-AA!A-BBBB-CCCC-DDDD") is False
+        assert _looks_like_key("REDPILL-AA!A-BBBB-CCCC-DDDD") is False
 
     def test_wrong_length_group_rejected(self):
-        assert validate_key("REDPILL-AAA-BBBB-CCCC-DDDD") is False
-        assert validate_key("REDPILL-AAAAA-BBBB-CCCC-DDDD") is False
-
-    def test_wrong_signature_rejected(self):
-        license_service._PRODUCT_SECRET = DEV_SECRET
-        assert validate_key("REDPILL-AAAA-BBBB-CCCC-ZZZZ") is False
+        assert _looks_like_key("REDPILL-AAA-BBBB-CCCC-DDDD") is False
+        assert _looks_like_key("REDPILL-AAAAA-BBBB-CCCC-DDDD") is False
 
     def test_case_insensitive(self):
-        key = _make_valid_key()
-        license_service._PRODUCT_SECRET = DEV_SECRET
-        assert validate_key(key.lower()) is True
+        assert _looks_like_key("redpill-aaaa-bbbb-cccc-dddd") is True
 
     def test_whitespace_stripped(self):
-        key = _make_valid_key()
-        license_service._PRODUCT_SECRET = DEV_SECRET
-        assert validate_key(f"  {key}  ") is True
+        assert _looks_like_key("  REDPILL-AAAA-BBBB-CCCC-DDDD  ") is True
 
 
 # ---------------------------------------------------------------------------
@@ -189,18 +130,21 @@ class TestIsLicensed:
         with patch.object(license_service, "LICENSE_PATH", str(tmp_path / "nope.key")):
             assert is_licensed() is False
 
-    def test_valid_key_is_licensed(self, tmp_path):
-        license_service._PRODUCT_SECRET = DEV_SECRET
-        key = _make_valid_key()
+    def test_valid_format_key_is_licensed(self, tmp_path):
         keyfile = tmp_path / "license.key"
-        keyfile.write_text(key)
+        keyfile.write_text(VALID_FORMAT_KEY)
         with patch.object(license_service, "LICENSE_PATH", str(keyfile)):
             assert is_licensed() is True
 
-    def test_invalid_key_not_licensed(self, tmp_path):
-        license_service._PRODUCT_SECRET = DEV_SECRET
+    def test_garbage_key_not_licensed(self, tmp_path):
         keyfile = tmp_path / "license.key"
-        keyfile.write_text("REDPILL-AAAA-BBBB-CCCC-ZZZZ")
+        keyfile.write_text("not-a-valid-key")
+        with patch.object(license_service, "LICENSE_PATH", str(keyfile)):
+            assert is_licensed() is False
+
+    def test_empty_key_not_licensed(self, tmp_path):
+        keyfile = tmp_path / "license.key"
+        keyfile.write_text("")
         with patch.object(license_service, "LICENSE_PATH", str(keyfile)):
             assert is_licensed() is False
 
@@ -210,40 +154,39 @@ class TestIsLicensed:
 # ---------------------------------------------------------------------------
 
 class TestActivate:
-    def test_invalid_key_returns_invalid(self):
-        license_service._PRODUCT_SECRET = DEV_SECRET
+    def test_bad_format_returns_invalid(self):
         result = activate("REDPILL-BAD-KEY")
         assert result == ActivationResult.INVALID_KEY
 
     def test_valid_key_saves_to_disk(self, tmp_path):
-        license_service._PRODUCT_SECRET = DEV_SECRET
-        key = _make_valid_key()
         license_dir = tmp_path / "config"
         license_path = license_dir / "license.key"
         with patch.object(license_service, "LICENSE_DIR", str(license_dir)), \
              patch.object(license_service, "LICENSE_PATH", str(license_path)), \
              patch.object(license_service, "_check_server_activation",
                           return_value=ActivationResult.SUCCESS):
-            result = activate(key)
+            result = activate(VALID_FORMAT_KEY)
             assert result == ActivationResult.SUCCESS
-            assert license_path.read_text() == key.upper()
+            assert license_path.read_text() == VALID_FORMAT_KEY.upper()
 
     def test_activation_limit_exceeded(self, tmp_path):
-        license_service._PRODUCT_SECRET = DEV_SECRET
-        key = _make_valid_key()
         with patch.object(license_service, "_check_server_activation",
                           return_value=ActivationResult.ACTIVATION_LIMIT_EXCEEDED):
-            result = activate(key)
+            result = activate(VALID_FORMAT_KEY)
             assert result == ActivationResult.ACTIVATION_LIMIT_EXCEEDED
 
+    def test_server_unreachable(self):
+        with patch.object(license_service, "_check_server_activation",
+                          return_value=ActivationResult.SERVER_UNREACHABLE):
+            result = activate(VALID_FORMAT_KEY)
+            assert result == ActivationResult.SERVER_UNREACHABLE
+
     def test_save_failure(self, tmp_path):
-        license_service._PRODUCT_SECRET = DEV_SECRET
-        key = _make_valid_key()
         with patch.object(license_service, "LICENSE_DIR", "/dev/null/impossible"), \
              patch.object(license_service, "LICENSE_PATH", "/dev/null/impossible/key"), \
              patch.object(license_service, "_check_server_activation",
                           return_value=ActivationResult.SUCCESS):
-            result = activate(key)
+            result = activate(VALID_FORMAT_KEY)
             assert result == ActivationResult.SAVE_FAILED
 
 
@@ -252,14 +195,27 @@ class TestActivate:
 # ---------------------------------------------------------------------------
 
 class TestServerActivation:
-    def test_403_returns_limit_exceeded(self):
+    def test_403_activation_limit_exceeded(self):
+        import io
         import urllib.error
+        body = io.BytesIO(b'{"error": "activation_limit"}')
         err = urllib.error.HTTPError(
-            "url", 403, "Forbidden", {}, None
+            "url", 403, "Forbidden", {}, body
         )
         with patch("urllib.request.urlopen", side_effect=err):
             result = license_service._check_server_activation("KEY")
             assert result == ActivationResult.ACTIVATION_LIMIT_EXCEEDED
+
+    def test_403_invalid_key(self):
+        import io
+        import urllib.error
+        body = io.BytesIO(b'{"error": "invalid_key"}')
+        err = urllib.error.HTTPError(
+            "url", 403, "Forbidden", {}, body
+        )
+        with patch("urllib.request.urlopen", side_effect=err):
+            result = license_service._check_server_activation("KEY")
+            assert result == ActivationResult.INVALID_KEY
 
     def test_500_returns_server_unreachable(self):
         import urllib.error
@@ -284,78 +240,12 @@ class TestServerActivation:
 
 
 # ---------------------------------------------------------------------------
-# Secret loading
-# ---------------------------------------------------------------------------
-
-class TestSecretLoading:
-    def test_loads_from_embedded_module(self):
-        """_license_secret.py import path (build-time embed)."""
-        license_service._PRODUCT_SECRET = None
-        fake_module = MagicMock()
-        fake_module.SECRET = "MY-PRODUCTION-SECRET"
-        with patch.dict("sys.modules", {"_license_secret": fake_module}):
-            secret = license_service._load_secret()
-            assert secret == b"MY-PRODUCTION-SECRET"
-
-    def test_fallback_to_dev_placeholder(self):
-        license_service._PRODUCT_SECRET = None
-        # No embedded module, no key file → dev placeholder
-        with patch.dict("sys.modules", {"_license_secret": None}):
-            secret = license_service._load_secret()
-            assert secret == b"DEV-PLACEHOLDER-NOT-FOR-PRODUCTION"
-
-    def test_caches_result(self):
-        license_service._PRODUCT_SECRET = b"cached"
-        secret = license_service._load_secret()
-        assert secret == b"cached"
-
-
-# ---------------------------------------------------------------------------
-# Cross-platform key compatibility
-# ---------------------------------------------------------------------------
-
-class TestCrossPlatformCompat:
-    """Keys generated by C# must validate in Python and vice versa."""
-
-    def test_same_secret_same_signature(self):
-        """Verify our HMAC + base36 matches the C# implementation."""
-        license_service._PRODUCT_SECRET = b"test-secret"
-        payload = "REDPILL-AAAA-BBBB-CCCC"
-        sig = _compute_signature(payload)
-        assert len(sig) == 4
-        assert all(c in "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" for c in sig)
-
-        # Compute manually to verify
-        h = hmac.new(b"test-secret", payload.encode("utf-8"), hashlib.sha256).digest()
-        base36 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        expected = "".join(base36[h[i] % 36] for i in range(4))
-        assert sig == expected
-
-    def test_key_roundtrip(self):
-        """Generate and validate a key."""
-        license_service._PRODUCT_SECRET = b"roundtrip-secret"
-        # Build a key manually (mimicking C# GenerateKey)
-        seed_hash = hashlib.sha256(b"test-seed").digest()
-        g1 = _to_base36(seed_hash, 0, 4)
-        g2 = _to_base36(seed_hash, 4, 4)
-        g3 = _to_base36(seed_hash, 8, 4)
-        payload = f"REDPILL-{g1}-{g2}-{g3}"
-        sig = _compute_signature(payload)
-        key = f"{payload}-{sig}"
-
-        assert validate_key(key) is True
-        # Tamper and verify rejection
-        assert validate_key(key[:-1] + "Z") is False
-
-
-# ---------------------------------------------------------------------------
 # TUI gating
 # ---------------------------------------------------------------------------
 
 class TestTUIGating:
     def test_main_exits_if_unlicensed(self, tmp_path, monkeypatch):
         """main() should show purchase prompt and exit without launching TUI."""
-        license_service._PRODUCT_SECRET = DEV_SECRET
         monkeypatch.setattr(license_service, "LICENSE_PATH", str(tmp_path / "nope.key"))
         monkeypatch.setattr("sys.argv", ["redpill_tui.py"])
 
@@ -369,14 +259,12 @@ class TestTUIGating:
 
     def test_main_activates_inline(self, tmp_path, monkeypatch):
         """main() should accept key paste and activate."""
-        license_service._PRODUCT_SECRET = DEV_SECRET
-        key = _make_valid_key()
         license_dir = tmp_path / "config"
         license_path = license_dir / "license.key"
         monkeypatch.setattr(license_service, "LICENSE_DIR", str(license_dir))
         monkeypatch.setattr(license_service, "LICENSE_PATH", str(license_path))
         monkeypatch.setattr("sys.argv", ["redpill_tui.py"])
-        monkeypatch.setattr("builtins.input", lambda: key)
+        monkeypatch.setattr("builtins.input", lambda: VALID_FORMAT_KEY)
 
         # Mock server check
         monkeypatch.setattr(license_service, "_check_server_activation",
@@ -390,13 +278,11 @@ class TestTUIGating:
 
     def test_activate_flag(self, tmp_path, monkeypatch):
         """--activate KEY should activate and exit."""
-        license_service._PRODUCT_SECRET = DEV_SECRET
-        key = _make_valid_key()
         license_dir = tmp_path / "config"
         license_path = license_dir / "license.key"
         monkeypatch.setattr(license_service, "LICENSE_DIR", str(license_dir))
         monkeypatch.setattr(license_service, "LICENSE_PATH", str(license_path))
-        monkeypatch.setattr("sys.argv", ["redpill_tui.py", "--activate", key])
+        monkeypatch.setattr("sys.argv", ["redpill_tui.py", "--activate", VALID_FORMAT_KEY])
 
         monkeypatch.setattr(license_service, "_check_server_activation",
                             lambda k: ActivationResult.SUCCESS)
@@ -405,4 +291,4 @@ class TestTUIGating:
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 0
-        assert license_path.read_text() == key.upper()
+        assert license_path.read_text() == VALID_FORMAT_KEY.upper()
