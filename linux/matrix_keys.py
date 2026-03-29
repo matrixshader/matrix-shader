@@ -287,10 +287,9 @@ def event_loop(kbd, hotkey_table, watcher, uinput_dev):
         if kbd.fd in readable:
             for event in kbd.read():
                 if event.type != ecodes.EV_KEY:
-                    # Re-inject non-key events (e.g. EV_SYN, EV_MSC)
-                    if uinput_dev is not None:
-                        uinput_dev.write_event(event)
-                        uinput_dev.syn()
+                    # Skip SYN events — syn() is called explicitly after key re-injection.
+                    # Re-injecting EV_SYN from the real keyboard causes double-sync
+                    # which makes the virtual device fire duplicate events.
                     continue
 
                 key = event.code
@@ -317,9 +316,19 @@ def event_loop(kbd, hotkey_table, watcher, uinput_dev):
                 result = handle_config_reload(watcher)
                 hotkey_table = result["hotkey_table"]
 
-        # Glitch mode: periodically check for window drift and snap back.
+        # Glitch mode: run in a thread so it never blocks keyboard events.
         # check_and_snap() internally rate-limits to every 3 seconds.
-        _try_glitch_check()
+        import threading
+        if not hasattr(event_loop, '_glitch_running'):
+            event_loop._glitch_running = False
+        if not event_loop._glitch_running:
+            event_loop._glitch_running = True
+            def _bg_glitch():
+                try:
+                    _try_glitch_check()
+                finally:
+                    event_loop._glitch_running = False
+            threading.Thread(target=_bg_glitch, daemon=True).start()
 
 
 def _ungrab_keyboard():
