@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sys
 
 import pytest
@@ -349,14 +350,15 @@ class TestConstructPresetIntegration:
         assert result["slot"] == 1
 
         # Verify shader file contains the preset's params as #define values
+        # replace_define preserves original whitespace padding, so use regex
         with open(result["shader"]) as f:
             shader_content = f.read()
-        assert "#define RAIN_R 0.5" in shader_content
-        assert "#define RAIN_G 0.2" in shader_content
-        assert "#define RAIN_B 0.8" in shader_content
-        assert "#define RAIN_SPEED 2.5" in shader_content
-        assert "#define SHOW_L1 0.0" in shader_content
-        assert "#define SHOW_L3 0.0" in shader_content
+        assert re.search(r"#define\s+RAIN_R\s+0\.5", shader_content)
+        assert re.search(r"#define\s+RAIN_G\s+0\.2", shader_content)
+        assert re.search(r"#define\s+RAIN_B\s+0\.8", shader_content)
+        assert re.search(r"#define\s+RAIN_SPEED\s+2\.5", shader_content)
+        assert re.search(r"#define\s+SHOW_L1\s+0\.0", shader_content)
+        assert re.search(r"#define\s+SHOW_L3\s+0\.0", shader_content)
 
     def test_nonexistent_preset_returns_error_with_available(self, tmp_path):
         """quick_launch_from_preset with nonexistent name returns error listing available presets."""

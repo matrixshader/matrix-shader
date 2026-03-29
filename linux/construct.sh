@@ -30,11 +30,20 @@ COLOR=""
 MODE=""
 IN_GHOSTTY=false
 PICK_SLOT=""
+PRESET_NAME=""
+NEXT_IS_PRESET=false
 for arg in "$@"; do
+    if [ "$NEXT_IS_PRESET" = "true" ]; then
+        PRESET_NAME="$arg"
+        NEXT_IS_PRESET=false
+        continue
+    fi
     case "$arg" in
         --pick)         IN_GHOSTTY=true ;;
         --slot=*)       PICK_SLOT="${arg#--slot=}" ;;
         --help|-h)      MODE="help" ;;
+        --preset=*)     PRESET_NAME="${arg#--preset=}" ;;
+        --preset)       NEXT_IS_PRESET=true ;;
         --green)        COLOR="green" ;;
         --red)          COLOR="red" ;;
         --blue)         COLOR="blue" ;;
@@ -54,6 +63,52 @@ done
 if [[ "$MODE" == "help" ]]; then
     python3 -B "$PYMOD_DIR/construct_service.py" help
     python3 -B "$PYMOD_DIR/command_banner.py" 2>/dev/null
+    exit 0
+fi
+
+# --- Quick launch from preset ---
+if [ -n "$PRESET_NAME" ]; then
+    # Check Ghostty
+    if [ ! -f "$GHOSTTY_BIN" ]; then
+        echo -e "${RED} Ghostty not found at $GHOSTTY_BIN${RESET}"
+        exit 1
+    fi
+
+    # Call Python service to create shader + config from preset
+    result=$(python3 -B "$PYMOD_DIR/construct_service.py" quick-launch-preset --name "$PRESET_NAME" 2>&1)
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo -e "${RED} $result${RESET}"
+        exit 1
+    fi
+
+    # Parse result: "slot:conf_path"
+    slot="${result%%:*}"
+    conf="${result#*:}"
+
+    # Launch Ghostty -- same pattern as COLOR block
+    nohup "$GHOSTTY_BIN" --config-default-files=false --config-file="$conf" > $MATRIX_TMP/ghostty-matrix-${slot}.log 2>&1 &
+    ghostty_pid=$!
+    disown
+    python3 -B "$PYMOD_DIR/window_service.py" register "$slot" "$ghostty_pid" 2>/dev/null
+    sleep 0.5
+
+    # Apply layout
+    sleep 1.0
+    python3 -B -c "
+import sys; sys.path.insert(0, '$PYMOD_DIR')
+from layout_engine import apply_current_layout
+n = apply_current_layout()
+if n == 0:
+    import time; time.sleep(0.5)
+    apply_current_layout()
+" 2>/dev/null
+
+    echo -e "${GREEN} Matrix-${slot}${RESET} ${DIM}launched with preset '${PRESET_NAME}'${RESET}"
+
+    # Command reference banner
+    python3 -B "$PYMOD_DIR/command_banner.py" 2>/dev/null
+
     exit 0
 fi
 

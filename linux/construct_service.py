@@ -222,6 +222,49 @@ def _write_ghostty_config(slot: int, shader_path: str,
     return conf_path
 
 
+def _get_session_opacity() -> str:
+    """Inherit opacity from running windows, falling back to state.json then default.
+
+    Checks running Ghostty configs first (more current than state.json),
+    then falls back to state.json, then defaults to "0.85".
+
+    Returns:
+        Opacity string like "0.85", "0", or "1".
+    """
+    opacity_val = "0.85"
+    try:
+        existing_configs = sorted(shader_service.get_all_ghostty_configs())
+        if existing_configs:
+            # Read opacity from running window's config
+            for conf in existing_configs:
+                if "ghostty-matrix-" in conf:
+                    try:
+                        with open(conf) as f:
+                            for line in f:
+                                if "background-opacity" in line:
+                                    opacity_val = line.split("=", 1)[1].strip()
+                                    break
+                    except OSError:
+                        pass
+                    break
+        else:
+            # No running windows -- fall back to state.json
+            try:
+                import state_service
+                state = state_service.load_state()
+                saved_opacity = state.get("opacity", 85)
+                opacity_val = f"{int(saved_opacity) / 100:.2f}"
+                if opacity_val == "0.00":
+                    opacity_val = "0"
+                elif opacity_val == "1.00":
+                    opacity_val = "1"
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return opacity_val
+
+
 def quick_launch(color: str) -> dict:
     """Create shader + Ghostty config for instant single-window launch.
 
@@ -257,23 +300,11 @@ def quick_launch(color: str) -> dict:
         return {"error": f"Unknown color: {color}"}
 
     # Inherit opacity AND shader params from any running window (match current session)
-    opacity_val = "0.85"
+    opacity_val = _get_session_opacity()
+
     try:
         existing_configs = sorted(shader_service.get_all_ghostty_configs())
         if existing_configs:
-            # Read opacity from running window's config (more current than state.json)
-            for conf in existing_configs:
-                if "ghostty-matrix-" in conf:
-                    try:
-                        with open(conf) as f:
-                            for line in f:
-                                if "background-opacity" in line:
-                                    opacity_val = line.split("=", 1)[1].strip()
-                                    break
-                    except OSError:
-                        pass
-                    break
-
             # Copy speed and layer settings from running window's shader
             for conf in existing_configs:
                 for s in range(1, 9):
@@ -294,24 +325,73 @@ def quick_launch(color: str) -> dict:
                 else:
                     continue
                 break
-        else:
-            # No running windows — fall back to state.json
-            try:
-                import state_service
-                state = state_service.load_state()
-                saved_opacity = state.get("opacity", 85)
-                opacity_val = f"{int(saved_opacity) / 100:.2f}"
-                if opacity_val == "0.00":
-                    opacity_val = "0"
-                elif opacity_val == "1.00":
-                    opacity_val = "1"
-            except Exception:
-                pass
     except Exception:
         pass
 
     conf_path = _write_ghostty_config(slot, shader_path, fg_color=fg_color,
                                        opacity=opacity_val, preset_rgb=preset_rgb)
+
+    return {"slot": slot, "conf": conf_path, "shader": shader_path}
+
+
+def quick_launch_from_preset(name: str, presets_dir: str = None) -> dict:
+    """Create shader + Ghostty config from a saved preset for instant launch.
+
+    Loads all 11 shader parameters from the named preset file and creates
+    a per-slot shader with those exact values. Foreground color is derived
+    from the preset's RAIN_R/G/B, not from the PRESET_FOREGROUNDS lookup.
+
+    Args:
+        name: Preset name (will be sanitized for lookup).
+        presets_dir: Directory for preset files. Defaults to preset_service.PRESETS_DIR.
+
+    Returns:
+        {"slot": int, "conf": str, "shader": str} on success.
+        {"error": str} on failure.
+    """
+    import preset_service
+
+    # Load preset (handles sanitization internally)
+    try:
+        params = preset_service.load_preset(name, presets_dir=presets_dir)
+    except FileNotFoundError:
+        available = preset_service.list_presets(presets_dir=presets_dir)
+        names = ", ".join(p["name"] for p in available) if available else "none"
+        return {"error": f"Preset '{name}' not found. Available: {names}"}
+
+    # Extract RGB
+    r = params.get("RAIN_R", 0.0)
+    g = params.get("RAIN_G", 1.0)
+    b = params.get("RAIN_B", 0.3)
+
+    # Find next slot
+    slot = find_next_slot()
+    if slot is None:
+        return {"error": "All 8 shader slots are in use. Close a Matrix window first."}
+
+    # Create shader with preset RGB
+    shader_path = shader_service.create_slot_shader(slot, r=r, g=g, b=b)
+
+    # Write ALL remaining non-RGB params into the shader file
+    non_rgb = {k: v for k, v in params.items()
+               if k not in ("RAIN_R", "RAIN_G", "RAIN_B")}
+    if non_rgb:
+        with open(shader_path) as f:
+            content = f.read()
+        for param, value in non_rgb.items():
+            if param in shader_service.PARAM_DEFAULTS:
+                content = shader_service.replace_define(content, param, float(value))
+        shader_service.atomic_write(shader_path, content)
+
+    # Derive foreground hex from preset RGB (not from PRESET_FOREGROUNDS)
+    fg_hex = f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+
+    # Inherit opacity from running session
+    opacity_val = _get_session_opacity()
+
+    # Write Ghostty config
+    conf_path = _write_ghostty_config(slot, shader_path, fg_color=fg_hex,
+                                       opacity=opacity_val, preset_rgb=(r, g, b))
 
     return {"slot": slot, "conf": conf_path, "shader": shader_path}
 
@@ -776,7 +856,7 @@ def show_help():
     print()
     print("Matrix Shader - Construct")
     print()
-    print("Usage: construct [--color]")
+    print("Usage: construct [--color] [--preset <name>]")
     print()
     print("Colors:")
     print("  --green, --red, --blue, --purple, --gold, --teal")
@@ -784,6 +864,9 @@ def show_help():
     print("Bonus Shaders:")
     print("  --aurora, --aurora-rain, --fireplace")
     print("  --codevision, --ultra, --rain-on-glass")
+    print()
+    print("Presets:")
+    print("  --preset <name>          Launch with a saved preset")
     print()
     print("No arguments: opens the white room color picker")
     print()
@@ -814,6 +897,10 @@ def _cli():
     p_wr = sub.add_parser("white-room", help="Run the white room color picker")
     p_wr.add_argument("--shader-path", help="Path to shader COPY to rewrite (in /tmp)")
 
+    # quick-launch-preset
+    p_preset = sub.add_parser("quick-launch-preset", help="Quick launch from a saved preset")
+    p_preset.add_argument("--name", required=True, help="Preset name")
+
     # help
     sub.add_parser("help", help="Show help text")
 
@@ -825,6 +912,13 @@ def _cli():
             print(result["error"], file=sys.stderr)
             raise SystemExit(1)
         # Print slot and conf path for shell to capture
+        print(f"{result['slot']}:{result['conf']}")
+
+    elif args.command == "quick-launch-preset":
+        result = quick_launch_from_preset(args.name)
+        if "error" in result:
+            print(result["error"], file=sys.stderr)
+            raise SystemExit(1)
         print(f"{result['slot']}:{result['conf']}")
 
     elif args.command == "white-room":
