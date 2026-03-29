@@ -90,6 +90,10 @@ for f in redpill_mac.sh bluepill_mac.sh matrix-hotkey-help-mac.sh matrix-opacity
     [ -f "$SCRIPT_DIR/$f" ] && cp "$SCRIPT_DIR/$f" "$RELEASE_DIR/mac/"
 done
 
+# License secret is NO LONGER embedded in client builds.
+# Server-side validation only via /api/validate.
+echo -e "${DIM}  License validation: server-only (no secret embedded)${RESET}"
+
 # 7. Build patched Ghostty if requested (must be on macOS)
 if $BUILD_GHOSTTY; then
     echo -e "${DIM}  Building patched Ghostty.app...${RESET}"

@@ -1,27 +1,16 @@
 using System.Net.Http;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace MatrixShader.Core.Services;
 
 /// <summary>
-/// Offline license validation using HMAC-SHA256 with server-side activation tracking.
-/// Key format: REDPILL-XXXX-XXXX-XXXX-XXXX where the last group is a truncated HMAC
-/// of the first three groups, keyed with an embedded product secret.
-///
-/// Design philosophy: honest people pay, pirates never would have.
-/// Don't punish paying customers with aggressive DRM.
-/// First activation requires server verification to enforce machine limits.
-/// After activation, license is fully offline — no phone-home ever.
+/// License service — server-authoritative validation.
+/// Client checks if a key file exists on disk (offline use after activation).
+/// Activation sends key to server for HMAC validation + machine limit check.
+/// The client NEVER has the signing secret.
 /// </summary>
 public sealed class LicenseService : ILicenseService
 {
-    // Product secret for HMAC validation — injected at build time from gitignored file.
-    // Source: MatrixShader/license-secret.key (never committed to git).
-    // Generated class: LicenseSecret.g.cs (in obj/, also gitignored).
-    private static readonly byte[] ProductSecret = Encoding.UTF8.GetBytes(
-        LicenseSecret.Value);
-
     private static readonly string LicenseDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "MatrixShader");
@@ -41,8 +30,10 @@ public sealed class LicenseService : ILicenseService
             if (_cachedResult.HasValue)
                 return _cachedResult.Value;
 
+            // Licensed = key file exists with valid format on disk.
+            // The key was validated by the server during activation.
             var key = GetInstalledKey();
-            _cachedResult = key != null && ValidateKey(key);
+            _cachedResult = key != null && HasValidFormat(key);
             return _cachedResult.Value;
         }
     }
@@ -50,10 +41,10 @@ public sealed class LicenseService : ILicenseService
     /// <inheritdoc/>
     public ActivationResult Activate(string key)
     {
-        if (!ValidateKey(key))
+        if (!HasValidFormat(key))
             return ActivationResult.InvalidKey;
 
-        // Server-side activation check (required — no offline bypass)
+        // Server does the real validation (HMAC + machine limit)
         var serverResult = CheckServerActivation(key);
         if (serverResult != ActivationResult.Success)
             return serverResult;
@@ -90,15 +81,18 @@ public sealed class LicenseService : ILicenseService
         }
     }
 
-    /// <inheritdoc/>
-    public bool ValidateKey(string key)
+    /// <summary>
+    /// Checks format only — REDPILL-XXXX-XXXX-XXXX-XXXX.
+    /// Does NOT validate the HMAC signature (server does that).
+    /// </summary>
+    public bool ValidateKey(string key) => HasValidFormat(key);
+
+    private static bool HasValidFormat(string key)
     {
         if (string.IsNullOrWhiteSpace(key))
             return false;
 
         key = key.Trim().ToUpperInvariant();
-
-        // Format: REDPILL-XXXX-XXXX-XXXX-XXXX
         var parts = key.Split('-');
         if (parts.Length != 5)
             return false;
@@ -106,7 +100,6 @@ public sealed class LicenseService : ILicenseService
         if (parts[0] != "REDPILL")
             return false;
 
-        // Each group after prefix should be 4 alphanumeric chars
         for (int i = 1; i <= 4; i++)
         {
             if (parts[i].Length != 4)
@@ -115,37 +108,12 @@ public sealed class LicenseService : ILicenseService
                 return false;
         }
 
-        // The payload is groups 1-3, the signature is group 4
-        var payload = $"{parts[0]}-{parts[1]}-{parts[2]}-{parts[3]}";
-        var expectedSig = ComputeSignature(payload);
-
-        return string.Equals(parts[4], expectedSig, StringComparison.OrdinalIgnoreCase);
+        return true;
     }
 
     /// <summary>
-    /// Generates a license key for a given payload seed.
-    /// Used by the key generation tool (not shipped to users).
-    /// </summary>
-    public static string GenerateKey(string seed)
-    {
-        // Create 3 groups from the seed hash
-        using var sha = SHA256.Create();
-        var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(seed));
-
-        var g1 = ToBase36(hash, 0, 4);
-        var g2 = ToBase36(hash, 4, 4);
-        var g3 = ToBase36(hash, 8, 4);
-
-        var payload = $"REDPILL-{g1}-{g2}-{g3}";
-        var sig = ComputeSignature(payload);
-
-        return $"{payload}-{sig}";
-    }
-
-    /// <summary>
-    /// Calls /api/validate to check activation count.
-    /// Returns Success if server confirms, ActivationLimitExceeded if over limit,
-    /// or ServerUnreachable if the server cannot be contacted.
+    /// Calls /api/validate to check key validity + activation count.
+    /// The SERVER does HMAC validation — client never has the secret.
     /// </summary>
     private static ActivationResult CheckServerActivation(string key)
     {
@@ -155,7 +123,6 @@ public sealed class LicenseService : ILicenseService
 
             var fingerprint = MachineFingerprint.Get();
             var normalizedKey = key.Trim().ToUpperInvariant();
-            // Manual JSON to avoid anonymous types (AOT-safe)
             var payload = $"{{\"key\":\"{normalizedKey}\",\"fingerprint\":\"{fingerprint}\"}}";
 
             var content = new StringContent(payload, Encoding.UTF8, "application/json");
@@ -173,35 +140,13 @@ public sealed class LicenseService : ILicenseService
                 return ActivationResult.Success;
             }
 
-            // Server error (500, 503, etc.) — don't let activation bypass the check
             DiagnosticLogger.Warn("LICENSE", $"Server error {(int)response.StatusCode}, activation blocked");
             return ActivationResult.ServerUnreachable;
         }
         catch (Exception ex)
         {
-            // Network error, timeout, DNS failure — require connectivity for activation
             DiagnosticLogger.Warn("LICENSE", $"Server unreachable: {ex.Message}");
             return ActivationResult.ServerUnreachable;
         }
-    }
-
-    private static string ComputeSignature(string payload)
-    {
-        using var hmac = new HMACSHA256(ProductSecret);
-        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
-        // Take first 4 chars of base36-encoded HMAC
-        return ToBase36(hash, 0, 4);
-    }
-
-    private static string ToBase36(byte[] bytes, int offset, int length)
-    {
-        const string chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        var sb = new StringBuilder(length);
-        for (int i = 0; i < length; i++)
-        {
-            var idx = (offset + i < bytes.Length) ? bytes[offset + i] % 36 : 0;
-            sb.Append(chars[idx]);
-        }
-        return sb.ToString();
     }
 }

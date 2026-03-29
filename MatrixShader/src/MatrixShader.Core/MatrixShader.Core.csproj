@@ -26,25 +26,8 @@
   </ItemGroup>
 
   <!-- License secret: embedded at build time from gitignored file -->
-  <PropertyGroup>
-    <LicenseSecretFile>$(MSBuildThisFileDirectory)..\..\license-secret.key</LicenseSecretFile>
-  </PropertyGroup>
-
-  <!-- Read the secret if the file exists, otherwise use dev placeholder -->
-  <Target Name="EmbedLicenseSecret" BeforeTargets="CoreCompile">
-    <ReadLinesFromFile File="$(LicenseSecretFile)" Condition="Exists('$(LicenseSecretFile)')">
-      <Output TaskParameter="Lines" PropertyName="LicenseSecretValue" />
-    </ReadLinesFromFile>
-    <PropertyGroup Condition="!Exists('$(LicenseSecretFile)')">
-      <LicenseSecretValue>DEV-PLACEHOLDER-NOT-FOR-PRODUCTION</LicenseSecretValue>
-    </PropertyGroup>
-    <WriteLinesToFile
-      File="$(IntermediateOutputPath)LicenseSecret.g.cs"
-      Lines="namespace MatrixShader.Core.Services%3B%0Ainternal static partial class LicenseSecret%0A{%0A    internal const string Value = &quot;$(LicenseSecretValue)&quot;%3B%0A}"
-      Overwrite="true" />
-    <ItemGroup>
-      <Compile Include="$(IntermediateOutputPath)LicenseSecret.g.cs" />
-    </ItemGroup>
-  </Target>
+  <!-- License secret is NO LONGER embedded in the client.
+       Server-side validation only via /api/validate.
+       See: 2026-03-29-windows-security-fix.md -->
 
 </Project>
