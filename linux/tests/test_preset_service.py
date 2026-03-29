@@ -301,3 +301,99 @@ class TestCrossProcess:
         save_preset("evolving", {"RAIN_R": 0.9}, presets_dir=presets_dir)
         params2 = load_preset("evolving", presets_dir=presets_dir)
         assert params2["RAIN_R"] == 0.9
+
+
+# ---------------------------------------------------------------------------
+# TestConstructPresetIntegration
+# ---------------------------------------------------------------------------
+
+class TestConstructPresetIntegration:
+    """Tests for quick_launch_from_preset in construct_service.py."""
+
+    def test_valid_preset_returns_slot_conf_shader(self, tmp_path, monkeypatch):
+        """quick_launch_from_preset with valid preset returns {slot, conf, shader}
+        and shader file contains the preset's #define values."""
+        from construct_service import quick_launch_from_preset
+
+        presets_dir = str(tmp_path / "presets")
+        shader_dir = str(tmp_path / "shaders")
+        os.makedirs(shader_dir, exist_ok=True)
+
+        # Create a template shader for create_slot_shader to copy
+        template = os.path.join(os.path.dirname(__file__), "..", "..", "shaders-glsl", "matrix-green-ghostty.glsl")
+        assert os.path.isfile(template), f"Template shader not found: {template}"
+
+        # Save a preset with known params
+        full_params = {
+            "RAIN_R": 0.5, "RAIN_G": 0.2, "RAIN_B": 0.8,
+            "RAIN_SPEED": 2.5, "GLOW_STRENGTH": 1.2,
+            "CHAR_WIDTH": 15.0, "TRAIL_POWER": 6.0, "RAIN_DENSITY": 0.4,
+            "SHOW_L1": 0.0, "SHOW_L2": 1.0, "SHOW_L3": 0.0,
+        }
+        save_preset("test-preset", full_params, presets_dir=presets_dir)
+
+        # Monkeypatch slot finding and shader directory
+        import shader_service
+        monkeypatch.setattr("construct_service.find_next_slot", lambda: 1)
+        monkeypatch.setattr(shader_service, "SLOT_SHADER_DIR", shader_dir)
+
+        # Monkeypatch _get_session_opacity to avoid scanning running windows
+        monkeypatch.setattr("construct_service._get_session_opacity", lambda: "0.85")
+
+        result = quick_launch_from_preset("test-preset", presets_dir=presets_dir)
+
+        assert "error" not in result
+        assert "slot" in result
+        assert "conf" in result
+        assert "shader" in result
+        assert result["slot"] == 1
+
+        # Verify shader file contains the preset's params as #define values
+        with open(result["shader"]) as f:
+            shader_content = f.read()
+        assert "#define RAIN_R 0.5" in shader_content
+        assert "#define RAIN_G 0.2" in shader_content
+        assert "#define RAIN_B 0.8" in shader_content
+        assert "#define RAIN_SPEED 2.5" in shader_content
+        assert "#define SHOW_L1 0.0" in shader_content
+        assert "#define SHOW_L3 0.0" in shader_content
+
+    def test_nonexistent_preset_returns_error_with_available(self, tmp_path):
+        """quick_launch_from_preset with nonexistent name returns error listing available presets."""
+        from construct_service import quick_launch_from_preset
+
+        presets_dir = str(tmp_path / "presets")
+        # Save one preset so we have something in the list
+        save_preset("existing-one", {"RAIN_R": 0.1}, presets_dir=presets_dir)
+
+        result = quick_launch_from_preset("nonexistent", presets_dir=presets_dir)
+
+        assert "error" in result
+        assert "not found" in result["error"].lower()
+        assert "existing-one" in result["error"]
+
+    def test_foreground_color_derived_from_preset_rgb(self, tmp_path, monkeypatch):
+        """quick_launch_from_preset derives foreground hex from RAIN_R/G/B, not PRESET_FOREGROUNDS."""
+        from construct_service import quick_launch_from_preset
+
+        presets_dir = str(tmp_path / "presets")
+        shader_dir = str(tmp_path / "shaders")
+        os.makedirs(shader_dir, exist_ok=True)
+
+        # Save preset with pure red
+        save_preset("pure-red", {
+            "RAIN_R": 1.0, "RAIN_G": 0.0, "RAIN_B": 0.0,
+        }, presets_dir=presets_dir)
+
+        import shader_service
+        monkeypatch.setattr("construct_service.find_next_slot", lambda: 2)
+        monkeypatch.setattr(shader_service, "SLOT_SHADER_DIR", shader_dir)
+        monkeypatch.setattr("construct_service._get_session_opacity", lambda: "0.85")
+
+        result = quick_launch_from_preset("pure-red", presets_dir=presets_dir)
+
+        assert "error" not in result
+        # Read the conf file and verify foreground = #ff0000
+        with open(result["conf"]) as f:
+            conf_content = f.read()
+        assert "foreground = #ff0000" in conf_content
