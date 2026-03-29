@@ -135,7 +135,7 @@ for pymod in shader_service.py state_service.py hotkey_actions.py hotkey_config.
              hotkey_config_screen.py hotkey_conflicts.py layout_engine.py \
              matrix_toast.py redpill_tui.py redpill_keys.py window_service.py \
              license_service.py machine_fingerprint.py command_banner.py \
-             construct_service.py; do
+             construct_service.py preset_service.py preset_menu_screen.py; do
     [ -f "$SCRIPT_DIR/$pymod" ] && cp "$SCRIPT_DIR/$pymod" "$RELEASE_DIR/scripts/"
 done
 
