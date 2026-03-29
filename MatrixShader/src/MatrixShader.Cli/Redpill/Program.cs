@@ -222,6 +222,7 @@ public static class Program
         services.AddSingleton<ILayoutService, LayoutService>();
         services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
         services.AddSingleton<IHotkeyConfigService, HotkeyConfigService>();
+        services.AddSingleton<IPresetService, PresetService>();
 
         // TUI components
         services.AddSingleton<TabManager>();
@@ -400,6 +401,7 @@ public class ControlPanel
     private readonly ILayoutService _layoutService;
     private readonly ITerminalSettingsService _terminalSettingsService;
     private readonly IHotkeyConfigService _hotkeyConfigService;
+    private readonly IPresetService _presetService;
     private readonly ILogger<ControlPanel> _logger;
     private readonly TabManager _tabManager;
 
@@ -415,6 +417,7 @@ public class ControlPanel
         ILayoutService layoutService,
         ITerminalSettingsService terminalSettingsService,
         IHotkeyConfigService hotkeyConfigService,
+        IPresetService presetService,
         TabManager tabManager,
         ILogger<ControlPanel> logger)
     {
@@ -424,6 +427,7 @@ public class ControlPanel
         _layoutService = layoutService;
         _terminalSettingsService = terminalSettingsService;
         _hotkeyConfigService = hotkeyConfigService;
+        _presetService = presetService;
         _tabManager = tabManager;
         _logger = logger;
 
@@ -593,6 +597,7 @@ public class ControlPanel
 
         ConsoleHelper.WriteLineDim(" SHIFT KEYS (local):");
         Console.WriteLine();
+        ConsoleHelper.WriteLineDim("   [Shift+P]  Open Presets (save/load/delete custom configs)");
         ConsoleHelper.WriteLineDim("   [Shift+G]  Toggle Glitch (auto-snap to formation)");
         ConsoleHelper.WriteLineDim("   [Shift+L]  Cycle layout mode (Pillars/Quads/Overlap)");
         ConsoleHelper.WriteLineDim("   [Shift+H]  Configure global hotkey bindings");
@@ -802,13 +807,13 @@ public class ControlPanel
                 }
                 break;
 
-            case KeyAction.PriorityToggle:
-                // Toggle priority lock (keeps specific windows on primary monitor)
+            case KeyAction.PresetMenu:
+                // Open preset management screen (Shift+P)
                 {
-                    var priorityState = _configService.LoadState();
-                    var newPriorityLayout = priorityState.Layout with { PriorityLock = !priorityState.Layout.PriorityLock };
-                    _layoutService.UpdateConfig(newPriorityLayout);
-                    DiagnosticLogger.Info("REDPILL", $"Priority lock: {newPriorityLayout.PriorityLock}");
+                    var presetScreen = new PresetScreen(
+                        _presetService, _shaderService, _terminalSettingsService, _tabManager);
+                    presetScreen.Run();
+                    Console.Clear();
                 }
                 break;
 

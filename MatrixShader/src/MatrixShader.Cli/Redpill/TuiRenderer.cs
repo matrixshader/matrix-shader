@@ -164,7 +164,7 @@ public static class TuiRenderer
             : "[ENTER] (set count first)";
         var enterColor = launchCount > 0 ? YELLOW : GRAY;
         AppendPaddedLine(sb, cw, $" {enterColor}{enterAction}{RESET}  {GRAY}[0] Reset  [ESC] Quit{RESET}");
-        AppendPaddedLine(sb, cw, $" {GRAY}[Shift+H] Configure hotkeys  [?] Help{RESET}");
+        AppendPaddedLine(sb, cw, $" {GRAY}[Shift+P] Presets  [Shift+H] Hotkeys  [?] Help{RESET}");
         AppendPaddedLine(sb, cw, $" {GREEN}All changes apply instantly{RESET}");
     }
 

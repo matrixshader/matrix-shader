@@ -170,6 +170,7 @@ public static class Program
         services.AddSingleton<IIdentityService, IdentityService>();
         services.AddSingleton<ILayoutService, LayoutService>();
         services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
+        services.AddSingleton<IPresetService, PresetService>();
 
         // Wizard
         services.AddSingleton<SetupWizard>();

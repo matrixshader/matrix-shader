@@ -104,8 +104,8 @@ public enum KeyAction
     SnapbackSave,
     /// <summary>Shift+R - restore snapback position.</summary>
     SnapbackRestore,
-    /// <summary>Shift+P - toggle priority lock.</summary>
-    PriorityToggle,
+    /// <summary>Shift+P - open preset management screen.</summary>
+    PresetMenu,
     /// <summary>Shift+G - toggle glitch mode.</summary>
     GlitchToggle,
     /// <summary>Shift+M - change monitor count.</summary>
@@ -133,7 +133,7 @@ public enum KeyAction
 /// CRITICAL: Shift combinations are detected BEFORE normalizing to lowercase.
 /// This preserves the distinction between:
 /// - Shift+L (LayoutCycle) vs lowercase l (OpacityIncrease)
-/// - Shift+P (PriorityToggle) vs lowercase p (Save)
+/// - Shift+P (PresetMenu) vs lowercase p (Save)
 /// - Shift+S (SnapbackSave) vs lowercase s (GreenIncrease)
 /// - etc.
 ///
@@ -179,7 +179,7 @@ public static class KeyHandler
             case 'L': return KeyAction.LayoutCycle;      // Shift+L
             case 'S': return KeyAction.SnapbackSave;     // Shift+S
             case 'R': return KeyAction.SnapbackRestore;  // Shift+R
-            case 'P': return KeyAction.PriorityToggle;   // Shift+P
+            case 'P': return KeyAction.PresetMenu;        // Shift+P
             case 'G': return KeyAction.GlitchToggle;     // Shift+G
             case 'M': return KeyAction.MonitorChange;    // Shift+M
             case 'H': return KeyAction.HotkeyConfig;     // Shift+H

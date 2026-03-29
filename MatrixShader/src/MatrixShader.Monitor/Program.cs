@@ -34,6 +34,7 @@ public static class Program
         builder.Services.AddSingleton<IIdentityService, IdentityService>();
         builder.Services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
         builder.Services.AddSingleton<IShaderService, ShaderService>();
+        builder.Services.AddSingleton<IPresetService, PresetService>();
 
         var host = builder.Build();
         await host.RunAsync();

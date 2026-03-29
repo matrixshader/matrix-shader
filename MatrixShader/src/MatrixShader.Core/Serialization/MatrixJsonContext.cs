@@ -14,6 +14,7 @@ namespace MatrixShader.Core.Serialization;
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(MatrixState))]
 [JsonSerializable(typeof(ShaderConfig))]
+[JsonSerializable(typeof(ShaderPreset))]
 [JsonSerializable(typeof(LayoutConfig))]
 [JsonSerializable(typeof(Dictionary<int, ShaderConfig>))]
 [JsonSerializable(typeof(IdentityRegistry))]

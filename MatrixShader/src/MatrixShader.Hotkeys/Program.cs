@@ -171,6 +171,7 @@ public static class Program
         services.AddSingleton<IIdentityService, IdentityService>();
         services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
         services.AddSingleton<IHotkeyConfigService, HotkeyConfigService>();
+        services.AddSingleton<IPresetService, PresetService>();
 
         // Hotkey actions
         services.AddSingleton<HotkeyActions>();

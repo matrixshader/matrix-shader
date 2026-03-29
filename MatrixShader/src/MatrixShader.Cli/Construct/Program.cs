@@ -63,6 +63,7 @@ public static class Program
         services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
         services.AddSingleton<IIdentityService, IdentityService>();
         services.AddSingleton<ILayoutService, LayoutService>();
+        services.AddSingleton<IPresetService, PresetService>();
         services.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
         var provider = services.BuildServiceProvider();
 
@@ -71,11 +72,20 @@ public static class Program
         var terminalService = provider.GetRequiredService<ITerminalSettingsService>();
         var identityService = provider.GetRequiredService<IIdentityService>();
         var layoutService = provider.GetRequiredService<ILayoutService>();
+        var presetService = provider.GetRequiredService<IPresetService>();
 
         if (args.Length >= 1 && args[0] == "--pick")
         {
             var profileArg = args.SkipWhile(a => a != "--profile").Skip(1).FirstOrDefault() ?? "Construct";
             return RunPicker(profileArg, configService, shaderService, terminalService, identityService, layoutService);
+        }
+
+        // --preset <name>: launch with a saved preset's full config
+        var presetName = ParsePresetArg(args);
+        if (presetName != null)
+        {
+            return LaunchWithPreset(presetName, presetService, configService, shaderService,
+                                    terminalService, identityService, layoutService);
         }
 
         var color = ParseColor(args);
@@ -85,6 +95,133 @@ public static class Program
             return RunWhiteRoom(terminalService);
 
         return LaunchWithColor(color.Value, configService, shaderService, terminalService, identityService, layoutService);
+    }
+
+    /// <summary>
+    /// Parses --preset <name> from args. Supports both --preset name and --preset=name.
+    /// Returns null if --preset not found.
+    /// </summary>
+    private static string? ParsePresetArg(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i].StartsWith("--preset=", StringComparison.OrdinalIgnoreCase))
+                return args[i].Substring("--preset=".Length);
+            if (args[i].Equals("--preset", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                return args[i + 1];
+        }
+        return null;
+    }
+
+    private static int LaunchWithPreset(
+        string presetName,
+        IPresetService presetService,
+        IConfigService configService,
+        IShaderService shaderService,
+        ITerminalSettingsService terminalService,
+        IIdentityService identityService,
+        ILayoutService layoutService)
+    {
+        var preset = presetService.Load(presetName);
+        if (preset == null)
+        {
+            Console.WriteLine($"\x1b[31mPreset '{presetName}' not found.\x1b[0m");
+            var available = presetService.ListPresets();
+            if (available.Count > 0)
+            {
+                Console.WriteLine();
+                Console.WriteLine(" Available presets:");
+                foreach (var p in available)
+                {
+                    var (pr, pg, pb) = ((byte)(p.R * 255), (byte)(p.G * 255), (byte)(p.B * 255));
+                    Console.WriteLine($"   \x1b[38;2;{pr};{pg};{pb}m{p.Name}\x1b[0m");
+                }
+            }
+            else
+            {
+                Console.WriteLine(" No presets saved. Use redpill to create one.");
+            }
+            return 1;
+        }
+
+        var config = preset.ToConfig();
+        return LaunchWithConfig(config, presetName, configService, shaderService,
+                               terminalService, identityService, layoutService);
+    }
+
+    private static int LaunchWithConfig(
+        ShaderConfig config,
+        string displayName,
+        IConfigService configService,
+        IShaderService shaderService,
+        ITerminalSettingsService terminalService,
+        IIdentityService identityService,
+        ILayoutService layoutService)
+    {
+        ConsoleHelper.EnableAnsiEscapeCodes();
+
+        var state = configService.LoadState();
+        int slot = FindAndReserveSlot(shaderService, identityService);
+        if (slot == -1)
+        {
+            Console.WriteLine("\x1b[31mAll 8 shader slots are in use. Close a Matrix window first.\x1b[0m");
+            return 1;
+        }
+
+        if (shaderService.ShaderExists(slot))
+            shaderService.WriteConfig(slot, config);
+        else
+            shaderService.CreateShader(slot, config);
+
+        var shadersDir = CliBootstrap.GetShadersDirectory();
+
+        var profileName = $"Matrix-{slot}";
+        var existingGuid = terminalService.GetProfileGuid(profileName);
+        // Foreground color derived from preset RGB
+        byte r = (byte)(config.R * 255);
+        byte g = (byte)(config.G * 255);
+        byte b = (byte)(config.B * 255);
+        var profile = new TerminalProfile
+        {
+            Name = profileName,
+            Guid = existingGuid ?? $"{{{Guid.NewGuid()}}}",
+            Commandline = $"powershell.exe -NoExit -Command \"$host.UI.RawUI.WindowTitle = 'Matrix-{slot}'; Write-Host ' Matrix Terminal {slot}' -ForegroundColor Green\"",
+            Hidden = true,
+            Opacity = 85,
+            UseAcrylic = false,
+            PixelShaderPath = Path.Combine(shadersDir, $"Matrix-{slot}.hlsl"),
+            TabColor = $"#{r:X2}{g:X2}{b:X2}",
+            Foreground = $"#{r:X2}{g:X2}{b:X2}",
+            FontFace = "Nimbus Mono PS",
+            FontWeight = "bold",
+            SuppressApplicationTitle = false
+        };
+        terminalService.UpsertProfileSurgical(profile);
+
+        state.ShaderConfigs[slot] = config;
+        configService.SaveState(state);
+
+        var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = wtPath,
+                Arguments = $"-w -1 -p \"{profileName}\"",
+                UseShellExecute = true
+            });
+            Console.WriteLine($"\x1b[38;2;{r};{g};{b}m{displayName}\x1b[0m Matrix window launched (slot {slot}).");
+            ConsoleHelper.ShowCommandBanner();
+
+            WaitForWindowThenLayout(slot, identityService, layoutService, configService);
+            EnsureHotkeyProcessRunning();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"\x1b[31mFailed to launch Windows Terminal: {ex.Message}\x1b[0m");
+            return 1;
+        }
+        return 0;
     }
 
     private static int LaunchWithColor(
@@ -705,9 +842,13 @@ public static class Program
     {
         if (args.Length == 0) return ColorPresets.Green;
         if (args.Contains("--help") || args.Contains("-h") || args.Contains("/?")) return null;
-        foreach (var arg in args)
+        for (int i = 0; i < args.Length; i++)
         {
+            var arg = args[i];
             if (!arg.StartsWith("--")) continue;
+            // Skip --preset and its value (handled separately)
+            if (arg.Equals("--preset", StringComparison.OrdinalIgnoreCase)) { i++; continue; }
+            if (arg.StartsWith("--preset=", StringComparison.OrdinalIgnoreCase)) continue;
             var name = arg.Substring(2);
             if (ColorMap.TryGetValue(name, out var color)) return color;
         }
@@ -720,8 +861,9 @@ public static class Program
         Console.WriteLine();
         Console.WriteLine("\x1b[38;2;110;220;170m CONSTRUCT\x1b[0m \u2014 Enter the Construct. Pick your reality.");
         Console.WriteLine();
-        Console.WriteLine(" Usage: construct          Launch white room color picker");
-        Console.WriteLine("        construct --[color] Launch with specific color");
+        Console.WriteLine(" Usage: construct                Launch white room color picker");
+        Console.WriteLine("        construct --[color]       Launch with specific color");
+        Console.WriteLine("        construct --preset <name> Launch with saved preset");
         Console.WriteLine();
         Console.WriteLine(" Colors:");
         foreach (var preset in ColorPresets.All)

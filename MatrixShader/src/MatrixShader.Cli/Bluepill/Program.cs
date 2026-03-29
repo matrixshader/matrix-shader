@@ -48,6 +48,13 @@ public static class Program
             ConfigureServices(services);
             var provider = services.BuildServiceProvider();
 
+            // --preset <name>: launch single window with saved preset config
+            var presetName = ParsePresetArg(args);
+            if (presetName != null)
+            {
+                return LaunchWithPreset(presetName, provider);
+            }
+
             var restorer = provider.GetRequiredService<SessionRestorer>();
 
             // Show header and random quote
@@ -155,6 +162,138 @@ public static class Program
         }
     }
 
+    /// <summary>
+    /// Parses --preset <name> from args. Supports both --preset name and --preset=name.
+    /// </summary>
+    private static string? ParsePresetArg(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i].StartsWith("--preset=", StringComparison.OrdinalIgnoreCase))
+                return args[i].Substring("--preset=".Length);
+            if (args[i].Equals("--preset", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                return args[i + 1];
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Launches a single Matrix window using a saved preset's config.
+    /// </summary>
+    private static int LaunchWithPreset(string presetName, ServiceProvider provider)
+    {
+        var presetService = provider.GetRequiredService<IPresetService>();
+        var preset = presetService.Load(presetName);
+        if (preset == null)
+        {
+            Console.WriteLine($"\x1b[31mPreset '{presetName}' not found.\x1b[0m");
+            var available = presetService.ListPresets();
+            if (available.Count > 0)
+            {
+                Console.WriteLine();
+                Console.WriteLine(" Available presets:");
+                foreach (var p in available)
+                {
+                    var (pr, pg, pb) = ((byte)(p.R * 255), (byte)(p.G * 255), (byte)(p.B * 255));
+                    Console.WriteLine($"   \x1b[38;2;{pr};{pg};{pb}m{p.Name}\x1b[0m");
+                }
+            }
+            else
+            {
+                Console.WriteLine(" No presets saved. Use redpill to create one.");
+            }
+            return 1;
+        }
+
+        ConsoleHelper.EnableAnsiEscapeCodes();
+
+        var configService = provider.GetRequiredService<IConfigService>();
+        var shaderService = provider.GetRequiredService<IShaderService>();
+        var terminalService = provider.GetRequiredService<ITerminalSettingsService>();
+        var identityService = provider.GetRequiredService<IIdentityService>();
+        var layoutService = provider.GetRequiredService<ILayoutService>();
+
+        var config = preset.ToConfig();
+        var state = configService.LoadState();
+
+        // Find an available slot
+        identityService.CleanStaleEntries();
+        identityService.LoadRegistry();
+        var usedSlots = new HashSet<int>(identityService.FindMatrixWindows()
+            .Where(w => w.ShaderIndex > 0 && !w.IsControlPanel)
+            .Select(w => w.ShaderIndex));
+
+        int slot = -1;
+        for (int i = 1; i <= 8; i++)
+        {
+            if (!usedSlots.Contains(i))
+            {
+                slot = i;
+                break;
+            }
+        }
+        if (slot == -1)
+        {
+            Console.WriteLine("\x1b[31mAll 8 shader slots are in use. Close a Matrix window first.\x1b[0m");
+            return 1;
+        }
+
+        if (shaderService.ShaderExists(slot))
+            shaderService.WriteConfig(slot, config);
+        else
+            shaderService.CreateShader(slot, config);
+
+        var shadersDir = CliBootstrap.GetShadersDirectory();
+        var profileName = $"Matrix-{slot}";
+        var existingGuid = terminalService.GetProfileGuid(profileName);
+        byte r = (byte)(config.R * 255);
+        byte g = (byte)(config.G * 255);
+        byte b = (byte)(config.B * 255);
+        var profile = new TerminalProfile
+        {
+            Name = profileName,
+            Guid = existingGuid ?? $"{{{Guid.NewGuid()}}}",
+            Commandline = $"powershell.exe -NoExit -Command \"$host.UI.RawUI.WindowTitle = 'Matrix-{slot}'; Write-Host ' Matrix Terminal {slot}' -ForegroundColor Green\"",
+            Hidden = true,
+            Opacity = 85,
+            UseAcrylic = false,
+            PixelShaderPath = Path.Combine(shadersDir, $"Matrix-{slot}.hlsl"),
+            TabColor = $"#{r:X2}{g:X2}{b:X2}",
+            Foreground = $"#{r:X2}{g:X2}{b:X2}",
+            FontFace = "Nimbus Mono PS",
+            FontWeight = "bold",
+            SuppressApplicationTitle = false
+        };
+        terminalService.UpsertProfileSurgical(profile);
+
+        state.ShaderConfigs[slot] = config;
+        configService.SaveState(state);
+
+        var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = wtPath,
+                Arguments = $"-w -1 -p \"{profileName}\"",
+                UseShellExecute = true
+            });
+            Console.WriteLine($"\x1b[38;2;{r};{g};{b}m{preset.Name}\x1b[0m Matrix window launched (slot {slot}).");
+            ConsoleHelper.ShowCommandBanner();
+
+            // Kill any orphaned background processes before launching fresh ones
+            ProcessCleanup.KillBackgroundProcesses();
+            StartMonitorProcess();
+            LaunchHotkeysProcess();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"\x1b[31mFailed to launch Windows Terminal: {ex.Message}\x1b[0m");
+            return 1;
+        }
+        return 0;
+    }
+
     private static void ShowHelp()
     {
         Console.WriteLine();
@@ -163,10 +302,11 @@ public static class Program
         ConsoleHelper.WriteLineDim(" Usage: bluepill [options]");
         Console.WriteLine();
         ConsoleHelper.WriteLineDim(" Options:");
-        ConsoleHelper.WriteLineDim("   --help       Show this help message");
-        ConsoleHelper.WriteLineDim("   --debug      Enable diagnostic logging");
-        ConsoleHelper.WriteLineDim("   --morpheus   Philosophical explanations");
-        ConsoleHelper.WriteLineDim("   --agent-smith  Chaos mode");
+        ConsoleHelper.WriteLineDim("   --help              Show this help message");
+        ConsoleHelper.WriteLineDim("   --preset <name>     Launch single window with saved preset");
+        ConsoleHelper.WriteLineDim("   --debug             Enable diagnostic logging");
+        ConsoleHelper.WriteLineDim("   --morpheus          Philosophical explanations");
+        ConsoleHelper.WriteLineDim("   --agent-smith       Chaos mode");
         Console.WriteLine();
     }
 
@@ -284,6 +424,7 @@ public static class Program
         services.AddSingleton<IIdentityService, IdentityService>();
         services.AddSingleton<ILayoutService, LayoutService>();
         services.AddSingleton<ITerminalSettingsService, TerminalSettingsService>();
+        services.AddSingleton<IPresetService, PresetService>();
 
         // Bluepill-specific
         services.AddSingleton<SessionRestorer>();
