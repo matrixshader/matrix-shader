@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-03-29T02:17:02.005Z"
-last_activity: 2026-03-29 — Plan 01-01 executed (preset service)
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-03-29T02:57:32.815Z"
+last_activity: 2026-03-29 — Plan 02-01 executed (preset menu screen)
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 100
+  total_plans: 3
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-28)
 
 **Core value:** Custom shader configs must never be lost
-**Current focus:** Phase 1: Preset Service
+**Current focus:** Phase 2: TUI Integration
 
 ## Current Position
 
-Phase: 1 of 3 (Preset Service)
-Plan: 1 of 1 in current phase (COMPLETE)
-Status: Phase 1 complete
-Last activity: 2026-03-29 — Plan 01-01 executed (preset service)
+Phase: 2 of 3 (TUI Integration)
+Plan: 1 of 2 in current phase (COMPLETE)
+Status: Plan 02-01 complete, 02-02 remaining
+Last activity: 2026-03-29 — Plan 02-01 executed (preset menu screen)
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Progress: [██████████] 100%
 - Trend: N/A (first plan)
 
 *Updated after each plan completion*
+| Phase 02 P01 | 4min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Recent decisions affecting current work:
 - [01-01]: Individual JSON files per preset for cross-process visibility without locking
 - [01-01]: Followed state_service.py patterns: module-level constants, pure functions, optional path param
 - [01-01]: No caching layer -- every load reads fresh from disk for process isolation
+- [Phase 02-01]: Followed _show_help screen lifecycle pattern: clear on entry, cursor-home render loop, clear on exit
+- [Phase 02-01]: Key dispatch returns bool (False=exit) for clean sub-screen loop integration
+- [Phase 02-01]: Load writes params even without bus name -- graceful degradation if Ghostty window closed
 
 ### Pending Todos
 
@@ -74,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-29T02:17:01.993Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-03-29T02:57:32.805Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None

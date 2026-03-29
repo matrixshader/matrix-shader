@@ -14,28 +14,28 @@
 
 ### Save
 
-- [ ] **SAVE-01**: User can save current shader config as a named preset from redpill TUI
-- [ ] **SAVE-02**: Save prompts for preset name with validation (no empty, no duplicates without confirm)
-- [ ] **SAVE-03**: Save captures all 11 shader parameters from the active slot
-- [ ] **SAVE-04**: Overwrite existing preset prompts for confirmation
+- [x] **SAVE-01**: User can save current shader config as a named preset from redpill TUI
+- [x] **SAVE-02**: Save prompts for preset name with validation (no empty, no duplicates without confirm)
+- [x] **SAVE-03**: Save captures all 11 shader parameters from the active slot
+- [x] **SAVE-04**: Overwrite existing preset prompts for confirmation
 
 ### Load
 
-- [ ] **LOAD-01**: User can load a preset by name from redpill TUI
-- [ ] **LOAD-02**: Load applies all 11 parameters to the active shader slot
-- [ ] **LOAD-03**: Load triggers D-Bus reload so changes are visible immediately
+- [x] **LOAD-01**: User can load a preset by name from redpill TUI
+- [x] **LOAD-02**: Load applies all 11 parameters to the active shader slot
+- [x] **LOAD-03**: Load triggers D-Bus reload so changes are visible immediately
 - [ ] **LOAD-04**: construct supports --preset flag to launch with a saved preset
 
 ### List
 
-- [ ] **LIST-01**: User can list all saved presets from redpill TUI
-- [ ] **LIST-02**: List shows preset name, RGB color swatch, and save date
+- [x] **LIST-01**: User can list all saved presets from redpill TUI
+- [x] **LIST-02**: List shows preset name, RGB color swatch, and save date
 - [ ] **LIST-03**: bluepill can restore from a named preset instead of state.json
 
 ### Delete
 
-- [ ] **DEL-01**: User can delete a preset by name from redpill TUI
-- [ ] **DEL-02**: Delete prompts for confirmation
+- [x] **DEL-01**: User can delete a preset by name from redpill TUI
+- [x] **DEL-02**: Delete prompts for confirmation
 
 ### Integration
 
@@ -67,19 +67,19 @@
 | STOR-02 | Phase 1 | Complete |
 | STOR-03 | Phase 1 | Complete |
 | STOR-04 | Phase 1 | Complete |
-| SAVE-01 | Phase 2 | Pending |
-| SAVE-02 | Phase 2 | Pending |
-| SAVE-03 | Phase 2 | Pending |
-| SAVE-04 | Phase 2 | Pending |
-| LOAD-01 | Phase 2 | Pending |
-| LOAD-02 | Phase 2 | Pending |
-| LOAD-03 | Phase 2 | Pending |
+| SAVE-01 | Phase 2 | Complete |
+| SAVE-02 | Phase 2 | Complete |
+| SAVE-03 | Phase 2 | Complete |
+| SAVE-04 | Phase 2 | Complete |
+| LOAD-01 | Phase 2 | Complete |
+| LOAD-02 | Phase 2 | Complete |
+| LOAD-03 | Phase 2 | Complete |
 | LOAD-04 | Phase 3 | Pending |
-| LIST-01 | Phase 2 | Pending |
-| LIST-02 | Phase 2 | Pending |
+| LIST-01 | Phase 2 | Complete |
+| LIST-02 | Phase 2 | Complete |
 | LIST-03 | Phase 3 | Pending |
-| DEL-01 | Phase 2 | Pending |
-| DEL-02 | Phase 2 | Pending |
+| DEL-01 | Phase 2 | Complete |
+| DEL-02 | Phase 2 | Complete |
 | INTG-01 | Phase 1 | Complete |
 | INTG-02 | Phase 2 | Pending |
 | INTG-03 | Phase 3 | Pending |
