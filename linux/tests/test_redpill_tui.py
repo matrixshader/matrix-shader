@@ -658,3 +658,31 @@ class TestWindowFiltering:
         tui.refresh_tabs()
         slots = [t[0] for t in tui.tabs]
         assert slots == [2, 5, 8]
+
+
+# -----------------------------------------------------------------------
+# Presets menu action
+# -----------------------------------------------------------------------
+
+class TestPresetsMenuAction:
+    def setup_method(self):
+        _reset_mocks()
+
+    def test_presets_menu_calls_show_presets(self):
+        """PresetsMenu action dispatches to _show_presets."""
+        tui = _make_tui()
+        with patch.object(tui, "_show_presets") as mock_show:
+            tui.handle_action("PresetsMenu")
+            mock_show.assert_called_once()
+
+    def test_presets_menu_no_slot_noop(self):
+        """PresetsMenu does nothing when active_slot is None."""
+        tui = RedpillTUI()
+        tui.active_slot = None
+        tui.tabs = []
+        # _show_presets checks active_slot is None and returns early
+        # Should not raise any exception
+        with patch("redpill_tui.read_key") as mock_rk:
+            tui.handle_action("PresetsMenu")
+            # read_key should NOT be called (no fallback screen shown)
+            mock_rk.assert_not_called()

@@ -54,8 +54,8 @@ class TestShiftCombinations:
     def test_lowercase_r_speed_increase(self):
         assert process_key(ord('r')) == "SpeedIncrease"
 
-    def test_shift_p_priority_toggle(self):
-        assert process_key(ord('P')) == "PriorityToggle"
+    def test_shift_p_presets_menu(self):
+        assert process_key(ord('P')) == "PresetsMenu"
 
     def test_shift_m_monitor_change(self):
         assert process_key(ord('M')) == "MonitorChange"

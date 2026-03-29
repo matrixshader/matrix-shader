@@ -141,7 +141,7 @@ def process_key(key):
     if key == ord('R'):  return "SnapbackRestore"
     if key == ord('G'):  return "GlitchToggle"
     if key == ord('H'):  return "HotkeyConfig"
-    if key == ord('P'):  return "PriorityToggle"
+    if key == ord('P'):  return "PresetsMenu"
     if key == ord('M'):  return "MonitorChange"
     if key == ord('?'):  return "Help"
 

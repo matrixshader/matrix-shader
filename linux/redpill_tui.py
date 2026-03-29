@@ -217,7 +217,7 @@ class TuiRenderer:
             f"{TuiRenderer.GRAY}[0] Reset  [ESC] Quit{TuiRenderer.RESET}")
         TuiRenderer.append_padded_line(
             buf, cw,
-            f" {TuiRenderer.GRAY}[Shift+H] Configure hotkeys  [?] Help{TuiRenderer.RESET}")
+            f" {TuiRenderer.GRAY}[Shift+P] Presets  [Shift+H] Hotkeys  [?] Help{TuiRenderer.RESET}")
         TuiRenderer.append_padded_line(
             buf, cw,
             f" {TuiRenderer.GREEN}All changes apply instantly{TuiRenderer.RESET}")
@@ -657,6 +657,11 @@ class RedpillTUI:
             self._save_layout()
             return
 
+        # Presets menu screen
+        if action == "PresetsMenu":
+            self._show_presets()
+            return
+
         # Help screen
         if action == "Help":
             self._show_help()
@@ -799,6 +804,24 @@ keybind = ctrl+shift+f5=unbind
     # Help screen (ANSI, no curses)
     # -------------------------------------------------------------------
 
+    def _show_presets(self):
+        """Launch the presets menu screen (ANSI mode)."""
+        if self.active_slot is None:
+            return
+        try:
+            from preset_menu_screen import PresetMenuScreen
+            screen = PresetMenuScreen(self.active_slot)
+            screen.run()
+        except (ImportError, AttributeError):
+            sys.stdout.write("\x1b[2J\x1b[H")
+            sys.stdout.write(" Presets screen not available.\n")
+            sys.stdout.write(" Press any key to return...\n")
+            sys.stdout.flush()
+            read_key()
+        sys.stdout.write("\x1b[2J")
+        sys.stdout.flush()
+        self.refresh_tabs()
+
     def _show_help(self):
         """Show full help screen, wait for any keypress to return."""
         R = TuiRenderer
@@ -829,6 +852,7 @@ keybind = ctrl+shift+f5=unbind
         R.append_padded_line(buf, cw, f" {R.DIM}SHIFT KEYS (local):{R.RESET}")
         R.append_padded_line(buf, cw, "")
         shift_lines = [
+            "   [Shift+P]  Open Presets (save/load/delete custom configs)",
             "   [Shift+G]  Toggle Glitch (auto-snap to formation)",
             "   [Shift+L]  Cycle layout mode (Pillars/Quads/Overlap)",
             "   [Shift+H]  Configure global hotkey bindings",
