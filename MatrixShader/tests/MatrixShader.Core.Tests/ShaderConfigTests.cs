@@ -168,7 +168,7 @@ public class ShaderConfigTests
     [Fact]
     public void IsValid_Speed_AboveMax_ReturnsFalse()
     {
-        var config = ShaderConfig.Default with { Speed = 5.1f };
+        var config = ShaderConfig.Default with { Speed = 20.1f };
         Assert.False(config.IsValid());
     }
 
@@ -180,10 +180,10 @@ public class ShaderConfigTests
     }
 
     [Fact]
-    public void IsValid_Glow_AboveMax_ReturnsFalse()
+    public void IsValid_Glow_AnyPositiveValue_IsValid()
     {
-        var config = ShaderConfig.Default with { Glow = 3.5f };
-        Assert.False(config.IsValid());
+        var config = ShaderConfig.Default with { Glow = 100f };
+        Assert.True(config.IsValid());
     }
 
     [Fact]
@@ -245,7 +245,7 @@ public class ShaderConfigTests
         var config = new ShaderConfig
         {
             R = 1f, G = 1f, B = 1f,
-            Speed = 5f, Glow = 3f, Width = 20f, Trail = 15f, Density = 1f
+            Speed = 20f, Glow = 3f, Width = 20f, Trail = 15f, Density = 1f
         };
         Assert.True(config.IsValid());
     }
@@ -298,7 +298,7 @@ public class ShaderConfigTests
     {
         var config = ShaderConfig.Default with { Speed = 100f };
         var clamped = config.Clamp();
-        Assert.Equal(5f, clamped.Speed);
+        Assert.Equal(20f, clamped.Speed);
     }
 
     [Fact]
@@ -310,11 +310,11 @@ public class ShaderConfigTests
     }
 
     [Fact]
-    public void Clamp_GlowTooHigh_ClampedToMax()
+    public void Clamp_GlowNoUpperLimit_PreservesValue()
     {
         var config = ShaderConfig.Default with { Glow = 10f };
         var clamped = config.Clamp();
-        Assert.Equal(3f, clamped.Glow);
+        Assert.Equal(10f, clamped.Glow);
     }
 
     [Fact]

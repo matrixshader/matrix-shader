@@ -58,8 +58,8 @@ public record ShaderConfig
         R >= 0f && R <= 1f &&
         G >= 0f && G <= 1f &&
         B >= 0f && B <= 1f &&
-        Speed >= 0.1f && Speed <= 5f &&
-        Glow >= 0.2f && Glow <= 3f &&
+        Speed >= 0.1f && Speed <= 20f &&
+        Glow >= 0.2f &&
         Width >= 6f && Width <= 20f &&
         Trail >= 4f && Trail <= 15f &&
         Density >= 0.2f && Density <= 1f;
@@ -73,8 +73,8 @@ public record ShaderConfig
         R = Math.Clamp(R, 0f, 1f),
         G = Math.Clamp(G, 0f, 1f),
         B = Math.Clamp(B, 0f, 1f),
-        Speed = Math.Clamp(Speed, 0.1f, 5f),
-        Glow = Math.Clamp(Glow, 0.2f, 3f),
+        Speed = Math.Clamp(Speed, 0.1f, 20f),
+        Glow = Math.Max(Glow, 0.2f),
         Width = Math.Clamp(Width, 6f, 20f),
         Trail = Math.Clamp(Trail, 4f, 15f),
         Density = Math.Clamp(Density, 0.2f, 1f)

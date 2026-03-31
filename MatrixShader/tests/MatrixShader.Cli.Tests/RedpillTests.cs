@@ -370,22 +370,21 @@ public class RedpillTests
     #region ShaderConfig Parameter Ranges
 
     [Fact]
-    public void ShaderConfig_Speed_Range_0_1_To_5()
+    public void ShaderConfig_Speed_Range_0_1_To_20()
     {
-        // ShaderConfig.IsValid checks Speed 0.1-5.0 for Redpill TUI validation
         new ShaderConfig { Speed = 0.1f }.IsValid().Should().BeTrue();
-        new ShaderConfig { Speed = 5.0f }.IsValid().Should().BeTrue();
+        new ShaderConfig { Speed = 20.0f }.IsValid().Should().BeTrue();
         new ShaderConfig { Speed = 0.09f }.IsValid().Should().BeFalse();
-        new ShaderConfig { Speed = 5.1f }.IsValid().Should().BeFalse();
+        new ShaderConfig { Speed = 20.1f }.IsValid().Should().BeFalse();
     }
 
     [Fact]
-    public void ShaderConfig_Glow_Range_0_2_To_3()
+    public void ShaderConfig_Glow_No_Upper_Limit()
     {
         new ShaderConfig { Glow = 0.2f }.IsValid().Should().BeTrue();
         new ShaderConfig { Glow = 3.0f }.IsValid().Should().BeTrue();
+        new ShaderConfig { Glow = 100.0f }.IsValid().Should().BeTrue();
         new ShaderConfig { Glow = 0.1f }.IsValid().Should().BeFalse();
-        new ShaderConfig { Glow = 3.1f }.IsValid().Should().BeFalse();
     }
 
     [Fact]

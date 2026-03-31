@@ -496,8 +496,8 @@ public class ControlPanel
 
         // Rain parameters
         TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatSectionHeader("RAIN PARAMETERS"));
-        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("E/R", "Speed", config.Speed.ToString("F1"), config.Speed, 0.1f, 5f));
-        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("D/F", "Glow", config.Glow.ToString("F1"), config.Glow, 0.2f, 3f));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("E/R", "Speed", config.Speed.ToString("F1"), config.Speed, 0.1f, 20f));
+        TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("D/F", "Glow", config.Glow.ToString("F1"), config.Glow, 0.2f, 5f));
         TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("C/V", "Width", config.Width.ToString("F0"), config.Width, 6f, 20f));
         TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("T/Y", "Trail", config.Trail.ToString("F0"), config.Trail, 4f, 15f));
         TuiRenderer.AppendPaddedLine(sb, cw, TuiRenderer.FormatParameterRow("G/H", "Density", config.Density.ToString("F1"), config.Density, 0.2f, 1f));

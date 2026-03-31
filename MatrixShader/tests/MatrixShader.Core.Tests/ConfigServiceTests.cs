@@ -279,7 +279,7 @@ public class ConfigServiceTests : IDisposable
         var bad = new ShaderConfig { R = 2f, Speed = 100f, Width = 0f };
         var clamped = bad.Clamp();
         clamped.R.Should().Be(1f);
-        clamped.Speed.Should().Be(5f);
+        clamped.Speed.Should().Be(20f);
         clamped.Width.Should().Be(6f);
         clamped.IsValid().Should().BeTrue();
     }

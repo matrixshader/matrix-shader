@@ -256,7 +256,7 @@ public class ConstructTests
     [Fact]
     public void ShaderConfig_Invalid_Speed_Above_Max()
     {
-        var config = new ShaderConfig { Speed = 6f };
+        var config = new ShaderConfig { Speed = 21f };
         config.IsValid().Should().BeFalse();
     }
 
@@ -273,7 +273,7 @@ public class ConstructTests
 
         clamped.R.Should().BeApproximately(0f, 0.001f);
         clamped.G.Should().BeApproximately(1f, 0.001f);
-        clamped.Speed.Should().BeApproximately(5f, 0.001f);
+        clamped.Speed.Should().BeApproximately(20f, 0.001f);
         clamped.Glow.Should().BeApproximately(0.2f, 0.001f);
         clamped.Width.Should().BeApproximately(6f, 0.001f);
         clamped.Trail.Should().BeApproximately(15f, 0.001f);

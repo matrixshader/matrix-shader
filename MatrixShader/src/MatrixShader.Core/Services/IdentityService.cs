@@ -78,9 +78,9 @@ public class IdentityService : IIdentityService
         if (terminalWindows.Count == 0)
             return results;
 
-        // Batch query command lines for all PIDs (Layer 2 optimization - O(1) instead of O(n))
-        var pids = terminalWindows.Select(w => w.processId).Distinct();
-        var commandLineCache = BatchQueryCommandLines(pids);
+        // Layer 2 (WMI command line) is disabled for WT — shared PID makes it unreliable.
+        // Pass empty cache; resolution uses Layer 1 (registry) + Layer 3 (title) + Layer 4 (UI Automation).
+        var commandLineCache = new Dictionary<int, string>();
 
         var unidentified = new List<(nint hwnd, string title, int processId)>();
 
@@ -245,13 +245,14 @@ public class IdentityService : IIdentityService
         WindowInfo? result = GetLaunchRegistryIdentity(hwnd, processId);
         if (result != null) { _handleCache[hwnd] = result; return result; }
 
-        // Layer 2: Command Line Analysis (single process - batch used in FindMatrixWindows)
-        result = GetCommandLineIdentity(hwnd, processId, title);
-        if (result != null) { _handleCache[hwnd] = result; return result; }
-
-        // Layer 3: Title Pattern Matching (fast, ~5ms)
+        // Layer 3: Title Pattern Matching (fast, ~5ms) — BEFORE Layer 2
+        // Title is reliable when SuppressApplicationTitle=true locks it to "Matrix-{slot}".
+        // Must run before command line analysis because WT shares one PID across all windows.
         result = GetTitleIdentity(hwnd, processId, title);
         if (result != null) { _handleCache[hwnd] = result; return result; }
+
+        // Layer 2: SKIPPED for WindowsTerminal — shared PID makes command line unreliable.
+        // Kept for potential non-WT terminal emulators where each window has its own process.
 
         // Layer 4: UI Automation (slow fallback, 100-300ms)
         result = GetUIAutomationIdentity(hwnd, processId, title);
@@ -852,16 +853,17 @@ public class IdentityService : IIdentityService
         WindowInfo? result = GetLaunchRegistryIdentity(hwnd, processId);
         if (result != null) { _handleCache[hwnd] = result; return result; }
 
-        // Layer 2: Command Line (from cache)
-        if (commandLineCache.TryGetValue(processId, out var cmdLine))
-        {
-            result = ParseCommandLineIdentity(hwnd, processId, title, cmdLine);
-            if (result != null) { _handleCache[hwnd] = result; return result; }
-        }
-
-        // Layer 3: Title Pattern Matching
+        // Layer 3: Title Pattern Matching (BEFORE Layer 2)
+        // Title is reliable when SuppressApplicationTitle=true locks it to "Matrix-{slot}".
+        // Must run before command line analysis because WT shares one PID across all windows,
+        // so WMI returns a single stale command line that poisons every window's identity.
         result = GetTitleIdentity(hwnd, processId, title);
         if (result != null) { _handleCache[hwnd] = result; return result; }
+
+        // Layer 2: SKIPPED for WindowsTerminal processes.
+        // WT shares one PID across all windows, so WMI returns a single stale command line
+        // (from the original launch) that cannot distinguish individual windows.
+        // Layer 3 (title matching) is authoritative for WT with SuppressApplicationTitle=true.
 
         // Layer 4: UI Automation (slow fallback)
         result = GetUIAutomationIdentity(hwnd, processId, title);
