@@ -167,7 +167,7 @@ class TestQuickLaunch:
         """quick_launch returns the config path."""
         mock_create.return_value = str(isolate_env / "shaders" / "matrix-1.glsl")
         result = construct_service.quick_launch("green")
-        assert result["conf"] == "/tmp/ghostty-matrix-1.conf"
+        assert result["conf"] == f"/tmp/matrixshader-{os.getuid()}/ghostty-matrix-1.conf"
 
     @patch("construct_service._get_occupied_slots", return_value={1, 2, 3, 4, 5, 6, 7, 8})
     def test_quick_launch_all_slots_full_returns_error(self, mock_slots):
@@ -225,7 +225,7 @@ class TestTransitionToRain:
             construct_service.transition_to_rain(slot, 0, construct_conf=construct_conf)
 
         # Matrix config should be created
-        matrix_conf = f"/tmp/ghostty-matrix-{slot}.conf"
+        matrix_conf = f"/tmp/matrixshader-{os.getuid()}/ghostty-matrix-{slot}.conf"
         try:
             assert os.path.isfile(matrix_conf)
             with open(matrix_conf) as f:
@@ -257,7 +257,7 @@ class TestTransitionToRain:
             mock_find.assert_called_once()
             mock_reload.assert_called_once_with(":1.55")
 
-        for f in [construct_conf, f"/tmp/ghostty-matrix-{slot}.conf"]:
+        for f in [construct_conf, f"/tmp/matrixshader-{os.getuid()}/ghostty-matrix-{slot}.conf"]:
             try: os.unlink(f)
             except FileNotFoundError: pass
 
@@ -274,7 +274,7 @@ class TestTransitionToRain:
         mock_bus.return_value = {1: {"pid": 123, "bus_name": ":1.42"}}
         mock_reload.return_value = True
 
-        conf_path = f"/tmp/ghostty-matrix-{slot}.conf"
+        conf_path = f"/tmp/matrixshader-{os.getuid()}/ghostty-matrix-{slot}.conf"
         with open(conf_path, "w") as f:
             f.write(
                 "custom-shader = /path/to/white-room.glsl\n"

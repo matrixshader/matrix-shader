@@ -39,15 +39,15 @@ Release: v{OLD} → v{NEW}
 ### Step 2: Pre-flight Checks
 
 ```bash
-# 1. LICENSE_SECRET must be available
-[ -n "$LICENSE_SECRET" ] || [ -f MatrixShader/license-secret.key ] || echo "BLOCKED: No license secret"
-
-# 2. Patched Ghostty binary must exist
+# 1. Patched Ghostty binary must exist
 [ -x ~/ghostty-build/zig-out/bin/ghostty ] || echo "BLOCKED: No patched Ghostty binary"
 
-# 3. Tests must pass
+# 2. Tests must pass
 python -m pytest linux/tests/ -q --tb=short
 python -m pytest mac/tests/ -q --tb=short
+
+# 3. Secret must NOT be in any build artifact (server-only validation since 2026-03-29)
+# If _license_secret.py exists in the build tree, STOP — it should not be bundled
 ```
 
 **If any check fails**: STOP. Do not build.
@@ -70,8 +70,10 @@ echo "X.Y.Z" > VERSION
 ```bash
 # Shaders keep -ghostty suffix
 tar tzf matrixshader-linux-x86_64.tar.gz | grep "\.glsl" | head -5
-# License secret embedded
-tar tzf matrixshader-linux-x86_64.tar.gz | grep "_license_secret"
+# Secret must NOT be in tarball (server-only validation)
+tar tzf matrixshader-linux-x86_64.tar.gz | grep "_license_secret" && echo "FAIL: secret in tarball!" || echo "OK: no secret"
+# Preset system files must be present
+tar tzf matrixshader-linux-x86_64.tar.gz | grep "preset_service\|preset_menu"
 # All scripts present
 tar tzf matrixshader-linux-x86_64.tar.gz | grep "scripts/" | head -20
 ```
@@ -158,5 +160,5 @@ curl -sLI "https://github.com/matrixshader/matrix-shader/releases/download/v{NEW
 
 - **Build fails**: Fix error, re-run `/dejavu-linux build-only`
 - **Release exists**: Use `gh release upload` to add assets
-- **No secret**: Get from Vercel or `MatrixShader/license-secret.key`
+- **Secret found in build**: Remove it — client is server-only validation since 2026-03-29
 - **No Ghostty binary**: Build it: `cd ~/ghostty-build && PATH="/tmp/zig-linux-x86_64-0.13.0:$PATH" zig build -Doptimize=ReleaseFast -Dapp-runtime=gtk`

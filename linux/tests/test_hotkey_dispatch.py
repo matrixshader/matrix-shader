@@ -333,7 +333,7 @@ class TestKeyboardReconnect:
         """PIDFILE constant is still defined."""
         import matrix_keys
         assert hasattr(matrix_keys, "PIDFILE")
-        assert matrix_keys.PIDFILE == "/tmp/matrix-keys.pid"
+        assert matrix_keys.PIDFILE == f"/tmp/matrixshader-{os.getuid()}/matrix-keys.pid"
 
 
 # ---------------------------------------------------------------------------
