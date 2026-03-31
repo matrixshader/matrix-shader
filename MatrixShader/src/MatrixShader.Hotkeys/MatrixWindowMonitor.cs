@@ -173,6 +173,19 @@ public sealed class MatrixWindowMonitor : IDisposable
                 _noWindowCount = 0;
                 _lastWindowSeen = DateTime.Now;
 
+                // VACCINE: Register any discovered windows that aren't in the identity cache.
+                // FindMatrixWindows uses command-line analysis to identify slots, but
+                // windows launched before hotkeys started (or with stale registrations)
+                // won't have an explicit handle→slot mapping. Register them now.
+                foreach (var window in shaderWindows)
+                {
+                    if (window.ShaderIndex > 0)
+                    {
+                        _identityService.RegisterWindowHandle(
+                            window.Handle, window.ProfileName ?? $"Matrix-{window.ShaderIndex}", window.ShaderIndex);
+                    }
+                }
+
                 // Check for overlapping windows (Glitch system)
                 CheckForOverlap(shaderWindows);
             }
