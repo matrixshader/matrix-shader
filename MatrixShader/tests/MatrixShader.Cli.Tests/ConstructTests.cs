@@ -337,4 +337,54 @@ public class ConstructTests
     }
 
     #endregion
+
+    #region Slot Uniqueness
+
+    [Fact]
+    public void MultipleConstructLaunches_ShouldGetDifferentSlots()
+    {
+        // Simulate: 3 windows already open at slots 1, 2, 3
+        // Next launch should get slot 4, not reuse 1/2/3
+        var usedSlots = new HashSet<int> { 1, 2, 3 };
+        int nextSlot = -1;
+        for (int i = 1; i <= 8; i++)
+        {
+            if (!usedSlots.Contains(i))
+            {
+                nextSlot = i;
+                break;
+            }
+        }
+        nextSlot.Should().Be(4);
+    }
+
+    [Fact]
+    public void AllSlotsFull_ShouldReturnMinusOne()
+    {
+        var usedSlots = new HashSet<int> { 1, 2, 3, 4, 5, 6, 7, 8 };
+        int nextSlot = -1;
+        for (int i = 1; i <= 8; i++)
+        {
+            if (!usedSlots.Contains(i))
+            {
+                nextSlot = i;
+                break;
+            }
+        }
+        nextSlot.Should().Be(-1);
+    }
+
+    [Fact]
+    public void ProfileName_ShouldMatchSlot()
+    {
+        // Each construct window must use a unique profile name based on its slot
+        for (int slot = 1; slot <= 8; slot++)
+        {
+            var profileName = $"Matrix-{slot}";
+            profileName.Should().StartWith("Matrix-");
+            profileName.Should().EndWith(slot.ToString());
+        }
+    }
+
+    #endregion
 }

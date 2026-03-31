@@ -336,7 +336,9 @@ public static class Program
             {
                 if (w.ShaderIndex == slot)
                 {
-                    // New window found — clear reservation and run layout
+                    // New window found — explicitly register identity so Redpill
+                    // and hotkeys always know which slot this handle belongs to.
+                    identityService.RegisterWindowHandle(w.Handle, $"Matrix-{slot}", slot);
                     ClearReservation(slot);
                     Thread.Sleep(500); // Let window finish initializing
                     var allWindows = identityService.FindMatrixWindows()
