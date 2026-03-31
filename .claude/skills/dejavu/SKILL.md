@@ -55,6 +55,14 @@ Update version in ALL of these files (use Edit tool for each):
 
 **TIP**: Use `grep -r` to scan for the OLD version string across the entire private website repo to catch any other references.
 
+### Step 2.5: Run Tests
+
+```bash
+cd "$PROJECT_ROOT" && dotnet test MatrixShader/MatrixShader.sln -c Release --verbosity minimal
+```
+
+**If any tests fail**: STOP. Do not build or release. Fix the failing tests first.
+
 ### Step 3: Rebuild C# Projects
 
 Run the publish script to rebuild all executables:
@@ -84,6 +92,23 @@ The script copies all executables, DLLs, and shaders, then verifies key executab
 - matrix-monitor.exe
 
 **If any are MISSING**: STOP and investigate the build output.
+
+### Step 4.5: Preflight — Verify No Secrets in Build
+
+**CRITICAL SECURITY CHECK**: Before packaging, verify the HMAC license secret is NOT embedded in any binary. The secret was removed in the 2026-03-29 security fix. This check prevents accidental re-introduction.
+
+```bash
+# Check for secret references in the Core DLL
+strings installer/publish/MatrixShader.Core.dll 2>/dev/null | grep -i "HMAC\|LicenseSecret\|ComputeHash\|ProductSecret\|DEV-PLACEHOLDER" && echo "FAIL: SECRET FOUND IN BINARY" && exit 1 || echo "CLEAN: No secret in binary"
+
+# Check that EmbedLicenseSecret target is NOT in the csproj
+grep -q "EmbedLicenseSecret" MatrixShader/src/MatrixShader.Core/MatrixShader.Core.csproj && echo "FAIL: EmbedLicenseSecret still in csproj" && exit 1 || echo "CLEAN: No embed target"
+
+# Check that LicenseSecret.g.cs does not exist
+find MatrixShader/src -name "LicenseSecret.g.cs" 2>/dev/null | grep -q . && echo "FAIL: LicenseSecret.g.cs exists" && exit 1 || echo "CLEAN: No generated secret file"
+```
+
+**If ANY check fails**: STOP immediately. Do NOT create release assets. Fix the source of the secret leak first.
 
 ### Step 5: Create ZIP Archive
 

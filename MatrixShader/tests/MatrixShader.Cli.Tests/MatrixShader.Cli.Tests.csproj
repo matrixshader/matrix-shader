@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Moq" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MatrixShader.Core\MatrixShader.Core.csproj" />
+    <ProjectReference Include="..\..\src\MatrixShader.Cli\WakeupNeo\MatrixShader.Cli.WakeupNeo.csproj" />
+    <ProjectReference Include="..\..\src\MatrixShader.Cli\Construct\MatrixShader.Cli.Construct.csproj" />
+    <ProjectReference Include="..\..\src\MatrixShader.Cli\Bluepill\MatrixShader.Cli.Bluepill.csproj" />
+    <ProjectReference Include="..\..\src\MatrixShader.Cli\Redpill\MatrixShader.Cli.Redpill.csproj" />
+    <ProjectReference Include="..\..\src\MatrixShader.Hotkeys\MatrixShader.Hotkeys.csproj" />
+    <ProjectReference Include="..\..\src\MatrixShader.Cli\MatrixLite\MatrixShader.Cli.MatrixLite.csproj" />
+    <ProjectReference Include="..\..\src\MatrixShader.Monitor\MatrixShader.Monitor.csproj" />
+    <ProjectReference Include="..\..\src\MatrixShader.Lite\MatrixShader.Lite.csproj" />
+  </ItemGroup>
+
+</Project>
