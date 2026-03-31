@@ -262,7 +262,7 @@ public static class Program
             Foreground = $"#{r:X2}{g:X2}{b:X2}",
             FontFace = "Nimbus Mono PS",
             FontWeight = "bold",
-            SuppressApplicationTitle = false
+            SuppressApplicationTitle = true
         };
         terminalService.UpsertProfileSurgical(profile);
 

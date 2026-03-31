@@ -267,7 +267,7 @@ public class TerminalSettingsService : ITerminalSettingsService
                 Foreground = tabColor,  // Text color matches rain color
                 FontFace = "Nimbus Mono PS",
                 FontWeight = "bold",
-                SuppressApplicationTitle = false
+                SuppressApplicationTitle = true
             };
 
             UpsertProfile(settings, profile);

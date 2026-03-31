@@ -194,7 +194,7 @@ public static class Program
             Foreground = $"#{r:X2}{g:X2}{b:X2}",
             FontFace = "Nimbus Mono PS",
             FontWeight = "bold",
-            SuppressApplicationTitle = false
+            SuppressApplicationTitle = true
         };
         terminalService.UpsertProfileSurgical(profile);
 
@@ -274,7 +274,7 @@ public static class Program
             Foreground = $"#{r:X2}{g:X2}{b:X2}",
             FontFace = "Nimbus Mono PS",
             FontWeight = "bold",
-            SuppressApplicationTitle = false  // Allow commandline to set window title
+            SuppressApplicationTitle = true  // Allow commandline to set window title
         };
         terminalService.UpsertProfileSurgical(profile);
 
@@ -438,7 +438,7 @@ public static class Program
             TabColor = "#000000",
             Background = "#000000",        // Pure black until shader loads
             Foreground = "#000000",        // Hide any console output
-            SuppressApplicationTitle = false
+            SuppressApplicationTitle = true
         };
         terminalService.UpsertProfileSurgical(constructProfile);
 
@@ -675,7 +675,7 @@ public static class Program
                 UseAcrylic = false,
                 TabColor = $"#{r:X2}{g:X2}{b:X2}",
                 Foreground = $"#{r:X2}{g:X2}{b:X2}",
-                SuppressApplicationTitle = false
+                SuppressApplicationTitle = true
             };
 
             // Atomic: remove Construct + upsert Matrix in one write — no intermediate duplicate GUID state.
