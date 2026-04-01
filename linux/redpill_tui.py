@@ -87,7 +87,7 @@ STATE_PATH = os.path.expanduser("~/.config/matrix-shader/state.json")
 # Default layout state
 DEFAULT_LAYOUT = {
     "mode": "Pillars",
-    "glitch_enabled": False,
+    "glitch_enabled": True,
     "priority_lock": False,
     "primary_window_count": 0,
 }
@@ -490,7 +490,7 @@ class RedpillTUI:
                 f"{R.progress_bar(self.opacity, 0, 100)}")
 
         # Combat training
-        glitch_on = self.layout.get("glitch_enabled", False)
+        glitch_on = self.layout.get("glitch_enabled", True)
         glitch_status = "ON " if glitch_on else "off"
         glitch_color = R.CYAN if glitch_on else R.GRAY
         R.append_padded_line(buf, cw, R.format_section_header("COMBAT TRAINING"))
@@ -629,7 +629,7 @@ class RedpillTUI:
             self._save_layout()
             return
         if action == "GlitchToggle":
-            self.layout["glitch_enabled"] = not self.layout.get("glitch_enabled", False)
+            self.layout["glitch_enabled"] = not self.layout.get("glitch_enabled", True)
             self._save_layout()
             return
         if action == "SnapbackSave":
