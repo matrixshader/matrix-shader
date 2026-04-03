@@ -68,6 +68,8 @@ ffmpeg.exe
 !README.md
 !CLAUDE.md
 !BRAND.md
+!CHANGELOG.md
+!LICENSE
 /*.json
 !package.json
 !vercel.json
