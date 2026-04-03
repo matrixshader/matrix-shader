@@ -570,27 +570,27 @@ def check_and_snap():
         if geo:
             current_geos[slot] = geo
 
-    if not current_geos:
+    if len(current_geos) < 2:
         return 0
 
-    # Detect ANY deviation from target — position, size, or overlap
-    # This catches: manual drag, Super+L half-screen, fullscreen, resize, anything
-    has_drift = False
-    for slot, target in _last_applied.items():
-        cur = current_geos.get(slot)
-        if not cur:
-            continue
-        if (abs(cur["x"] - target["x"]) > GLITCH_DRIFT_THRESHOLD or
-            abs(cur["y"] - target["y"]) > GLITCH_DRIFT_THRESHOLD or
-            abs(cur["width"] - target["width"]) > GLITCH_DRIFT_THRESHOLD or
-            abs(cur["height"] - target["height"]) > GLITCH_DRIFT_THRESHOLD):
-            has_drift = True
+    # Detect overlap between any pair of Matrix windows
+    # Does NOT trigger on manual resize or move — only when windows pile on each other
+    has_overlap = False
+    slots_list = list(current_geos.keys())
+    for i in range(len(slots_list)):
+        for j in range(i + 1, len(slots_list)):
+            a, b = current_geos[slots_list[i]], current_geos[slots_list[j]]
+            if (a["x"] < b["x"] + b["width"] and a["x"] + a["width"] > b["x"] and
+                a["y"] < b["y"] + b["height"] and a["y"] + a["height"] > b["y"]):
+                has_overlap = True
+                break
+        if has_overlap:
             break
 
-    if not has_drift:
+    if not has_overlap:
         return 0
 
-    # Something changed — force ALL windows back to correct position AND size
+    # Overlapping — snap back to correct position AND size
     snapped = 0
     for slot, target in _last_applied.items():
         ok = window_service.position_window(

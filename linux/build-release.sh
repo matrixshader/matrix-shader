@@ -167,6 +167,9 @@ echo -e "${DIM}  Staging installer...${RESET}"
 cp "$SCRIPT_DIR/install.sh" "$RELEASE_DIR/"
 chmod +x "$RELEASE_DIR/install.sh"
 
+# 6. Copy third-party licenses
+[ -f "$SCRIPT_DIR/THIRD-PARTY-LICENSES.txt" ] && cp "$SCRIPT_DIR/THIRD-PARTY-LICENSES.txt" "$RELEASE_DIR/"
+
 # Write version stamp from Directory.Build.props (package.json moved to private repo)
 PACKAGE_VERSION=$(grep -oP '<Version>\K[^<]+' "$PROJECT_DIR/MatrixShader/Directory.Build.props" 2>/dev/null || echo "1.0.0")
 echo "$PACKAGE_VERSION" > "$RELEASE_DIR/VERSION"

@@ -158,28 +158,28 @@ class TestNavigation:
         """Down arrow increments selected index."""
         screen = _make_screen(presets=_sample_presets())
         screen.selected = 0
-        screen._handle_key(-4)  # Down arrow
+        screen._handle_key("DOWN")
         assert screen.selected == 1
 
     def test_up_arrow_moves_selection_up(self):
         """Up arrow decrements selected index."""
         screen = _make_screen(presets=_sample_presets())
         screen.selected = 1
-        screen._handle_key(-3)  # Up arrow
+        screen._handle_key("UP")
         assert screen.selected == 0
 
     def test_down_arrow_wraps_to_top(self):
         """Down from last item wraps to first."""
         screen = _make_screen(presets=_sample_presets())
         screen.selected = 2  # last item
-        screen._handle_key(-4)  # Down arrow
+        screen._handle_key("DOWN")
         assert screen.selected == 0
 
     def test_up_arrow_wraps_to_bottom(self):
         """Up from first item wraps to last."""
         screen = _make_screen(presets=_sample_presets())
         screen.selected = 0
-        screen._handle_key(-3)  # Up arrow
+        screen._handle_key("UP")
         assert screen.selected == 2
 
 
@@ -192,8 +192,8 @@ class TestSaveFlow:
         """Save flow reads name, calls save_preset with current config."""
         screen = _make_screen(presets=[])
         # Mock read_key to type "cool" then Enter
-        keys = [ord('c'), ord('o'), ord('o'), ord('l'), 10]  # Enter=10
-        with patch.object(pms, 'read_key', side_effect=keys):
+        keys = ['c', 'o', 'o', 'l', 'ENTER']
+        with patch.object(screen, '_read_raw_key', side_effect=keys):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_save()
         _save_preset.assert_called_once()
@@ -205,8 +205,8 @@ class TestSaveFlow:
         """Empty name shows error, save_preset NOT called."""
         screen = _make_screen(presets=[])
         # Just press Enter with nothing typed
-        keys = [10]
-        with patch.object(pms, 'read_key', side_effect=keys):
+        keys = ['ENTER']
+        with patch.object(screen, '_read_raw_key', side_effect=keys):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_save()
         _save_preset.assert_not_called()
@@ -216,8 +216,8 @@ class TestSaveFlow:
     def test_save_esc_cancels(self):
         """ESC during name input cancels save."""
         screen = _make_screen(presets=[])
-        keys = [ord('a'), ord('b'), 27]  # ESC=27
-        with patch.object(pms, 'read_key', side_effect=keys):
+        keys = ['a', 'b', 'ESC']
+        with patch.object(screen, '_read_raw_key', side_effect=keys):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_save()
         _save_preset.assert_not_called()
@@ -226,8 +226,8 @@ class TestSaveFlow:
         """Backspace removes last character during name input."""
         screen = _make_screen(presets=[])
         # Type "abc", backspace, "d", Enter -> "abd"
-        keys = [ord('a'), ord('b'), ord('c'), 127, ord('d'), 10]
-        with patch.object(pms, 'read_key', side_effect=keys):
+        keys = ['a', 'b', 'c', 'BACKSPACE', 'd', 'ENTER']
+        with patch.object(screen, '_read_raw_key', side_effect=keys):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_save()
         _save_preset.assert_called_once()
@@ -238,8 +238,8 @@ class TestSaveFlow:
         presets = _sample_presets()
         screen = _make_screen(presets=presets)
         # Type "night-mode" then Enter, then Y to confirm overwrite
-        name_keys = [ord(c) for c in "night-mode"] + [10, ord('y')]
-        with patch.object(pms, 'read_key', side_effect=name_keys):
+        name_keys = list("night-mode") + ['ENTER', 'y']
+        with patch.object(screen, '_read_raw_key', side_effect=name_keys):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_save()
         _save_preset.assert_called_once()
@@ -249,8 +249,8 @@ class TestSaveFlow:
         presets = _sample_presets()
         screen = _make_screen(presets=presets)
         # Type "night-mode" then Enter, then N to reject
-        name_keys = [ord(c) for c in "night-mode"] + [10, ord('n')]
-        with patch.object(pms, 'read_key', side_effect=name_keys):
+        name_keys = list("night-mode") + ['ENTER', 'n']
+        with patch.object(screen, '_read_raw_key', side_effect=name_keys):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_save()
         _save_preset.assert_not_called()
@@ -258,8 +258,8 @@ class TestSaveFlow:
     def test_save_status_message_set(self):
         """Successful save sets status message."""
         screen = _make_screen(presets=[])
-        keys = [ord('t'), ord('e'), ord('s'), ord('t'), 10]
-        with patch.object(pms, 'read_key', side_effect=keys):
+        keys = list("test") + ['ENTER']
+        with patch.object(screen, '_read_raw_key', side_effect=keys):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_save()
         assert screen.status_msg is not None
@@ -276,18 +276,20 @@ class TestLoadFlow:
         presets = _sample_presets()
         screen = _make_screen(active_slot=1, presets=presets)
         screen.selected = 1  # my-cool-preset
-        _get_ghostty_bus_names.return_value = {
-            1: {"bus_name": "org.ghostty.test_1234", "pid": 1234}
-        }
         custom_params = dict(shader_service.PARAM_DEFAULTS)
         custom_params["RAIN_R"] = 0.5
         _load_preset.return_value = custom_params
 
-        screen._do_load()
+        # Mock subprocess.run (imported inside _do_load)
+        mock_busctl = MagicMock()
+        mock_busctl.stdout = ":1.999 1234 ghostty\n"
+        with patch("subprocess.run", return_value=mock_busctl), \
+             patch("window_service.get_pid_for_slot", return_value=1234):
+            screen._do_load()
 
         _load_preset.assert_called_once_with("my-cool-preset", "/tmp/test-presets")
         _write_shader_params.assert_called_once_with(1, custom_params)
-        _reload_ghostty.assert_called_once_with("org.ghostty.test_1234")
+        _reload_ghostty.assert_called_once_with(":1.999")
 
     def test_load_empty_list_no_op(self):
         """Load with no presets does nothing."""
@@ -314,12 +316,17 @@ class TestLoadFlow:
         presets = _sample_presets()
         screen = _make_screen(active_slot=1, presets=presets)
         screen.selected = 0
-        _get_ghostty_bus_names.return_value = {}  # No windows
 
-        screen._do_load()
+        # Mock subprocess.run to return nothing, and no PID for slot
+        mock_busctl = MagicMock()
+        mock_busctl.stdout = ""
+        with patch("subprocess.run", return_value=mock_busctl), \
+             patch("window_service.get_pid_for_slot", return_value=None):
+            screen._do_load()
 
         _load_preset.assert_called_once()
         _write_shader_params.assert_called_once()
+        _reload_ghostty.assert_not_called()
         _reload_ghostty.assert_not_called()
 
 
@@ -334,7 +341,7 @@ class TestDeleteFlow:
         screen = _make_screen(presets=presets)
         screen.selected = 1  # my-cool-preset
 
-        with patch.object(pms, 'read_key', return_value=ord('y')):
+        with patch.object(screen, '_read_raw_key', return_value='y'):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_delete()
 
@@ -346,7 +353,7 @@ class TestDeleteFlow:
         screen = _make_screen(presets=presets)
         screen.selected = 0
 
-        with patch.object(pms, 'read_key', return_value=ord('n')):
+        with patch.object(screen, '_read_raw_key', return_value='n'):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_delete()
 
@@ -369,7 +376,7 @@ class TestDeleteFlow:
             _list_presets.return_value = presets[:2]
         _delete_preset.side_effect = lambda *a, **kw: _shrink_list()
 
-        with patch.object(pms, 'read_key', return_value=ord('y')):
+        with patch.object(screen, '_read_raw_key', return_value='y'):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_delete()
 
@@ -381,7 +388,7 @@ class TestDeleteFlow:
         screen = _make_screen(presets=presets)
         screen.selected = 0
 
-        with patch.object(pms, 'read_key', return_value=ord('y')):
+        with patch.object(screen, '_read_raw_key', return_value='y'):
             with patch('sys.stdout', new_callable=lambda: MagicMock()):
                 screen._do_delete()
 
@@ -397,7 +404,7 @@ class TestKeyDispatch:
     def test_esc_returns_false(self):
         """ESC key signals exit from run loop."""
         screen = _make_screen(presets=_sample_presets())
-        result = screen._handle_key(27)  # ESC
+        result = screen._handle_key("ESC")
         assert result is False
 
     def test_s_key_triggers_save(self):
@@ -405,39 +412,39 @@ class TestKeyDispatch:
         screen = _make_screen(presets=[])
         # Mock _do_save so it doesn't actually run
         screen._do_save = MagicMock()
-        screen._handle_key(ord('s'))
+        screen._handle_key('s')
         screen._do_save.assert_called_once()
 
     def test_capital_s_triggers_save(self):
         """Pressing 'S' also triggers save flow."""
         screen = _make_screen(presets=[])
         screen._do_save = MagicMock()
-        screen._handle_key(ord('S'))
+        screen._handle_key('S')
         screen._do_save.assert_called_once()
 
     def test_enter_triggers_load(self):
         """Enter triggers load flow."""
         screen = _make_screen(presets=_sample_presets())
         screen._do_load = MagicMock()
-        screen._handle_key(10)
+        screen._handle_key("ENTER")
         screen._do_load.assert_called_once()
 
     def test_d_triggers_delete(self):
         """Pressing 'd' triggers delete flow."""
         screen = _make_screen(presets=_sample_presets())
         screen._do_delete = MagicMock()
-        screen._handle_key(ord('d'))
+        screen._handle_key('d')
         screen._do_delete.assert_called_once()
 
     def test_capital_d_triggers_delete(self):
         """Pressing 'D' also triggers delete flow."""
         screen = _make_screen(presets=_sample_presets())
         screen._do_delete = MagicMock()
-        screen._handle_key(ord('D'))
+        screen._handle_key('D')
         screen._do_delete.assert_called_once()
 
     def test_unknown_key_returns_true(self):
         """Unknown keys do not exit the loop."""
         screen = _make_screen(presets=_sample_presets())
-        result = screen._handle_key(ord('z'))
+        result = screen._handle_key('z')
         assert result is True

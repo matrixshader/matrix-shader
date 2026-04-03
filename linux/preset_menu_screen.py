@@ -96,7 +96,7 @@ class PresetMenuScreen:
         if not self.presets:
             R.append_padded_line(
                 buf, cw,
-                f" {R.GRAY}No presets saved yet. Press [S] to save your current config.{R.RESET}"
+                f" {R.WHITE}No presets saved yet. Press [S] to save your current config.{R.RESET}"
             )
             R.append_padded_line(buf, cw, "")
         else:
@@ -110,8 +110,8 @@ class PresetMenuScreen:
                     marker = f"{R.YELLOW}[>]{R.RESET}"
                     name_str = f"{R.YELLOW}{name}{R.RESET}"
                 else:
-                    marker = f"{R.GRAY}[ ]{R.RESET}"
-                    name_str = f"{R.GRAY}{name}{R.RESET}"
+                    marker = f"{R.WHITE}[ ]{R.RESET}"
+                    name_str = f"{R.WHITE}{name}{R.RESET}"
 
                 line = f" {marker} {name_str}  {swatch}  {R.GRAY}{date_str}{R.RESET}"
                 R.append_padded_line(buf, cw, line)
@@ -121,7 +121,7 @@ class PresetMenuScreen:
         # Footer with controls
         R.append_padded_line(
             buf, cw,
-            f" {R.GRAY}[S] Save  [ENTER] Load  [D] Delete  [ESC] Back{R.RESET}"
+            f" {R.GREEN}[S]{R.RESET} Save  {R.GREEN}[ENTER]{R.RESET} Load  {R.GREEN}[D]{R.RESET} Delete  {R.GREEN}[ESC]{R.RESET} Back"
         )
 
         # Status message
@@ -140,44 +140,95 @@ class PresetMenuScreen:
         return buf
 
     def _draw(self):
-        """Write the rendered frame to stdout."""
-        buf = self._render()
-        frame = "".join(buf)
-        sys.stdout.write("\x1b[H")  # cursor home
-        sys.stdout.write(frame)
+        """Write the preset screen directly — no TuiRenderer."""
+        G = "\x1b[38;2;110;220;170m"  # bright green
+        W = "\x1b[97m"   # white
+        Y = "\x1b[33m"   # yellow
+        D = "\x1b[90m"   # dim
+        R = "\x1b[0m"    # reset
+
+        sys.stdout.write("\x1b[H\x1b[2J")  # home + clear (same order as _do_save)
+        sys.stdout.write(f"\n {G}PRESETS{R}\n\n")
+
+        if not self.presets:
+            sys.stdout.write(f" {W}No presets saved yet.{R}\n")
+        else:
+            for i, p in enumerate(self.presets):
+                name = p["name"]
+                if i == self.selected:
+                    sys.stdout.write(f" {Y}[>] {name}{R}\n")
+                else:
+                    sys.stdout.write(f" {W}[ ] {name}{R}\n")
+
+        sys.stdout.write(f"\n {G}[S]{R} Save  {G}[ENTER]{R} Load  {G}[D]{R} Delete  {G}[ESC]{R} Back\n")
+
+        if self.status_msg:
+            sys.stdout.write(f"\n {G}{self.status_msg}{R}\n")
+
         sys.stdout.flush()
 
     # -------------------------------------------------------------------
     # Key handling
     # -------------------------------------------------------------------
 
+    @staticmethod
+    def _read_raw_key():
+        """Read a single keypress using raw os.read — handles escape sequences."""
+        import select
+        fd = sys.stdin.fileno()
+        b = os.read(fd, 1)
+        if not b:
+            return None
+        if b == b'\x1b':
+            r, _, _ = select.select([fd], [], [], 0.1)
+            if r:
+                b2 = os.read(fd, 1)
+                if b2 == b'[':
+                    r2, _, _ = select.select([fd], [], [], 0.1)
+                    if r2:
+                        b3 = os.read(fd, 1)
+                        if b3 == b'A': return "UP"
+                        if b3 == b'B': return "DOWN"
+                        if b3 == b'C': return "RIGHT"
+                        if b3 == b'D': return "LEFT"
+                        while select.select([fd], [], [], 0.01)[0]:
+                            os.read(fd, 1)
+                        return None
+            return "ESC"
+        if b in (b'\n', b'\r'): return "ENTER"
+        if b[0] == 127: return "BACKSPACE"
+        if 32 <= b[0] < 127: return chr(b[0])
+        return None
+
     def _handle_key(self, key):
-        """Dispatch a key code. Returns False to exit, True to continue."""
-        # Clear status on any keypress
+        """Dispatch a key string. Returns False to exit, True to continue."""
         self.status_msg = None
 
-        if key == 27:  # ESC
+        if key is None:
+            return True
+
+        if key == "ESC":
             return False
 
-        if key == -3:  # Up arrow
+        if key == "UP":
             if self.presets:
                 self.selected = (self.selected - 1) % len(self.presets)
             return True
 
-        if key == -4:  # Down arrow
+        if key == "DOWN":
             if self.presets:
                 self.selected = (self.selected + 1) % len(self.presets)
             return True
 
-        if key in (ord('s'), ord('S')):
+        if key in ('s', 'S'):
             self._do_save()
             return True
 
-        if key in (10, 13):  # Enter
+        if key == "ENTER":
             self._do_load()
             return True
 
-        if key in (ord('d'), ord('D')):
+        if key in ('d', 'D'):
             self._do_delete()
             return True
 
@@ -197,26 +248,27 @@ class PresetMenuScreen:
         # Read name character by character
         name_buf = []
         while True:
-            key = read_key()
+            key = self._read_raw_key()
+            if key is None:
+                continue
 
-            if key == 27:  # ESC -- cancel
+            if key == "ESC":
                 return
 
-            if key in (10, 13):  # Enter -- confirm
+            if key == "ENTER":
                 break
 
-            if key == 127:  # Backspace
+            if key == "BACKSPACE":
                 if name_buf:
                     name_buf.pop()
                     sys.stdout.write("\b \b")
                     sys.stdout.flush()
                 continue
 
-            # Printable characters (32-126)
-            if 32 <= key <= 126:
-                ch = chr(key)
-                name_buf.append(ch)
-                sys.stdout.write(ch)
+            # Printable characters
+            if len(key) == 1 and 32 <= ord(key) <= 126:
+                name_buf.append(key)
+                sys.stdout.write(key)
                 sys.stdout.flush()
 
         name = "".join(name_buf).strip()
@@ -235,8 +287,8 @@ class PresetMenuScreen:
         if sanitized in existing_names:
             sys.stdout.write(f"\n Overwrite '{sanitized}'? [Y/N] ")
             sys.stdout.flush()
-            confirm = read_key()
-            if confirm not in (ord('y'), ord('Y')):
+            confirm = self._read_raw_key()
+            if confirm not in ('y', 'Y'):
                 self.status_msg = "Cancelled"
                 return
 
@@ -265,17 +317,40 @@ class PresetMenuScreen:
             self.status_msg = "Preset not found (may have been deleted)"
             return
 
-        write_shader_params(self.active_slot, params)
+        try:
+            write_shader_params(self.active_slot, params)
+        except Exception as e:
+            self.status_msg = f"Write failed: {e}"
+            return
 
-        # Trigger D-Bus reload for the active slot
-        bus_names = get_ghostty_bus_names()
-        slot_info = bus_names.get(self.active_slot)
-        if slot_info:
-            bus_name = slot_info.get("bus_name")
-            if bus_name:
-                reload_ghostty(bus_name)
+        # Find the bus name for THIS slot's PID and reload it
+        import subprocess
+        reloaded = False
+        try:
+            from window_service import get_pid_for_slot
+            target_pid = get_pid_for_slot(self.active_slot)
+            if target_pid:
+                result = subprocess.run(
+                    ["busctl", "--user", "list"],
+                    capture_output=True, text=True, timeout=3,
+                    stdin=subprocess.DEVNULL,
+                )
+                for line in result.stdout.splitlines():
+                    if "ghostty" not in line.lower():
+                        continue
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        try:
+                            if int(parts[1]) == target_pid:
+                                reload_ghostty(parts[0])
+                                reloaded = True
+                                break
+                        except ValueError:
+                            continue
+        except Exception:
+            pass
 
-        self.status_msg = f"Loaded '{name}'"
+        self.status_msg = f"Loaded '{name}'" if reloaded else f"Wrote '{name}' — reopen redpill to see changes"
 
     # -------------------------------------------------------------------
     # Delete flow
@@ -292,8 +367,8 @@ class PresetMenuScreen:
         sys.stdout.write(f"\n Delete '{name}'? [Y/N] ")
         sys.stdout.flush()
 
-        confirm = read_key()
-        if confirm not in (ord('y'), ord('Y')):
+        confirm = self._read_raw_key()
+        if confirm not in ('y', 'Y'):
             self.status_msg = "Cancelled"
             return
 
@@ -314,14 +389,21 @@ class PresetMenuScreen:
 
     def run(self):
         """Run the preset menu screen. Returns when user presses ESC."""
-        sys.stdout.write("\x1b[2J")  # clear screen
+        sys.stdout.write("\x1b[2J\x1b[H")  # clear screen + cursor home
         sys.stdout.flush()
 
-        while True:
-            self._draw()
-            key = read_key()
-            if not self._handle_key(key):
-                break
+        try:
+            while True:
+                self._draw()
+                key = self._read_raw_key()
+                if not self._handle_key(key):
+                    break
+        except Exception as e:
+            # Show error instead of silently dying
+            sys.stdout.write(f"\x1b[2J\x1b[H\x1b[31mPreset screen error: {e}\x1b[0m\n")
+            sys.stdout.write("Press any key...\n")
+            sys.stdout.flush()
+            self._read_raw_key()
 
         # Clear screen on exit
         sys.stdout.write("\x1b[2J")

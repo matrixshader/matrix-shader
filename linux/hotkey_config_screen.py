@@ -13,14 +13,22 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hotkey_config import DEFAULT_BINDINGS, load_config, save_config, is_redpill
 
 
-# Ordered list of all 13 actions (matches Windows display order)
+# Ordered list of default-bound actions
 ACTION_ORDER = [
     "SwapLeft", "SwapRight", "CycleLayout", "ToggleTransparency",
     "OpacityDown", "OpacityUp", "SpeedUp", "SpeedDown",
     "ToggleFar", "ToggleMid", "ToggleNear", "ShowHelp", "ManualReload",
+    "SnapbackSave", "SnapbackRestore",
 ]
 
-# Human-readable display names (matches Windows GetActionDisplayName)
+# ALL possible actions (includes user-addable ones with no default binding)
+ALL_ACTIONS = ACTION_ORDER + [
+    "GlowUp", "GlowDown", "WidthUp", "WidthDown",
+    "TrailUp", "TrailDown", "DensityUp", "DensityDown",
+    "RedUp", "RedDown", "GreenUp", "GreenDown", "BlueUp", "BlueDown",
+]
+
+# Human-readable display names
 ACTION_DISPLAY_NAMES = {
     "SwapLeft":           "Swap Window Left",
     "SwapRight":          "Swap Window Right",
@@ -35,6 +43,22 @@ ACTION_DISPLAY_NAMES = {
     "ToggleNear":         "Toggle Near Layer",
     "ShowHelp":           "Show Help",
     "ManualReload":       "Force Reload",
+    "SnapbackSave":       "Save Snapback",
+    "SnapbackRestore":    "Restore Snapback",
+    "GlowUp":             "Increase Glow",
+    "GlowDown":           "Decrease Glow",
+    "WidthUp":            "Increase Width",
+    "WidthDown":          "Decrease Width",
+    "TrailUp":            "Increase Trail",
+    "TrailDown":          "Decrease Trail",
+    "DensityUp":          "Increase Density",
+    "DensityDown":        "Decrease Density",
+    "RedUp":              "Increase Red",
+    "RedDown":            "Decrease Red",
+    "GreenUp":            "Increase Green",
+    "GreenDown":          "Decrease Green",
+    "BlueUp":             "Increase Blue",
+    "BlueDown":           "Decrease Blue",
 }
 
 # Color pair indices (reuse from redpill_tui)
@@ -54,7 +78,9 @@ def _safe_addstr(stdscr, row, col, text, attr=0):
 
 def format_binding(binding):
     """Format a binding dict as 'Ctrl+Shift+Left'."""
-    if not binding or not binding.get("enabled", True):
+    if not binding:
+        return "[Unbound]"
+    if not binding.get("enabled", True):
         return "[Disabled]"
     parts = list(binding.get("modifiers", []))
     parts.append(binding.get("key", "?"))
@@ -71,6 +97,10 @@ class HotkeyConfigScreen:
         self.edit_mode = False
         self.status_message = None
         self.actions = list(ACTION_ORDER)
+        # Include user-added actions from saved config
+        for action in self.config:
+            if action not in self.actions and action in ALL_ACTIONS:
+                self.actions.append(action)
 
     def get_display_name(self, action):
         """Get human-readable name for an action."""
@@ -244,103 +274,104 @@ class HotkeyConfigScreen:
     # ANSI mode (raw terminal, no curses) -- used by redpill_tui.py
     # -------------------------------------------------------------------
 
+    # -------------------------------------------------------------------
+    # Raw key reader (bypasses Python buffered IO)
+    # -------------------------------------------------------------------
+
+    @staticmethod
+    def _read_raw_key():
+        """Read a single keypress using raw os.read — handles escape sequences."""
+        import select
+        fd = sys.stdin.fileno()
+        b = os.read(fd, 1)
+        if not b:
+            return None
+        if b == b'\x1b':
+            r, _, _ = select.select([fd], [], [], 0.1)
+            if r:
+                b2 = os.read(fd, 1)
+                if b2 == b'[':
+                    r2, _, _ = select.select([fd], [], [], 0.1)
+                    if r2:
+                        b3 = os.read(fd, 1)
+                        if b3 == b'A': return "UP"
+                        if b3 == b'B': return "DOWN"
+                        if b3 == b'C': return "RIGHT"
+                        if b3 == b'D': return "LEFT"
+                        while select.select([fd], [], [], 0.01)[0]:
+                            os.read(fd, 1)
+                        return None
+            return "ESC"
+        if b in (b'\n', b'\r'): return "ENTER"
+        if b[0] == 127: return "BACKSPACE"
+        if 32 <= b[0] < 127: return chr(b[0])
+        return None
+
+    # -------------------------------------------------------------------
+    # ANSI rendering (direct writes, no TuiRenderer)
+    # -------------------------------------------------------------------
+
     def _render_ansi(self):
-        """Render config screen using raw ANSI escape codes."""
-        GREEN = "\x1b[32m"
-        YELLOW = "\x1b[33m"
-        CYAN = "\x1b[36m"
-        GRAY = "\x1b[90m"
-        RESET = "\x1b[0m"
+        """Render config screen — direct raw writes."""
+        G = "\x1b[38;2;110;220;170m"
+        Y = "\x1b[33m"
+        C = "\x1b[36m"
+        W = "\x1b[97m"
+        D = "\x1b[90m"
+        R = "\x1b[0m"
 
-        try:
-            cw = max(80, os.get_terminal_size().columns)
-            max_rows = os.get_terminal_size().lines
-        except OSError:
-            cw = 80
-            max_rows = 24
-
-        buf = []
-
-        def padline(content):
-            vlen = 0
-            in_esc = False
-            for c in content:
-                if c == "\x1b":
-                    in_esc = True
-                    continue
-                if in_esc:
-                    if c.isalpha():
-                        in_esc = False
-                    continue
-                vlen += 1
-            pad = max(0, cw - vlen)
-            buf.append(content + " " * pad + "\n")
-
-        padline("")
-        padline(f" {GREEN}HOTKEY CONFIGURATION{RESET}")
-        padline(f" {GRAY}Use arrows to navigate, Enter to edit, D to disable, R to reset all{RESET}")
-        padline("")
+        sys.stdout.write("\x1b[H\x1b[2J")
+        sys.stdout.write(f"\r\n {G}HOTKEY CONFIGURATION{R}\r\n")
+        sys.stdout.write(f" {W}Arrows to navigate, Enter to edit, A to add, ESC to exit{R}\r\n\r\n")
 
         for i, action in enumerate(self.actions):
             binding = self.config.get(action, {})
             display_name = self.get_display_name(action)
 
             if i == self.selected_index:
-                indicator = f"{GREEN} > {RESET}"
+                indicator = f"{G} > {R}"
             else:
                 indicator = "   "
 
             if i == self.selected_index and self.edit_mode:
-                binding_display = f"{YELLOW}[Press new key combo...]{RESET}"
+                binding_display = f"{Y}[Press new key...]{R}"
             elif not binding.get("enabled", True):
-                binding_display = f"{GRAY}[Disabled]{RESET}"
+                binding_display = f"{D}[Disabled]{R}"
+            elif not binding:
+                binding_display = f"{D}[Unbound]{R}"
             else:
-                binding_display = f"{CYAN}{format_binding(binding)}{RESET}"
+                binding_display = f"{C}{format_binding(binding)}{R}"
 
-            padline(f"{indicator}{display_name:<24s}{binding_display}")
+            sys.stdout.write(f"\r{indicator}{display_name:<24s}{binding_display}\r\n")
 
-        padline("")
+        sys.stdout.write("\r\n")
         if self.status_message:
-            padline(f" {YELLOW}{self.status_message}{RESET}")
-        else:
-            padline("")
-        padline("")
-        padline(f" {GRAY}[Enter] Edit  [D] Toggle disable  [R] Reset all  [S] Save  [Esc] Exit{RESET}")
-        padline("")
-
-        frame = "".join(buf)
-        lines_written = frame.count("\n")
-        remaining = max_rows - lines_written - 1
-        if remaining > 0:
-            blank = " " * cw + "\n"
-            frame += blank * remaining
-
-        sys.stdout.write("\x1b[H")
-        sys.stdout.write(frame)
+            sys.stdout.write(f"\r {Y}{self.status_message}{R}\r\n")
+        sys.stdout.write(f"\r\n {G}[Enter]{R} Edit  {G}[A]{R} Add  {G}[D]{R} Disable  {G}[X]{R} Remove  {G}[R]{R} Reset  {G}[S]{R} Save  {G}[ESC]{R} Exit\r\n")
         sys.stdout.flush()
 
+    # -------------------------------------------------------------------
+    # Edit capture (assign new key binding)
+    # -------------------------------------------------------------------
+
     def _handle_edit_capture_ansi(self, key_str):
-        """Process a key in edit mode (raw terminal input). Returns True if edit ended."""
-        if key_str == "\x1b":
+        """Process a key in edit mode."""
+        if key_str == "ESC":
             self.edit_mode = False
             self.status_message = None
-            return True
+            return
 
         key_name = None
-        if key_str == "LEFT":
-            key_name = "Left"
-        elif key_str == "RIGHT":
-            key_name = "Right"
-        elif key_str == "UP":
-            key_name = "Up"
-        elif key_str == "DOWN":
-            key_name = "Down"
-        elif len(key_str) == 1 and 32 < ord(key_str) < 127:
+        if key_str == "LEFT":    key_name = "Left"
+        elif key_str == "RIGHT": key_name = "Right"
+        elif key_str == "UP":    key_name = "Up"
+        elif key_str == "DOWN":  key_name = "Down"
+        elif key_str and len(key_str) == 1 and 32 < ord(key_str) < 127:
             key_name = key_str.upper()
 
         if key_name is None:
-            self.status_message = "Invalid key"
-            return False
+            self.status_message = "Invalid key — use a letter, number, or arrow"
+            return
 
         action = self.actions[self.selected_index]
         self.config[action] = {
@@ -351,43 +382,109 @@ class HotkeyConfigScreen:
         display = format_binding(self.config[action])
         self.status_message = f"Changed to {display} (press S to save)"
         self.edit_mode = False
-        return True
+
+    # -------------------------------------------------------------------
+    # Add picker — choose from unbound actions
+    # -------------------------------------------------------------------
+
+    def _do_add(self):
+        """Show picker of all unbound actions. User selects one to add."""
+        G = "\x1b[38;2;110;220;170m"
+        W = "\x1b[97m"
+        Y = "\x1b[33m"
+        R = "\x1b[0m"
+
+        # Find actions not currently in the config
+        bound = set(self.actions)
+        unbound = [a for a in ALL_ACTIONS if a not in bound]
+        if not unbound:
+            self.status_message = "All actions are already bound"
+            return
+
+        sel = 0
+        while True:
+            sys.stdout.write("\x1b[H\x1b[2J")
+            sys.stdout.write(f"\r\n {G}ADD HOTKEY{R}\r\n")
+            sys.stdout.write(f" {W}Arrows to navigate, Enter to select, ESC to cancel{R}\r\n\r\n")
+
+            for i, action in enumerate(unbound):
+                name = ACTION_DISPLAY_NAMES.get(action, action)
+                if i == sel:
+                    sys.stdout.write(f"\r {G} > {Y}{name}{R}\r\n")
+                else:
+                    sys.stdout.write(f"\r    {W}{name}{R}\r\n")
+
+            sys.stdout.flush()
+            key = self._read_raw_key()
+            if key is None:
+                continue
+            if key == "ESC":
+                return
+            if key == "UP":
+                sel = (sel - 1) % len(unbound)
+            elif key == "DOWN":
+                sel = (sel + 1) % len(unbound)
+            elif key == "ENTER":
+                chosen = unbound[sel]
+                self.actions.append(chosen)
+                self.config[chosen] = {}  # unbound — user will press Enter to assign key
+                self.selected_index = len(self.actions) - 1
+                self.status_message = f"Added {ACTION_DISPLAY_NAMES.get(chosen, chosen)} — press Enter to assign a key"
+                return
+
+    # -------------------------------------------------------------------
+    # Remove action from config
+    # -------------------------------------------------------------------
+
+    def _do_remove(self):
+        """Remove the selected action from the config (only user-added ones)."""
+        if self.selected_index < 0 or self.selected_index >= len(self.actions):
+            return
+        action = self.actions[self.selected_index]
+        # Don't allow removing default-bound actions
+        if action in DEFAULT_BINDINGS:
+            self.status_message = "Can't remove default hotkeys — use D to disable"
+            return
+        self.actions.pop(self.selected_index)
+        self.config.pop(action, None)
+        if self.selected_index >= len(self.actions):
+            self.selected_index = max(0, len(self.actions) - 1)
+        self.status_message = f"Removed {ACTION_DISPLAY_NAMES.get(action, action)}"
+
+    # -------------------------------------------------------------------
+    # Main loop (ANSI mode)
+    # -------------------------------------------------------------------
 
     def run_ansi(self):
         """Main loop using raw ANSI (no curses). Called from redpill_tui.py."""
-        from redpill_tui import _read_key
-
-        if not is_redpill():
-            sys.stdout.write("\x1b[2J\x1b[H")
-            sys.stdout.write(" Hotkey customization requires Red Pill.\n")
-            sys.stdout.write(" Visit matrixshader.com/redpill\n\n")
-            sys.stdout.write(" Press any key to return...\n")
-            sys.stdout.flush()
-            _read_key()
-            return
-
         sys.stdout.write("\x1b[2J")
         sys.stdout.flush()
 
         while True:
             self._render_ansi()
-            key_str = _read_key()
-
-            if self.edit_mode:
-                self._handle_edit_capture_ansi(key_str)
+            key = self._read_raw_key()
+            if key is None:
                 continue
 
-            if key_str == "\x1b":
+            if self.edit_mode:
+                self._handle_edit_capture_ansi(key)
+                continue
+
+            if key == "ESC":
                 break
-            elif key_str == "UP":
+            elif key in ("k", "K", "UP"):
                 self.move_selection(-1)
-            elif key_str == "DOWN":
+            elif key == "DOWN":
                 self.move_selection(1)
-            elif key_str in ("\n", "\r"):
+            elif key == "ENTER":
                 self.enter_edit_mode()
-            elif key_str in ("d", "D"):
+            elif key in ("a", "A"):
+                self._do_add()
+            elif key in ("x", "X"):
+                self._do_remove()
+            elif key in ("d", "D"):
                 self.toggle_disable()
-            elif key_str in ("r", "R"):
+            elif key in ("r", "R"):
                 self.reset_to_defaults()
-            elif key_str in ("s", "S"):
+            elif key in ("s", "S"):
                 self.save()

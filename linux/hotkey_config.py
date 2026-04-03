@@ -55,27 +55,32 @@ DEFAULT_BINDINGS = {
     "ManualReload":       {"key": "F5",    "modifiers": ["Ctrl", "Shift"], "enabled": True},
     "SnapbackSave":       {"key": "S",     "modifiers": ["Ctrl", "Shift"], "enabled": True},
     "SnapbackRestore":    {"key": "R",     "modifiers": ["Ctrl", "Shift"], "enabled": True},
-    "GlitchToggle":       {"key": "G",     "modifiers": ["Ctrl", "Shift"], "enabled": True},
 }
 
 # Map config key names to evdev key codes
 KEY_NAME_TO_EVDEV = {
-    "Left":  ecodes.KEY_LEFT,    # 105
-    "Right": ecodes.KEY_RIGHT,   # 106
-    "Up":    ecodes.KEY_UP,      # 103
-    "Down":  ecodes.KEY_DOWN,    # 108
-    "L":     ecodes.KEY_L,       # 38
-    "B":     ecodes.KEY_B,       # 48
-    "J":     ecodes.KEY_J,       # 36
-    "K":     ecodes.KEY_K,       # 37
-    "H":     ecodes.KEY_H,       # 35
-    "1":     ecodes.KEY_1,       # 2
-    "2":     ecodes.KEY_2,       # 3
-    "3":     ecodes.KEY_3,       # 4
-    "F5":    ecodes.KEY_F5,      # 63
-    "S":     ecodes.KEY_S,       # 31
-    "R":     ecodes.KEY_R,       # 19
-    "G":     ecodes.KEY_G,       # 34
+    # Arrow keys
+    "Left":  ecodes.KEY_LEFT,
+    "Right": ecodes.KEY_RIGHT,
+    "Up":    ecodes.KEY_UP,
+    "Down":  ecodes.KEY_DOWN,
+    # Letters (all 26 — users can bind any)
+    "A": ecodes.KEY_A, "B": ecodes.KEY_B, "C": ecodes.KEY_C, "D": ecodes.KEY_D,
+    "E": ecodes.KEY_E, "F": ecodes.KEY_F, "G": ecodes.KEY_G, "H": ecodes.KEY_H,
+    "I": ecodes.KEY_I, "J": ecodes.KEY_J, "K": ecodes.KEY_K, "L": ecodes.KEY_L,
+    "M": ecodes.KEY_M, "N": ecodes.KEY_N, "O": ecodes.KEY_O, "P": ecodes.KEY_P,
+    "Q": ecodes.KEY_Q, "R": ecodes.KEY_R, "S": ecodes.KEY_S, "T": ecodes.KEY_T,
+    "U": ecodes.KEY_U, "V": ecodes.KEY_V, "W": ecodes.KEY_W, "X": ecodes.KEY_X,
+    "Y": ecodes.KEY_Y, "Z": ecodes.KEY_Z,
+    # Numbers
+    "0": ecodes.KEY_0, "1": ecodes.KEY_1, "2": ecodes.KEY_2, "3": ecodes.KEY_3,
+    "4": ecodes.KEY_4, "5": ecodes.KEY_5, "6": ecodes.KEY_6, "7": ecodes.KEY_7,
+    "8": ecodes.KEY_8, "9": ecodes.KEY_9,
+    # Function keys
+    "F1": ecodes.KEY_F1, "F2": ecodes.KEY_F2, "F3": ecodes.KEY_F3,
+    "F4": ecodes.KEY_F4, "F5": ecodes.KEY_F5, "F6": ecodes.KEY_F6,
+    "F7": ecodes.KEY_F7, "F8": ecodes.KEY_F8, "F9": ecodes.KEY_F9,
+    "F10": ecodes.KEY_F10, "F11": ecodes.KEY_F11, "F12": ecodes.KEY_F12,
 }
 
 # Map modifier names to sets of left + right evdev codes
@@ -225,14 +230,16 @@ def build_hotkey_table(config, is_redpill=False):
 # ---------------------------------------------------------------------------
 
 def is_redpill():
-    """Check if the user has Red Pill upgrade.
-
-    Phase 2 just checks file existence. Actual licensing is deferred.
+    """Check if the user has Red Pill license.
 
     Returns:
-        True if ~/.config/matrix-shader/redpill.json exists.
+        True if a valid license key is installed.
     """
-    return os.path.exists(_REDPILL_PATH)
+    try:
+        from license_service import is_licensed
+        return is_licensed()
+    except ImportError:
+        return os.path.exists(_REDPILL_PATH)
 
 
 # ---------------------------------------------------------------------------

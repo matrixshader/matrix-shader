@@ -812,9 +812,9 @@ keybind = ctrl+shift+f5=unbind
             from preset_menu_screen import PresetMenuScreen
             screen = PresetMenuScreen(self.active_slot)
             screen.run()
-        except (ImportError, AttributeError):
+        except Exception as e:
             sys.stdout.write("\x1b[2J\x1b[H")
-            sys.stdout.write(" Presets screen not available.\n")
+            sys.stdout.write(f" Presets error: {e}\n")
             sys.stdout.write(" Press any key to return...\n")
             sys.stdout.flush()
             read_key()
@@ -866,18 +866,23 @@ keybind = ctrl+shift+f5=unbind
         R.append_padded_line(buf, cw, f" {R.GREEN}GLOBAL HOTKEYS (active when Matrix windows exist):{R.RESET}")
         R.append_padded_line(buf, cw, "")
         global_lines = [
-            "   Ctrl+Shift+L       Cycle layout mode",
-            "   Ctrl+Shift+B       Toggle background transparency",
-            "   Ctrl+Shift+K/O     Decrease/Increase opacity",
-            "   Ctrl+Shift+Up/Down Cycle shader in library",
-            "   Ctrl+Shift+, / .   Decrease/Increase rain speed",
-            "   Ctrl+Shift+1/2/3   Toggle FAR/MID/NEAR layers",
+            "   Ctrl+Shift+Left/Right  Swap windows",
+            "   Ctrl+Shift+L           Cycle layout mode",
+            "   Ctrl+Shift+B           Toggle transparency",
+            "   Ctrl+Shift+J / K       Opacity down / up",
+            "   Ctrl+Shift+Down / Up   Speed down / up",
+            "   Ctrl+Shift+1/2/3       Toggle FAR/MID/NEAR layers",
+            "   Ctrl+Shift+S / R       Snapback save / restore",
+            "   Ctrl+Shift+F5          Force shader reload",
+            "   Ctrl+Shift+H           Hotkey help overlay",
         ]
         for line in global_lines:
             R.append_padded_line(buf, cw, f" {R.DIM}{line}{R.RESET}")
         R.append_padded_line(buf, cw, "")
 
-        R.append_padded_line(buf, cw, f" {R.DIM}Press [Shift+H] to customize global hotkey bindings.{R.RESET}")
+        R.append_padded_line(buf, cw, f" {R.GREEN}PRESETS:{R.RESET}")
+        R.append_padded_line(buf, cw, f" {R.DIM}   [Shift+P] in this panel to save/load/delete presets{R.RESET}")
+        R.append_padded_line(buf, cw, f" {R.DIM}   construct --preset <name>   Launch a window from a saved preset{R.RESET}")
         R.append_padded_line(buf, cw, "")
         R.append_padded_line(buf, cw, f" Press any key to return...")
 
@@ -909,10 +914,9 @@ keybind = ctrl+shift+f5=unbind
             from hotkey_config_screen import HotkeyConfigScreen
             screen = HotkeyConfigScreen()
             screen.run_ansi()
-        except (ImportError, AttributeError):
-            # Fallback: show simple message
+        except Exception as e:
             sys.stdout.write("\x1b[2J\x1b[H")
-            sys.stdout.write(" Hotkey config screen not available.\n")
+            sys.stdout.write(f" Hotkey config error: {e}\n")
             sys.stdout.write(" Press any key to return...\n")
             sys.stdout.flush()
             read_key()

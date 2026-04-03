@@ -25,6 +25,7 @@ from shader_service import (
     read_shader_config,
     write_shader_param,
     reload_ghostty,
+    PARAM_RANGES,
 )
 
 
@@ -690,21 +691,69 @@ def action_snapback_restore() -> None:
         pass
 
 
-def action_glitch_toggle() -> None:
-    """Toggle glitch mode — Red Pill only. Free users get a nag."""
-    try:
-        from hotkey_config import is_redpill
-        if not is_redpill():
-            show_toast("Red Pill required")
-            return
-        from layout_engine import load_layout_config, save_layout_config
-        config = load_layout_config()
-        config["glitch_enabled"] = not config["glitch_enabled"]
-        save_layout_config(config)
-        state_str = "ON" if config["glitch_enabled"] else "OFF"
-        show_toast(f"Glitch: {state_str}")
-    except Exception:
-        pass
+# ---------------------------------------------------------------------------
+# Generic shader parameter adjustment (for user-added hotkeys)
+# ---------------------------------------------------------------------------
+
+def _adjust_param(param, delta, label):
+    """Adjust a shader parameter by delta on all windows, clamped to PARAM_RANGES."""
+    mapping = get_ghostty_bus_names()
+    if not mapping:
+        return
+    new_val = None
+    for slot in mapping:
+        config = read_shader_config(slot)
+        lo, hi = PARAM_RANGES.get(param, (0.0, 1.0))
+        new_val = max(lo, min(hi, config[param] + delta))
+        write_shader_param(slot, param, new_val)
+    if new_val is not None:
+        show_toast(f"{label}: {new_val:.2f}")
+    svc = _get_state_service()
+    if svc:
+        svc.mark_dirty()
+
+
+def action_glow_up():
+    _adjust_param("GLOW_STRENGTH", 0.2, "Glow")
+
+def action_glow_down():
+    _adjust_param("GLOW_STRENGTH", -0.2, "Glow")
+
+def action_width_up():
+    _adjust_param("CHAR_WIDTH", 1.0, "Width")
+
+def action_width_down():
+    _adjust_param("CHAR_WIDTH", -1.0, "Width")
+
+def action_trail_up():
+    _adjust_param("TRAIL_POWER", 1.0, "Trail")
+
+def action_trail_down():
+    _adjust_param("TRAIL_POWER", -1.0, "Trail")
+
+def action_density_up():
+    _adjust_param("RAIN_DENSITY", 0.1, "Density")
+
+def action_density_down():
+    _adjust_param("RAIN_DENSITY", -0.1, "Density")
+
+def action_red_up():
+    _adjust_param("RAIN_R", 0.05, "Red")
+
+def action_red_down():
+    _adjust_param("RAIN_R", -0.05, "Red")
+
+def action_green_up():
+    _adjust_param("RAIN_G", 0.05, "Green")
+
+def action_green_down():
+    _adjust_param("RAIN_G", -0.05, "Green")
+
+def action_blue_up():
+    _adjust_param("RAIN_B", 0.05, "Blue")
+
+def action_blue_down():
+    _adjust_param("RAIN_B", -0.05, "Blue")
 
 
 # ---------------------------------------------------------------------------
@@ -727,5 +776,18 @@ ACTION_MAP = {
     "ManualReload": action_manual_reload,
     "SnapbackSave": action_snapback_save,
     "SnapbackRestore": action_snapback_restore,
-    "GlitchToggle": action_glitch_toggle,
+    "GlowUp": action_glow_up,
+    "GlowDown": action_glow_down,
+    "WidthUp": action_width_up,
+    "WidthDown": action_width_down,
+    "TrailUp": action_trail_up,
+    "TrailDown": action_trail_down,
+    "DensityUp": action_density_up,
+    "DensityDown": action_density_down,
+    "RedUp": action_red_up,
+    "RedDown": action_red_down,
+    "GreenUp": action_green_up,
+    "GreenDown": action_green_down,
+    "BlueUp": action_blue_up,
+    "BlueDown": action_blue_down,
 }

@@ -443,12 +443,18 @@ save_state(state)
     sleep 1.0
     python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
+from window_service import gnome_extension_available, load_mapping, get_monitors
+ext = gnome_extension_available()
+mapping = load_mapping()
+monitors = get_monitors()
+print(f'   Extension: {ext}, Windows: {len(mapping)}, Monitors: {len(monitors)}')
 from layout_engine import apply_current_layout
 n = apply_current_layout()
 if n == 0:
     import time; time.sleep(0.5)
-    apply_current_layout()
-" 2>/dev/null
+    n = apply_current_layout()
+print(f'   Positioned {n} window(s) in layout')
+" 2>&1
 
     # Start hotkeys if not running
     echo
@@ -546,13 +552,20 @@ fi
 
 # Apply layout to position windows with proper gaps
 sleep 0.5
-python3 -c "
+python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
+from window_service import gnome_extension_available, load_mapping, get_monitors
+ext = gnome_extension_available()
+mapping = load_mapping()
+monitors = get_monitors()
+print(f'   Extension: {ext}, Windows: {len(mapping)}, Monitors: {len(monitors)}')
 from layout_engine import apply_current_layout
 n = apply_current_layout()
 if n > 0:
     print(f'   Positioned {n} window(s) in layout')
-" 2>/dev/null || true
+else:
+    print(f'   WARNING: positioned 0 windows')
+" 2>&1
 
 # Start hotkey listener if not running
 echo

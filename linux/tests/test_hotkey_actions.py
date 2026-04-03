@@ -785,18 +785,20 @@ class TestToast:
 class TestActionMap:
     """ACTION_MAP contains all 16 action names mapped to functions."""
 
-    def test_action_map_has_all_16(self):
+    def test_action_map_has_all_29(self):
         from hotkey_actions import ACTION_MAP
-        expected = {
-            "SpeedUp", "SpeedDown",
-            "ToggleFar", "ToggleMid", "ToggleNear",
-            "CycleLayout",
-            "SwapLeft", "SwapRight",
-            "ToggleTransparency", "OpacityDown", "OpacityUp",
-            "ShowHelp", "ManualReload",
-            "SnapbackSave", "SnapbackRestore", "GlitchToggle",
-        }
-        assert set(ACTION_MAP.keys()) == expected
+        assert len(ACTION_MAP) == 29
+        # All 15 defaults present
+        for action in ["SpeedUp", "SpeedDown", "ToggleFar", "ToggleMid", "ToggleNear",
+                        "CycleLayout", "SwapLeft", "SwapRight", "ToggleTransparency",
+                        "OpacityDown", "OpacityUp", "ShowHelp", "ManualReload",
+                        "SnapbackSave", "SnapbackRestore"]:
+            assert action in ACTION_MAP
+        # All 14 user-addable present
+        for action in ["GlowUp", "GlowDown", "WidthUp", "WidthDown", "TrailUp", "TrailDown",
+                        "DensityUp", "DensityDown", "RedUp", "RedDown", "GreenUp", "GreenDown",
+                        "BlueUp", "BlueDown"]:
+            assert action in ACTION_MAP
 
     def test_action_map_values_are_callable(self):
         from hotkey_actions import ACTION_MAP

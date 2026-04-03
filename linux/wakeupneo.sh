@@ -770,13 +770,17 @@ print(', '.join(str(w['slot']) for w in d['windows']))
 
             # Apply layout to position restored windows
             sleep 0.5
-            python3 -c "
+            python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
+from window_service import gnome_extension_available, load_mapping, get_monitors
+print(f'   Extension: {gnome_extension_available()}, Windows: {len(load_mapping())}, Monitors: {len(get_monitors())}')
 from layout_engine import apply_current_layout
 n = apply_current_layout()
 if n > 0:
     print(f'   Positioned {n} window(s) in layout')
-" 2>/dev/null || true
+else:
+    print(f'   WARNING: positioned 0 windows')
+" 2>&1
 
             show_post_launch 0
             exit 0
@@ -956,12 +960,16 @@ fi
 
 # Apply layout to position windows
 sleep 0.5
-python3 -c "
+python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
+from window_service import gnome_extension_available, load_mapping, get_monitors
+print(f'   Extension: {gnome_extension_available()}, Windows: {len(load_mapping())}, Monitors: {len(get_monitors())}')
 from layout_engine import apply_current_layout
 n = apply_current_layout()
 if n > 0:
     print(f'   Positioned {n} window(s) in layout')
-" 2>/dev/null || true
+else:
+    print(f'   WARNING: positioned 0 windows')
+" 2>&1
 
 show_post_launch "$is_redpill"

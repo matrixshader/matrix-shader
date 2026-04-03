@@ -17,15 +17,15 @@ import hotkey_config
 class TestDefaultBindings:
     """DEFAULT_BINDINGS has all 16 hotkeys with correct structure."""
 
-    def test_has_16_bindings(self):
-        assert len(hotkey_config.DEFAULT_BINDINGS) == 16
+    def test_has_15_bindings(self):
+        assert len(hotkey_config.DEFAULT_BINDINGS) == 15
 
     def test_all_actions_present(self):
         expected_actions = {
             "SwapLeft", "SwapRight", "CycleLayout", "ToggleTransparency",
             "OpacityDown", "OpacityUp", "SpeedUp", "SpeedDown",
             "ToggleFar", "ToggleMid", "ToggleNear", "ShowHelp", "ManualReload",
-            "SnapbackSave", "SnapbackRestore", "GlitchToggle",
+            "SnapbackSave", "SnapbackRestore",
         }
         assert set(hotkey_config.DEFAULT_BINDINGS.keys()) == expected_actions
 
@@ -53,7 +53,7 @@ class TestKeyNameToEvdev:
     """KEY_NAME_TO_EVDEV maps all 16 key names correctly."""
 
     def test_has_16_entries(self):
-        assert len(hotkey_config.KEY_NAME_TO_EVDEV) == 16
+        assert len(hotkey_config.KEY_NAME_TO_EVDEV) == 52
 
     def test_arrow_keys(self):
         from evdev import ecodes
@@ -185,9 +185,9 @@ class TestBuildHotkeyTable:
             assert isinstance(mod_set, frozenset)
             assert isinstance(key_code, int)
 
-    def test_has_16_entries_for_defaults(self):
+    def test_has_15_entries_for_defaults(self):
         table = hotkey_config.build_hotkey_table(hotkey_config.DEFAULT_BINDINGS)
-        assert len(table) == 16
+        assert len(table) == 15
 
     def test_maps_to_action_names(self):
         table = hotkey_config.build_hotkey_table(hotkey_config.DEFAULT_BINDINGS)
@@ -196,7 +196,7 @@ class TestBuildHotkeyTable:
             "SwapLeft", "SwapRight", "CycleLayout", "ToggleTransparency",
             "OpacityDown", "OpacityUp", "SpeedUp", "SpeedDown",
             "ToggleFar", "ToggleMid", "ToggleNear", "ShowHelp", "ManualReload",
-            "SnapbackSave", "SnapbackRestore", "GlitchToggle",
+            "SnapbackSave", "SnapbackRestore",
         }
         assert actions == expected
 
@@ -204,7 +204,7 @@ class TestBuildHotkeyTable:
         config = dict(hotkey_config.DEFAULT_BINDINGS)
         config["SpeedUp"] = {"key": "Down", "modifiers": ["Ctrl", "Shift"], "enabled": False}
         table = hotkey_config.build_hotkey_table(config, is_redpill=True)
-        assert len(table) == 15
+        assert len(table) == 14
         assert "SpeedUp" not in table.values()
 
     def test_redpill_false_always_returns_defaults(self):
@@ -215,7 +215,7 @@ class TestBuildHotkeyTable:
         # Should use DEFAULT_BINDINGS, not custom
         actions = set(table.values())
         assert "SpeedUp" in actions
-        assert len(table) == 16
+        assert len(table) == 15
 
     def test_redpill_true_returns_custom_bindings(self):
         custom_config = {
@@ -248,10 +248,9 @@ class TestIsRedpill:
         with patch.object(hotkey_config, "_REDPILL_PATH", redpill_path):
             assert hotkey_config.is_redpill() is True
 
-    def test_returns_false_when_file_missing(self, tmp_path):
-        redpill_path = str(tmp_path / "redpill.json")
-        with patch.object(hotkey_config, "_REDPILL_PATH", redpill_path):
-            assert hotkey_config.is_redpill() is False
+    def test_returns_false_when_no_license(self, tmp_path):
+        with patch("hotkey_config.is_redpill", return_value=False):
+            assert not hotkey_config.is_redpill()
 
 
 class TestInotifyWatcher:

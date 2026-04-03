@@ -67,6 +67,11 @@ if [[ "$MODE" == "help" ]]; then
 fi
 
 # --- Quick launch from preset ---
+if [ "$NEXT_IS_PRESET" = "true" ]; then
+    echo -e "${RED} --preset requires a name. Usage: construct --preset <name>${RESET}"
+    echo -e "${DIM} Save presets via Shift+P in redpill.${RESET}"
+    exit 1
+fi
 if [ -n "$PRESET_NAME" ]; then
     # Check Ghostty
     if [ ! -f "$GHOSTTY_BIN" ]; then
@@ -97,12 +102,15 @@ if [ -n "$PRESET_NAME" ]; then
     sleep 1.0
     python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
+from window_service import gnome_extension_available, load_mapping, get_monitors
+print(f'   Extension: {gnome_extension_available()}, Windows: {len(load_mapping())}, Monitors: {len(get_monitors())}')
 from layout_engine import apply_current_layout
 n = apply_current_layout()
 if n == 0:
     import time; time.sleep(0.5)
-    apply_current_layout()
-" 2>/dev/null
+    n = apply_current_layout()
+print(f'   Positioned {n} window(s) in layout')
+" 2>&1
 
     echo -e "${GREEN} Matrix-${slot}${RESET} ${DIM}launched with preset '${PRESET_NAME}'${RESET}"
 
@@ -144,12 +152,15 @@ if [ -n "$COLOR" ]; then
     sleep 1.0
     python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
+from window_service import gnome_extension_available, load_mapping, get_monitors
+print(f'   Extension: {gnome_extension_available()}, Windows: {len(load_mapping())}, Monitors: {len(get_monitors())}')
 from layout_engine import apply_current_layout
 n = apply_current_layout()
 if n == 0:
     import time; time.sleep(0.5)
-    apply_current_layout()
-" 2>/dev/null
+    n = apply_current_layout()
+print(f'   Positioned {n} window(s) in layout')
+" 2>&1
 
     echo -e "${GREEN} Matrix-${slot}${RESET} ${DIM}launched with ${COLOR}${RESET}"
 
@@ -234,12 +245,15 @@ transition_to_rain($own_slot, $selected, construct_conf='$own_conf')
 
         python3 -B -c "
 import sys; sys.path.insert(0, '$PYMOD_DIR')
+from window_service import gnome_extension_available, load_mapping, get_monitors
+print(f'   Extension: {gnome_extension_available()}, Windows: {len(load_mapping())}, Monitors: {len(get_monitors())}')
 from layout_engine import apply_current_layout
 n = apply_current_layout()
 if n == 0:
     import time; time.sleep(0.5)
-    apply_current_layout()
-" 2>/dev/null
+    n = apply_current_layout()
+print(f'   Positioned {n} window(s) in layout')
+" 2>&1
     fi
 
     # Hand off to a real shell — this is now a usable Matrix terminal

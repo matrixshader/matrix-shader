@@ -93,6 +93,7 @@ hk() { box "  ${C}$(pad 24 "$1")${R}${W}$2${R}"; }
     box "  ${C}wakeupneo${R}${W}          Setup wizard${R}"
     box "  ${C}construct${R}${W}          Launch Matrix terminal${R}"
     box "  ${C}construct --green${R}${W}  Quick launch (any color)${R}"
+    box "  ${C}construct --preset X${R}${W} Launch from saved preset${R}"
     box "  ${C}bluepill${R}${W}           Restore last session${R}"
     box "  ${C}redpill${R}${W}            Control panel (paid)${R}"
     box "  ${C}matrixlite${R}${W}         Text-mode rain${R}"

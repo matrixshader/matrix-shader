@@ -228,6 +228,6 @@ class TestDirtyTracking:
         with patch("redpill_tui.STATE_PATH", str(tmp_path / "missing.json")):
             tui = _make_tui()
         assert tui.layout["mode"] == "Pillars"
-        assert tui.layout["glitch_enabled"] is False
+        assert tui.layout["glitch_enabled"] is True
         assert tui.layout["priority_lock"] is False
         assert tui.layout["primary_window_count"] == 0
