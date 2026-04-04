@@ -42,7 +42,11 @@ public record HotkeyConfig(
         [HotkeyAction.ShowHelp] = HotkeyBinding.CtrlShift(HotkeyAction.ShowHelp, HotkeyApi.VK_H, "H"),
 
         // Manual reload (force WT to re-read shader files)
-        [HotkeyAction.ManualReload] = HotkeyBinding.CtrlShift(HotkeyAction.ManualReload, HotkeyApi.VK_F5, "F5")
+        [HotkeyAction.ManualReload] = HotkeyBinding.CtrlShift(HotkeyAction.ManualReload, HotkeyApi.VK_F5, "F5"),
+
+        // Snapback (save/restore window positions)
+        [HotkeyAction.SnapbackSave] = HotkeyBinding.CtrlShift(HotkeyAction.SnapbackSave, HotkeyApi.VK_S, "S"),
+        [HotkeyAction.SnapbackRestore] = HotkeyBinding.CtrlShift(HotkeyAction.SnapbackRestore, HotkeyApi.VK_R, "R")
     });
 
     /// <summary>

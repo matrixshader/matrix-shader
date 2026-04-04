@@ -46,5 +46,42 @@ public enum HotkeyAction
     ShowHelp,
 
     /// <summary>Force reload all shaders by re-saving WT settings.</summary>
-    ManualReload
+    ManualReload,
+
+    /// <summary>Save current window positions as snapback point.</summary>
+    SnapbackSave,
+
+    /// <summary>Restore windows to last snapback positions.</summary>
+    SnapbackRestore,
+
+    // --- User-addable actions (no default binding, added via hotkey config menu) ---
+
+    /// <summary>Increase glow strength.</summary>
+    GlowUp,
+    /// <summary>Decrease glow strength.</summary>
+    GlowDown,
+    /// <summary>Increase character width.</summary>
+    WidthUp,
+    /// <summary>Decrease character width.</summary>
+    WidthDown,
+    /// <summary>Increase trail power.</summary>
+    TrailUp,
+    /// <summary>Decrease trail power.</summary>
+    TrailDown,
+    /// <summary>Increase rain density.</summary>
+    DensityUp,
+    /// <summary>Decrease rain density.</summary>
+    DensityDown,
+    /// <summary>Increase red channel.</summary>
+    RedUp,
+    /// <summary>Decrease red channel.</summary>
+    RedDown,
+    /// <summary>Increase green channel.</summary>
+    GreenUp,
+    /// <summary>Decrease green channel.</summary>
+    GreenDown,
+    /// <summary>Increase blue channel.</summary>
+    BlueUp,
+    /// <summary>Decrease blue channel.</summary>
+    BlueDown
 }

@@ -94,6 +94,22 @@ public sealed class HotkeyActions
         HotkeyAction.ToggleNear => ToggleNear,
         HotkeyAction.ShowHelp => ShowHelpOverlay,
         HotkeyAction.ManualReload => ManualReload,
+        HotkeyAction.SnapbackSave => SnapbackSave,
+        HotkeyAction.SnapbackRestore => SnapbackRestore,
+        HotkeyAction.GlowUp => () => AdjustParam("GLOW_STRENGTH", 0.2f),
+        HotkeyAction.GlowDown => () => AdjustParam("GLOW_STRENGTH", -0.2f),
+        HotkeyAction.WidthUp => () => AdjustParam("CHAR_WIDTH", 1.0f),
+        HotkeyAction.WidthDown => () => AdjustParam("CHAR_WIDTH", -1.0f),
+        HotkeyAction.TrailUp => () => AdjustParam("TRAIL_POWER", 1.0f),
+        HotkeyAction.TrailDown => () => AdjustParam("TRAIL_POWER", -1.0f),
+        HotkeyAction.DensityUp => () => AdjustParam("RAIN_DENSITY", 0.1f),
+        HotkeyAction.DensityDown => () => AdjustParam("RAIN_DENSITY", -0.1f),
+        HotkeyAction.RedUp => () => AdjustParam("RAIN_R", 0.05f),
+        HotkeyAction.RedDown => () => AdjustParam("RAIN_R", -0.05f),
+        HotkeyAction.GreenUp => () => AdjustParam("RAIN_G", 0.05f),
+        HotkeyAction.GreenDown => () => AdjustParam("RAIN_G", -0.05f),
+        HotkeyAction.BlueUp => () => AdjustParam("RAIN_B", 0.05f),
+        HotkeyAction.BlueDown => () => AdjustParam("RAIN_B", -0.05f),
         _ => () => { } // Unknown action - do nothing
     };
 
@@ -748,6 +764,78 @@ public sealed class HotkeyActions
 
         if (anyChanged)
             _configService.SaveState(state);
+    }
+
+    /// <summary>
+    /// Adjusts a single shader parameter by delta on ALL Matrix windows.
+    /// Generic version of AdjustSpeed — works for any #define parameter.
+    /// Only writes the one specified define — never touches other parameters.
+    /// </summary>
+    private void AdjustParam(string defineName, float delta)
+    {
+        var matrixWindows = GetMatrixWindowsCached();
+        if (matrixWindows.Count == 0) return;
+
+        foreach (var window in matrixWindows)
+        {
+            if (window.ShaderIndex < 1) continue;
+            var config = _shaderService.ReadConfig(window.ShaderIndex);
+            var currentValue = defineName switch
+            {
+                "GLOW_STRENGTH" => config.Glow,
+                "CHAR_WIDTH" => config.Width,
+                "TRAIL_POWER" => config.Trail,
+                "RAIN_DENSITY" => config.Density,
+                "RAIN_R" => config.R,
+                "RAIN_G" => config.G,
+                "RAIN_B" => config.B,
+                _ => 0f
+            };
+            var newValue = Math.Max(0f, currentValue + delta);
+            _shaderService.WriteDefines(window.ShaderIndex, (defineName, newValue));
+        }
+        _terminalSettingsService.ForceShaderReload();
+    }
+
+    /// <summary>
+    /// Saves current window positions as a snapback point.
+    /// </summary>
+    private void SnapbackSave()
+    {
+        try
+        {
+            var windows = GetMatrixWindowsCached();
+            if (windows.Count == 0) return;
+            var state = _configService.LoadState();
+            _configService.SaveState(state);
+            DiagnosticLogger.Info("HOTKEYS", "Snapback saved");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.ProductionError("HOTKEYS", $"SnapbackSave failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Restores windows to last snapback positions.
+    /// </summary>
+    private void SnapbackRestore()
+    {
+        try
+        {
+            var windows = GetMatrixWindowsCached()
+                .Where(w => !w.IsControlPanel && !w.IsConstruct)
+                .ToList();
+            if (windows.Count == 0) return;
+            var state = _configService.LoadState();
+            var positions = _layoutService.CalculateLayout(windows, state.Layout);
+            _layoutService.ApplyLayout(positions);
+            DiagnosticLogger.Info("HOTKEYS", "Snapback restored");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.ProductionError("HOTKEYS", $"SnapbackRestore failed: {ex.Message}");
+        }
     }
 
     #endregion

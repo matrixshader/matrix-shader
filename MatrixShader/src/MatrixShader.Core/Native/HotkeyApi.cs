@@ -212,6 +212,8 @@ public static partial class HotkeyApi
     public const uint VK_L = 0x4C;
 
     /// <summary>S key.</summary>
+    public const uint VK_R = 0x52;
+
     public const uint VK_S = 0x53;
 
     /// <summary>F5 key.</summary>
@@ -348,6 +350,7 @@ public static partial class HotkeyApi
         VK_J => "J",
         VK_K => "K",
         VK_L => "L",
+        VK_R => "R",
         VK_S => "S",
         VK_F5 => "F5",
         _ => $"0x{vk:X2}"

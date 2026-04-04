@@ -7,7 +7,7 @@ namespace MatrixShader.Cli.Redpill;
 
 /// <summary>
 /// TUI screen for configuring global hotkeys.
-/// Per CONTEXT.md: "Like Cubase - prevents invalid selections before they happen"
+/// Matches Linux hotkey_config_screen.py for full cross-platform parity.
 /// </summary>
 public class HotkeyConfigScreen
 {
@@ -16,18 +16,50 @@ public class HotkeyConfigScreen
     private int _selectedIndex;
     private bool _editMode;
     private string? _statusMessage;
-    private readonly List<HotkeyAction> _actionOrder;
+    private List<HotkeyAction> _actionOrder;
+
+    /// <summary>
+    /// Default actions shown in the config screen (matches Linux ACTION_ORDER).
+    /// </summary>
+    private static readonly HotkeyAction[] DefaultActions =
+    {
+        HotkeyAction.SwapLeft, HotkeyAction.SwapRight, HotkeyAction.CycleLayout,
+        HotkeyAction.ToggleTransparency, HotkeyAction.OpacityDown, HotkeyAction.OpacityUp,
+        HotkeyAction.SpeedUp, HotkeyAction.SpeedDown,
+        HotkeyAction.ToggleFar, HotkeyAction.ToggleMid, HotkeyAction.ToggleNear,
+        HotkeyAction.ShowHelp, HotkeyAction.ManualReload,
+        HotkeyAction.SnapbackSave, HotkeyAction.SnapbackRestore
+    };
+
+    /// <summary>
+    /// All possible actions including user-addable ones with no default binding.
+    /// Matches Linux ALL_ACTIONS.
+    /// </summary>
+    private static readonly HotkeyAction[] AllActions = DefaultActions.Concat(new[]
+    {
+        HotkeyAction.GlowUp, HotkeyAction.GlowDown,
+        HotkeyAction.WidthUp, HotkeyAction.WidthDown,
+        HotkeyAction.TrailUp, HotkeyAction.TrailDown,
+        HotkeyAction.DensityUp, HotkeyAction.DensityDown,
+        HotkeyAction.RedUp, HotkeyAction.RedDown,
+        HotkeyAction.GreenUp, HotkeyAction.GreenDown,
+        HotkeyAction.BlueUp, HotkeyAction.BlueDown
+    }).ToArray();
 
     public HotkeyConfigScreen(IHotkeyConfigService configService)
     {
         _configService = configService;
         _config = _configService.LoadConfig();
-        _actionOrder = Enum.GetValues<HotkeyAction>().ToList();
+        // Start with actions that have bindings, plus defaults
+        _actionOrder = new List<HotkeyAction>(DefaultActions);
+        // Add any extra actions that are in the saved config but not in defaults
+        foreach (var action in _config.Bindings.Keys)
+        {
+            if (!_actionOrder.Contains(action))
+                _actionOrder.Add(action);
+        }
     }
 
-    /// <summary>
-    /// Runs the hotkey config screen. Returns when user exits.
-    /// </summary>
     public void Run()
     {
         Console.CursorVisible = false;
@@ -55,70 +87,64 @@ public class HotkeyConfigScreen
         Console.SetCursorPosition(0, 0);
         var sb = new StringBuilder();
 
-        // Header
         sb.AppendLine();
         sb.AppendLine("\x1b[38;2;110;220;170m HOTKEY CONFIGURATION \x1b[0m");
-        sb.AppendLine("\x1b[90m Use arrows to navigate, Enter to edit, D to disable, R to reset all \x1b[0m");
+        sb.AppendLine("\x1b[90m Arrows to navigate, Enter to edit, A to add, ESC to exit \x1b[0m");
         sb.AppendLine();
 
-        // Hotkey list
         for (int i = 0; i < _actionOrder.Count; i++)
         {
             var action = _actionOrder[i];
-            var binding = _config.Bindings[action];
             var isSelected = i == _selectedIndex;
 
-            // Selection indicator
             sb.Append(isSelected ? "\x1b[38;2;110;220;170m > \x1b[0m" : "   ");
 
-            // Action name (padded)
             var actionName = GetActionDisplayName(action);
             sb.Append($"{actionName,-24}");
 
-            // Binding display
-            if (binding.Enabled)
+            if (_config.Bindings.TryGetValue(action, out var binding))
             {
-                var keyDisplay = binding.DisplayName;
+                if (isSelected && _editMode)
+                {
+                    sb.Append("\x1b[33m[Press key (Ctrl+Shift auto-added)...]\x1b[0m");
+                }
+                else if (!binding.Enabled)
+                {
+                    sb.Append("\x1b[90m[Disabled]           \x1b[0m");
+                }
+                else
+                {
+                    sb.Append($"\x1b[36m{binding.DisplayName,-20}\x1b[0m");
+                }
+            }
+            else
+            {
                 if (isSelected && _editMode)
                 {
                     sb.Append("\x1b[33m[Press key (Ctrl+Shift auto-added)...]\x1b[0m");
                 }
                 else
                 {
-                    sb.Append($"\x1b[36m{keyDisplay,-20}\x1b[0m");
+                    sb.Append("\x1b[90m[No binding]         \x1b[0m");
                 }
-            }
-            else
-            {
-                sb.Append("\x1b[90m[Disabled]           \x1b[0m");
             }
 
             sb.AppendLine();
         }
 
-        // Status message
         sb.AppendLine();
         if (!string.IsNullOrEmpty(_statusMessage))
-        {
             sb.AppendLine($"\x1b[33m{_statusMessage}\x1b[0m");
-        }
         else
-        {
-            sb.AppendLine(); // Blank line for consistent layout
-        }
+            sb.AppendLine();
 
-        // Footer
         sb.AppendLine();
-        sb.AppendLine("\x1b[90m [Enter] Edit  [D] Toggle disable  [R] Reset all  [S] Save  [Esc] Exit \x1b[0m");
+        sb.AppendLine("\x1b[90m [Enter] Edit  [A] Add  [D] Disable  [X] Remove  [R] Reset  [S] Save  [ESC] Exit \x1b[0m");
         sb.AppendLine();
 
-        // Clear any remaining content from previous render
         var lines = sb.ToString().Split('\n');
         foreach (var line in lines)
-        {
-            // Pad each line to clear old content
             Console.WriteLine(line.TrimEnd().PadRight(80));
-        }
     }
 
     private enum InputResult { Continue, Exit }
@@ -128,15 +154,15 @@ public class HotkeyConfigScreen
         var key = Console.ReadKey(intercept: true);
 
         if (_editMode)
-        {
             return HandleEditMode(key);
-        }
 
         return key.Key switch
         {
             ConsoleKey.UpArrow => MoveSelection(-1),
             ConsoleKey.DownArrow => MoveSelection(1),
             ConsoleKey.Enter => EnterEditMode(),
+            ConsoleKey.A => DoAdd(),
+            ConsoleKey.X => DoRemove(),
             ConsoleKey.D => ToggleDisable(),
             ConsoleKey.R => ResetToDefaults(),
             ConsoleKey.S => SaveConfig(),
@@ -155,8 +181,6 @@ public class HotkeyConfigScreen
         }
 
         // Capture just the key — Ctrl+Shift is auto-applied (matches Linux behavior).
-        // User presses 'T', we register Ctrl+Shift+T. This avoids firing the
-        // global hotkey during edit (pressing the real combo triggers the action).
         var vk = GetVirtualKeyCode(key.Key);
         if (vk == 0)
         {
@@ -166,22 +190,16 @@ public class HotkeyConfigScreen
 
         uint modifiers = HotkeyApi.MOD_CONTROL | HotkeyApi.MOD_SHIFT;
 
-        // Test if hotkey is available (try to register, then unregister)
         if (!TestHotkeyAvailable(modifiers, vk))
         {
             _statusMessage = "Ctrl+Shift+" + GetKeyName(key.Key) + " already in use";
             return InputResult.Continue;
         }
 
-        // Update binding
         var action = _actionOrder[_selectedIndex];
         var displayName = "Ctrl+Shift+" + GetKeyName(key.Key);
-        var newBinding = _config.Bindings[action] with
-        {
-            Modifiers = modifiers | HotkeyApi.MOD_NOREPEAT,
-            VirtualKey = vk,
-            DisplayName = displayName
-        };
+        var newBinding = new HotkeyBinding(
+            action, displayName, modifiers | HotkeyApi.MOD_NOREPEAT, vk, true);
 
         var newBindings = new Dictionary<HotkeyAction, HotkeyBinding>(_config.Bindings)
         {
@@ -191,6 +209,88 @@ public class HotkeyConfigScreen
 
         _editMode = false;
         _statusMessage = $"Changed to {displayName} (press S to save)";
+        return InputResult.Continue;
+    }
+
+    /// <summary>
+    /// Shows picker of all unbound actions. User selects one to add.
+    /// Matches Linux _do_add() implementation.
+    /// </summary>
+    private InputResult DoAdd()
+    {
+        var bound = new HashSet<HotkeyAction>(_actionOrder);
+        var unbound = AllActions.Where(a => !bound.Contains(a)).ToList();
+
+        if (unbound.Count == 0)
+        {
+            _statusMessage = "All actions are already bound";
+            return InputResult.Continue;
+        }
+
+        int sel = 0;
+        while (true)
+        {
+            Console.SetCursorPosition(0, 0);
+            Console.Clear();
+            Console.WriteLine();
+            Console.WriteLine("\x1b[38;2;110;220;170m ADD HOTKEY \x1b[0m");
+            Console.WriteLine("\x1b[97m Arrows to navigate, Enter to select, ESC to cancel \x1b[0m");
+            Console.WriteLine();
+
+            for (int i = 0; i < unbound.Count; i++)
+            {
+                var name = GetActionDisplayName(unbound[i]);
+                if (i == sel)
+                    Console.WriteLine($"\x1b[38;2;110;220;170m > \x1b[33m{name}\x1b[0m");
+                else
+                    Console.WriteLine($"   \x1b[97m{name}\x1b[0m");
+            }
+
+            var addKey = Console.ReadKey(intercept: true);
+            if (addKey.Key == ConsoleKey.Escape)
+                return InputResult.Continue;
+            if (addKey.Key == ConsoleKey.UpArrow)
+                sel = (sel - 1 + unbound.Count) % unbound.Count;
+            else if (addKey.Key == ConsoleKey.DownArrow)
+                sel = (sel + 1) % unbound.Count;
+            else if (addKey.Key == ConsoleKey.Enter)
+            {
+                var chosen = unbound[sel];
+                _actionOrder.Add(chosen);
+                _selectedIndex = _actionOrder.Count - 1;
+                _statusMessage = $"Added {GetActionDisplayName(chosen)} — press Enter to assign a key";
+                return InputResult.Continue;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Remove the selected action from the config (only user-added ones).
+    /// Matches Linux _do_remove() implementation.
+    /// </summary>
+    private InputResult DoRemove()
+    {
+        if (_selectedIndex < 0 || _selectedIndex >= _actionOrder.Count)
+            return InputResult.Continue;
+
+        var action = _actionOrder[_selectedIndex];
+
+        // Don't allow removing default-bound actions
+        if (DefaultActions.Contains(action))
+        {
+            _statusMessage = "Can't remove default hotkeys — use D to disable";
+            return InputResult.Continue;
+        }
+
+        _actionOrder.RemoveAt(_selectedIndex);
+        var newBindings = new Dictionary<HotkeyAction, HotkeyBinding>(_config.Bindings);
+        newBindings.Remove(action);
+        _config = _config with { Bindings = newBindings };
+
+        if (_selectedIndex >= _actionOrder.Count)
+            _selectedIndex = Math.Max(0, _actionOrder.Count - 1);
+
+        _statusMessage = $"Removed {GetActionDisplayName(action)}";
         return InputResult.Continue;
     }
 
@@ -204,7 +304,7 @@ public class HotkeyConfigScreen
     private InputResult EnterEditMode()
     {
         var action = _actionOrder[_selectedIndex];
-        if (!_config.Bindings[action].Enabled)
+        if (_config.Bindings.TryGetValue(action, out var binding) && !binding.Enabled)
         {
             _statusMessage = "Enable hotkey first (press D)";
             return InputResult.Continue;
@@ -218,9 +318,10 @@ public class HotkeyConfigScreen
     private InputResult ToggleDisable()
     {
         var action = _actionOrder[_selectedIndex];
-        var binding = _config.Bindings[action];
-        var newBinding = binding with { Enabled = !binding.Enabled };
+        if (!_config.Bindings.TryGetValue(action, out var binding))
+            return InputResult.Continue;
 
+        var newBinding = binding with { Enabled = !binding.Enabled };
         var newBindings = new Dictionary<HotkeyAction, HotkeyBinding>(_config.Bindings)
         {
             [action] = newBinding
@@ -234,6 +335,7 @@ public class HotkeyConfigScreen
     private InputResult ResetToDefaults()
     {
         _config = _configService.ResetToDefaults();
+        _actionOrder = new List<HotkeyAction>(DefaultActions);
         _statusMessage = "Reset to defaults (press S to save)";
         return InputResult.Continue;
     }
@@ -252,29 +354,18 @@ public class HotkeyConfigScreen
         return InputResult.Continue;
     }
 
-    /// <summary>
-    /// Tests if a hotkey is available for registration.
-    /// Cubase-style: Try to register, then immediately unregister.
-    /// </summary>
     private bool TestHotkeyAvailable(uint modifiers, uint vk)
     {
-        // Get console window handle for testing
         var testHwnd = WindowsApi.GetConsoleWindow();
-        if (testHwnd == nint.Zero)
-            return true; // Can't test, assume available
+        if (testHwnd == nint.Zero) return true;
 
         var testId = 9999;
         var result = HotkeyApi.RegisterHotKey(testHwnd, testId, modifiers | HotkeyApi.MOD_NOREPEAT, vk);
         if (result)
-        {
             HotkeyApi.UnregisterHotKey(testHwnd, testId);
-        }
         return result;
     }
 
-    /// <summary>
-    /// Gets human-readable display name for a hotkey action.
-    /// </summary>
     private static string GetActionDisplayName(HotkeyAction action) => action switch
     {
         HotkeyAction.SwapLeft => "Swap Window Left",
@@ -283,7 +374,6 @@ public class HotkeyConfigScreen
         HotkeyAction.ToggleTransparency => "Toggle Transparency",
         HotkeyAction.OpacityDown => "Decrease Opacity",
         HotkeyAction.OpacityUp => "Increase Opacity",
-        // CycleShader REMOVED - corrupts shader parameters (BUG-SHADER04, BUG-SHADER05)
         HotkeyAction.SpeedUp => "Increase Speed",
         HotkeyAction.SpeedDown => "Decrease Speed",
         HotkeyAction.ToggleFar => "Toggle Far Layer",
@@ -291,12 +381,25 @@ public class HotkeyConfigScreen
         HotkeyAction.ToggleNear => "Toggle Near Layer",
         HotkeyAction.ShowHelp => "Show Help",
         HotkeyAction.ManualReload => "Force Reload",
+        HotkeyAction.SnapbackSave => "Save Snapback",
+        HotkeyAction.SnapbackRestore => "Restore Snapback",
+        HotkeyAction.GlowUp => "Increase Glow",
+        HotkeyAction.GlowDown => "Decrease Glow",
+        HotkeyAction.WidthUp => "Increase Width",
+        HotkeyAction.WidthDown => "Decrease Width",
+        HotkeyAction.TrailUp => "Increase Trail",
+        HotkeyAction.TrailDown => "Decrease Trail",
+        HotkeyAction.DensityUp => "Increase Density",
+        HotkeyAction.DensityDown => "Decrease Density",
+        HotkeyAction.RedUp => "Increase Red",
+        HotkeyAction.RedDown => "Decrease Red",
+        HotkeyAction.GreenUp => "Increase Green",
+        HotkeyAction.GreenDown => "Decrease Green",
+        HotkeyAction.BlueUp => "Increase Blue",
+        HotkeyAction.BlueDown => "Decrease Blue",
         _ => action.ToString()
     };
 
-    /// <summary>
-    /// Converts ConsoleKey to Windows virtual key code.
-    /// </summary>
     private static uint GetVirtualKeyCode(ConsoleKey key) => key switch
     {
         ConsoleKey.LeftArrow => HotkeyApi.VK_LEFT,
@@ -306,24 +409,13 @@ public class HotkeyConfigScreen
         >= ConsoleKey.A and <= ConsoleKey.Z => (uint)(0x41 + (key - ConsoleKey.A)),
         >= ConsoleKey.D0 and <= ConsoleKey.D9 => (uint)(0x30 + (key - ConsoleKey.D0)),
         >= ConsoleKey.NumPad0 and <= ConsoleKey.NumPad9 => (uint)(0x60 + (key - ConsoleKey.NumPad0)),
-        ConsoleKey.F1 => 0x70,
-        ConsoleKey.F2 => 0x71,
-        ConsoleKey.F3 => 0x72,
-        ConsoleKey.F4 => 0x73,
-        ConsoleKey.F5 => 0x74,
-        ConsoleKey.F6 => 0x75,
-        ConsoleKey.F7 => 0x76,
-        ConsoleKey.F8 => 0x77,
-        ConsoleKey.F9 => 0x78,
-        ConsoleKey.F10 => 0x79,
-        ConsoleKey.F11 => 0x7A,
-        ConsoleKey.F12 => 0x7B,
+        ConsoleKey.F1 => 0x70, ConsoleKey.F2 => 0x71, ConsoleKey.F3 => 0x72,
+        ConsoleKey.F4 => 0x73, ConsoleKey.F5 => 0x74, ConsoleKey.F6 => 0x75,
+        ConsoleKey.F7 => 0x76, ConsoleKey.F8 => 0x77, ConsoleKey.F9 => 0x78,
+        ConsoleKey.F10 => 0x79, ConsoleKey.F11 => 0x7A, ConsoleKey.F12 => 0x7B,
         _ => 0
     };
 
-    /// <summary>
-    /// Gets human-readable name for a console key.
-    /// </summary>
     private static string GetKeyName(ConsoleKey key) => key switch
     {
         ConsoleKey.LeftArrow => "Left",
