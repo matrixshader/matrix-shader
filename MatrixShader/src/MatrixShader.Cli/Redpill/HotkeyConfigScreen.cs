@@ -81,7 +81,7 @@ public class HotkeyConfigScreen
                 var keyDisplay = binding.DisplayName;
                 if (isSelected && _editMode)
                 {
-                    sb.Append("\x1b[33m[Press new key combo...]\x1b[0m");
+                    sb.Append("\x1b[33m[Press key (Ctrl+Shift auto-added)...]\x1b[0m");
                 }
                 else
                 {
@@ -154,40 +154,28 @@ public class HotkeyConfigScreen
             return InputResult.Continue;
         }
 
-        // Build modifier combination from current key
-        uint modifiers = 0;
-        if ((key.Modifiers & ConsoleModifiers.Control) != 0)
-            modifiers |= HotkeyApi.MOD_CONTROL;
-        if ((key.Modifiers & ConsoleModifiers.Shift) != 0)
-            modifiers |= HotkeyApi.MOD_SHIFT;
-        if ((key.Modifiers & ConsoleModifiers.Alt) != 0)
-            modifiers |= HotkeyApi.MOD_ALT;
-
-        // Get virtual key code
+        // Capture just the key — Ctrl+Shift is auto-applied (matches Linux behavior).
+        // User presses 'T', we register Ctrl+Shift+T. This avoids firing the
+        // global hotkey during edit (pressing the real combo triggers the action).
         var vk = GetVirtualKeyCode(key.Key);
         if (vk == 0)
         {
-            _statusMessage = "Invalid key - use letter, number, or arrow key";
+            _statusMessage = "Invalid key - use letter, number, arrow, or F-key";
             return InputResult.Continue;
         }
 
-        // Require at least one modifier
-        if (modifiers == 0)
-        {
-            _statusMessage = "Must include Ctrl, Shift, or Alt modifier";
-            return InputResult.Continue;
-        }
+        uint modifiers = HotkeyApi.MOD_CONTROL | HotkeyApi.MOD_SHIFT;
 
         // Test if hotkey is available (try to register, then unregister)
         if (!TestHotkeyAvailable(modifiers, vk))
         {
-            _statusMessage = "Key combination already in use by another application";
+            _statusMessage = "Ctrl+Shift+" + GetKeyName(key.Key) + " already in use";
             return InputResult.Continue;
         }
 
         // Update binding
         var action = _actionOrder[_selectedIndex];
-        var displayName = BuildDisplayName(modifiers, key.Key);
+        var displayName = "Ctrl+Shift+" + GetKeyName(key.Key);
         var newBinding = _config.Bindings[action] with
         {
             Modifiers = modifiers | HotkeyApi.MOD_NOREPEAT,
@@ -301,6 +289,8 @@ public class HotkeyConfigScreen
         HotkeyAction.ToggleFar => "Toggle Far Layer",
         HotkeyAction.ToggleMid => "Toggle Mid Layer",
         HotkeyAction.ToggleNear => "Toggle Near Layer",
+        HotkeyAction.ShowHelp => "Show Help",
+        HotkeyAction.ManualReload => "Force Reload",
         _ => action.ToString()
     };
 
@@ -332,29 +322,17 @@ public class HotkeyConfigScreen
     };
 
     /// <summary>
-    /// Builds a human-readable display name from modifiers and key.
+    /// Gets human-readable name for a console key.
     /// </summary>
-    private static string BuildDisplayName(uint modifiers, ConsoleKey key)
+    private static string GetKeyName(ConsoleKey key) => key switch
     {
-        var parts = new List<string>();
-        if ((modifiers & HotkeyApi.MOD_CONTROL) != 0) parts.Add("Ctrl");
-        if ((modifiers & HotkeyApi.MOD_SHIFT) != 0) parts.Add("Shift");
-        if ((modifiers & HotkeyApi.MOD_ALT) != 0) parts.Add("Alt");
-        if ((modifiers & HotkeyApi.MOD_WIN) != 0) parts.Add("Win");
-
-        var keyName = key switch
-        {
-            ConsoleKey.LeftArrow => "Left",
-            ConsoleKey.RightArrow => "Right",
-            ConsoleKey.UpArrow => "Up",
-            ConsoleKey.DownArrow => "Down",
-            >= ConsoleKey.D0 and <= ConsoleKey.D9 => (key - ConsoleKey.D0).ToString(),
-            >= ConsoleKey.NumPad0 and <= ConsoleKey.NumPad9 => $"Num{key - ConsoleKey.NumPad0}",
-            >= ConsoleKey.F1 and <= ConsoleKey.F12 => key.ToString(),
-            _ => key.ToString()
-        };
-        parts.Add(keyName);
-
-        return string.Join("+", parts);
-    }
+        ConsoleKey.LeftArrow => "Left",
+        ConsoleKey.RightArrow => "Right",
+        ConsoleKey.UpArrow => "Up",
+        ConsoleKey.DownArrow => "Down",
+        >= ConsoleKey.D0 and <= ConsoleKey.D9 => (key - ConsoleKey.D0).ToString(),
+        >= ConsoleKey.NumPad0 and <= ConsoleKey.NumPad9 => $"Num{key - ConsoleKey.NumPad0}",
+        >= ConsoleKey.F1 and <= ConsoleKey.F12 => key.ToString(),
+        _ => key.ToString()
+    };
 }
