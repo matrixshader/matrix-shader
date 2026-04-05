@@ -607,12 +607,25 @@ public class ControlPanel
 
         ConsoleHelper.WriteLineMatrixGreen(" GLOBAL HOTKEYS (active when Matrix windows exist):");
         Console.WriteLine();
-        ConsoleHelper.WriteLineDim("   Ctrl+Shift+L       Cycle layout mode");
-        ConsoleHelper.WriteLineDim("   Ctrl+Shift+B       Toggle background transparency");
-        ConsoleHelper.WriteLineDim("   Ctrl+Shift+K/O     Decrease/Increase opacity");
-        ConsoleHelper.WriteLineDim("   Ctrl+Shift+Up/Down Cycle shader in library");
-        ConsoleHelper.WriteLineDim("   Ctrl+Shift+, / .   Decrease/Increase rain speed");
-        ConsoleHelper.WriteLineDim("   Ctrl+Shift+1/2/3   Toggle FAR/MID/NEAR layers");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+Left/Right  Swap windows");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+L           Cycle layout mode");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+B           Toggle transparency");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+J / K       Opacity down / up");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+Down / Up   Speed down / up");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+1/2/3       Toggle FAR/MID/NEAR layers");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+S / R       Snapback save / restore");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+F5          Force shader reload");
+        ConsoleHelper.WriteLineDim("   Ctrl+Shift+H           Hotkey help overlay");
+        Console.WriteLine();
+
+        ConsoleHelper.WriteLineMatrixGreen(" COMMANDS:");
+        Console.WriteLine();
+        ConsoleHelper.WriteLineDim("   wakeupneo                   Start here (setup wizard)");
+        ConsoleHelper.WriteLineDim("   construct --help             Show colors and bonus shaders");
+        ConsoleHelper.WriteLineDim("   construct --preset <name>    Launch a window from a saved preset");
+        ConsoleHelper.WriteLineDim("   bluepill                     Quickly relaunch last saved settings");
+        ConsoleHelper.WriteLineDim("   redpill                      Full control panel (this)");
+        ConsoleHelper.WriteLineDim("   matrixlite                   Visual effect only");
         Console.WriteLine();
 
         ConsoleHelper.WriteLineDim(" Press [Shift+H] to customize global hotkey bindings.");
