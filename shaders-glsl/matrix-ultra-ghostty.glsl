@@ -133,8 +133,8 @@ vec4 DrawLayerUltra(vec2 uv, float layerIdx, float totalLayers)
 // --- Main shader ---
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
-    vec2 tex = fragCoord / iResolution.xy;
-    tex.y = 1.0 - tex.y;  // Flip Y: HLSL y=0 at top, OpenGL y=0 at bottom
+    vec2 rawTex = fragCoord / iResolution.xy;
+    vec2 tex = vec2(rawTex.x, 1.0 - rawTex.y);  // Flip Y for effect (HLSL y=0 at top)
     vec2 uv = tex;
     float t = iTime;
 
@@ -237,7 +237,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     float vigMask = clamp(pow(vig.x * vig.y * 12.0, 0.3), 0.0, 1.0);
 
     // --- Combine with terminal text ---
-    vec4 text = texture(iChannel0, tex);
+    vec4 text = texture(iChannel0, rawTex);  // Terminal texture uses original coords
     vec3 rainFinal = totalRain * GLOW_STRENGTH * scanline * vigMask;
 
     // Global subtle pulse

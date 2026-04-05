@@ -126,12 +126,12 @@ float stars(vec2 uv, float t)
 // --- Main shader ---
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
-    vec2 uv = fragCoord / iResolution.xy;
-    uv.y = 1.0 - uv.y;  // Flip Y: HLSL y=0 at top, OpenGL y=0 at bottom
+    vec2 rawUV = fragCoord / iResolution.xy;
+    vec2 uv = vec2(rawUV.x, 1.0 - rawUV.y);  // Flip Y for effect (HLSL y=0 at top)
     float t = iTime;
 
-    // Sample terminal texture
-    vec4 color = texture(iChannel0, uv);
+    // Sample terminal texture (original coords — not flipped)
+    vec4 color = texture(iChannel0, rawUV);
 
     // --- Stars (behind everything, only visible in darker areas) ---
     float starMask = stars(uv, t);

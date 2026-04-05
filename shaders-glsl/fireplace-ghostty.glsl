@@ -246,14 +246,14 @@ vec2 heatHaze(vec2 uv, float t)
 // --- Main shader ---
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
-    vec2 uv = fragCoord / iResolution.xy;
-    uv.y = 1.0 - uv.y;  // Flip Y: HLSL y=0 at top, OpenGL y=0 at bottom
+    vec2 rawUV = fragCoord / iResolution.xy;
+    vec2 uv = vec2(rawUV.x, 1.0 - rawUV.y);  // Flip Y for effect (HLSL y=0 at top)
     float t = iTime;
 
     // Heat distortion
     vec2 hazeOffset = heatHaze(uv, t);
-    vec2 hazedUV = clamp(uv + hazeOffset, 0.0, 1.0);
-    vec4 color = texture(iChannel0, hazedUV);
+    vec2 texUV = clamp(rawUV + hazeOffset, 0.0, 1.0);  // Terminal texture uses original coords
+    vec4 color = texture(iChannel0, texUV);
 
     // Ambient warm glow from below
     float glowY = 1.0 - uv.y;

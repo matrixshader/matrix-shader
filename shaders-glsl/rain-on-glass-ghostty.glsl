@@ -240,8 +240,8 @@ float lightning(float t)
 // --- Main shader ---
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
-    vec2 uv = fragCoord / iResolution.xy;
-    uv.y = 1.0 - uv.y;  // Flip Y: HLSL y=0 at top, OpenGL y=0 at bottom
+    vec2 rawUV = fragCoord / iResolution.xy;
+    vec2 uv = vec2(rawUV.x, 1.0 - rawUV.y);  // Flip Y for effect (HLSL y=0 at top)
     float t = iTime;
 
     // Background rain
@@ -258,10 +258,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     float mistMask = mist(uv);
     dropMask = clamp(dropMask + mistMask, 0.0, 1.0);
 
-    // Sample terminal texture
-    vec2 refrUV = clamp(uv + refrOffset, 0.0, 1.0);
+    // Sample terminal texture (original coords — not flipped)
+    vec2 refrUV = clamp(rawUV + refrOffset, 0.0, 1.0);
     vec4 terminalColor = texture(iChannel0, refrUV);
-    vec4 clearColor = texture(iChannel0, uv);
+    vec4 clearColor = texture(iChannel0, rawUV);
 
     vec4 color = mix(clearColor, terminalColor, clamp(dropMask * 3.0, 0.0, 1.0));
 
