@@ -15,10 +15,10 @@ public class HotkeyConfigTests
     #region DefaultBindings
 
     [Fact]
-    public void DefaultBindings_Returns_13_Actions()
+    public void DefaultBindings_Returns_15_Actions()
     {
         var config = HotkeyConfig.DefaultBindings();
-        config.Bindings.Should().HaveCount(13);
+        config.Bindings.Should().HaveCount(15);
     }
 
     [Theory]
@@ -119,7 +119,7 @@ public class HotkeyConfigTests
     public void GetEnabledBindings_Returns_All_When_All_Enabled()
     {
         var config = HotkeyConfig.DefaultBindings();
-        config.GetEnabledBindings().Should().HaveCount(13);
+        config.GetEnabledBindings().Should().HaveCount(15);
     }
 
     [Fact]
@@ -129,7 +129,7 @@ public class HotkeyConfigTests
         var updated = config.WithEnabled(HotkeyAction.SpeedUp, false);
 
         updated.GetBinding(HotkeyAction.SpeedUp)!.Enabled.Should().BeFalse();
-        updated.GetEnabledBindings().Should().HaveCount(12);
+        updated.GetEnabledBindings().Should().HaveCount(14);
     }
 
     [Fact]
@@ -243,7 +243,7 @@ public class HotkeyConfigTests
         var service = new HotkeyConfigService(logger, configPath);
 
         var config = service.LoadConfig();
-        config.Bindings.Should().HaveCount(13);
+        config.Bindings.Should().HaveCount(15);
     }
 
     [Fact]
@@ -261,7 +261,7 @@ public class HotkeyConfigTests
             var service = new HotkeyConfigService(logger, configPath);
 
             var config = service.LoadConfig();
-            config.Bindings.Should().HaveCount(13);
+            config.Bindings.Should().HaveCount(15);
         }
         finally
         {
@@ -287,7 +287,7 @@ public class HotkeyConfigTests
 
             // Reset
             var defaults = service.ResetToDefaults();
-            defaults.Bindings.Should().HaveCount(13);
+            defaults.Bindings.Should().HaveCount(15);
             File.Exists(configPath).Should().BeFalse();
         }
         finally

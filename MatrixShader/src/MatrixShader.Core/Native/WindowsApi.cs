@@ -154,6 +154,10 @@ public static partial class WindowsApi
     public const byte VK_F11 = 0x7A;
     public const uint KEYEVENTF_KEYUP = 0x0002;
 
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool PostMessage(nint hWnd, uint Msg, nint wParam, nint lParam);
+
     // ShowWindow commands
     public const int SW_HIDE = 0;
     public const int SW_SHOWNORMAL = 1;

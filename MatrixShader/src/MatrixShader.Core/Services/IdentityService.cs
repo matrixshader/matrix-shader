@@ -957,6 +957,7 @@ public class IdentityService : IIdentityService
         var position = WindowsApi.GetWindowPosition(hwnd) ?? new WindowRect();
         var isControlPanel = profileName == "ControlPanel"
             || profileName.Equals(RedpillProfileName, StringComparison.OrdinalIgnoreCase)
+            || profileName.Equals("WakeupNeo", StringComparison.OrdinalIgnoreCase)
             || title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase)
             || title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase);
 

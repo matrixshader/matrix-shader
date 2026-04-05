@@ -19,12 +19,6 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        // Skip splash for help
-        if (!args.Contains("--help"))
-        {
-            await MatrixSplash.ShowAsync();
-        }
-
         try
         {
             // Parse arguments
@@ -42,9 +36,18 @@ public static class Program
                 DiagnosticLogger.Initialize(true);
             }
 
-            // If not running inside Windows Terminal, relaunch in WT.
-            // Shaders and transparency only work in WT — a regular console is useless.
-            if (!EnvironmentService.IsWindowsTerminal())
+            // Always relaunch in a dedicated fullscreen WakeupNeo WT window.
+            // Splash only looks right in WT, so it runs ONLY in the relaunched instance.
+            // The original window (CMD, PowerShell, WT tab, whatever) gets closed.
+            var currentProfileId = Environment.GetEnvironmentVariable("WT_PROFILE_ID");
+            var termSvcRelaunch = new TerminalSettingsService(
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<TerminalSettingsService>.Instance);
+            var wakeupNeoGuid = termSvcRelaunch.GetProfileGuid("WakeupNeo");
+            var isInWakeupNeoProfile = !string.IsNullOrEmpty(currentProfileId)
+                && !string.IsNullOrEmpty(wakeupNeoGuid)
+                && string.Equals(currentProfileId, wakeupNeoGuid, StringComparison.OrdinalIgnoreCase);
+
+            if (!isInWakeupNeoProfile)
             {
                 var wtPath = CliBootstrap.GetWindowsTerminalExePath();
                 if (wtPath != null)
@@ -52,13 +55,10 @@ public static class Program
                     var self = Process.GetCurrentProcess().MainModule?.FileName
                                ?? Path.Combine(AppContext.BaseDirectory, "wakeupneo.exe");
                     var wtArgs = string.Join(" ", args.Select(a => a.Contains(' ') ? $"\"{a}\"" : a));
-                    // Create a WakeupNeo profile with opacity 100 (opaque black world)
-                    var termSvc = new TerminalSettingsService(
-                        Microsoft.Extensions.Logging.Abstractions.NullLogger<TerminalSettingsService>.Instance);
                     var wakeupProfile = new TerminalProfile
                     {
                         Name = "WakeupNeo",
-                        Guid = termSvc.GetProfileGuid("WakeupNeo") ?? $"{{{Guid.NewGuid()}}}",
+                        Guid = wakeupNeoGuid ?? $"{{{Guid.NewGuid()}}}",
                         Commandline = $"\"{self}\" {wtArgs}".Trim(),
                         Hidden = true,
                         Opacity = 100,
@@ -66,17 +66,29 @@ public static class Program
                         FontFace = "Nimbus Mono PS",
                         FontWeight = "bold",
                     };
-                    termSvc.UpsertProfileSurgical(wakeupProfile);
+                    termSvcRelaunch.UpsertProfileSurgical(wakeupProfile);
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = wtPath,
                         Arguments = $"-w -1 --fullscreen -p \"WakeupNeo\"",
                         UseShellExecute = true
                     });
-                    DiagnosticLogger.Info("WAKEUPNEO", "Relaunched in Windows Terminal");
+
+                    // Hide the original window so it doesn't linger behind the new one
+                    var consoleHwnd = WindowsApi.GetConsoleWindow();
+                    if (consoleHwnd != nint.Zero)
+                        WindowsApi.ShowWindow(consoleHwnd, WindowsApi.SW_HIDE);
+
+                    DiagnosticLogger.Info("WAKEUPNEO", "Relaunched in fullscreen WakeupNeo window");
                     Environment.Exit(0);
                     return 0;
                 }
+            }
+
+            // We're in the relaunched WakeupNeo profile — run the splash here
+            if (!args.Contains("--help"))
+            {
+                await MatrixSplash.ShowAsync();
             }
 
             // Bootstrap — CliBootstrap handles WT detection + auto-install (winget → Store → GitHub)
@@ -279,10 +291,21 @@ public class SetupWizard
         await CliBootstrap.TypewriterAsync(" Follow the white rabbit.", 80);
         await Task.Delay(500);
 
-        // Exit fullscreen for the interaction part
+        // Exit fullscreen for the interaction part.
+        // Try F11 first (WT's native fullscreen toggle), then fall back to
+        // ShowWindow(SW_RESTORE) if the window is still maximized/fullscreen.
+        var wtHwnd = WindowsApi.GetForegroundWindow();
         WindowsApi.keybd_event(WindowsApi.VK_F11, 0, 0, 0);
         WindowsApi.keybd_event(WindowsApi.VK_F11, 0, WindowsApi.KEYEVENTF_KEYUP, 0);
-        await Task.Delay(300);
+        await Task.Delay(500);
+
+        // Verify and retry — F11 can be swallowed by global hotkeys or focus issues
+        if (wtHwnd != nint.Zero && WindowsApi.IsZoomed(wtHwnd))
+        {
+            DiagnosticLogger.Info("WAKEUPNEO", "F11 didn't exit fullscreen, using ShowWindow(SW_RESTORE)");
+            WindowsApi.ShowWindow(wtHwnd, WindowsApi.SW_RESTORE);
+            await Task.Delay(300);
+        }
 
         // Show random quote before header (matches Linux flow)
         CliBootstrap.ShowRandomQuote();
@@ -600,22 +623,37 @@ public class SetupWizard
             }
         }
 
-        // Final message (matches Linux flow)
-        // The choice is made. The veil lifts — make this window transparent.
-        // The user now sees through the boring black terminal world they started in.
+        // Final message (matches Linux go_transparent)
+        // The choice is made. The veil lifts — make ALL windows transparent.
+        // The user sees through every terminal window, revealing the Matrix behind them.
         try
         {
-            var wakeupGuid = _terminalService.GetProfileGuid("WakeupNeo");
-            if (wakeupGuid != null)
+            var settings = _terminalService.LoadSettings();
+            if (settings.Profiles?.List != null)
             {
-                var settings = _terminalService.LoadSettings();
-                var prof = settings.Profiles?.List?.FirstOrDefault(p =>
-                    string.Equals(p.Guid, wakeupGuid, StringComparison.OrdinalIgnoreCase));
-                if (prof != null)
-                    _terminalService.UpsertProfileSurgical(prof with { Opacity = 0 });
+                var profilesToUpdate = new List<TerminalProfile>();
+                foreach (var prof in settings.Profiles.List)
+                {
+                    // Skip Matrix profiles — they stay at 85% for shader visibility
+                    // Skip Redpill — it has its own opacity setting
+                    if (prof.Name != null && (prof.Name.StartsWith("Matrix-") ||
+                        string.Equals(prof.Name, "Redpill", StringComparison.OrdinalIgnoreCase)))
+                        continue;
+
+                    if (prof.Opacity != 0)
+                        profilesToUpdate.Add(prof with { Opacity = 0, UseAcrylic = false });
+                }
+                if (profilesToUpdate.Count > 0)
+                {
+                    _terminalService.UpsertProfilesSurgical(profilesToUpdate);
+                    DiagnosticLogger.Info("WAKEUPNEO", $"Set {profilesToUpdate.Count} non-Matrix profiles to opacity 0");
+                }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.ProductionError("WAKEUPNEO", $"Failed to set transparency: {ex.Message}");
+        }
 
         Console.WriteLine();
         if (isRedPill)

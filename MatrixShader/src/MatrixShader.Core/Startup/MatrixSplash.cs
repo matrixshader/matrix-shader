@@ -9,13 +9,12 @@ namespace MatrixShader.Core.Startup;
 public static class MatrixSplash
 {
     private static readonly Random _rng = new();
-    private static readonly char[] _chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
+    private static readonly char[] _chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzｦｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ".ToCharArray();
 
-    // ANSI escape codes
-    private const string BrightWhite = "\x1b[97m";
-    private const string BrightGreen = "\x1b[38;2;110;220;170m";
-    private const string Green = "\x1b[38;2;110;220;170m";
-    private const string DarkGreen = "\x1b[38;2;70;140;110m";
+    // ANSI escape codes — matching Linux wakeupneo colors
+    private const string Bright = "\x1b[38;2;110;220;170m";   // #6EDCAA
+    private const string Base = "\x1b[38;2;53;179;129m";      // #35B381
+    private const string Soft = "\x1b[38;2;30;100;72m";       // #1E6448
     private const string Reset = "\x1b[0m";
 
     /// <summary>
@@ -56,13 +55,13 @@ public static class MatrixSplash
                 };
             }
 
-            // Screen buffer for characters (to avoid flickering)
-            var screen = new char[height, width];
             var frameCount = 0;
 
             while (Stopwatch.GetElapsedTime(startTime).TotalMilliseconds < durationMs)
             {
-                // Update columns
+                // Update and render per-character with cursor addressing (no flicker)
+                var output = new System.Text.StringBuilder();
+
                 for (int x = 0; x < width; x++)
                 {
                     // Move column down based on speed
@@ -79,72 +78,34 @@ public static class MatrixSplash
                         columns[x].TrailLength = _rng.Next(4, 12);
                     }
 
-                    // Update screen buffer for this column
-                    for (int y = 0; y < height; y++)
+                    // Render only trail characters via cursor positioning
+                    for (int t = 0; t < columns[x].TrailLength; t++)
                     {
-                        int distance = columns[x].Position - y;
-                        if (distance >= 0 && distance < columns[x].TrailLength)
+                        int y = columns[x].Position - t;
+                        if (y >= 0 && y < height)
                         {
-                            // Within trail - show a character
-                            screen[y, x] = _chars[_rng.Next(_chars.Length)];
-                        }
-                        else
-                        {
-                            screen[y, x] = ' ';
-                        }
-                    }
-                }
-
-                // Render screen with colors
-                var output = new System.Text.StringBuilder();
-                output.Append("\x1b[H"); // Move cursor to top-left
-
-                for (int y = 0; y < height; y++)
-                {
-                    for (int x = 0; x < width; x++)
-                    {
-                        char c = screen[y, x];
-                        if (c == ' ')
-                        {
-                            output.Append(' ');
-                        }
-                        else
-                        {
-                            int distance = columns[x].Position - y;
-                            if (distance == 0)
-                            {
-                                // Lead character - bright white
-                                output.Append(BrightWhite);
-                                output.Append(c);
-                                output.Append(Reset);
-                            }
-                            else if (distance == 1)
-                            {
-                                // Second char - bright green
-                                output.Append(BrightGreen);
-                                output.Append(c);
-                                output.Append(Reset);
-                            }
-                            else if (distance < columns[x].TrailLength / 2)
-                            {
-                                // Upper trail - normal green
-                                output.Append(Green);
-                                output.Append(c);
-                                output.Append(Reset);
-                            }
+                            char c = _chars[_rng.Next(_chars.Length)];
+                            // Cursor to position (1-based)
+                            output.Append($"\x1b[{y + 1};{x + 1}H");
+                            if (t == 0)
+                                output.Append(Bright);
+                            else if (t < 3)
+                                output.Append(Base);
                             else
-                            {
-                                // Lower trail - dark green (fading)
-                                output.Append(DarkGreen);
-                                output.Append(c);
-                                output.Append(Reset);
-                            }
+                                output.Append(Soft);
+                            output.Append(c);
                         }
                     }
-                    if (y < height - 1)
-                        output.AppendLine();
+
+                    // Clear the cell just above the trail (erase old lead char)
+                    int clearY = columns[x].Position - columns[x].TrailLength;
+                    if (clearY >= 0 && clearY < height)
+                    {
+                        output.Append($"\x1b[{clearY + 1};{x + 1}H ");
+                    }
                 }
 
+                output.Append("\x1b[H"); // Cursor home
                 Console.Write(output.ToString());
                 frameCount++;
 

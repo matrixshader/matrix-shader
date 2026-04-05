@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using MatrixShader.Core.Models;
 using MatrixShader.Core.Native;
@@ -345,7 +346,24 @@ public class HotkeyConfigScreen
         try
         {
             _configService.SaveConfig(_config);
-            _statusMessage = "Saved! Restart hotkeys to apply changes.";
+
+            // Auto-restart hotkeys so changes take effect immediately
+            ProcessCleanup.KillBackgroundProcesses();
+            var hotkeyExe = Path.Combine(AppContext.BaseDirectory, "matrix-hotkeys.exe");
+            if (File.Exists(hotkeyExe))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = hotkeyExe,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                });
+                _statusMessage = "Saved and hotkeys restarted.";
+            }
+            else
+            {
+                _statusMessage = "Saved! Could not find matrix-hotkeys.exe to restart.";
+            }
         }
         catch (Exception ex)
         {
@@ -356,14 +374,17 @@ public class HotkeyConfigScreen
 
     private bool TestHotkeyAvailable(uint modifiers, uint vk)
     {
-        var testHwnd = WindowsApi.GetConsoleWindow();
-        if (testHwnd == nint.Zero) return true;
-
-        var testId = 9999;
-        var result = HotkeyApi.RegisterHotKey(testHwnd, testId, modifiers | HotkeyApi.MOD_NOREPEAT, vk);
-        if (result)
-            HotkeyApi.UnregisterHotKey(testHwnd, testId);
-        return result;
+        // Check if this combo is already used by another action in our own config.
+        // Don't use RegisterHotKey — the running matrix-hotkeys process already holds
+        // all our Ctrl+Shift combos as global hotkeys, so every test would fail.
+        var action = _actionOrder[_selectedIndex];
+        foreach (var (otherAction, binding) in _config.Bindings)
+        {
+            if (otherAction == action) continue; // skip the one we're editing
+            if (binding.Modifiers == (modifiers | HotkeyApi.MOD_NOREPEAT) && binding.VirtualKey == vk)
+                return false;
+        }
+        return true;
     }
 
     private static string GetActionDisplayName(HotkeyAction action) => action switch
