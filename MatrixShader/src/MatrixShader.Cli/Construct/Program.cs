@@ -30,6 +30,16 @@ public static class Program
         ["teal"] = ColorPresets.Teal,
     };
 
+    private static readonly Dictionary<string, string> BonusShaderMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["aurora"] = "AuroraBorealis.hlsl",
+        ["aurora-rain"] = "AuroraRain.hlsl",
+        ["fireplace"] = "Fireplace.hlsl",
+        ["codevision"] = "MatrixCodeVision.hlsl",
+        ["ultra"] = "MatrixUltra.hlsl",
+        ["rain-on-glass"] = "RainOnGlass.hlsl",
+    };
+
     public static int Main(string[] args)
     {
         // Earliest possible window manipulation — runs before DI overhead.
@@ -86,6 +96,13 @@ public static class Program
         {
             return LaunchWithPreset(presetName, presetService, configService, shaderService,
                                     terminalService, identityService, layoutService);
+        }
+
+        // --aurora, --fireplace, etc.: launch with a bonus shader
+        var bonusShader = ParseBonusShader(args);
+        if (bonusShader != null)
+        {
+            return LaunchWithBonusShader(bonusShader, configService, terminalService, identityService, layoutService);
         }
 
         var color = ParseColor(args);
@@ -858,6 +875,101 @@ public static class Program
         return null;
     }
 
+    private static string? ParseBonusShader(string[] args)
+    {
+        foreach (var arg in args)
+        {
+            if (!arg.StartsWith("--")) continue;
+            var name = arg.Substring(2);
+            if (BonusShaderMap.TryGetValue(name, out var shaderFile))
+                return shaderFile;
+        }
+        return null;
+    }
+
+    private static int LaunchWithBonusShader(
+        string shaderFile,
+        IConfigService configService,
+        ITerminalSettingsService terminalService,
+        IIdentityService identityService,
+        ILayoutService layoutService)
+    {
+        ConsoleHelper.EnableAnsiEscapeCodes();
+
+        var shadersDir = CliBootstrap.GetShadersDirectory();
+        var shaderPath = Path.Combine(shadersDir, shaderFile);
+        if (!File.Exists(shaderPath))
+        {
+            Console.WriteLine($"\x1b[31mShader not found: {shaderPath}\x1b[0m");
+            return 1;
+        }
+
+        // Use a slot just for the profile name, but don't write a Matrix-N shader
+        var slot = FindAndReserveSlot(
+            new ShaderService(Microsoft.Extensions.Logging.Abstractions.NullLogger<ShaderService>.Instance),
+            identityService);
+        if (slot == -1)
+        {
+            Console.WriteLine("\x1b[31mAll 8 shader slots are in use. Close a Matrix window first.\x1b[0m");
+            return 1;
+        }
+
+        var profileName = $"Matrix-{slot}";
+        var existingGuid = terminalService.GetProfileGuid(profileName);
+        var displayName = Path.GetFileNameWithoutExtension(shaderFile);
+        var profile = new TerminalProfile
+        {
+            Name = profileName,
+            Guid = existingGuid ?? $"{{{Guid.NewGuid()}}}",
+            Commandline = $"powershell.exe -NoExit -Command \"$host.UI.RawUI.WindowTitle = 'Matrix-{slot}'; Write-Host ' {displayName}' -ForegroundColor Cyan\"",
+            Hidden = true,
+            Opacity = 85,
+            UseAcrylic = false,
+            PixelShaderPath = shaderPath,
+            TabColor = "#00FFFF",
+            Foreground = "#00FFFF",
+            FontFace = "Nimbus Mono PS",
+            FontWeight = "bold",
+            SuppressApplicationTitle = true
+        };
+        terminalService.UpsertProfileSurgical(profile);
+
+        var wtPath = CliBootstrap.GetWindowsTerminalExePath() ?? "wt.exe";
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = wtPath,
+                Arguments = $"-w -1 -p \"{profileName}\"",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"\x1b[31mFailed to launch: {ex.Message}\x1b[0m");
+            ClearReservation(slot);
+            return 1;
+        }
+
+        identityService.LoadRegistry();
+        Task.Delay(1500).Wait();
+
+        var allWindows = identityService.FindMatrixWindows()
+            .Where(w => !w.IsControlPanel && !w.IsConstruct)
+            .ToList();
+        if (allWindows.Count > 0)
+        {
+            var state = configService.LoadState();
+            var positions = layoutService.CalculateLayout(allWindows, state.Layout);
+            layoutService.ApplyLayout(positions);
+        }
+
+        identityService.SaveRegistry();
+        EnsureHotkeyProcessRunning();
+        ClearReservation(slot);
+        return 0;
+    }
+
     private static void ShowHelp()
     {
         Console.WriteLine();
@@ -873,6 +985,14 @@ public static class Program
             var (r, g, b) = preset.ToRgb();
             Console.WriteLine($"   \x1b[38;2;{r};{g};{b}m--{preset.Name.ToLower(),-12}\x1b[0m {preset.Description}");
         }
+        Console.WriteLine();
+        Console.WriteLine(" Bonus shaders:");
+        Console.WriteLine("   \x1b[38;2;0;255;200m--aurora\x1b[0m       Northern lights");
+        Console.WriteLine("   \x1b[38;2;0;200;255m--aurora-rain\x1b[0m  Aurora through rain");
+        Console.WriteLine("   \x1b[38;2;255;100;0m--fireplace\x1b[0m    Coding by the fire");
+        Console.WriteLine("   \x1b[38;2;0;255;65m--codevision\x1b[0m   3D code tunnel");
+        Console.WriteLine("   \x1b[38;2;0;255;65m--ultra\x1b[0m        10-layer Matrix rain");
+        Console.WriteLine("   \x1b[38;2;0;150;255m--rain-on-glass\x1b[0m Rain on a window");
         Console.WriteLine();
     }
 }
