@@ -2,20 +2,21 @@
 
 All notable changes to Matrix Shader are documented here.
 
-## v1.0.5 (2026-04-03)
+## v1.0.5 (2026-04-05)
 
 ### Features
 - **Preset system** — Save, load, and delete custom shader configurations from the Red Pill control panel (Shift+P). Launch saved presets with `construct --preset <name>`.
-- **Hotkey configuration** — Add, edit, disable, and remove global hotkeys from the Red Pill control panel (Shift+H). 14 new bindable actions: Glow, Width, Trail, Density, and RGB adjustments.
+- **Hotkey configuration** — Add, edit, disable, and remove global hotkeys from the Red Pill control panel (Shift+H). 14 new bindable actions: Glow, Width, Trail, Density, and RGB adjustments. Saves auto-restart hotkeys (no manual restart needed).
 - **Color-matched window chrome** — Thin semi-transparent title bars tinted to match each window's shader color. Borderless look with visible close/minimize/maximize on hover.
 - **Clickable URLs** — OSC 8 hyperlinks in all terminal output.
 - **Positioning diagnostics** — Launch scripts now print extension status, window count, and monitor count when positioning windows.
 - **Ghostty MIT license** — THIRD-PARTY-LICENSES.txt included in release.
+- **Matrix splash** — Katakana character rain animation with 3-tier green gradient, cursor-addressed rendering (both platforms).
 
 ### Fixes
 - **Glitch mode** — Reverted to overlap-only detection. Glitch prevents windows from piling on each other but no longer intercepts manual resize or move. Snap restores full position and size.
 - **Global GlitchToggle hotkey removed** — Was never approved. Glitch toggle is Shift+G inside Red Pill only.
-- **Hotkey config screen** — Completely rewritten. Arrow key navigation works in Ghostty. All key bindings mappable (26 letters, 0-9, F1-F12, arrows).
+- **Hotkey config screen** — Completely rewritten. Arrow key navigation works in Ghostty. All key bindings mappable (26 letters, 0-9, F1-F12, arrows). Key reassignment checks own config instead of fighting running hotkeys.
 - **Preset menu screen** — Completely rewritten. Visible text rendering in Ghostty. Save/load/delete all functional.
 - **License activation** — `is_redpill()` now checks actual license key file instead of stale `redpill.json`.
 - **Keyboard daemon** — Background thread for glitch checks (no more 700ms keyboard lag). Key repeat events no longer forwarded. Keyboard finder skips its own virtual device.
@@ -25,6 +26,9 @@ All notable changes to Matrix Shader are documented here.
 - **Install terminal** — Closes properly after launching wakeupneo.
 - **Watchdog** — Single-instance guard prevents duplicate watchdog processes.
 - **Orphan recovery** — Monitor registers unregistered Matrix windows automatically.
+- **WakeupNeo launch flow (Windows)** — Always relaunches in dedicated fullscreen WT window regardless of launch context. Original window hidden on relaunch. F11 exit with ShowWindow fallback.
+- **Global transparency (Windows)** — All non-Matrix/non-Redpill profiles set to opacity 0 after wizard. Matrix windows stay at 85%.
+- **WakeupNeo excluded from Glitch** — WakeupNeo window no longer snapped into pillar layout.
 
 ### Security
 - **HMAC secret removed from all client builds** — License validation is server-only. Secret stays on Vercel, never in tarballs, .deb, or .rpm packages.
