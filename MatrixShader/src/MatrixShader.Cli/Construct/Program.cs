@@ -904,7 +904,8 @@ public static class Program
             return 1;
         }
 
-        // Use a slot just for the profile name, but don't write a Matrix-N shader
+        // Reserve a slot so Glitch auto-snap and hotkeys can track this window.
+        // FindAndReserveSlot skips occupied slots (identity fix prevents collisions).
         var slot = FindAndReserveSlot(
             new ShaderService(Microsoft.Extensions.Logging.Abstractions.NullLogger<ShaderService>.Instance),
             identityService);
@@ -914,9 +915,9 @@ public static class Program
             return 1;
         }
 
+        var displayName = Path.GetFileNameWithoutExtension(shaderFile);
         var profileName = $"Matrix-{slot}";
         var existingGuid = terminalService.GetProfileGuid(profileName);
-        var displayName = Path.GetFileNameWithoutExtension(shaderFile);
         var profile = new TerminalProfile
         {
             Name = profileName,
@@ -951,22 +952,8 @@ public static class Program
             return 1;
         }
 
-        identityService.LoadRegistry();
-        Task.Delay(1500).Wait();
-
-        var allWindows = identityService.FindMatrixWindows()
-            .Where(w => !w.IsControlPanel && !w.IsConstruct)
-            .ToList();
-        if (allWindows.Count > 0)
-        {
-            var state = configService.LoadState();
-            var positions = layoutService.CalculateLayout(allWindows, state.Layout);
-            layoutService.ApplyLayout(positions);
-        }
-
-        identityService.SaveRegistry();
+        WaitForWindowThenLayout(slot, identityService, layoutService, configService);
         EnsureHotkeyProcessRunning();
-        ClearReservation(slot);
         return 0;
     }
 
