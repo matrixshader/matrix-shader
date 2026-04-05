@@ -981,5 +981,7 @@ public static class Program
         Console.WriteLine("   \x1b[38;2;0;255;65m--ultra\x1b[0m        10-layer Matrix rain");
         Console.WriteLine("   \x1b[38;2;0;150;255m--rain-on-glass\x1b[0m Rain on a window");
         Console.WriteLine();
+        ConsoleHelper.ShowCommandBanner();
+        Console.WriteLine();
     }
 }
