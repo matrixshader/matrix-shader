@@ -426,8 +426,12 @@ public class TerminalSettingsTests
     {
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
+        var shadersDir = Path.Combine(tempDir, "shaders");
+        Directory.CreateDirectory(shadersDir);
+        File.WriteAllText(Path.Combine(shadersDir, "Matrix-1.hlsl"), "#define RAIN_SPEED 5.0");
         var settingsPath = Path.Combine(tempDir, "settings.json");
-        File.WriteAllText(settingsPath, """{"profiles":{"list":[{"experimental.pixelShaderPath":"C:\\shaders\\Matrix-1.hlsl"}]}}""");
+        var shaderPath = Path.Combine(shadersDir, "Matrix-1.hlsl").Replace("\\", "\\\\");
+        File.WriteAllText(settingsPath, $"{{\"profiles\":{{\"list\":[{{\"experimental.pixelShaderPath\":\"{shaderPath}\"}}]}}}}");
 
         try
         {
@@ -435,7 +439,8 @@ public class TerminalSettingsTests
             service.ForceShaderReload();
 
             var result = File.ReadAllText(settingsPath);
-            Assert.Contains("shaders\\\\.\\\\Matrix-1", result);
+            Assert.Contains("Matrix-1.alt.hlsl", result);
+            Assert.True(File.Exists(Path.Combine(shadersDir, "Matrix-1.alt.hlsl")));
         }
         finally
         {
@@ -448,8 +453,13 @@ public class TerminalSettingsTests
     {
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
+        var shadersDir = Path.Combine(tempDir, "shaders");
+        Directory.CreateDirectory(shadersDir);
+        File.WriteAllText(Path.Combine(shadersDir, "Matrix-1.hlsl"), "#define RAIN_SPEED 5.0");
+        File.WriteAllText(Path.Combine(shadersDir, "Matrix-1.alt.hlsl"), "#define RAIN_SPEED 5.0");
         var settingsPath = Path.Combine(tempDir, "settings.json");
-        File.WriteAllText(settingsPath, """{"profiles":{"list":[{"experimental.pixelShaderPath":"C:\\shaders\\.\\Matrix-1.hlsl"}]}}""");
+        var altPath = Path.Combine(shadersDir, "Matrix-1.alt.hlsl").Replace("\\", "\\\\");
+        File.WriteAllText(settingsPath, $"{{\"profiles\":{{\"list\":[{{\"experimental.pixelShaderPath\":\"{altPath}\"}}]}}}}");
 
         try
         {
@@ -457,7 +467,8 @@ public class TerminalSettingsTests
             service.ForceShaderReload();
 
             var result = File.ReadAllText(settingsPath);
-            Assert.DoesNotContain("shaders\\\\.\\\\", result);
+            Assert.Contains("Matrix-1.hlsl", result);
+            Assert.DoesNotContain(".alt.hlsl", result);
         }
         finally
         {
