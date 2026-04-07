@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using MatrixShader.Lite;
 
@@ -22,6 +23,7 @@ public static class Program
         {
             Console.OutputEncoding = Encoding.UTF8;
             MatrixShader.Core.Helpers.ConsoleHelper.EnableAnsiEscapeCodes();
+            StartMonitorProcess();
 
             // Skip intro if --quiet flag or --menu flag
             var skipIntro = args.Contains("--quiet") || args.Contains("-q");
@@ -195,6 +197,36 @@ public static class Program
             await Task.Delay(charDelayMs);
         }
         Console.WriteLine();
+    }
+
+    /// <summary>
+    /// Starts the background monitor (watchdog that auto-restarts hotkeys if they crash).
+    /// </summary>
+    private static void StartMonitorProcess()
+    {
+        var monitorPath = Path.Combine(AppContext.BaseDirectory, "matrix-monitor.exe");
+        if (!File.Exists(monitorPath))
+            monitorPath = Path.Combine(AppContext.BaseDirectory, "MatrixShader.Monitor.exe");
+
+        if (!File.Exists(monitorPath)) return;
+
+        var existing = Process.GetProcessesByName("matrix-monitor");
+        if (existing.Length > 0)
+        {
+            foreach (var p in existing) p.Dispose();
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = monitorPath,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                UseShellExecute = true
+            });
+        }
+        catch { /* Non-fatal */ }
     }
 
     private static void ShowHelp()

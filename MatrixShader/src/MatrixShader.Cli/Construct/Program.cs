@@ -232,6 +232,7 @@ public static class Program
 
             WaitForWindowThenLayout(slot, identityService, layoutService, configService);
             EnsureHotkeyProcessRunning();
+            StartMonitorProcess();
         }
         catch (Exception ex)
         {
@@ -415,6 +416,40 @@ public static class Program
             });
         }
         catch { /* Non-fatal — window just won't auto-tile */ }
+    }
+
+    /// <summary>
+    /// Starts the background monitor (watchdog that auto-restarts hotkeys if they crash).
+    /// </summary>
+    private static void StartMonitorProcess()
+    {
+        var monitorPath = Path.Combine(AppContext.BaseDirectory, "matrix-monitor.exe");
+        if (!File.Exists(monitorPath))
+            monitorPath = Path.Combine(AppContext.BaseDirectory, "MatrixShader.Monitor.exe");
+
+        if (!File.Exists(monitorPath)) return;
+
+        // Don't start a second monitor if one is already running
+        var existing = Process.GetProcessesByName("matrix-monitor");
+        if (existing.Length > 0)
+        {
+            foreach (var p in existing) p.Dispose();
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = monitorPath,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("CONSTRUCT", $"Failed to start monitor: {ex.Message}");
+        }
     }
 
     private static int RunWhiteRoom(ITerminalSettingsService terminalService)

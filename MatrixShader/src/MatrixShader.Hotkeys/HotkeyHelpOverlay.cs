@@ -97,11 +97,31 @@ public static class HotkeyHelpOverlay
             sb.AppendLine(HotkeyLine("Ctrl+Shift+3", "Toggle Near layer"));
             sb.AppendLine(BoxLine(""));
 
+            // Snapback
+            sb.AppendLine(BoxLine($"{GREEN}{BOLD}  SNAPBACK{RESET}"));
+            sb.AppendLine(BoxLine(""));
+            sb.AppendLine(HotkeyLine("Ctrl+Shift+S", "Save window positions"));
+            sb.AppendLine(HotkeyLine("Ctrl+Shift+R", "Restore window positions"));
+            sb.AppendLine(BoxLine(""));
+
             // System
             sb.AppendLine(BoxLine($"{GREEN}{BOLD}  SYSTEM{RESET}"));
             sb.AppendLine(BoxLine(""));
             sb.AppendLine(HotkeyLine("Ctrl+Shift+F5", "Force shader reload"));
             sb.AppendLine(HotkeyLine("Ctrl+Shift+H", "This overlay"));
+            sb.AppendLine(BoxLine(""));
+
+            // Commands
+            sb.AppendLine(BoxLine($"{GREEN}{BOLD}  COMMANDS{RESET}"));
+            sb.AppendLine(BoxLine(""));
+            sb.AppendLine(BoxLine($"  {CYAN}wakeupneo{RESET}{WHITE}          Setup wizard{RESET}"));
+            sb.AppendLine(BoxLine($"  {CYAN}construct{RESET}{WHITE}          Launch Matrix terminal{RESET}"));
+            sb.AppendLine(BoxLine($"  {CYAN}construct --green{RESET}{WHITE}  Quick launch (any color){RESET}"));
+            sb.AppendLine(BoxLine($"  {CYAN}construct --preset X{RESET}{WHITE} Launch from saved preset{RESET}"));
+            sb.AppendLine(BoxLine($"  {CYAN}construct --help{RESET}{WHITE}   All colors + bonus shaders{RESET}"));
+            sb.AppendLine(BoxLine($"  {CYAN}bluepill{RESET}{WHITE}           Restore last session{RESET}"));
+            sb.AppendLine(BoxLine($"  {CYAN}redpill{RESET}{WHITE}            Control panel (paid){RESET}"));
+            sb.AppendLine(BoxLine($"  {CYAN}matrixlite{RESET}{WHITE}         Text-mode rain{RESET}"));
             sb.AppendLine(BoxLine(""));
 
             // Separator

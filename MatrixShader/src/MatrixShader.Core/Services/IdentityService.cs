@@ -57,6 +57,7 @@ public class IdentityService : IIdentityService
     private static readonly Regex MatrixProfileRegex = new(@"Matrix-(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private const string WindowsTerminalProcessName = "WindowsTerminal";
     private const string ControlPanelTitle = "Matrix Control Panel";
+    private const string HotkeyReferenceTitle = "Hotkey Reference";
     private const string RedpillProfileName = "Redpill";
     private const string ConstructProfileName = "Construct";
 
@@ -220,10 +221,14 @@ public class IdentityService : IIdentityService
         var title = WindowsApi.GetWindowTitle(hwnd);
         var processId = WindowsApi.GetWindowProcessId(hwnd);
 
-        // Check if this is the control panel, Redpill, or Construct window
+        // Check if this is a non-shader window (control panel, help overlay, etc.)
         if (title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, "ControlPanel", 0, IdentitySource.Title);
+        }
+        if (title.Contains(HotkeyReferenceTitle, StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWindowInfo(hwnd, title, processId, "HotkeyReference", 0, IdentitySource.Title);
         }
         if (title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase))
         {
@@ -828,10 +833,14 @@ public class IdentityService : IIdentityService
             return null;
         }
 
-        // Check if this is the control panel, Redpill, or Construct window
+        // Check if this is a non-shader window (control panel, help overlay, etc.)
         if (title.Contains(ControlPanelTitle, StringComparison.OrdinalIgnoreCase))
         {
             return CreateWindowInfo(hwnd, title, processId, "ControlPanel", 0, IdentitySource.Title);
+        }
+        if (title.Contains(HotkeyReferenceTitle, StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWindowInfo(hwnd, title, processId, "HotkeyReference", 0, IdentitySource.Title);
         }
         if (title.Contains(RedpillProfileName, StringComparison.OrdinalIgnoreCase))
         {

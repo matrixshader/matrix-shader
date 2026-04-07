@@ -170,6 +170,7 @@ public static class Program
             {
                 // Launch hotkeys background process
                 LaunchHotkeysProcess();
+                StartMonitorProcess();
 
                 // Full mode with shader control
                 var panel = provider.GetRequiredService<ControlPanel>();
@@ -385,6 +386,39 @@ public static class Program
         {
             DiagnosticLogger.Warn("REDPILL", $"Failed to launch hotkeys: {ex.Message}");
             // Non-fatal - Matrix works without hotkeys
+        }
+    }
+
+    /// <summary>
+    /// Starts the background monitor (watchdog that auto-restarts hotkeys if they crash).
+    /// </summary>
+    private static void StartMonitorProcess()
+    {
+        var monitorPath = Path.Combine(AppContext.BaseDirectory, "matrix-monitor.exe");
+        if (!File.Exists(monitorPath))
+            monitorPath = Path.Combine(AppContext.BaseDirectory, "MatrixShader.Monitor.exe");
+
+        if (!File.Exists(monitorPath)) return;
+
+        var existing = Process.GetProcessesByName("matrix-monitor");
+        if (existing.Length > 0)
+        {
+            foreach (var p in existing) p.Dispose();
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = monitorPath,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Warn("REDPILL", $"Failed to start monitor: {ex.Message}");
         }
     }
 }

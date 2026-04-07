@@ -418,31 +418,58 @@ public class TerminalSettingsService : ITerminalSettingsService
 
             var json = File.ReadAllText(SettingsPath);
 
-            string modified;
-            // Toggle path between "shaders\\X" and "shaders\\.\\X"
-            // Both resolve to the same file on disk, but WT sees different strings → triggers reload.
-            // Single atomic write — no delay, no passthrough shader, no freeze in other windows.
-            if (json.Contains("shaders\\\\.\\\\"))
+            // Strategy: toggle each shader path between "X.hlsl" and "X.alt.hlsl".
+            // Before flipping, copy the original to the alt (or vice versa) so both
+            // files have identical content. WT sees a different path string and
+            // recompiles the shader from disk.
+            //
+            // This survives WT 1.24+'s lexically_normal() path normalization, which
+            // killed the old "shaders\.\X" dot-segment trick (PR #19143).
+
+            var shaderPathRegex = new System.Text.RegularExpressions.Regex(
+                @"""experimental\.pixelShaderPath"":\s*""([^""]+\.hlsl)""",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            var matches = shaderPathRegex.Matches(json);
+            if (matches.Count == 0)
             {
-                // Currently has dot segment → remove it (restore clean paths)
-                modified = json.Replace("shaders\\\\.\\\\", "shaders\\\\");
+                DiagnosticLogger.Debug("TERMINAL", "ForceShaderReload: no shader paths found");
+                return;
             }
-            else
+
+            string modified = json;
+            foreach (System.Text.RegularExpressions.Match match in matches)
             {
-                // Currently clean → add dot segment to all shader paths
-                modified = json.Replace("shaders\\\\Matrix-", "shaders\\\\.\\\\Matrix-")
-                              .Replace("shaders\\\\Redpill-", "shaders\\\\.\\\\Redpill-")
-                              .Replace("shaders\\\\passthrough", "shaders\\\\.\\\\passthrough");
+                var jsonPath = match.Groups[1].Value;  // JSON-escaped path (with \\)
+                // Convert JSON-escaped path to real file path
+                var filePath = jsonPath.Replace("\\\\", "\\");
+
+                if (jsonPath.EndsWith(".alt.hlsl", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Currently on alt → copy original to alt (preserve fresh WriteDefines), flip to original
+                    var originalJsonPath = jsonPath.Replace(".alt.hlsl", ".hlsl");
+                    var originalFilePath = filePath.Replace(".alt.hlsl", ".hlsl");
+                    try { File.Copy(originalFilePath, filePath, overwrite: true); } catch { }
+                    modified = modified.Replace(jsonPath, originalJsonPath);
+                }
+                else
+                {
+                    // Currently on original → copy original to alt, flip to alt
+                    var altJsonPath = jsonPath.Replace(".hlsl", ".alt.hlsl");
+                    var altFilePath = filePath.Replace(".hlsl", ".alt.hlsl");
+                    try { File.Copy(filePath, altFilePath, overwrite: true); } catch { }
+                    modified = modified.Replace(jsonPath, altJsonPath);
+                }
             }
 
             if (modified == json)
             {
-                DiagnosticLogger.Debug("TERMINAL", "ForceShaderReload: no shader paths found to toggle");
+                DiagnosticLogger.Debug("TERMINAL", "ForceShaderReload: no paths changed");
                 return;
             }
 
             File.WriteAllText(SettingsPath, modified, new System.Text.UTF8Encoding(false));
-            DiagnosticLogger.Debug("TERMINAL", "Forced shader reload via path toggle");
+            DiagnosticLogger.Debug("TERMINAL", "Forced shader reload via alt-file toggle");
         }
         catch (Exception ex)
         {

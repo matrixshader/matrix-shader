@@ -2,6 +2,7 @@
 *.tmp
 tmpclaude-*
 nul
+*.alt.hlsl
 
 # Logs
 *.log
