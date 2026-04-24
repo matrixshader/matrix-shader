@@ -86,6 +86,9 @@ ffmpeg.exe
 # Planning docs (private — launch strategy, campaigns, session state)
 .planning/
 .planning-v1/
+.claude/
+.team-context/
+marketing/
 
 # Test artifacts and rapid-test output directories
 rapid_test/
